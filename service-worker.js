@@ -26,19 +26,18 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Cache-first strategy: instant loads, works fully offline once cached.
+// Network-first strategy: always tries to get the latest version when
+// online (so your updates show up automatically), and only falls back
+// to the cached copy when there's no internet connection.
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return (
-        cached ||
-        fetch(event.request).then((response) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, response.clone());
-            return response;
-          });
-        }).catch(() => cached)
-      );
-    })
+    fetch(event.request)
+      .then((response) => {
+        return caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, response.clone());
+          return response;
+        });
+      })
+      .catch(() => caches.match(event.request))
   );
 });
