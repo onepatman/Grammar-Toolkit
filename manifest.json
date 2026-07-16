@@ -1,0 +1,25 @@
+{
+  "name": "MEPF Engineer's English Grammar Toolkit",
+  "short_name": "Grammar Toolkit",
+  "description": "A dictionary-style English grammar and vocabulary reference for MEPF engineers, with Tagalog equivalents.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF1EF",
+  "theme_color": "#134D50",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
