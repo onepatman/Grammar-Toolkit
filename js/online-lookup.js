@@ -88,9 +88,10 @@
   // {w, senses:[{use, examples}], syn, ant} shape renderRuleEntry()
   // already knows how to draw — so the result is indistinguishable
   // from a local Vocabulary Bank entry once it's on screen.
-  function normalizeDictionaryResponse(json, word) {
+  function normalizeDictionaryResponse(json, word, options) {
     if (!Array.isArray(json) || json.length === 0) return null;
 
+    var allowFallbackExamples = !options || options.generateFallbackExamples !== false;
     var senses = [];
     var syn = [];
     var ant = [];
@@ -101,9 +102,15 @@
         var pos = meaning.partOfSpeech ? "(" + meaning.partOfSpeech + ") " : "";
         (meaning.definitions || []).slice(0, DEFINITIONS_PER_MEANING).forEach(function (def) {
           if (!def.definition) return;
+          var examples = [];
+          if (def.example) {
+            examples.push(def.example);
+          } else if (allowFallbackExamples) {
+            examples.push(generateFallbackExample(entry.word || word, meaning.partOfSpeech, senseIndex));
+          }
           senses.push({
             use: pos + def.definition,
-            examples: [def.example || generateFallbackExample(entry.word || word, meaning.partOfSpeech, senseIndex)]
+            examples: examples
           });
           senseIndex++;
           if (Array.isArray(def.synonyms)) syn = syn.concat(def.synonyms);
@@ -133,11 +140,12 @@
   // returns definitions per part of speech, keyed by language code, with
   // HTML-formatted text — stripped down to plain text here since we
   // don't want arbitrary external markup/links rendered inside our UI.
-  function normalizeWiktionaryResponse(json, word) {
+  function normalizeWiktionaryResponse(json, word, options) {
     if (!json || typeof json !== "object") return null;
     var entries = json.en; // English only, matching this app's audience
     if (!Array.isArray(entries) || entries.length === 0) return null;
 
+    var allowFallbackExamples = !options || options.generateFallbackExamples !== false;
     var senses = [];
     var senseIndex = 0;
 
@@ -157,7 +165,7 @@
 
         senses.push({
           use: pos + text,
-          examples: examples.length ? examples : [generateFallbackExample(word, partOfSpeech, senseIndex)]
+          examples: examples.length ? examples : (allowFallbackExamples ? [generateFallbackExample(word, partOfSpeech, senseIndex)] : [])
         });
         senseIndex++;
       });
@@ -227,7 +235,7 @@
           return res.json();
         })
         .then(function (json) {
-          return json ? normalize(json, trimmed) : null;
+          return json ? normalize(json, trimmed, opts) : null;
         })
         .catch(function () {
           // Offline, aborted, CORS failure, malformed JSON, etc. — all

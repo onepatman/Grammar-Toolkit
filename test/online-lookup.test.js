@@ -67,6 +67,25 @@ describe("normalizeDictionaryResponse", () => {
     expect(OnlineLookup.normalizeDictionaryResponse([{ meanings: [{ definitions: [] }] }], "x")).toBeNull();
   });
 
+  it("leaves examples empty (no fabricated sentence) when generateFallbackExamples is false and the API gave none", () => {
+    const response = [{
+      word: "zephyr",
+      meanings: [{
+        partOfSpeech: "noun",
+        definitions: [{ definition: "A gentle breeze." }]
+      }]
+    }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "zephyr", { generateFallbackExamples: false });
+    expect(result.senses).toHaveLength(1);
+    expect(result.senses[0].examples).toEqual([]);
+  });
+
+  it("still uses a real API-provided example when generateFallbackExamples is false", () => {
+    const result = OnlineLookup.normalizeDictionaryResponse(SAMPLE_API_RESPONSE, "resilient", { generateFallbackExamples: false });
+    expect(result.senses[0].examples).toEqual(["The structure is resilient to seismic loads."]);
+    expect(result.senses[1].examples).toEqual([]);
+  });
+
   it("deduplicates synonyms/antonyms gathered across multiple definitions", () => {
     const response = [{
       word: "quick",
@@ -222,5 +241,27 @@ describe("normalizeWiktionaryResponse", () => {
     expect(OnlineLookup.normalizeWiktionaryResponse({ en: [] }, "x")).toBeNull();
     expect(OnlineLookup.normalizeWiktionaryResponse(null, "x")).toBeNull();
     expect(OnlineLookup.normalizeWiktionaryResponse({ en: [{ definitions: [] }] }, "x")).toBeNull();
+  });
+
+  it("leaves examples empty when generateFallbackExamples is false and Wiktionary provides none", () => {
+    const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr", { generateFallbackExamples: false });
+    expect(result.senses[0].examples).toEqual([]);
+  });
+});
+
+describe("fetchOnlineDefinition with generateFallbackExamples: false", () => {
+  it("threads the option through to the normalizer, leaving fabricated-example-free senses", async () => {
+    const response = [{
+      word: "zephyr",
+      meanings: [{ partOfSpeech: "noun", definitions: [{ definition: "A gentle breeze." }] }]
+    }];
+    const fetchImpl = vi.fn(() => jsonResponse(response));
+    const result = await OnlineLookup.fetchOnlineDefinition("zephyr", {
+      fetchImpl,
+      isOnline: () => true,
+      generateFallbackExamples: false
+    });
+    expect(result.senses[0].examples).toEqual([]);
   });
 });

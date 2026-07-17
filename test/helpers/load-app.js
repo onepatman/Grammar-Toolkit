@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM, ResourceLoader } from "jsdom";
 import { IDBFactory } from "fake-indexeddb";
+import { webcrypto } from "node:crypto";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -36,6 +37,12 @@ class LocalOnlyResourceLoader extends ResourceLoader {
 export async function loadApp(options) {
   const opts = options || {};
   const indexedDBFactory = opts.indexedDBFactory || new IDBFactory();
+  // Most existing tests exercise admin features (add/edit/delete a
+  // correction, import a pack, add a phrasal word) that owner-mode.js
+  // now gates behind an unlocked device — default every session to
+  // already-unlocked so that behavior keeps working out of the box.
+  // Pass `ownerUnlocked: false` to test the locked/read-only state.
+  const ownerUnlocked = opts.ownerUnlocked !== false;
 
   const html = fs.readFileSync(INDEX_HTML_PATH, "utf8");
   const dom = new JSDOM(html, {
@@ -47,6 +54,18 @@ export async function loadApp(options) {
       // Must be set before any inline <script> runs, since the app opens
       // its vocab cache database synchronously during page load.
       window.indexedDB = indexedDBFactory;
+      // jsdom's window.crypto has no `.subtle` implementation — owner-mode.js
+      // needs real SHA-256 hashing, so back it with Node's own Web Crypto.
+      if (!window.crypto.subtle) {
+        Object.defineProperty(window.crypto, "subtle", { value: webcrypto.subtle, configurable: true });
+      }
+      // jsdom doesn't expose TextEncoder/TextDecoder on window either —
+      // owner-mode.js needs TextEncoder to turn a PIN into bytes to hash.
+      if (!window.TextEncoder) window.TextEncoder = TextEncoder;
+      if (!window.TextDecoder) window.TextDecoder = TextDecoder;
+      if (ownerUnlocked) {
+        window.localStorage.setItem("mepf_toolkit_owner_unlocked", "1");
+      }
     }
   });
 
@@ -64,10 +83,10 @@ export async function loadApp(options) {
   if (!hooks) {
     throw new Error("window.__TOOLKIT_TEST_HOOKS__ was not set — did index.html's test-hook block run?");
   }
-  // Let the async vocab-cache restore (kicked off during page load)
-  // finish before handing back control, so tests see a fully settled
-  // search index without needing their own arbitrary wait.
-  await hooks.vocabCacheRestorePromise;
+  // Let the async vocab-cache and phrasal-cache restores (kicked off
+  // during page load) finish before handing back control, so tests see
+  // a fully settled search index without needing their own arbitrary wait.
+  await Promise.all([hooks.vocabCacheRestorePromise, hooks.phrasalCacheRestorePromise]);
 
   return { dom, window: dom.window, hooks, indexedDBFactory };
 }

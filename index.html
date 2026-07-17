@@ -449,8 +449,8 @@
     <div id="searchResults" class="search-results"></div>
   </div>
   <div class="thumb-tabs">
-    <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
+    <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="phrasal">Phrasal<span class="n">PH</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="upgrade">Upgrade<span class="n">UP</span></button>
@@ -615,7 +615,28 @@
       <button class="nav-btn" data-target="mistakeSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
 
-    <div class="quick-add-box">
+    <div class="quick-add-box" id="ownerAccessBox">
+      <div class="section-label">Owner access</div>
+      <p class="note" style="margin-bottom:8px;">Admin controls — adding, editing, or deleting corrections, connecting sync, importing an offline pack, and adding phrasal words — stay hidden on a device until it's unlocked with the owner PIN. Everyone else can still search, browse, and use every learning feature; they just can't change the shared content.</p>
+      <div id="ownerAccessStatus" class="add-status"></div>
+
+      <div id="ownerSetPinForm" style="display:none;">
+        <input type="password" id="ownerNewPinInput" placeholder="Choose a PIN (min 4 characters)" autocomplete="off" inputmode="numeric">
+        <button id="ownerSetPinBtn" class="add-btn">Set PIN &amp; unlock this device</button>
+      </div>
+
+      <div id="ownerUnlockForm" style="display:none;">
+        <input type="password" id="ownerUnlockPinInput" placeholder="Enter owner PIN" autocomplete="off" inputmode="numeric">
+        <button id="ownerUnlockBtn" class="add-btn">Unlock</button>
+        <button id="ownerForgotPinBtn" class="cancel-edit-link">Forgot PIN? Reset</button>
+      </div>
+
+      <div id="ownerUnlockedPanel" style="display:none;">
+        <button id="ownerLockBtn" class="add-btn">Lock this device</button>
+      </div>
+    </div>
+
+    <div class="quick-add-box owner-only" id="correctionAddBox">
       <div class="section-label">Add to my correction log</div>
       <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
       <input type="text" id="qaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
@@ -626,7 +647,7 @@
       <div id="qaAddStatus" class="add-status"></div>
     </div>
 
-    <div class="quick-add-box sync-box">
+    <div class="quick-add-box sync-box owner-only" id="syncBox">
       <div class="section-label">Sync across devices</div>
       <p class="note" style="margin-bottom:8px;">Enter the same code on your phone and laptop to keep this log in sync between them.</p>
       <input type="text" id="syncCodeInput" placeholder="Create or enter your sync code" autocomplete="off">
@@ -634,7 +655,7 @@
       <div id="syncStatus" class="add-status"></div>
     </div>
 
-    <div class="quick-add-box sync-box">
+    <div class="quick-add-box sync-box owner-only" id="packImportBox">
       <div class="section-label">Import an offline vocabulary pack</div>
       <p class="note" style="margin-bottom:8px;">Choose a JSON file of vocabulary entries to add them to your Vocabulary Bank — works fully offline, same as words looked up online.</p>
       <input type="file" id="packImportInput" accept="application/json,.json">
@@ -657,6 +678,12 @@
     </div>
   </section>
 
+  <!-- ===== FAVORITES PANEL ===== -->
+  <section id="panel-favorites" style="display:none;">
+    <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
+    <div id="favoritesList" class="favorites-list"></div>
+  </section>
+
   <!-- ===== VOCABULARY UPGRADE PANEL ===== -->
   <section id="panel-vocab">
     <div class="controls">
@@ -671,12 +698,6 @@
     </div>
   </section>
 
-  <!-- ===== FAVORITES PANEL ===== -->
-  <section id="panel-favorites" style="display:none;">
-    <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
-    <div id="favoritesList" class="favorites-list"></div>
-  </section>
-
   <!-- ===== PHRASAL VERBS PANEL ===== -->
   <section id="panel-phrasal" style="display:none;">
     <div class="controls">
@@ -689,7 +710,17 @@
       <button class="nav-btn" data-target="phrasalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="phrasalSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="phrasalAddBox">
+      <div class="section-label">Add a new phrasal word</div>
+      <p class="note" style="margin-bottom:8px;">Type a phrasal verb (e.g. "give up") and we'll automatically look up its meaning, rule &amp; usage, example sentences, synonyms, and antonyms from a reliable online dictionary. If the source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+      <input type="text" id="phrasalAddInput" placeholder="Phrasal verb (e.g. give up)" autocomplete="off">
+      <button id="phrasalAddBtn" class="add-btn">+ Look up &amp; add</button>
+      <div id="phrasalAddStatus" class="add-status"></div>
+    </div>
   </section>
+
+</main>
 
 <footer>
   <div class="footer-brand">🔥Blueprintminds🔥</div>
@@ -700,6 +731,7 @@
 <script src="js/online-lookup.js"></script>
 <script src="js/fuzzy-search.js"></script>
 <script src="js/vocab-cache.js"></script>
+<script src="js/owner-mode.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -26678,7 +26710,7 @@ const wordFamilyData = [
 ========================================================= */
 function renderRuleEntry(item, entryEl, tagLabel){
   const sensesHtml = item.senses.map((s,i)=>{
-    const actionsHtml = s.personal ? `
+    const actionsHtml = (s.personal && OwnerMode.isOwnerModeUnlocked()) ? `
       <div class="personal-actions">
         <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
         <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
@@ -27232,6 +27264,54 @@ const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).
   entries.forEach(entry=> addVocabEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
+/* Phrasal Words — same "manually trigger, automatically populate" idea
+   as addVocabEntry() above, but for phrasalData/#phrasalSelect instead
+   of the Vocabulary Bank, and tagged "Phrasal Verb" in search results.
+   Shares wordIndexMap with every other module, so a phrasal verb that's
+   already known anywhere (built-in or previously added) is never
+   duplicated. */
+function addPhrasalEntry(entry, options){
+  const opts = options || {};
+  const key = entry.w.trim().toLowerCase();
+  const existingItem = wordIndexMap.get(key);
+
+  if(existingItem){
+    const existingEntry = phrasalData.find(v=>v.w.trim().toLowerCase()===key);
+    if(existingEntry && existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
+      Object.assign(existingEntry, entry, {w: existingEntry.w});
+      if(opts.persist) VocabCache.putPhrasal(existingEntry, {dbPromise: vocabDbPromise});
+    }
+    return existingItem;
+  }
+
+  phrasalData.push(entry);
+
+  const opt = document.createElement("option");
+  opt.value = entry.w;
+  opt.textContent = entry.w;
+  document.getElementById("phrasalSelect").appendChild(opt);
+
+  const action = ()=>{
+    document.getElementById("phrasalSelect").value = entry.w;
+    renderRuleEntry(entry, document.getElementById("phrasalEntry"), "Phrasal Verb");
+    activateTab("phrasal");
+  };
+  const item = {label: entry.w, cat: "Phrasal Verb", action};
+  searchIndex.push(item);
+  wordIndexMap.set(key, item);
+
+  if(opts.persist) VocabCache.putPhrasal(entry, {dbPromise: vocabDbPromise});
+
+  return item;
+}
+
+// Restore anything cached from a previous session — same reasoning as
+// vocabCacheRestorePromise above, kept as a separate promise/store so a
+// test harness can await phrasal restoration independently of vocab.
+const phrasalCacheRestorePromise = VocabCache.getAllPhrasal({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addPhrasalEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 /* Prev/Next buttons.
    - The small pair beside each dropdown follows the user's SEARCH
      history instead (like a browser's Back/Forward), once any search
@@ -27280,6 +27360,97 @@ function refreshMistakeUI(){
   }
 }
 
+/* =========================================================
+   OWNER MODE — PIN-gated deterrent hiding admin controls
+   (add/edit/delete corrections, connect sync, import a pack, add a
+   phrasal word) from anyone who doesn't know this device's owner PIN.
+   See js/owner-mode.js for exactly what this can and can't guarantee —
+   it is a client-side UI gate, not server-enforced access control.
+========================================================= */
+function updateOwnerModeUI(){
+  const statusEl = document.getElementById("ownerAccessStatus");
+  const setPinForm = document.getElementById("ownerSetPinForm");
+  const unlockForm = document.getElementById("ownerUnlockForm");
+  const unlockedPanel = document.getElementById("ownerUnlockedPanel");
+  const ownerOnlyBoxes = document.querySelectorAll(".owner-only");
+
+  const pinSet = OwnerMode.hasOwnerPinSet();
+  const unlocked = OwnerMode.isOwnerModeUnlocked();
+
+  ownerOnlyBoxes.forEach(box=> box.style.display = unlocked ? "" : "none");
+
+  if(unlocked){
+    statusEl.textContent = "🔓 Unlocked — admin controls are visible on this device.";
+    statusEl.className = "add-status success";
+    setPinForm.style.display = "none";
+    unlockForm.style.display = "none";
+    unlockedPanel.style.display = "block";
+  } else if(pinSet){
+    statusEl.textContent = "🔒 Locked — read-only on this device. Enter the owner PIN to unlock admin controls.";
+    statusEl.className = "add-status";
+    setPinForm.style.display = "none";
+    unlockForm.style.display = "block";
+    unlockedPanel.style.display = "none";
+  } else {
+    statusEl.textContent = "No owner PIN has been set on this device yet. Set one to unlock admin controls here — enter the same PIN on your other devices to unlock those too.";
+    statusEl.className = "add-status";
+    setPinForm.style.display = "block";
+    unlockForm.style.display = "none";
+    unlockedPanel.style.display = "none";
+  }
+}
+
+document.getElementById("ownerSetPinBtn").addEventListener("click", async ()=>{
+  const input = document.getElementById("ownerNewPinInput");
+  const statusEl = document.getElementById("ownerAccessStatus");
+  const pin = input.value;
+  const ok = await OwnerMode.setOwnerPin(pin);
+  if(!ok){
+    statusEl.textContent = `PIN must be at least ${OwnerMode.MIN_PIN_LENGTH} characters.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+  input.value = "";
+  updateOwnerModeUI();
+  refreshMistakeUI();
+});
+
+document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
+  const input = document.getElementById("ownerUnlockPinInput");
+  const statusEl = document.getElementById("ownerAccessStatus");
+  const ok = await OwnerMode.unlockOwnerMode(input.value);
+  input.value = "";
+  if(!ok){
+    statusEl.textContent = "Incorrect PIN.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  updateOwnerModeUI();
+  refreshMistakeUI();
+});
+
+document.getElementById("ownerUnlockPinInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("ownerUnlockBtn").click();
+});
+document.getElementById("ownerNewPinInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") document.getElementById("ownerSetPinBtn").click();
+});
+
+document.getElementById("ownerLockBtn").addEventListener("click", ()=>{
+  OwnerMode.lockOwnerMode();
+  updateOwnerModeUI();
+  refreshMistakeUI();
+});
+
+document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
+  const confirmed = window.confirm ? window.confirm("Reset the owner PIN on this device? You'll need to set a new one, and this device will stay read-only until you do.") : true;
+  if(!confirmed) return;
+  OwnerMode.resetOwnerPin();
+  updateOwnerModeUI();
+});
+
+updateOwnerModeUI();
+
 function resetQuickAddForm(){
   document.getElementById("qaWrongInput").value = "";
   document.getElementById("qaRightInput").value = "";
@@ -27290,6 +27461,7 @@ function resetQuickAddForm(){
 }
 
 document.getElementById("qaAddBtn").addEventListener("click", ()=>{
+  if(!OwnerMode.isOwnerModeUnlocked()) return;
   const wrongEl = document.getElementById("qaWrongInput");
   const rightEl = document.getElementById("qaRightInput");
   const whyEl = document.getElementById("qaWhyInput");
@@ -27352,6 +27524,7 @@ document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
 document.addEventListener("click", (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
   if(editBtn){
+    if(!OwnerMode.isOwnerModeUnlocked()) return;
     const id = editBtn.dataset.id;
     const saved = loadPersonalCorrections();
     const entry = saved.find(s => s.id === id);
@@ -27373,6 +27546,7 @@ document.addEventListener("click", (e)=>{
 
   const delBtn = e.target.closest(".delete-correction-btn");
   if(delBtn){
+    if(!OwnerMode.isOwnerModeUnlocked()) return;
     const id = delBtn.dataset.id;
     const confirmed = window.confirm ? window.confirm("Delete this correction from your log? This can't be undone.") : true;
     if(!confirmed) return;
@@ -27514,12 +27688,17 @@ async function connectSync(rawCode){
 }
 
 document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
+  if(!OwnerMode.isOwnerModeUnlocked()) return;
   connectSync(document.getElementById("syncCodeInput").value);
 });
 
 document.getElementById("packImportInput").addEventListener("change", (e)=>{
   const file = e.target.files && e.target.files[0];
   const statusEl = document.getElementById("packImportStatus");
+  if(!OwnerMode.isOwnerModeUnlocked()){
+    e.target.value = "";
+    return;
+  }
   if(!file) return;
 
   const reader = new FileReader();
@@ -27548,6 +27727,72 @@ document.getElementById("packImportInput").addEventListener("change", (e)=>{
     statusEl.className = "add-status error";
   };
   reader.readAsText(file);
+});
+
+/* Phrasal Words quick-add — user supplies only the phrase; everything
+   else (definition, usage, examples, synonyms, antonyms) is fetched
+   from the same two online sources used elsewhere (dictionaryapi.dev,
+   then Wiktionary). generateFallbackExamples is explicitly turned off
+   here so a phrasal verb the source has no example for shows no
+   example at all, rather than a generated placeholder sentence — every
+   other field follows the same "leave it blank, don't invent it" rule
+   automatically, since normalizeDictionaryResponse/normalizeWiktionaryResponse
+   only ever include a field when the source actually provided it. */
+const phrasalLookupCache = OnlineLookup.createMemoryCache();
+
+async function addPhrasalWordFromInput(){
+  if(!OwnerMode.isOwnerModeUnlocked()) return;
+  const input = document.getElementById("phrasalAddInput");
+  const statusEl = document.getElementById("phrasalAddStatus");
+  const addBtn = document.getElementById("phrasalAddBtn");
+  const phrase = input.value.trim();
+
+  if(!phrase){
+    statusEl.textContent = "Please enter a phrasal verb first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const key = phrase.toLowerCase();
+  const existing = wordIndexMap.get(key);
+  if(existing){
+    statusEl.textContent = `"${phrase}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    pushSearchHistory(existing);
+    existing.action();
+    window.scrollTo({top:0, behavior:"smooth"});
+    return;
+  }
+
+  addBtn.disabled = true;
+  statusEl.textContent = "Looking it up online…";
+  statusEl.className = "add-status";
+
+  const result = await OnlineLookup.fetchOnlineDefinition(phrase, {
+    cache: phrasalLookupCache,
+    generateFallbackExamples: false
+  });
+
+  addBtn.disabled = false;
+
+  if(!result){
+    statusEl.textContent = `Couldn't find "${phrase}" online. Check the spelling, or try again once you're connected to the internet.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const item = addPhrasalEntry(result, {persist:true});
+  input.value = "";
+  statusEl.textContent = `Added "${result.w}" — now searchable and available offline.`;
+  statusEl.className = "add-status success";
+  pushSearchHistory(item);
+  item.action();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+document.getElementById("phrasalAddBtn").addEventListener("click", addPhrasalWordFromInput);
+document.getElementById("phrasalAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addPhrasalWordFromInput();
 });
 
 // Auto-reconnect if this device was already connected before.
@@ -27869,8 +28114,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
+  addPhrasalEntry, phrasalCacheRestorePromise,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
-  pushSearchHistory
+  pushSearchHistory, updateOwnerModeUI
 };
 </script>
 <script>

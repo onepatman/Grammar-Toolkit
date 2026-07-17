@@ -242,13 +242,95 @@ describe("schema migration from DB_VERSION 1 (pre-favorites/recently-viewed)", (
       req.onerror = reject;
     });
 
-    // Now open with the current module (DB_VERSION 2) against the same factory.
+    // Now open with the current module (DB_VERSION 3) against the same factory.
     const db = await VocabCache.openDb(idb);
     expect(db.objectStoreNames.contains(VocabCache.STORE_NAME)).toBe(true);
     expect(db.objectStoreNames.contains(VocabCache.FAVORITES_STORE)).toBe(true);
     expect(db.objectStoreNames.contains(VocabCache.RECENT_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(VocabCache.PHRASAL_STORE)).toBe(true);
 
     const preserved = await VocabCache.get("press", { indexedDB: idb });
     expect(preserved).toEqual(SAMPLE_ENTRY);
+  });
+});
+
+describe("schema migration from DB_VERSION 2 (pre-phrasalEntries)", () => {
+  it("upgrading an existing v2 database preserves favorites/recentlyViewed and adds phrasalEntries", async () => {
+    const idb = new IDBFactory();
+
+    // Simulate a database created by the previous version of this app
+    // (vocabEntries + favorites + recentlyViewed, at version 2).
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 2);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.FAVORITES_STORE, "readwrite");
+        tx.objectStore(VocabCache.FAVORITES_STORE).put({ key: "press", word: "press", cat: "", addedAt: 1 });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    // Now open with the current module (DB_VERSION 3) against the same factory.
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.PHRASAL_STORE)).toBe(true);
+
+    const favs = await VocabCache.getAllFavorites({ indexedDB: idb });
+    expect(favs.map((f) => f.word)).toEqual(["press"]);
+
+    const phrasalAll = await VocabCache.getAllPhrasal({ indexedDB: idb });
+    expect(phrasalAll).toEqual([]);
+  });
+});
+
+describe("phrasal entries (getPhrasal / putPhrasal / getAllPhrasal)", () => {
+  const SAMPLE_PHRASAL = {
+    w: "give up",
+    senses: [{ use: "(phrasal verb) To stop trying.", examples: ["He gave up after the third attempt."] }],
+    syn: ["quit"],
+    ant: ["persist"],
+    mistake: null,
+    tagalog: null,
+    source: "online"
+  };
+
+  it("round-trips a phrasal entry by its phrase, case-insensitively", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putPhrasal(SAMPLE_PHRASAL, { indexedDB: idb });
+    expect(ok).toBe(true);
+
+    const found = await VocabCache.getPhrasal("Give Up", { indexedDB: idb });
+    expect(found).toEqual(SAMPLE_PHRASAL);
+  });
+
+  it("resolves to undefined for a phrase that was never cached", async () => {
+    const idb = freshIndexedDB();
+    const found = await VocabCache.getPhrasal("nonexistent", { indexedDB: idb });
+    expect(found).toBeUndefined();
+  });
+
+  it("resolves to false when putting a phrasal entry with no word", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putPhrasal({ senses: [] }, { indexedDB: idb });
+    expect(ok).toBe(false);
+  });
+
+  it("getAllPhrasal returns every cached phrasal entry, independent of vocabEntries", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.put(SAMPLE_ENTRY, { indexedDB: idb });
+    await VocabCache.putPhrasal(SAMPLE_PHRASAL, { indexedDB: idb });
+
+    const phrasalAll = await VocabCache.getAllPhrasal({ indexedDB: idb });
+    expect(phrasalAll.map((e) => e.w)).toEqual(["give up"]);
+
+    const vocabAll = await VocabCache.getAll({ indexedDB: idb });
+    expect(vocabAll.map((e) => e.w)).toEqual(["press"]);
   });
 });
