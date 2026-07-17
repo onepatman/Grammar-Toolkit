@@ -7,8 +7,12 @@
                         session lookup.
      - favorites:      bookmarked words (any category, not just Vocab).
      - recentlyViewed: the last N entries the user actually opened.
-     - phrasalEntries: phrasal verbs added via the Phrasal Words quick-add,
-                        persisted the same way vocabEntries are.
+     - phrasalEntries, idiomEntries, sentenceEntries, patternEntries:
+                        the four Language Bank categories (Phrasal
+                        Verbs, Idioms & Expressions, Useful Sentences,
+                        Sentence Patterns), each added via that
+                        category's own quick-add and persisted the same
+                        way vocabEntries are.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -44,11 +48,14 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 3;
+  var DB_VERSION = 4;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
   var PHRASAL_STORE = "phrasalEntries";
+  var IDIOMS_STORE = "idiomEntries";
+  var SENTENCES_STORE = "sentenceEntries";
+  var PATTERNS_STORE = "patternEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -76,6 +83,15 @@
         }
         if (!db.objectStoreNames.contains(PHRASAL_STORE)) {
           db.createObjectStore(PHRASAL_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(IDIOMS_STORE)) {
+          db.createObjectStore(IDIOMS_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(SENTENCES_STORE)) {
+          db.createObjectStore(SENTENCES_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(PATTERNS_STORE)) {
+          db.createObjectStore(PATTERNS_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -160,23 +176,40 @@
     });
   }
 
-  /* ---------- vocabEntries (the offline Vocabulary Bank extension) ---------- */
+  /* ---------- generic word-entry store (vocabEntries, phrasalEntries,
+     idiomEntries, sentenceEntries, patternEntries all share this exact
+     shape: { key: normalized word, entry: the full entry object } —
+     only the store NAME differs per category). ---------- */
 
-  function get(word, options) {
-    return storeGet(STORE_NAME, normalizeKey(word), options).then(function (row) {
+  function getEntry(storeName, word, options) {
+    return storeGet(storeName, normalizeKey(word), options).then(function (row) {
       return row ? row.entry : undefined;
     });
   }
 
-  function put(entry, options) {
+  function putEntry(storeName, entry, options) {
     if (!entry || !entry.w) return Promise.resolve(false);
-    return storePut(STORE_NAME, { key: normalizeKey(entry.w), entry: entry }, options);
+    return storePut(storeName, { key: normalizeKey(entry.w), entry: entry }, options);
+  }
+
+  function getAllEntries(storeName, options) {
+    return storeGetAll(storeName, options).then(function (rows) {
+      return rows.map(function (row) { return row.entry; });
+    });
+  }
+
+  /* ---------- vocabEntries (the offline Vocabulary Bank extension) ---------- */
+
+  function get(word, options) {
+    return getEntry(STORE_NAME, word, options);
+  }
+
+  function put(entry, options) {
+    return putEntry(STORE_NAME, entry, options);
   }
 
   function getAll(options) {
-    return storeGetAll(STORE_NAME, options).then(function (rows) {
-      return rows.map(function (row) { return row.entry; });
-    });
+    return getAllEntries(STORE_NAME, options);
   }
 
   // How "complete" an entry is, for deciding whether a fresh online
@@ -202,24 +235,23 @@
     });
   }
 
-  /* ---------- phrasalEntries (the offline Phrasal Words extension) ---------- */
+  /* ---------- Language Bank categories (phrasal/idioms/sentences/patterns) ---------- */
 
-  function getPhrasal(word, options) {
-    return storeGet(PHRASAL_STORE, normalizeKey(word), options).then(function (row) {
-      return row ? row.entry : undefined;
-    });
-  }
+  function getPhrasal(word, options) { return getEntry(PHRASAL_STORE, word, options); }
+  function putPhrasal(entry, options) { return putEntry(PHRASAL_STORE, entry, options); }
+  function getAllPhrasal(options) { return getAllEntries(PHRASAL_STORE, options); }
 
-  function putPhrasal(entry, options) {
-    if (!entry || !entry.w) return Promise.resolve(false);
-    return storePut(PHRASAL_STORE, { key: normalizeKey(entry.w), entry: entry }, options);
-  }
+  function getIdiom(word, options) { return getEntry(IDIOMS_STORE, word, options); }
+  function putIdiom(entry, options) { return putEntry(IDIOMS_STORE, entry, options); }
+  function getAllIdioms(options) { return getAllEntries(IDIOMS_STORE, options); }
 
-  function getAllPhrasal(options) {
-    return storeGetAll(PHRASAL_STORE, options).then(function (rows) {
-      return rows.map(function (row) { return row.entry; });
-    });
-  }
+  function getSentence(word, options) { return getEntry(SENTENCES_STORE, word, options); }
+  function putSentence(entry, options) { return putEntry(SENTENCES_STORE, entry, options); }
+  function getAllSentences(options) { return getAllEntries(SENTENCES_STORE, options); }
+
+  function getPattern(word, options) { return getEntry(PATTERNS_STORE, word, options); }
+  function putPattern(entry, options) { return putEntry(PATTERNS_STORE, entry, options); }
+  function getAllPatterns(options) { return getAllEntries(PATTERNS_STORE, options); }
 
   /* ---------- favorites ---------- */
 
@@ -309,14 +341,29 @@
     FAVORITES_STORE: FAVORITES_STORE,
     RECENT_STORE: RECENT_STORE,
     PHRASAL_STORE: PHRASAL_STORE,
+    IDIOMS_STORE: IDIOMS_STORE,
+    SENTENCES_STORE: SENTENCES_STORE,
+    PATTERNS_STORE: PATTERNS_STORE,
     RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
     put: put,
     getAll: getAll,
+    getEntry: getEntry,
+    putEntry: putEntry,
+    getAllEntries: getAllEntries,
     getPhrasal: getPhrasal,
     putPhrasal: putPhrasal,
     getAllPhrasal: getAllPhrasal,
+    getIdiom: getIdiom,
+    putIdiom: putIdiom,
+    getAllIdioms: getAllIdioms,
+    getSentence: getSentence,
+    putSentence: putSentence,
+    getAllSentences: getAllSentences,
+    getPattern: getPattern,
+    putPattern: putPattern,
+    getAllPatterns: getAllPatterns,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,

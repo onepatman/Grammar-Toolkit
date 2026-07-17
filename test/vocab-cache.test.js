@@ -334,3 +334,92 @@ describe("phrasal entries (getPhrasal / putPhrasal / getAllPhrasal)", () => {
     expect(vocabAll.map((e) => e.w)).toEqual(["press"]);
   });
 });
+
+describe("schema migration from DB_VERSION 3 (pre-Language-Bank-categories)", () => {
+  it("upgrading an existing v3 database preserves phrasalEntries and adds the 3 new category stores", async () => {
+    const idb = new IDBFactory();
+
+    // Simulate a database created by the previous version of this app
+    // (through phrasalEntries only, at version 3).
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 3);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PHRASAL_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.PHRASAL_STORE, "readwrite");
+        tx.objectStore(VocabCache.PHRASAL_STORE).put({ key: "give up", entry: { w: "give up", senses: [] } });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    // Now open with the current module (DB_VERSION 4) against the same factory.
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.IDIOMS_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(VocabCache.SENTENCES_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(VocabCache.PATTERNS_STORE)).toBe(true);
+
+    const preserved = await VocabCache.getPhrasal("give up", { indexedDB: idb });
+    expect(preserved).toEqual({ w: "give up", senses: [] });
+
+    expect(await VocabCache.getAllIdioms({ indexedDB: idb })).toEqual([]);
+    expect(await VocabCache.getAllSentences({ indexedDB: idb })).toEqual([]);
+    expect(await VocabCache.getAllPatterns({ indexedDB: idb })).toEqual([]);
+  });
+});
+
+describe.each([
+  ["idioms", "getIdiom", "putIdiom", "getAllIdioms", "break the ice"],
+  ["sentences", "getSentence", "putSentence", "getAllSentences", "Could you pass the salt?"],
+  ["patterns", "getPattern", "putPattern", "getAllPatterns", "Would you mind + V-ing?"]
+])("%s entries (get/put/getAll)", (categoryName, getFn, putFn, getAllFn, sampleWord) => {
+  const sampleEntry = {
+    w: sampleWord,
+    senses: [{ use: "A sample entry.", examples: [] }],
+    syn: [],
+    ant: [],
+    mistake: null,
+    tagalog: null,
+    source: "online"
+  };
+
+  it("round-trips an entry by its text, case-insensitively", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache[putFn](sampleEntry, { indexedDB: idb });
+    expect(ok).toBe(true);
+
+    const found = await VocabCache[getFn](sampleWord.toUpperCase(), { indexedDB: idb });
+    expect(found).toEqual(sampleEntry);
+  });
+
+  it("resolves to undefined for an entry that was never cached", async () => {
+    const idb = freshIndexedDB();
+    const found = await VocabCache[getFn]("nonexistent xyz", { indexedDB: idb });
+    expect(found).toBeUndefined();
+  });
+
+  it("resolves to false when putting an entry with no word", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache[putFn]({ senses: [] }, { indexedDB: idb });
+    expect(ok).toBe(false);
+  });
+
+  it(`getAll for ${categoryName} is independent of the other Language Bank categories`, async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putPhrasal({ w: "give up", senses: [] }, { indexedDB: idb });
+    await VocabCache[putFn](sampleEntry, { indexedDB: idb });
+
+    const all = await VocabCache[getAllFn]({ indexedDB: idb });
+    expect(all.map((e) => e.w)).toEqual([sampleWord]);
+
+    const phrasalAll = await VocabCache.getAllPhrasal({ indexedDB: idb });
+    expect(phrasalAll.map((e) => e.w)).toEqual(["give up"]);
+  });
+});
