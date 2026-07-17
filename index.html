@@ -355,13 +355,15 @@
   .quick-add-box.sync-box{
     border:1.5px dashed var(--teal);
   }
-  .quick-add-box input, .quick-add-box textarea{
+  .quick-add-box input, .quick-add-box textarea,
+  .entry input, .entry textarea, .entry select{
     width:100%; box-sizing:border-box; margin-bottom:8px;
     border:1.5px solid var(--rule); border-radius:8px; padding:9px 12px;
     font-family:'IBM Plex Sans', sans-serif; font-size:13.5px; color:var(--ink);
     background:var(--paper); resize:vertical;
   }
-  .quick-add-box input:focus, .quick-add-box textarea:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .quick-add-box input:focus, .quick-add-box textarea:focus,
+  .entry input:focus, .entry textarea:focus, .entry select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
   .add-btn{
     width:100%; border:none; border-radius:8px; padding:10px 12px;
     background:var(--teal-deep); color:#fff; font-weight:600; font-size:13.5px;
@@ -391,6 +393,15 @@
   }
   .edit-correction-btn:hover{ background:#E4F1E9; border-color:#9CC7AC; color:#1F6F4A; }
   .delete-correction-btn:hover{ background:var(--brick-bg); border-color:#E3B8AB; color:var(--brick); }
+
+  .entry-actions{ display:flex; gap:8px; margin:10px 0 4px; }
+  .entry-actions button{
+    border:1px solid var(--rule); background:var(--paper); border-radius:6px;
+    padding:5px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; color:var(--ink-soft);
+  }
+  .entry-actions .lb-edit-btn:hover{ background:#E4F1E9; border-color:#9CC7AC; color:#1F6F4A; }
+  .entry-actions .lb-delete-btn:hover{ background:var(--brick-bg); border-color:#E3B8AB; color:var(--brick); }
   .cancel-edit-link{
     display:none; margin-top:6px; font-size:12.5px; color:var(--teal-deep);
     text-decoration:underline; cursor:pointer; background:none; border:none;
@@ -27700,7 +27711,12 @@ const wordFamilyData = [
 /* =========================================================
    GENERIC RENDER — for rule-based modules (Articles, Modals, Capitalization, Word Order)
 ========================================================= */
-function renderRuleEntry(item, entryEl, tagLabel){
+// categoryKey is only ever passed by the 4 Language Bank categories
+// (phrasal/idioms/sentences/patterns) — every other caller (Vocab,
+// Articles, Modals, etc.) leaves it undefined, which is what keeps the
+// Edit/Delete buttons below scoped to just the Language Bank instead of
+// showing up anywhere renderRuleEntry() is used.
+function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   const sensesHtml = item.senses.map((s,i)=>{
     const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
       <div class="personal-actions">
@@ -27737,20 +27753,49 @@ function renderRuleEntry(item, entryEl, tagLabel){
     <div class="section-label">Rule &amp; usage</div>
     ${sensesHtml}
   ` : "";
+  // Only entries the owner actually added (source:"online" — a lookup
+  // result, a manually-completed entry, or one pulled in from a synced
+  // device) can be managed here. Built-in seed entries have nowhere
+  // permanent to save an edit/delete to (they're hardcoded in this
+  // file), so they stay read-only, same as every other rule module.
+  const canManage = !!(categoryKey && item.source === "online" && isDeviceUnlocked());
+  const entryActionsHtml = canManage ? `
+    <div class="entry-actions">
+      <button class="lb-edit-btn">✎ Edit</button>
+      <button class="lb-delete-btn">🗑 Delete</button>
+    </div>` : "";
   entryEl.innerHTML = `
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.w}</span>
       <span class="tag ghost">${tagLabel}</span>
       ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
+    ${entryActionsHtml}
     ${ruleUsageHtml}
     ${mistakeHtml}
     ${tagalogHtml}
     ${wordsHtml}
   `;
+
+  if(canManage){
+    // Wired via closures (not data-attributes) so a word/phrase
+    // containing a quote or other special character can't break an
+    // HTML attribute — the button just references `item` directly.
+    entryEl.querySelector(".lb-edit-btn").addEventListener("click", ()=>{
+      openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel);
+    });
+    entryEl.querySelector(".lb-delete-btn").addEventListener("click", async ()=>{
+      const confirmed = window.confirm
+        ? window.confirm(`Delete "${item.w}" from your Language Bank? This can't be undone.`)
+        : true;
+      if(!confirmed) return;
+      await deleteLanguageBankEntry(categoryKey, item.w);
+      renderLanguageBankAfterDelete(categoryKey);
+    });
+  }
 }
 
-function setupRuleModule(data, selectId, entryId, tagLabel){
+function setupRuleModule(data, selectId, entryId, tagLabel, categoryKey){
   const sel = document.getElementById(selectId);
   const entry = document.getElementById(entryId);
   data.forEach(item=>{
@@ -27761,9 +27806,9 @@ function setupRuleModule(data, selectId, entryId, tagLabel){
   });
   sel.addEventListener("change", ()=>{
     const item = data.find(x=>x.w===sel.value);
-    renderRuleEntry(item, entry, tagLabel);
+    renderRuleEntry(item, entry, tagLabel, categoryKey);
   });
-  renderRuleEntry(data[0], entry, tagLabel);
+  renderRuleEntry(data[0], entry, tagLabel, categoryKey);
 }
 
 setupRuleModule(articleData, "articleSelect", "articleEntry", "Article Rule");
@@ -27773,10 +27818,10 @@ setupRuleModule(orderData, "orderSelect", "orderEntry", "Word Order Pattern");
 setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
 setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank");
-setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb");
-setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression");
-setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence");
-setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern");
+setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
+setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
+setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence", "sentences");
+setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern", "patterns");
 setupRuleModule(upgradeData, "upgradeSelect", "upgradeEntry", "Basic → Advanced");
 
 /* =========================================================
@@ -28145,7 +28190,7 @@ function indexLanguageBankCategory(data, cat, categoryKey, selectId, entryId, ta
   data.forEach(item=>{
     searchIndex.push({label:item.w, cat:cat, action:()=>{
       document.getElementById(selectId).value = item.w;
-      renderRuleEntry(item, document.getElementById(entryId), tagLabel);
+      renderRuleEntry(item, document.getElementById(entryId), tagLabel, categoryKey);
       activateTab("langbank");
       activateLangBankCategory(categoryKey);
     }});
@@ -28326,6 +28371,7 @@ const LANGUAGE_BANK_CONFIG = {
     inputId: "phrasalAddInput", btnId: "phrasalAddBtn", statusId: "phrasalAddStatus", inputNoun: "a phrasal verb",
     putFn: function(entry, opts){ return VocabCache.putPhrasal(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPhrasal(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deletePhrasal(word, opts); },
     requireExplanation: true,
     manualBoxId: "phrasalManualBox", manualWordId: "phrasalManualWord",
     manualUseId: "phrasalManualUse", manualExampleId: "phrasalManualExample",
@@ -28336,6 +28382,7 @@ const LANGUAGE_BANK_CONFIG = {
     inputId: "idiomsAddInput", btnId: "idiomsAddBtn", statusId: "idiomsAddStatus", inputNoun: "an idiom or expression",
     putFn: function(entry, opts){ return VocabCache.putIdiom(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllIdioms(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteIdiom(word, opts); },
     requireExplanation: true,
     manualBoxId: "idiomsManualBox", manualWordId: "idiomsManualWord",
     manualUseId: "idiomsManualUse", manualExampleId: "idiomsManualExample",
@@ -28346,6 +28393,7 @@ const LANGUAGE_BANK_CONFIG = {
     inputId: "sentencesAddInput", btnId: "sentencesAddBtn", statusId: "sentencesAddStatus", inputNoun: "a useful sentence",
     putFn: function(entry, opts){ return VocabCache.putSentence(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllSentences(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteSentence(word, opts); },
     requireExplanation: false,
     manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord",
     manualUseId: "sentencesManualUse", manualExampleId: null,
@@ -28356,6 +28404,7 @@ const LANGUAGE_BANK_CONFIG = {
     inputId: "patternsAddInput", btnId: "patternsAddBtn", statusId: "patternsAddStatus", inputNoun: "a sentence pattern",
     putFn: function(entry, opts){ return VocabCache.putPattern(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPatterns(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deletePattern(word, opts); },
     requireExplanation: false,
     manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord",
     manualUseId: "patternsManualUse", manualExampleId: null,
@@ -28392,7 +28441,7 @@ function addLanguageBankEntry(categoryKey, entry, options){
 
   const action = ()=>{
     document.getElementById(config.selectId).value = entry.w;
-    renderRuleEntry(entry, document.getElementById(config.entryId), config.tagLabel);
+    renderRuleEntry(entry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
     activateTab("langbank");
     activateLangBankCategory(categoryKey);
   };
@@ -28547,6 +28596,7 @@ document.getElementById("ownerSetPinBtn").addEventListener("click", async ()=>{
   input.value = "";
   updateOwnerModeUI();
   refreshMistakeUI();
+  refreshLanguageBankUI();
 });
 
 document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
@@ -28561,6 +28611,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   }
   updateOwnerModeUI();
   refreshMistakeUI();
+  refreshLanguageBankUI();
 });
 
 document.getElementById("ownerUnlockPinInput").addEventListener("keydown", (e)=>{
@@ -28586,6 +28637,7 @@ document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   }
   updateOwnerModeUI();
   refreshMistakeUI();
+  refreshLanguageBankUI();
 });
 
 document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
@@ -28832,12 +28884,32 @@ function collectOnlineLanguageBankEntries(){
 // the local quick-add path already relies on), so a device that already
 // has an entry locally just keeps whichever version is richer instead
 // of always trusting the remote copy.
+//
+// Also reconciles DELETES: any locally-cached, user-added entry
+// (source:"online") that's no longer in the remote list gets removed
+// here too, the same way savePersonalCorrections(data.entries || [])
+// already fully replaces the local correction list instead of only
+// ever merging into it — without this, a delete on one device would
+// push a shorter array to Firestore, but every OTHER connected device
+// would just keep showing its own stale local copy forever.
 function applyRemoteLanguageBank(remote){
   if(!remote) return;
   LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
     const list = remote[categoryKey];
     if(!Array.isArray(list)) return;
+    const remoteWords = new Set(list.map(e=> e.w.trim().toLowerCase()));
+
     list.forEach(entry=> addLanguageBankEntry(categoryKey, entry, {persist:true}));
+
+    const config = LANGUAGE_BANK_CONFIG[categoryKey];
+    const selectEl = document.getElementById(config.selectId);
+    config.data.slice().forEach(item=>{
+      if(item.source === "online" && !remoteWords.has(item.w.trim().toLowerCase())){
+        const wasSelected = selectEl.value === item.w;
+        deleteLanguageBankEntry(categoryKey, item.w, {skipSync:true});
+        if(wasSelected) renderLanguageBankAfterDelete(categoryKey);
+      }
+    });
   });
 }
 
@@ -29001,6 +29073,7 @@ async function signInAsOwner(email, password){
     // the local PIN.
     updateOwnerModeUI();
     refreshMistakeUI();
+    refreshLanguageBankUI();
     const code = localStorage.getItem(SYNC_CODE_KEY);
     if(code) listenToSync(code);
   }catch(e){
@@ -29018,6 +29091,7 @@ async function signOutOwner(){
   // separately unlocked — refresh the whole admin gate to match.
   updateOwnerModeUI();
   refreshMistakeUI();
+  refreshLanguageBankUI();
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(code) listenToSync(code);
 }
@@ -29266,6 +29340,171 @@ function cancelLanguageBankManualEntry(categoryKey){
   document.getElementById(config.statusId).className = "add-status";
 }
 
+/* =========================================================
+   LANGUAGE BANK — Edit & Delete (owner-only content management)
+   Only ever offered for entries with source:"online" — see
+   renderRuleEntry()'s canManage check. Built-in seed entries have
+   nowhere to persist a change to, so they stay read-only.
+========================================================= */
+
+// Removes an entry from its in-memory array, the search index, the
+// word-index (dedupe map), its <select> option, and IndexedDB. Pass
+// {skipSync:true} when this is itself being driven BY a remote sync
+// snapshot (see applyRemoteLanguageBank) so it doesn't turn around and
+// push a redundant write straight back to the doc it was just read from.
+async function deleteLanguageBankEntry(categoryKey, word, options){
+  const opts = options || {};
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const key = word.trim().toLowerCase();
+
+  const idx = config.data.findIndex(v=> v.w.trim().toLowerCase() === key);
+  if(idx !== -1) config.data.splice(idx, 1);
+
+  if(wordIndexMap.get(key)) wordIndexMap.delete(key);
+  const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === key && i.cat === config.tagLabel);
+  if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
+
+  const selectEl = document.getElementById(config.selectId);
+  const optionEl = Array.from(selectEl.options).find(o=> o.value.trim().toLowerCase() === key);
+  if(optionEl) optionEl.remove();
+
+  if(config.deleteFn) await config.deleteFn(word, {dbPromise: vocabDbPromise});
+
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
+}
+
+// After a delete, the panel can't keep showing the entry that's gone —
+// falls back to whatever's now first in the list, or a plain empty
+// state on the (practically unreachable, since built-ins are never
+// deletable) chance every entry in a category is gone.
+function renderLanguageBankAfterDelete(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const entryEl = document.getElementById(config.entryId);
+  const selectEl = document.getElementById(config.selectId);
+
+  if(config.data.length === 0){
+    selectEl.value = "";
+    entryEl.innerHTML = `<div class="headword-row"><span class="headword" style="font-size:18px;">Nothing here yet</span></div><p class="note">Add one using the box below.</p>`;
+    return;
+  }
+  const next = config.data[0];
+  selectEl.value = next.w;
+  renderRuleEntry(next, entryEl, config.tagLabel, categoryKey);
+}
+
+// Swaps the entry panel into an inline edit form, pre-filled from the
+// current entry. Values are assigned via .value (never interpolated
+// into an HTML attribute) so arbitrary typed text — quotes and all —
+// can never break the markup.
+function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
+  const currentUse = (item.senses[0] && item.senses[0].use) || "";
+  const currentExample = (item.senses[0] && item.senses[0].examples && item.senses[0].examples[0]) || "";
+  const categoryOptionsHtml = LANGUAGE_BANK_CATEGORIES.map(k=>
+    `<option value="${k}">${LANGUAGE_BANK_CONFIG[k].tagLabel}</option>`
+  ).join("");
+
+  entryEl.innerHTML = `
+    <div class="section-label">Editing this entry</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word / phrase</label>
+    <input type="text" id="lbEditWord" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Meaning / rule &amp; usage</label>
+    <textarea id="lbEditUse" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
+    <input type="text" id="lbEditExample" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
+    <input type="text" id="lbEditSyn" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
+    <input type="text" id="lbEditAnt" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Category</label>
+    <select id="lbEditCategory">${categoryOptionsHtml}</select>
+    <button id="lbEditSaveBtn" class="add-btn">Save changes</button>
+    <button id="lbEditCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="lbEditStatus" class="add-status"></div>
+  `;
+
+  document.getElementById("lbEditWord").value = item.w;
+  document.getElementById("lbEditUse").value = currentUse;
+  document.getElementById("lbEditExample").value = currentExample;
+  document.getElementById("lbEditSyn").value = (item.syn || []).join(", ");
+  document.getElementById("lbEditAnt").value = (item.ant || []).join(", ");
+  document.getElementById("lbEditCategory").value = categoryKey;
+
+  document.getElementById("lbEditCancelBtn").addEventListener("click", ()=>{
+    renderRuleEntry(item, entryEl, tagLabel, categoryKey);
+  });
+  document.getElementById("lbEditSaveBtn").addEventListener("click", ()=>{
+    saveLanguageBankEdit(categoryKey, item, entryEl);
+  });
+}
+
+async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
+  const statusEl = document.getElementById("lbEditStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const newWord = document.getElementById("lbEditWord").value.trim();
+  if(!newWord){
+    statusEl.textContent = "Word / phrase can't be empty.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const newUse = document.getElementById("lbEditUse").value.trim();
+  const newExample = document.getElementById("lbEditExample").value.trim();
+  const newSyn = document.getElementById("lbEditSyn").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const newAnt = document.getElementById("lbEditAnt").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const newCategoryKey = document.getElementById("lbEditCategory").value;
+
+  const updatedEntry = {
+    w: newWord,
+    senses: newUse ? [{ use: newUse, examples: newExample ? [newExample] : [] }] : [],
+    syn: newSyn,
+    ant: newAnt,
+    mistake: originalItem.mistake || null,
+    tagalog: originalItem.tagalog || null,
+    source: "online"
+  };
+
+  // Remove the OLD entry first — this also makes the collision check
+  // below correctly ignore "colliding with itself" (e.g. only the
+  // category changed, word/phrase text stayed identical), since by the
+  // time the check runs, the original no longer occupies that key.
+  await deleteLanguageBankEntry(categoryKey, originalItem.w, {skipSync:true});
+
+  const newKey = newWord.trim().toLowerCase();
+  if(wordIndexMap.get(newKey)){
+    // Genuinely a different, still-existing entry — put the original
+    // back exactly as it was rather than losing it, then refuse.
+    addLanguageBankEntry(categoryKey, originalItem, {persist:false});
+    statusEl.textContent = `"${newWord}" is already used by another entry — choose a different word/phrase.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const item = addLanguageBankEntry(newCategoryKey, updatedEntry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+
+  activateTab("langbank");
+  activateLangBankCategory(newCategoryKey);
+  item.action();
+}
+
+// Re-renders whichever entry is currently selected in each of the 4
+// category panels — called alongside refreshMistakeUI() at every
+// owner-mode lock/unlock transition so Edit/Delete buttons appear or
+// disappear immediately instead of only on the next navigation.
+function refreshLanguageBankUI(){
+  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+    const config = LANGUAGE_BANK_CONFIG[categoryKey];
+    const selectEl = document.getElementById(config.selectId);
+    const entryEl = document.getElementById(config.entryId);
+    const item = config.data.find(x=> x.w === selectEl.value);
+    if(item) renderRuleEntry(item, entryEl, config.tagLabel, categoryKey);
+  });
+}
+
 LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   document.getElementById(config.btnId).addEventListener("click", ()=> addLanguageBankEntryFromInput(categoryKey));
@@ -29382,10 +29621,10 @@ renderRuleEntry(orderData[0], document.getElementById("orderEntry"), "Word Order
 renderRuleEntry(mistakeData[0], document.getElementById("mistakeEntry"), "Sentence Error");
 renderRuleEntry(qaData[0], document.getElementById("qaEntry"), "Question Starter");
 renderRuleEntry(vocabData[0], document.getElementById("vocabEntry"), "Vocabulary Bank");
-renderRuleEntry(phrasalData[0], document.getElementById("phrasalEntry"), "Phrasal Verb");
-renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / Expression");
-renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence");
-renderRuleEntry(patternsData[0], document.getElementById("patternsEntry"), "Sentence Pattern");
+renderRuleEntry(phrasalData[0], document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
+renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
+renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
+renderRuleEntry(patternsData[0], document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
 renderRuleEntry(upgradeData[0], document.getElementById("upgradeEntry"), "Basic → Advanced");
 renderFamily(wordFamilyData[0]);
 
@@ -29620,7 +29859,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getCurrentFirebaseUser, collectOnlineLanguageBankEntries,
   applyRemoteLanguageBank, addLanguageBankEntryFromInput,
   saveLanguageBankManualEntry, skipLanguageBankManualEntry,
-  cancelLanguageBankManualEntry, languageBankPendingManual
+  cancelLanguageBankManualEntry, languageBankPendingManual,
+  deleteLanguageBankEntry, openLanguageBankEditForm, saveLanguageBankEdit,
+  renderLanguageBankAfterDelete, refreshLanguageBankUI, renderRuleEntry
 };
 </script>
 <script>
