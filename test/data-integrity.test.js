@@ -94,6 +94,37 @@ describe("rule-module datasets (rendered via renderRuleEntry)", () => {
   datasets.forEach((name) => checkRuleModuleDataset(name, hooks[name]));
 });
 
+describe("vocabData synonym/antonym coverage", () => {
+  // Guards the vocabulary expansion done in this project: most entries
+  // should carry a rich set of synonyms/antonyms rather than the 1-2
+  // that used to be typical. Function words (modals, bare prepositions)
+  // genuinely have none, so this checks aggregate coverage and names the
+  // known no-synonym/no-antonym exceptions explicitly, rather than
+  // requiring every single entry to hit a fixed count.
+  const KNOWN_WORDS_WITHOUT_SYN_OR_ANT = new Set([
+    "can", "could", "may", "might", "must", "shall", "should", "will", "would"
+  ]);
+
+  it("averages a rich set of synonyms across the Vocabulary Bank", () => {
+    const counts = hooks.vocabData.map((v) => (v.syn || []).length);
+    const average = counts.reduce((a, b) => a + b, 0) / counts.length;
+    expect(average).toBeGreaterThanOrEqual(3.5);
+  });
+
+  it("averages a meaningful set of antonyms across the Vocabulary Bank", () => {
+    const counts = hooks.vocabData.map((v) => (v.ant || []).length);
+    const average = counts.reduce((a, b) => a + b, 0) / counts.length;
+    expect(average).toBeGreaterThanOrEqual(1.2);
+  });
+
+  it("only the known function words have neither a synonym nor an antonym", () => {
+    const bare = hooks.vocabData
+      .filter((v) => (v.syn || []).length === 0 && (v.ant || []).length === 0)
+      .map((v) => v.w);
+    expect(new Set(bare)).toEqual(KNOWN_WORDS_WITHOUT_SYN_OR_ANT);
+  });
+});
+
 describe("verbData (regular/irregular conjugations)", () => {
   it("has both regular and irregular groups, non-empty", () => {
     expect(hooks.verbData).toBeTypeOf("object");
