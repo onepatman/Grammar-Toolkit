@@ -33,15 +33,31 @@ describe("normalizeDictionaryResponse", () => {
     expect(result.w).toBe("resilient");
     expect(result.source).toBe("online");
     expect(result.mistake).toBeNull();
-    expect(result.senses).toEqual([
-      {
-        use: "(adjective) Able to withstand or recover quickly from difficult conditions.",
-        examples: ["The structure is resilient to seismic loads."]
-      },
-      { use: "(adjective) Springing back readily.", examples: [] }
-    ]);
+    expect(result.senses[0]).toEqual({
+      use: "(adjective) Able to withstand or recover quickly from difficult conditions.",
+      examples: ["The structure is resilient to seismic loads."]
+    });
+    // The API gave no example for the second definition — a generated
+    // fallback fills in rather than leaving it with none.
+    expect(result.senses[1].use).toBe("(adjective) Springing back readily.");
+    expect(result.senses[1].examples).toHaveLength(1);
+    expect(result.senses[1].examples[0]).toContain("resilient");
     expect(result.syn).toEqual(["tough", "hardy"]);
     expect(result.ant).toEqual(["fragile"]);
+  });
+
+  it("never leaves a sense without an example, even when the API provides none at all", () => {
+    const response = [{
+      word: "zephyr",
+      meanings: [{
+        partOfSpeech: "noun",
+        definitions: [{ definition: "A gentle breeze." }]
+      }]
+    }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "zephyr");
+    expect(result.senses).toHaveLength(1);
+    expect(result.senses[0].examples).toHaveLength(1);
+    expect(result.senses[0].examples[0].length).toBeGreaterThan(0);
   });
 
   it("returns null for an empty or malformed response", () => {
@@ -64,6 +80,33 @@ describe("normalizeDictionaryResponse", () => {
     }];
     const result = OnlineLookup.normalizeDictionaryResponse(response, "quick");
     expect(result.syn).toEqual(["fast", "rapid", "swift"]);
+  });
+});
+
+describe("generateFallbackExample", () => {
+  it("bolds the word and fits it into a sentence for a known part of speech", () => {
+    const example = OnlineLookup.generateFallbackExample("resilient", "adjective", 0);
+    expect(example).toContain("<b>resilient</b>");
+    expect(example.length).toBeGreaterThan("resilient".length);
+  });
+
+  it("produces a usable sentence for noun, verb, and adverb too", () => {
+    ["noun", "verb", "adverb"].forEach((pos) => {
+      const example = OnlineLookup.generateFallbackExample("word", pos, 0);
+      expect(example).toContain("<b>word</b>");
+    });
+  });
+
+  it("falls back to a generic template for an unrecognized or missing part of speech", () => {
+    const example = OnlineLookup.generateFallbackExample("zephyr", "interjection", 0);
+    expect(example).toContain("<b>zephyr</b>");
+    expect(OnlineLookup.generateFallbackExample("zephyr", undefined, 0)).toContain("<b>zephyr</b>");
+  });
+
+  it("varies the sentence by seed so multiple senses of the same word don't repeat", () => {
+    const first = OnlineLookup.generateFallbackExample("run", "verb", 0);
+    const second = OnlineLookup.generateFallbackExample("run", "verb", 1);
+    expect(first).not.toBe(second);
   });
 });
 
