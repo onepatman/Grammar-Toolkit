@@ -272,6 +272,21 @@
   .tag.alt{ background:var(--gold-deep); }
   .tag.ghost{ background:var(--tab-off); color:var(--ink-soft); }
 
+  .fav-toggle{
+    margin-left:auto; background:none; border:none; cursor:pointer;
+    font-size:22px; line-height:1; color:var(--rule); padding:0 2px;
+  }
+  .fav-toggle:hover{ color:var(--gold-deep); }
+  .fav-toggle.active{ color:var(--gold-deep); }
+
+  .recent-list, .favorites-list{ display:flex; flex-direction:column; gap:8px; }
+  .recent-list .search-result-item, .favorites-list .search-result-item{
+    border:1px solid var(--rule); border-radius:8px;
+  }
+  .favorites-empty{
+    font-size:13.5px; color:var(--ink-soft); padding:20px 4px; text-align:center;
+  }
+
   .forms-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr));
     gap:8px; margin-bottom:16px;
@@ -430,6 +445,7 @@
   </div>
   <div class="thumb-tabs">
     <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
+    <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
     <button class="thumb-tab" data-tab="phrasal">Phrasal<span class="n">PH</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="upgrade">Upgrade<span class="n">UP</span></button>
@@ -612,6 +628,13 @@
       <button id="syncConnectBtn" class="add-btn">Connect</button>
       <div id="syncStatus" class="add-status"></div>
     </div>
+
+    <div class="quick-add-box sync-box">
+      <div class="section-label">Import an offline vocabulary pack</div>
+      <p class="note" style="margin-bottom:8px;">Choose a JSON file of vocabulary entries to add them to your Vocabulary Bank — works fully offline, same as words looked up online.</p>
+      <input type="file" id="packImportInput" accept="application/json,.json">
+      <div id="packImportStatus" class="add-status"></div>
+    </div>
   </section>
 
   <!-- ===== QUESTION → ANSWER STARTERS PANEL ===== -->
@@ -641,6 +664,12 @@
       <button class="nav-btn" data-target="vocabSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="vocabSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+  </section>
+
+  <!-- ===== FAVORITES PANEL ===== -->
+  <section id="panel-favorites" style="display:none;">
+    <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
+    <div id="favoritesList" class="favorites-list"></div>
   </section>
 
   <!-- ===== PHRASAL VERBS PANEL ===== -->
@@ -674,6 +703,31 @@
 ========================================================= */
 const wordIndexMap = new Map();
 const vocabLookup = new Map();
+
+/* =========================================================
+   LOCAL-FIRST DATA LAYER — one shared IndexedDB connection for the
+   vocab cache, favorites, and recently-viewed words (see
+   js/vocab-cache.js). Opened here, at the very top of the script, so
+   everything below — including the first renders that happen while
+   the page is still loading — can rely on it already existing.
+========================================================= */
+const vocabDbPromise = VocabCache.openDb();
+
+// In-memory mirror of the favorites store, so renderRuleEntry() etc.
+// can decide synchronously whether to draw a filled or outline star
+// without waiting on IndexedDB for every render. Populated as soon as
+// the database answers; a render that happens before that resolves
+// just shows an outline star until the entry is opened again.
+const favoriteKeys = new Set();
+VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+  favs.forEach(f=> favoriteKeys.add(f.key));
+}).catch(()=>{ /* IndexedDB unavailable — favorites just won't persist */ });
+
+function makeFavToggleHtml(word, cat){
+  const key = word.trim().toLowerCase();
+  const active = favoriteKeys.has(key);
+  return `<button class="fav-toggle${active?" active":""}" data-word="${word}" data-cat="${cat}" aria-label="${active?"Remove from favorites":"Add to favorites"}" title="${active?"Remove from favorites":"Add to favorites"}">${active?"★":"☆"}</button>`;
+}
 
 function makeWordChips(words, type){
   const symbol = type === "synonym" ? "≈" : "↔";
@@ -26649,6 +26703,7 @@ function renderRuleEntry(item, entryEl, tagLabel){
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.w}</span>
       <span class="tag ghost">${tagLabel}</span>
+      ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
     <div class="section-label">Rule &amp; usage</div>
     ${sensesHtml}
@@ -26693,6 +26748,7 @@ function renderFamily(item){
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.verb}</span>
       <span class="tag ghost">Word Family</span>
+      ${makeFavToggleHtml(item.verb, "Word Family")}
     </div>
     <div class="forms-grid">
       <div class="form-box"><span class="lbl">Verb</span><span class="val">${item.verb}</span></div>
@@ -26719,6 +26775,41 @@ function setupFamilyModule(){
   renderFamily(wordFamilyData[0]);
 }
 setupFamilyModule();
+
+/* =========================================================
+   RENDER — FAVORITES
+   Rows here are a lightweight list (not full entries) so a single
+   favorited word works regardless of which tab/category it came from.
+   Clicking a row jumps to that word's actual entry via wordIndexMap —
+   the same lookup every other cross-link in the app uses — so it stays
+   correct automatically as entries get added, cached, or upgraded.
+========================================================= */
+function renderFavoritesTab(){
+  const container = document.getElementById("favoritesList");
+  VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+    if(favs.length === 0){
+      container.innerHTML = '<div class="favorites-empty">No favorites yet — tap the ☆ on any entry to bookmark it here.</div>';
+      return;
+    }
+    container.innerHTML = favs.map(f=>`
+      <div class="search-result-item" data-word="${f.word}">
+        <span class="label">${f.word}</span>
+        <span class="cat">${f.cat}</span>
+        ${makeFavToggleHtml(f.word, f.cat)}
+      </div>`).join("");
+    container.querySelectorAll(".search-result-item").forEach(row=>{
+      row.addEventListener("click", (e)=>{
+        if(e.target.closest(".fav-toggle")) return; // the star's own handler manages removal
+        const key = row.dataset.word.trim().toLowerCase();
+        const item = wordIndexMap.get(key);
+        if(!item) return;
+        pushSearchHistory(item);
+        item.action();
+        window.scrollTo({top:0, behavior:"smooth"});
+      });
+    });
+  });
+}
 
 /* =========================================================
    RENDER — VERBS
@@ -26772,6 +26863,7 @@ function renderVerb(){
     <div class="headword-row">
       <span class="headword">${v.w}</span>
       <span class="tag ${currentVerbType==="irregular"?"alt":""}">${currentVerbType} verb</span>
+      ${makeFavToggleHtml(v.w, currentVerbType + " verb")}
     </div>
     <div class="forms-grid">
       <div class="form-box"><span class="lbl">Base</span><span class="val">${v.w}</span></div>
@@ -26907,6 +26999,7 @@ function renderPrep(){
     <div class="headword-row">
       <span class="headword">${p.w}</span>
       ${p.cats.map(c=>`<span class="tag ghost">${c}</span>`).join("")}
+      ${makeFavToggleHtml(p.w, "Preposition")}
     </div>
     <div class="section-label">Where &amp; when it's used</div>
     ${sensesHtml}
@@ -26926,6 +27019,7 @@ function activateTab(name){
   document.querySelectorAll(".thumb-tab").forEach(t=>t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll("main > section").forEach(sec=>sec.style.display = "none");
   document.getElementById("panel-" + name).style.display = "block";
+  if(name === "favorites") renderFavoritesTab();
 }
 document.querySelectorAll(".thumb-tab").forEach(tab=>{
   tab.addEventListener("click",()=>{
@@ -27051,13 +27145,10 @@ vocabData.forEach(item=>{
    "Vocabulary Bank" tag, same clickable synonym/antonym chips — this
    is what makes the cache a real (offline, persistent) extension of
    the Vocabulary Bank rather than a session-only lookup history.
-   This is also the intended seam for future local-first features —
-   favorites and "recently viewed" can live as their own IndexedDB
-   object stores next to this one (bump DB_VERSION, add an
-   onupgradeneeded branch in js/vocab-cache.js), and a downloadable
-   offline pack is just a batch of entries run through this same
-   addVocabEntry() function. */
-const vocabDbPromise = VocabCache.openDb();
+   (vocabDbPromise itself is opened at the very top of this script —
+   favorites and recently-viewed share the same connection.) A
+   downloadable offline pack is just a batch of entries run through
+   this same addVocabEntry() function — see importVocabPack() below. */
 
 function addVocabEntry(entry, options){
   const opts = options || {};
@@ -27109,6 +27200,21 @@ function addVocabEntry(entry, options){
   if(opts.persist) VocabCache.put(entry, {dbPromise: vocabDbPromise});
 
   return item;
+}
+
+// Downloadable offline dictionary pack — a batch of entries (from a
+// JSON file the user picked, or later a fetched URL) run through the
+// exact same validation and merge path as a single online lookup.
+// Anything already known (built-in or previously cached) is deduped or
+// upgraded by addVocabEntry() exactly as it would be one at a time.
+function importVocabPack(rawEntries){
+  const valid = VocabCache.filterValidEntries(rawEntries);
+  valid.forEach(entry=> addVocabEntry(entry, {persist:true}));
+  return {
+    total: Array.isArray(rawEntries) ? rawEntries.length : 0,
+    imported: valid.length,
+    skipped: (Array.isArray(rawEntries) ? rawEntries.length : 0) - valid.length
+  };
 }
 
 // Restore anything cached from a previous session. Fully offline —
@@ -27405,6 +27511,39 @@ document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
   connectSync(document.getElementById("syncCodeInput").value);
 });
 
+document.getElementById("packImportInput").addEventListener("change", (e)=>{
+  const file = e.target.files && e.target.files[0];
+  const statusEl = document.getElementById("packImportStatus");
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let parsed;
+    try{
+      parsed = JSON.parse(reader.result);
+    }catch(err){
+      statusEl.textContent = "Couldn't read that file — it doesn't look like valid JSON.";
+      statusEl.className = "add-status error";
+      return;
+    }
+    const entries = Array.isArray(parsed) ? parsed : [parsed];
+    const result = importVocabPack(entries);
+    if(result.imported === 0){
+      statusEl.textContent = "No new entries found in that file (already known, or not shaped like a vocabulary entry).";
+      statusEl.className = "add-status error";
+    } else {
+      statusEl.textContent = `Imported ${result.imported} of ${result.total} entries. They're now part of your Vocabulary Bank — searchable, favoritable, and available offline.`;
+      statusEl.className = "add-status success";
+    }
+    e.target.value = "";
+  };
+  reader.onerror = ()=>{
+    statusEl.textContent = "Couldn't read that file.";
+    statusEl.className = "add-status error";
+  };
+  reader.readAsText(file);
+});
+
 // Auto-reconnect if this device was already connected before.
 (function autoReconnectSync(){
   const savedCode = localStorage.getItem(SYNC_CODE_KEY);
@@ -27459,6 +27598,37 @@ document.addEventListener("click", (e)=>{
   searchAndNavigate(word);
 });
 
+/* Favorite (bookmark) toggle — appears on every entry's headword row
+   (renderRuleEntry, renderVerb, renderPrep, renderFamily) and on each
+   row of the Favorites tab itself, so the same handler both favorites
+   an entry you're viewing and un-favorites one from the list. */
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".fav-toggle");
+  if(!btn) return;
+  const word = btn.dataset.word;
+  const cat = btn.dataset.cat;
+  const key = word.trim().toLowerCase();
+  const nowActive = !favoriteKeys.has(key);
+
+  if(nowActive){
+    favoriteKeys.add(key);
+    VocabCache.addFavorite(word, {word, cat}, {dbPromise: vocabDbPromise});
+  } else {
+    favoriteKeys.delete(key);
+    VocabCache.removeFavorite(word, {dbPromise: vocabDbPromise});
+  }
+
+  btn.classList.toggle("active", nowActive);
+  btn.textContent = nowActive ? "★" : "☆";
+  const label = nowActive ? "Remove from favorites" : "Add to favorites";
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("title", label);
+
+  if(document.querySelector(".thumb-tab.active")?.dataset.tab === "favorites"){
+    renderFavoritesTab();
+  }
+});
+
 /* Re-render whatever is currently on screen now that wordIndexMap is fully
    populated, so the very first view of every tab also has clickable chips */
 renderVerb();
@@ -27487,6 +27657,12 @@ let searchHistoryIndex = -1;
 
 function pushSearchHistory(entry){
   if(!entry) return;
+
+  // "Recently viewed" tracks every entry actually opened this way,
+  // independent of the back/forward stack below — even re-opening the
+  // same word again should bump it back to the top of that list.
+  VocabCache.recordRecentlyViewed(entry.label, entry.cat, {dbPromise: vocabDbPromise});
+
   // A fresh search after going "back" starts a new forward path, same
   // as a browser discarding forward history after you navigate anew.
   if(searchHistoryIndex < searchHistory.length - 1){
@@ -27646,6 +27822,29 @@ globalSearchInput.addEventListener("input", (e)=>{
   runSearchPipeline(e.target.value.trim().toLowerCase());
 });
 
+// Focusing the empty search box shows recently-viewed words as quick
+// suggestions — a head start back to something you looked at before,
+// the same idea as a browser address bar's recent-history dropdown.
+// Reuses renderSearchMatches()/wordIndexMap, so clicking one of these
+// behaves exactly like clicking any other search result.
+function showRecentlyViewed(){
+  VocabCache.getRecentlyViewed(8, {dbPromise: vocabDbPromise}).then(recents=>{
+    const items = recents
+      .map(r=> wordIndexMap.get(r.key))
+      .filter(Boolean)
+      .map(item=>({label:item.label, cat:"Recently viewed — "+item.cat, action:item.action}));
+    if(items.length === 0) return;
+    // The user may have typed something (or blurred) while this was
+    // resolving — only show it if the box is still empty and focused.
+    if(document.activeElement === globalSearchInput && globalSearchInput.value.trim().length === 0){
+      renderSearchMatches(items);
+    }
+  });
+}
+globalSearchInput.addEventListener("focus", ()=>{
+  if(globalSearchInput.value.trim().length === 0) showRecentlyViewed();
+});
+
 document.addEventListener("click", (e)=>{
   if(!e.target.closest(".search-bar")){
     searchResultsEl.classList.remove("show");
@@ -27663,7 +27862,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
-  addVocabEntry, vocabDbPromise, vocabCacheRestorePromise
+  addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
+  favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
+  pushSearchHistory
 };
 </script>
 <script>

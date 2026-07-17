@@ -1,7 +1,12 @@
 /* =========================================================
-   Vocabulary cache — persists words looked up online into IndexedDB,
-   so they become a permanent, offline-available extension of the local
-   Vocabulary Bank instead of a one-off session lookup.
+   Local-first data layer for the Grammar Toolkit — one IndexedDB
+   database with a store per feature:
+     - vocabEntries:   words retrieved online, persisted so they become
+                        a permanent, offline-available extension of the
+                        local Vocabulary Bank instead of a one-off
+                        session lookup.
+     - favorites:      bookmarked words (any category, not just Vocab).
+     - recentlyViewed: the last N entries the user actually opened.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -13,16 +18,18 @@
      contract as js/online-lookup.js. A browser with IndexedDB disabled
      (private-mode Safari, some embedded webviews) just gets no cache,
      not a crash.
-   - The database name is versioned (DB_VERSION) and every entry is
-     namespaced as "vocabEntries" specifically so this can grow into a
-     real local-first data layer later — additional object stores for
-     favorites, recently-viewed words, or a bundled offline vocabulary
-     pack can be added in a future onupgradeneeded without touching or
-     migrating this store. That's the intended extension point.
-   - `openDb()`/`get()`/`put()`/`getAll()` all accept an injectable
+   - `openDb()` and every store function accept an injectable
      `indexedDB` implementation (and a shared `dbPromise` to avoid
      reopening the connection per call) purely for testability — the
      production path always uses the real global `indexedDB`.
+   - Adding another store later (e.g. a bundled/downloadable offline
+     pack's own manifest) is the same pattern: bump DB_VERSION, add one
+     more `if (!db.objectStoreNames.contains(...))` branch in
+     onupgradeneeded. Nothing else here needs to change.
+   - importPack()/validateEntry() are the shared entry point for BOTH a
+     downloaded pack file and a single online lookup result — anything
+     shaped like a vocabData entry goes through the same validated path
+     into the same store.
 ========================================================= */
 (function (root, factory) {
   var mod = factory();
@@ -35,8 +42,11 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 1;
+  var DB_VERSION = 2;
   var STORE_NAME = "vocabEntries";
+  var FAVORITES_STORE = "favorites";
+  var RECENT_STORE = "recentlyViewed";
+  var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
     var idb = indexedDBImpl || (typeof indexedDB !== "undefined" ? indexedDB : null);
@@ -55,6 +65,12 @@
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: "key" });
         }
+        if (!db.objectStoreNames.contains(FAVORITES_STORE)) {
+          db.createObjectStore(FAVORITES_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(RECENT_STORE)) {
+          db.createObjectStore(RECENT_STORE, { keyPath: "key" });
+        }
       };
       request.onsuccess = function () { resolve(request.result); };
       request.onerror = function () { resolve(null); };
@@ -71,14 +87,15 @@
     return opts.dbPromise || openDb(opts.indexedDB);
   }
 
-  function get(word, options) {
+  // Generic single-store helpers, shared by vocabEntries/favorites/recentlyViewed.
+  function storeGet(storeName, key, options) {
     return resolveDb(options).then(function (db) {
       if (!db) return undefined;
       return new Promise(function (resolve) {
         try {
-          var tx = db.transaction(STORE_NAME, "readonly");
-          var req = tx.objectStore(STORE_NAME).get(normalizeKey(word));
-          req.onsuccess = function () { resolve(req.result ? req.result.entry : undefined); };
+          var tx = db.transaction(storeName, "readonly");
+          var req = tx.objectStore(storeName).get(key);
+          req.onsuccess = function () { resolve(req.result); };
           req.onerror = function () { resolve(undefined); };
         } catch (e) {
           resolve(undefined);
@@ -87,14 +104,13 @@
     });
   }
 
-  function put(entry, options) {
-    if (!entry || !entry.w) return Promise.resolve(false);
+  function storePut(storeName, record, options) {
     return resolveDb(options).then(function (db) {
       if (!db) return false;
       return new Promise(function (resolve) {
         try {
-          var tx = db.transaction(STORE_NAME, "readwrite");
-          tx.objectStore(STORE_NAME).put({ key: normalizeKey(entry.w), entry: entry });
+          var tx = db.transaction(storeName, "readwrite");
+          tx.objectStore(storeName).put(record);
           tx.oncomplete = function () { resolve(true); };
           tx.onerror = function () { resolve(false); };
           tx.onabort = function () { resolve(false); };
@@ -105,21 +121,55 @@
     });
   }
 
-  function getAll(options) {
+  function storeDelete(storeName, key, options) {
+    return resolveDb(options).then(function (db) {
+      if (!db) return false;
+      return new Promise(function (resolve) {
+        try {
+          var tx = db.transaction(storeName, "readwrite");
+          tx.objectStore(storeName).delete(key);
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { resolve(false); };
+          tx.onabort = function () { resolve(false); };
+        } catch (e) {
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  function storeGetAll(storeName, options) {
     return resolveDb(options).then(function (db) {
       if (!db) return [];
       return new Promise(function (resolve) {
         try {
-          var tx = db.transaction(STORE_NAME, "readonly");
-          var req = tx.objectStore(STORE_NAME).getAll();
-          req.onsuccess = function () {
-            resolve((req.result || []).map(function (row) { return row.entry; }));
-          };
+          var tx = db.transaction(storeName, "readonly");
+          var req = tx.objectStore(storeName).getAll();
+          req.onsuccess = function () { resolve(req.result || []); };
           req.onerror = function () { resolve([]); };
         } catch (e) {
           resolve([]);
         }
       });
+    });
+  }
+
+  /* ---------- vocabEntries (the offline Vocabulary Bank extension) ---------- */
+
+  function get(word, options) {
+    return storeGet(STORE_NAME, normalizeKey(word), options).then(function (row) {
+      return row ? row.entry : undefined;
+    });
+  }
+
+  function put(entry, options) {
+    if (!entry || !entry.w) return Promise.resolve(false);
+    return storePut(STORE_NAME, { key: normalizeKey(entry.w), entry: entry }, options);
+  }
+
+  function getAll(options) {
+    return storeGetAll(STORE_NAME, options).then(function (rows) {
+      return rows.map(function (row) { return row.entry; });
     });
   }
 
@@ -134,15 +184,119 @@
     return richnessScore(candidate) > richnessScore(existing);
   }
 
+  // The shape every entry — online-looked-up or imported from a pack —
+  // must satisfy before it's allowed into vocabEntries. Deliberately
+  // permissive on optional fields (syn/ant/mistake/tagalog), strict on
+  // the two things renderRuleEntry() actually requires to draw a page.
+  function validateEntry(entry) {
+    if (!entry || typeof entry.w !== "string" || !entry.w.trim()) return false;
+    if (!Array.isArray(entry.senses) || entry.senses.length === 0) return false;
+    return entry.senses.every(function (s) {
+      return s && typeof s.use === "string" && s.use.trim() && Array.isArray(s.examples);
+    });
+  }
+
+  /* ---------- favorites ---------- */
+
+  function addFavorite(word, meta, options) {
+    var key = normalizeKey(word);
+    if (!key) return Promise.resolve(false);
+    var m = meta || {};
+    return storePut(FAVORITES_STORE, {
+      key: key,
+      word: m.word || word,
+      cat: m.cat || "",
+      addedAt: Date.now()
+    }, options);
+  }
+
+  function removeFavorite(word, options) {
+    return storeDelete(FAVORITES_STORE, normalizeKey(word), options);
+  }
+
+  function isFavorite(word, options) {
+    return storeGet(FAVORITES_STORE, normalizeKey(word), options).then(function (row) {
+      return !!row;
+    });
+  }
+
+  function getAllFavorites(options) {
+    return storeGetAll(FAVORITES_STORE, options).then(function (rows) {
+      return rows.sort(function (a, b) { return b.addedAt - a.addedAt; });
+    });
+  }
+
+  /* ---------- recently viewed ---------- */
+
+  function recordRecentlyViewed(word, cat, options) {
+    var key = normalizeKey(word);
+    if (!key) return Promise.resolve(false);
+    return storePut(RECENT_STORE, {
+      key: key,
+      word: word,
+      cat: cat || "",
+      viewedAt: Date.now()
+    }, options).then(function (ok) {
+      if (!ok) return false;
+      return trimRecentlyViewed(options).then(function () { return true; });
+    });
+  }
+
+  // Keeps recentlyViewed from growing forever across months/years of
+  // use — cheap at this scale (capped list, O(n) scan on write).
+  function trimRecentlyViewed(options) {
+    return storeGetAll(RECENT_STORE, options).then(function (rows) {
+      if (rows.length <= RECENT_LIMIT) return;
+      var toRemove = rows
+        .sort(function (a, b) { return b.viewedAt - a.viewedAt; })
+        .slice(RECENT_LIMIT);
+      return Promise.all(toRemove.map(function (row) {
+        return storeDelete(RECENT_STORE, row.key, options);
+      }));
+    });
+  }
+
+  function getRecentlyViewed(limit, options) {
+    return storeGetAll(RECENT_STORE, options).then(function (rows) {
+      return rows
+        .sort(function (a, b) { return b.viewedAt - a.viewedAt; })
+        .slice(0, typeof limit === "number" ? limit : RECENT_LIMIT);
+    });
+  }
+
+  /* ---------- offline pack import ---------- */
+
+  // Validates and returns only the well-formed entries from a batch
+  // (e.g. parsed from an uploaded JSON file, or a future downloaded
+  // pack). Does not write anything itself — merging into the live app
+  // (dedup, richer-entry upgrades, DOM/search-index updates) needs
+  // addVocabEntry() in index.html, which has access to that app state;
+  // this module only owns validation and IndexedDB storage.
+  function filterValidEntries(entries) {
+    if (!Array.isArray(entries)) return [];
+    return entries.filter(validateEntry);
+  }
+
   return {
     DB_NAME: DB_NAME,
     DB_VERSION: DB_VERSION,
     STORE_NAME: STORE_NAME,
+    FAVORITES_STORE: FAVORITES_STORE,
+    RECENT_STORE: RECENT_STORE,
+    RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
     put: put,
     getAll: getAll,
     richnessScore: richnessScore,
-    isRicherEntry: isRicherEntry
+    isRicherEntry: isRicherEntry,
+    validateEntry: validateEntry,
+    filterValidEntries: filterValidEntries,
+    addFavorite: addFavorite,
+    removeFavorite: removeFavorite,
+    isFavorite: isFavorite,
+    getAllFavorites: getAllFavorites,
+    recordRecentlyViewed: recordRecentlyViewed,
+    getRecentlyViewed: getRecentlyViewed
   };
 });
