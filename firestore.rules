@@ -14,9 +14,20 @@
 //     syncedLogs/{code} document. This matches "everyone can view
 //     corrections."
 //   - WRITE: only a request authenticated with the owner's email
-//     address, via a real (non-anonymous) sign-in with that email
-//     verified, may create or update a syncedLogs/{code} document. This
-//     matches "only the owner can add/edit/delete/import."
+//     address, via a real (non-anonymous) sign-in, may create or
+//     update a syncedLogs/{code} document. This matches "only the
+//     owner can add/edit/delete/import." Anonymous sign-ins never carry
+//     an email claim at all, so checking the email alone already
+//     excludes every non-owner watcher — no separate "is anonymous"
+//     check is needed.
+//
+//   NOTE on email_verified: earlier drafts of this rule also required
+//   request.auth.token.email_verified == true. That's wrong for how
+//   you'll actually set up the owner account — a user created via
+//   Firebase Console -> Authentication -> Add user is NOT marked
+//   verified by default (there's no "pre-verified" behavior there), so
+//   that check would reject the real owner too. It's left out here on
+//   purpose; the email match is the only check that matters.
 //
 // ============================================================
 // DEPLOYMENT — you need to do this yourself; Claude cannot deploy to
@@ -47,11 +58,6 @@
 //      put in OWNER_EMAIL_PLACEHOLDER above, and a password only you
 //      know. That's your owner login for the app's new "Sign in as
 //      owner" box in the Sync panel.
-//   3. Still on that user in the Console, there's no explicit "verify
-//      email" toggle for console-created users — they're created
-//      pre-verified, so email_verified is already true. If you ever
-//      invite the owner account via a sign-up flow instead, make sure
-//      to verify that email, since the rule below requires it.
 // ============================================================
 
 rules_version = '2';
@@ -60,8 +66,7 @@ service cloud.firestore {
     match /syncedLogs/{code} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
-                   && request.auth.token.email == "OWNER_EMAIL_PLACEHOLDER"
-                   && request.auth.token.email_verified == true;
+                   && request.auth.token.email == "OWNER_EMAIL_PLACEHOLDER";
     }
 
     // Everything else stays closed by default — Firestore denies

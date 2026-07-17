@@ -26,15 +26,17 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   // Mirrors firestore.rules' write condition exactly: a real
-  // (non-anonymous) sign-in, with a verified email, matching the
-  // configured owner email. Anonymous users (every read-only device)
-  // always fail this — by design, they have no `.email` at all.
+  // (non-anonymous) sign-in matching the configured owner email.
+  // Anonymous users (every read-only device) always fail this — by
+  // design, they have no `.email` at all. Deliberately does NOT check
+  // `.emailVerified` — a Firebase Console "Add user" account is not
+  // marked verified by default, so requiring it would lock out the
+  // real owner too (see firestore.rules for the full explanation).
   function isOwnerAuthenticated(user, ownerEmail) {
     return !!(
       user &&
       !user.isAnonymous &&
       user.email &&
-      user.emailVerified &&
       (!ownerEmail || user.email === ownerEmail)
     );
   }

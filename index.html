@@ -647,18 +647,20 @@
       <div id="qaAddStatus" class="add-status"></div>
     </div>
 
-    <div class="quick-add-box sync-box owner-only" id="syncBox">
+    <div class="quick-add-box sync-box" id="syncBox">
       <div class="section-label">Sync across devices</div>
-      <p class="note" style="margin-bottom:8px;">Enter the same code on your phone and laptop to keep this log in sync between them. Anyone with the code can view the synced log; only the signed-in owner's changes are actually saved to it — enforced by the server, not just this device.</p>
+      <p class="note" style="margin-bottom:8px;">Enter a sync code to view a shared correction log — anyone can do this, no unlocking needed. Only the signed-in owner's changes are actually saved to it, enforced by the server.</p>
 
-      <div id="syncOwnerAuthStatus" class="add-status"></div>
-      <div id="syncSignInForm">
-        <input type="email" id="syncOwnerEmailInput" placeholder="Owner email" autocomplete="off">
-        <input type="password" id="syncOwnerPasswordInput" placeholder="Owner password" autocomplete="off">
-        <button id="syncSignInBtn" class="add-btn">Sign in as owner</button>
-      </div>
-      <div id="syncSignedInPanel" style="display:none;">
-        <button id="syncSignOutBtn" class="add-btn">Sign out</button>
+      <div class="owner-only" id="syncOwnerAuthSection">
+        <div id="syncOwnerAuthStatus" class="add-status"></div>
+        <div id="syncSignInForm">
+          <input type="email" id="syncOwnerEmailInput" placeholder="Owner email" autocomplete="off">
+          <input type="password" id="syncOwnerPasswordInput" placeholder="Owner password" autocomplete="off">
+          <button id="syncSignInBtn" class="add-btn">Sign in as owner</button>
+        </div>
+        <div id="syncSignedInPanel" style="display:none;">
+          <button id="syncSignOutBtn" class="add-btn">Sign out</button>
+        </div>
       </div>
 
       <input type="text" id="syncCodeInput" placeholder="Create or enter your sync code" autocomplete="off">
@@ -27654,15 +27656,38 @@ function sanitizeSyncCode(code){
   return code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
+// The single place that reconciles local personal corrections with the
+// shared Firestore doc — called on every connect, sign-in, sign-out,
+// and page-load reconnect, so this one function is the only place that
+// needs to get "what happens when the doc doesn't exist yet" right.
 function listenToSync(code){
   if(!firestoreDb) return;
   if(syncUnsubscribe) syncUnsubscribe();
   const docRef = firestoreDb.collection("syncedLogs").doc(code);
   syncUnsubscribe = docRef.onSnapshot((doc)=>{
-    const data = doc.exists ? doc.data() : { entries: [] };
-    savePersonalCorrections(data.entries || []);
-    rebuildCorrectionLog();
-    refreshMistakeUI();
+    if(doc.exists){
+      const data = doc.data();
+      savePersonalCorrections(data.entries || []);
+      rebuildCorrectionLog();
+      refreshMistakeUI();
+      return;
+    }
+    // Nothing saved under this code yet. If we're signed in as the
+    // owner, seed it with whatever's already on THIS device so nothing
+    // gets lost — that write triggers this same listener again, this
+    // time with exists:true. If we're not the owner, leave local data
+    // exactly as it is and just wait for the owner to seed it; NEVER
+    // overwrite local corrections with an empty log just because the
+    // shared doc doesn't exist yet (that was the bug — signing in or
+    // reconnecting used to wipe out whatever you'd added locally).
+    const user = (typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+    if(SyncAuth.isOwnerAuthenticated(user)){
+      const localEntries = loadPersonalCorrections();
+      docRef.set({
+        entries: localEntries,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch((e)=> console.warn("Sync seed failed:", e));
+    }
   }, (err)=>{
     console.warn("Sync listener error:", err);
     const statusEl = document.getElementById("syncStatus");
@@ -27714,28 +27739,10 @@ async function connectSync(rawCode){
     localStorage.setItem(SYNC_CODE_KEY, code);
     updateSyncAuthUI();
 
-    // If this sync code has never been used before, seed the cloud copy
-    // with whatever's already saved on THIS device, so nothing gets lost.
-    // (Without this, the first connection would overwrite local entries
-    // with an empty cloud record.) Only the owner's sign-in can actually
-    // create it — firestore.rules rejects the write from anyone else,
-    // which is fine: they just start watching instead (an empty log
-    // until the real owner connects and seeds it, or whatever's already
-    // there if the owner has already connected once).
-    const docRef = firestoreDb.collection("syncedLogs").doc(code);
-    const snapshot = await docRef.get();
-    if(!snapshot.exists){
-      const localEntries = loadPersonalCorrections();
-      try{
-        await docRef.set({
-          entries: localEntries,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }catch(seedError){
-        if(seedError.code !== "permission-denied") throw seedError;
-      }
-    }
-
+    // listenToSync() seeds the shared doc from local data itself if
+    // we're the owner and it doesn't exist yet — no separate seeding
+    // step needed here (see listenToSync for why it's centralized
+    // there: sign-in and reconnect both need the exact same logic).
     listenToSync(code);
     statusEl.textContent = "Connected! Syncing as \"" + code + "\" — enter this same code on your other device.";
     statusEl.className = "add-status success";
@@ -27821,8 +27828,14 @@ document.getElementById("syncSignOutBtn").addEventListener("click", ()=>{
 
 updateSyncAuthUI();
 
+// Deliberately NOT gated by the local owner PIN — anyone with a sync
+// code should be able to connect and watch the shared log (that's the
+// whole point of giving it to them). Only the "Sign in as owner" /
+// "Sign out" buttons below need the PIN; connecting itself never writes
+// anything unless this device turns out to be the owner (see
+// listenToSync), and Firestore rejects that write server-side anyway
+// if it isn't.
 document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
-  if(!OwnerMode.isOwnerModeUnlocked()) return;
   connectSync(document.getElementById("syncCodeInput").value);
 });
 

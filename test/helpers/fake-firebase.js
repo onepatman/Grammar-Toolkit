@@ -33,12 +33,16 @@ export function createFakeFirebase(options = {}) {
     return !!currentUser;
   }
 
+  // Deliberately does NOT check `.emailVerified` — a real Firebase
+  // Console "Add user" account isn't marked verified by default, so
+  // this fake models that (see signInWithEmailAndPassword below, which
+  // sets emailVerified: false) to make sure the client under test never
+  // comes to depend on that flag being true.
   function canWrite() {
     return !!(
       currentUser &&
       !currentUser.isAnonymous &&
-      currentUser.email === ownerEmail &&
-      currentUser.emailVerified
+      currentUser.email === ownerEmail
     );
   }
 
@@ -96,7 +100,9 @@ export function createFakeFirebase(options = {}) {
         e.code = "auth/wrong-password";
         return Promise.reject(e);
       }
-      currentUser = { uid: "user-" + email, isAnonymous: false, email, emailVerified: true };
+      // emailVerified: false on purpose — matches a real Console-created
+      // account, which is never pre-verified. See canWrite() above.
+      currentUser = { uid: "user-" + email, isAnonymous: false, email, emailVerified: false };
       return Promise.resolve({ user: currentUser });
     },
     signOut() {
