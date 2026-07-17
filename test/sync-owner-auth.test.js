@@ -282,6 +282,60 @@ describe("signing out", () => {
   });
 });
 
+// Regression test for: "the Lock this device button doesn't do anything
+// on my other phone." That phone had been unlocked by signing in as the
+// owner (not by the local PIN, which is per-device and was never set
+// there) — the old handler only cleared the local PIN's unlocked flag,
+// so isDeviceUnlocked() (which also accepts a real Firebase sign-in)
+// stayed true and the admin panel never actually hid.
+describe("Lock this device", () => {
+  it("signs out of Firebase too when unlocked via owner sign-in, not just the local PIN flag", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+    expect(hooks.isDeviceUnlocked()).toBe(true);
+    expect(window.OwnerMode.hasOwnerPinSet()).toBe(false); // this device has no PIN at all
+
+    const document = window.document;
+    document.getElementById("ownerLockBtn").click();
+    await wait(30);
+
+    expect(hooks.isDeviceUnlocked()).toBe(false);
+    expect(firebase.auth().currentUser.isAnonymous).toBe(true);
+    expect(document.getElementById("correctionAddBox").style.display).toBe("none");
+    expect(document.getElementById("ownerAccessStatus").textContent).not.toContain("Unlocked");
+  });
+
+  it("leaves the device unlocked via the local PIN if one is ALSO set (signing out of Firebase alone shouldn't re-lock a PIN-unlocked device)", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    await window.OwnerMode.setOwnerPin("1234");
+    hooks.updateOwnerModeUI();
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+
+    const document = window.document;
+    document.getElementById("ownerLockBtn").click();
+    await wait(30);
+
+    // OwnerMode.lockOwnerMode() always runs first, so the local PIN gets
+    // re-locked too — the device ends up fully locked either way, not
+    // stuck unlocked by the PIN half.
+    expect(hooks.isDeviceUnlocked()).toBe(false);
+    expect(window.OwnerMode.hasOwnerPinSet()).toBe(true);
+  });
+
+  it("still works as a plain local lock when the device was only ever unlocked via the PIN (no Firebase session to sign out of)", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: true });
+    const document = window.document;
+
+    document.getElementById("ownerLockBtn").click();
+    await wait(30);
+
+    expect(hooks.isDeviceUnlocked()).toBe(false);
+    expect(document.getElementById("correctionAddBox").style.display).toBe("none");
+  });
+});
+
 describe("Firebase not configured or not loaded", () => {
   it("signInAsOwner shows a clear message instead of throwing when firebase never loaded", async () => {
     const { window, hooks } = await loadApp(); // no `firebase` option — global stays undefined
