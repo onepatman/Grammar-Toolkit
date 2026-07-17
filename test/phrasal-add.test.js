@@ -44,7 +44,7 @@ describe("Phrasal Words quick-add UI", () => {
     expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(true);
     expect(hooks.wordIndexMap.get("wind down").cat).toBe("Phrasal Verb");
     // Navigates straight to the new entry.
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("phrasal");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
     expect(document.getElementById("phrasalEntry").querySelector(".headword").textContent).toBe("wind down");
   });
 
@@ -125,7 +125,7 @@ describe("Phrasal Words quick-add UI", () => {
 
     expect(fetchCalled).toBe(false);
     expect(document.getElementById("phrasalAddStatus").textContent).toContain("already in the database");
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("phrasal");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
     expect(document.getElementById("phrasalEntry").querySelector(".headword").textContent).toBe("move on");
     expect(hooks.phrasalData.filter((p) => p.w === "move on")).toHaveLength(1);
   });

@@ -82,6 +82,7 @@ describe("rule-module datasets (rendered via renderRuleEntry)", () => {
   const datasets = [
     "articleData", "modalData", "capitalData", "orderData",
     "mistakeData", "qaData", "vocabData", "phrasalData",
+    "idiomsData", "sentencesData", "patternsData",
     "upgradeData", "prepVerbData"
   ];
 

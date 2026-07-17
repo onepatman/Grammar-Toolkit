@@ -89,10 +89,17 @@ export async function loadApp(options) {
   if (!hooks) {
     throw new Error("window.__TOOLKIT_TEST_HOOKS__ was not set — did index.html's test-hook block run?");
   }
-  // Let the async vocab-cache and phrasal-cache restores (kicked off
-  // during page load) finish before handing back control, so tests see
-  // a fully settled search index without needing their own arbitrary wait.
-  await Promise.all([hooks.vocabCacheRestorePromise, hooks.phrasalCacheRestorePromise]);
+  // Let the async vocab-cache and Language Bank category restores
+  // (kicked off during page load) finish before handing back control,
+  // so tests see a fully settled search index without needing their
+  // own arbitrary wait.
+  await Promise.all([
+    hooks.vocabCacheRestorePromise,
+    hooks.phrasalCacheRestorePromise,
+    hooks.idiomsCacheRestorePromise,
+    hooks.sentencesCacheRestorePromise,
+    hooks.patternsCacheRestorePromise
+  ]);
 
   return { dom, window: dom.window, hooks, indexedDBFactory };
 }

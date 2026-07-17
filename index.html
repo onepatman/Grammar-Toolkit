@@ -451,7 +451,7 @@
   <div class="thumb-tabs">
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
     <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
-    <button class="thumb-tab" data-tab="phrasal">Phrasal<span class="n">PH</span></button>
+    <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="upgrade">Upgrade<span class="n">UP</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
@@ -717,24 +717,98 @@
   </section>
 
   <!-- ===== PHRASAL VERBS PANEL ===== -->
-  <section id="panel-phrasal" style="display:none;">
+  <section id="panel-langbank" style="display:none;">
     <div class="controls">
-      <select id="phrasalSelect"></select>
-      <button class="nav-btn" data-target="phrasalSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="phrasalSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="phrasalEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="phrasalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="phrasalSelect" data-dir="next" aria-label="Next">Next ›</button>
+      <div class="seg" id="langBankCategorySeg">
+        <button class="active" data-val="phrasal">Phrasal Verbs</button>
+        <button data-val="idioms">Idioms &amp; Expressions</button>
+        <button data-val="sentences">Useful Sentences</button>
+        <button data-val="patterns">Sentence Patterns</button>
+      </div>
     </div>
 
-    <div class="quick-add-box owner-only" id="phrasalAddBox">
-      <div class="section-label">Add a new phrasal word</div>
-      <p class="note" style="margin-bottom:8px;">Type a phrasal verb (e.g. "give up") and we'll automatically look up its meaning, rule &amp; usage, example sentences, synonyms, and antonyms from a reliable online dictionary. If the source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
-      <input type="text" id="phrasalAddInput" placeholder="Phrasal verb (e.g. give up)" autocomplete="off">
-      <button id="phrasalAddBtn" class="add-btn">+ Look up &amp; add</button>
-      <div id="phrasalAddStatus" class="add-status"></div>
+    <div class="langbank-category" id="langbank-phrasal">
+      <div class="controls">
+        <select id="phrasalSelect"></select>
+        <button class="nav-btn" data-target="phrasalSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="phrasalSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="phrasalEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="phrasalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="phrasalSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="phrasalAddBox">
+        <div class="section-label">Add a new phrasal verb</div>
+        <p class="note" style="margin-bottom:8px;">Type a phrasal verb (e.g. "give up") and we'll automatically look up its meaning, rule &amp; usage, example sentences, synonyms, and antonyms from a reliable online dictionary. If the source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+        <input type="text" id="phrasalAddInput" placeholder="Phrasal verb (e.g. give up)" autocomplete="off">
+        <button id="phrasalAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <div id="phrasalAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="langbank-category" id="langbank-idioms" style="display:none;">
+      <div class="controls">
+        <select id="idiomsSelect"></select>
+        <button class="nav-btn" data-target="idiomsSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="idiomsSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="idiomsEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="idiomsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="idiomsSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="idiomsAddBox">
+        <div class="section-label">Add a new idiom or expression</div>
+        <p class="note" style="margin-bottom:8px;">Type an idiom or expression (e.g. "break the ice") and we'll automatically look up its meaning, example sentences, synonyms, and antonyms from a reliable online dictionary. If the source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+        <input type="text" id="idiomsAddInput" placeholder='Idiom or expression (e.g. "break the ice")' autocomplete="off">
+        <button id="idiomsAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <div id="idiomsAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="langbank-category" id="langbank-sentences" style="display:none;">
+      <div class="controls">
+        <select id="sentencesSelect"></select>
+        <button class="nav-btn" data-target="sentencesSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="sentencesSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="sentencesEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="sentencesSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="sentencesSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="sentencesAddBox">
+        <div class="section-label">Add a useful sentence</div>
+        <p class="note" style="margin-bottom:8px;">Type a useful sentence (e.g. "Could you please clarify what you mean?") and we'll try to find an explanation online for when/how it's used. Useful sentences don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, the sentence is still added — you can always add a note yourself later.</p>
+        <input type="text" id="sentencesAddInput" placeholder='A useful sentence (e.g. "Could you pass the salt?")' autocomplete="off">
+        <button id="sentencesAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <div id="sentencesAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="langbank-category" id="langbank-patterns" style="display:none;">
+      <div class="controls">
+        <select id="patternsSelect"></select>
+        <button class="nav-btn" data-target="patternsSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="patternsSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="patternsEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="patternsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="patternsSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="patternsAddBox">
+        <div class="section-label">Add a sentence pattern</div>
+        <p class="note" style="margin-bottom:8px;">Type a sentence pattern (e.g. "Would you mind + V-ing?") and we'll try to find an explanation online. Sentence patterns don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, the pattern is still added — you can always add a note yourself later.</p>
+        <input type="text" id="patternsAddInput" placeholder='A sentence pattern (e.g. "Would you mind + V-ing?")' autocomplete="off">
+        <button id="patternsAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <div id="patternsAddStatus" class="add-status"></div>
+      </div>
     </div>
   </section>
 
@@ -26367,6 +26441,864 @@ const phrasalData = [
 ];
 
 /* =========================================================
+   DATA — LANGUAGE BANK: IDIOMS & EXPRESSIONS
+========================================================= */
+const idiomsData = [
+  {
+    "w": "break the ice",
+    "senses": [
+      {
+        "use": "Do or say something to relieve tension or get a conversation started, especially with strangers.",
+        "examples": [
+          "He told a joke to <b>break the ice</b> before the meeting started.",
+          "She asked about the weather just to <b>break the ice</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["get things started", "warm things up"],
+    "ant": ["stay silent"]
+  },
+  {
+    "w": "cut corners",
+    "senses": [
+      {
+        "use": "Do something in the easiest, cheapest, or fastest way, often by skipping steps that should be done properly.",
+        "examples": [
+          "The contractor <b>cut corners</b> on the wiring, and it failed inspection.",
+          "Don't <b>cut corners</b> on safety just to finish early."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["skimp", "shortcut the process"],
+    "ant": ["do it properly", "go the extra mile"]
+  },
+  {
+    "w": "get the ball rolling",
+    "senses": [
+      {
+        "use": "Start something, especially a process or project.",
+        "examples": [
+          "Let's <b>get the ball rolling</b> on the new design.",
+          "I sent the first email to <b>get the ball rolling</b> on the proposal."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["kick things off", "get started"],
+    "ant": ["stall", "put it off"]
+  },
+  {
+    "w": "hit the nail on the head",
+    "senses": [
+      {
+        "use": "Describe exactly what is causing a situation or problem; be exactly right.",
+        "examples": [
+          "You <b>hit the nail on the head</b> — the delay was the supplier, not the crew.",
+          "Her analysis <b>hit the nail on the head</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["be spot on", "nail it"],
+    "ant": ["miss the point"]
+  },
+  {
+    "w": "on the same page",
+    "senses": [
+      {
+        "use": "In agreement; having the same understanding of a situation or plan.",
+        "examples": [
+          "Let's have a quick call to make sure we're all <b>on the same page</b>.",
+          "The team wasn't <b>on the same page</b> about the deadline."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["in agreement", "aligned"],
+    "ant": ["at odds", "out of sync"]
+  },
+  {
+    "w": "back to square one",
+    "senses": [
+      {
+        "use": "Back to the very beginning, usually because a plan or attempt failed.",
+        "examples": [
+          "The test failed, so we're <b>back to square one</b> on the design.",
+          "When funding fell through, the project went <b>back to square one</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["starting over"],
+    "ant": ["almost finished"]
+  },
+  {
+    "w": "in the long run",
+    "senses": [
+      {
+        "use": "Over a long period of time; eventually, considering the overall outcome rather than the immediate result.",
+        "examples": [
+          "It costs more now, but it will save money <b>in the long run</b>.",
+          "<b>In the long run</b>, proper training reduces accidents."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["ultimately", "over time"],
+    "ant": ["in the short term"]
+  },
+  {
+    "w": "under the weather",
+    "senses": [
+      {
+        "use": "Feeling slightly ill.",
+        "examples": [
+          "I'm feeling a bit <b>under the weather</b> today, so I might leave early.",
+          "He's been <b>under the weather</b> since Monday."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["unwell", "off-color"],
+    "ant": ["in top shape"]
+  },
+  {
+    "w": "call it a day",
+    "senses": [
+      {
+        "use": "Stop working on something, usually for the rest of the day.",
+        "examples": [
+          "It's getting dark — let's <b>call it a day</b>.",
+          "We finished the report, so we decided to <b>call it a day</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["wrap up", "knock off"],
+    "ant": ["keep going"]
+  },
+  {
+    "w": "think outside the box",
+    "senses": [
+      {
+        "use": "Think creatively, using new or unusual ideas instead of conventional ones.",
+        "examples": [
+          "We need to <b>think outside the box</b> to solve this supply issue.",
+          "Her <b>outside-the-box</b> thinking saved the project."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["be creative", "think differently"],
+    "ant": ["follow convention"]
+  },
+  {
+    "w": "on the fence",
+    "senses": [
+      {
+        "use": "Undecided; not able to choose between two options.",
+        "examples": [
+          "I'm still <b>on the fence</b> about which supplier to choose.",
+          "He was <b>on the fence</b> until he saw the final numbers."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["undecided", "torn"],
+    "ant": ["decided", "certain"]
+  },
+  {
+    "w": "cost an arm and a leg",
+    "senses": [
+      {
+        "use": "Be very expensive.",
+        "examples": [
+          "That new equipment <b>cost an arm and a leg</b>.",
+          "Repairs after the storm <b>cost us an arm and a leg</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["cost a fortune"],
+    "ant": ["cost next to nothing"]
+  },
+  {
+    "w": "keep an eye on",
+    "senses": [
+      {
+        "use": "Watch or monitor someone or something carefully.",
+        "examples": [
+          "Please <b>keep an eye on</b> the pressure gauge while I'm gone.",
+          "We're <b>keeping an eye on</b> the budget this quarter."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["monitor", "watch closely"],
+    "ant": ["ignore", "overlook"]
+  },
+  {
+    "w": "learn the ropes",
+    "senses": [
+      {
+        "use": "Learn how to do a job or task, especially one that is new.",
+        "examples": [
+          "It took him a few weeks to <b>learn the ropes</b> on site.",
+          "She's still <b>learning the ropes</b> as a new engineer."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["get up to speed"],
+    "ant": ["be a veteran"]
+  },
+  {
+    "w": "make ends meet",
+    "senses": [
+      {
+        "use": "Have just enough money to cover basic expenses.",
+        "examples": [
+          "With prices rising, it's harder to <b>make ends meet</b>.",
+          "They took extra shifts to <b>make ends meet</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["get by"],
+    "ant": ["live comfortably"]
+  },
+  {
+    "w": "once in a blue moon",
+    "senses": [
+      {
+        "use": "Very rarely; almost never.",
+        "examples": [
+          "We only get a system failure like that <b>once in a blue moon</b>.",
+          "He visits the head office <b>once in a blue moon</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["rarely", "hardly ever"],
+    "ant": ["all the time", "constantly"]
+  },
+  {
+    "w": "pull strings",
+    "senses": [
+      {
+        "use": "Use personal influence or connections to get something done, often unfairly.",
+        "examples": [
+          "He had to <b>pull strings</b> to get the permit approved that fast.",
+          "No one wants to admit they <b>pulled strings</b> for the contract."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["use connections"],
+    "ant": []
+  },
+  {
+    "w": "see eye to eye",
+    "senses": [
+      {
+        "use": "Agree with someone; have the same opinion.",
+        "examples": [
+          "The two managers don't always <b>see eye to eye</b> on scheduling.",
+          "We finally <b>saw eye to eye</b> after the discussion."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["agree", "be in accord"],
+    "ant": ["disagree", "clash"]
+  },
+  {
+    "w": "spill the beans",
+    "senses": [
+      {
+        "use": "Reveal secret information, often accidentally or too soon.",
+        "examples": [
+          "Someone <b>spilled the beans</b> about the merger before the announcement.",
+          "Don't <b>spill the beans</b> — it's supposed to be a surprise."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["let it slip", "give it away"],
+    "ant": ["keep it secret"]
+  },
+  {
+    "w": "the bottom line",
+    "senses": [
+      {
+        "use": "The most important fact or conclusion; the final result, especially financially.",
+        "examples": [
+          "<b>The bottom line</b> is we need two more weeks to finish safely.",
+          "Cost is always <b>the bottom line</b> for this client."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["the main point", "the net result"],
+    "ant": []
+  },
+  {
+    "w": "up in the air",
+    "senses": [
+      {
+        "use": "Undecided or uncertain; not yet settled.",
+        "examples": [
+          "The launch date is still <b>up in the air</b>.",
+          "Plans for the new site are <b>up in the air</b> until funding is confirmed."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["uncertain", "undetermined"],
+    "ant": ["settled", "confirmed"]
+  },
+  {
+    "w": "weigh in on",
+    "senses": [
+      {
+        "use": "Give an opinion or contribute to a discussion or decision.",
+        "examples": [
+          "The safety officer will <b>weigh in on</b> the new procedure.",
+          "Feel free to <b>weigh in on</b> the design before we finalize it."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["give input", "chime in"],
+    "ant": ["stay out of it"]
+  },
+  {
+    "w": "a piece of cake",
+    "senses": [
+      {
+        "use": "Something very easy to do.",
+        "examples": [
+          "After all that training, the exam was <b>a piece of cake</b>.",
+          "Installing the update was <b>a piece of cake</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["easy", "a breeze"],
+    "ant": ["a nightmare", "an ordeal"]
+  },
+  {
+    "w": "against the clock",
+    "senses": [
+      {
+        "use": "Working with very little time available; racing to finish before a deadline.",
+        "examples": [
+          "We were working <b>against the clock</b> to finish before the storm hit.",
+          "It's a race <b>against the clock</b> to get the report done."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["under time pressure"],
+    "ant": ["with time to spare"]
+  },
+  {
+    "w": "in a nutshell",
+    "senses": [
+      {
+        "use": "In a few words; summarized briefly.",
+        "examples": [
+          "<b>In a nutshell</b>, the project is on track but over budget.",
+          "Can you explain the plan <b>in a nutshell</b>?"
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["in short", "briefly"],
+    "ant": ["in great detail"]
+  }
+];
+
+/* =========================================================
+   DATA — LANGUAGE BANK: USEFUL SENTENCES
+========================================================= */
+const sentencesData = [
+  {
+    "w": "Could you please clarify what you mean?",
+    "senses": [
+      {
+        "use": "A polite way to ask someone to explain something more clearly, without sounding rude — useful in meetings or when reading instructions.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I'll get back to you on that.",
+    "senses": [
+      {
+        "use": "Used when you can't answer immediately and need time to check something before replying.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Would it be possible to reschedule the meeting?",
+    "senses": [
+      {
+        "use": "A polite, professional way to request changing a meeting time, softer than \"Can we move the meeting?\"",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I appreciate your patience.",
+    "senses": [
+      {
+        "use": "A polite phrase used to thank someone for waiting, often after a delay.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Let me double-check and confirm.",
+    "senses": [
+      {
+        "use": "Used to tell someone you'll verify information before giving a final answer.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Sorry for the inconvenience.",
+    "senses": [
+      {
+        "use": "A standard apology for a problem or delay that affected someone, common in customer service and workplace emails.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Could you walk me through the process?",
+    "senses": [
+      {
+        "use": "Asks someone to explain a procedure step by step — useful when learning a new task or system.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "That makes sense to me.",
+    "senses": [
+      {
+        "use": "A simple way to show you understand and agree with an explanation.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I'm not sure that's correct — could we double-check?",
+    "senses": [
+      {
+        "use": "A polite way to disagree or raise doubt about something without sounding confrontational.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Please let me know if you have any questions.",
+    "senses": [
+      {
+        "use": "A common, polite closing line in emails and instructions, inviting the reader to follow up.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I'll take care of it right away.",
+    "senses": [
+      {
+        "use": "Reassures someone that a task will be handled immediately.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Can we go over this one more time?",
+    "senses": [
+      {
+        "use": "Asks to review something again, usually because it wasn't fully clear the first time.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I understand your concern.",
+    "senses": [
+      {
+        "use": "Acknowledges someone's worry or complaint before responding — common in professional and customer-facing conversations.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Let's touch base next week.",
+    "senses": [
+      {
+        "use": "Suggests a short follow-up conversation later, common in workplace scheduling.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I'd like to bring up a concern.",
+    "senses": [
+      {
+        "use": "A professional way to raise an issue in a meeting or discussion.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Thank you for your understanding.",
+    "senses": [
+      {
+        "use": "A polite closing phrase used after explaining a delay, change, or inconvenience.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Could you send that over when you get a chance?",
+    "senses": [
+      {
+        "use": "A casual but polite way to request a file or document without pressuring the other person for an exact time.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I just want to make sure we're aligned.",
+    "senses": [
+      {
+        "use": "Checks that everyone has the same understanding before moving forward — common before starting a task.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Let's circle back to this later.",
+    "senses": [
+      {
+        "use": "Used to postpone a topic to discuss again later, usually to keep a meeting on schedule.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Feel free to reach out anytime.",
+    "senses": [
+      {
+        "use": "An open, friendly invitation for someone to contact you again in the future.",
+        "examples": []
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  }
+];
+
+/* =========================================================
+   DATA — LANGUAGE BANK: SENTENCE PATTERNS
+========================================================= */
+const patternsData = [
+  {
+    "w": "Would you mind + V-ing?",
+    "senses": [
+      {
+        "use": "A polite way to make a request. The verb after \"mind\" always takes the -ing form, not the base form.",
+        "examples": [
+          "<b>Would you mind closing</b> the window?",
+          "<b>Would you mind waiting</b> a few minutes?"
+        ]
+      }
+    ],
+    "mistake": "Don't say \"Would you mind to close the window?\" — use the -ing form after \"mind.\"",
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "It's time + subject + past tense",
+    "senses": [
+      {
+        "use": "Used to say something should happen now, even though the verb form looks past tense. Suggests the action is overdue.",
+        "examples": [
+          "It's time we <b>left</b> for the site.",
+          "It's time the report <b>was</b> finished."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I'd rather + base verb (+ than)",
+    "senses": [
+      {
+        "use": "States a preference. The verb after \"rather\" is always the base form, not \"to + verb.\"",
+        "examples": [
+          "I'd rather <b>finish</b> today than leave it for tomorrow.",
+          "She'd rather <b>drive</b> than take the bus."
+        ]
+      }
+    ],
+    "mistake": "Don't say \"I'd rather to finish today\" — drop the \"to.\"",
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "The more..., the more...",
+    "senses": [
+      {
+        "use": "Shows that two things increase or change together — a comparative pattern.",
+        "examples": [
+          "<b>The more</b> you practice, <b>the more</b> confident you become.",
+          "<b>The more</b> pressure applied, <b>the more</b> the valve resists."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "By the time + clause, ... will have + past participle",
+    "senses": [
+      {
+        "use": "Describes something that will be completed before another future event — future perfect tense.",
+        "examples": [
+          "By the time you arrive, we <b>will have finished</b> the setup.",
+          "By the time the shift ends, they <b>will have inspected</b> every unit."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "If I were you, I would...",
+    "senses": [
+      {
+        "use": "Gives advice using the hypothetical/subjunctive \"were,\" used even with \"I\" or \"he/she.\"",
+        "examples": [
+          "If I were you, I would <b>double-check</b> the measurements.",
+          "If I were you, I would <b>ask</b> for an extension."
+        ]
+      }
+    ],
+    "mistake": "Avoid \"If I was you\" in formal writing — \"were\" is standard here.",
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Not only... but also...",
+    "senses": [
+      {
+        "use": "Emphasizes two connected facts. When the sentence starts with \"Not only,\" the subject and verb after it invert.",
+        "examples": [
+          "<b>Not only</b> did the test fail, <b>but</b> it also damaged the sensor.",
+          "The plan is <b>not only</b> cheaper <b>but also</b> faster."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "I'm used to + V-ing",
+    "senses": [
+      {
+        "use": "Describes something familiar because of repeated experience. \"Used to\" here takes the -ing form, unlike \"used to + base verb\" for past habits.",
+        "examples": [
+          "I'm <b>used to working</b> night shifts.",
+          "She's <b>used to handling</b> difficult clients."
+        ]
+      }
+    ],
+    "mistake": "Don't confuse this with \"I used to work\" (a past habit that no longer happens) — different meaning entirely.",
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Despite / In spite of + noun/V-ing",
+    "senses": [
+      {
+        "use": "Introduces a contrast. Followed by a noun or -ing form, never a full clause with a subject and verb directly.",
+        "examples": [
+          "<b>Despite</b> the delay, the project finished on budget.",
+          "<b>In spite of</b> feeling tired, he kept working."
+        ]
+      }
+    ],
+    "mistake": "Don't say \"Despite he was tired\" — use \"Despite being tired\" or \"Although he was tired.\"",
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "So + adjective + that...",
+    "senses": [
+      {
+        "use": "Shows cause and result — something is so extreme that it leads to a consequence.",
+        "examples": [
+          "It was <b>so hot that</b> work had to stop early.",
+          "The report was <b>so detailed that</b> no one had questions."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Had I known..., I would have...",
+    "senses": [
+      {
+        "use": "A formal, inverted way of expressing a third conditional (a hypothetical about the past), instead of \"If I had known...\"",
+        "examples": [
+          "<b>Had I known</b> about the delay, I <b>would have</b> rescheduled.",
+          "<b>Had she known</b> the risk, she <b>would have</b> stopped the machine."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "It is said that...",
+    "senses": [
+      {
+        "use": "A passive reporting structure used to state something without naming who said it — common in formal or neutral writing.",
+        "examples": [
+          "<b>It is said that</b> the new system reduces downtime by half.",
+          "<b>It is believed that</b> the fault was electrical."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "Not until + clause + do/does/did + subject + verb",
+    "senses": [
+      {
+        "use": "An inverted structure for emphasis, meaning something didn't happen until a certain point.",
+        "examples": [
+          "<b>Not until</b> the alarm sounded <b>did</b> the crew evacuate.",
+          "<b>Not until</b> last year <b>did</b> the company adopt the new standard."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "As long as + clause",
+    "senses": [
+      {
+        "use": "Introduces a condition — something is true or allowed only if another condition is met.",
+        "examples": [
+          "You can proceed <b>as long as</b> the area is clear.",
+          "<b>As long as</b> the readings stay normal, we're on schedule."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "What if + subject + past tense...?",
+    "senses": [
+      {
+        "use": "Asks about a hypothetical situation, useful for raising concerns or exploring alternatives.",
+        "examples": [
+          "<b>What if</b> the supplier <b>missed</b> the deadline?",
+          "<b>What if</b> we <b>used</b> a different material instead?"
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  }
+];
+
+/* =========================================================
    DATA — WORD FAMILY (verb → noun → person → adjective)
 ========================================================= */
 const wordFamilyData = [
@@ -26756,14 +27688,21 @@ function renderRuleEntry(item, entryEl, tagLabel){
     <div class="section-label">Tagalog equivalent</div>
     <div class="tagalog-box">${item.tagalog}</div>
   ` : "";
+  // A Language Bank entry added with no online match at all (a Useful
+  // Sentence/Sentence Pattern that isn't a dictionary headword) has no
+  // senses — showing an empty "Rule & usage" heading over nothing would
+  // look broken, so it's only shown when there's actually content under it.
+  const ruleUsageHtml = item.senses.length ? `
+    <div class="section-label">Rule &amp; usage</div>
+    ${sensesHtml}
+  ` : "";
   entryEl.innerHTML = `
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.w}</span>
       <span class="tag ghost">${tagLabel}</span>
       ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
-    <div class="section-label">Rule &amp; usage</div>
-    ${sensesHtml}
+    ${ruleUsageHtml}
     ${mistakeHtml}
     ${tagalogHtml}
     ${wordsHtml}
@@ -26794,6 +27733,9 @@ setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
 setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb");
+setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression");
+setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence");
+setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern");
 setupRuleModule(upgradeData, "upgradeSelect", "upgradeEntry", "Basic → Advanced");
 
 /* =========================================================
@@ -27155,7 +28097,23 @@ prepVerbData.forEach(item=>{
 indexRuleModule(mistakeData, "Sentence error", "mistakeSelect", "mistakeEntry", "Sentence Error", "mistakes");
 indexRuleModule(qaData, "Question starter", "qaSelect", "qaEntry", "Question Starter", "qa");
 indexRuleModule(vocabData, "Vocabulary Bank", "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
-indexRuleModule(phrasalData, "Phrasal verb", "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
+// Language Bank's 4 categories share one tab, so their action also has
+// to switch to the right sub-category — indexRuleModule() only knows
+// how to activate a top-level tab, hence this small variant.
+function indexLanguageBankCategory(data, cat, categoryKey, selectId, entryId, tagLabel){
+  data.forEach(item=>{
+    searchIndex.push({label:item.w, cat:cat, action:()=>{
+      document.getElementById(selectId).value = item.w;
+      renderRuleEntry(item, document.getElementById(entryId), tagLabel);
+      activateTab("langbank");
+      activateLangBankCategory(categoryKey);
+    }});
+  });
+}
+indexLanguageBankCategory(phrasalData, "Phrasal verb", "phrasal", "phrasalSelect", "phrasalEntry", "Phrasal Verb");
+indexLanguageBankCategory(idiomsData, "Idiom / Expression", "idioms", "idiomsSelect", "idiomsEntry", "Idiom / Expression");
+indexLanguageBankCategory(sentencesData, "Useful Sentence", "sentences", "sentencesSelect", "sentencesEntry", "Useful Sentence");
+indexLanguageBankCategory(patternsData, "Sentence Pattern", "patterns", "patternsSelect", "patternsEntry", "Sentence Pattern");
 indexRuleModule(upgradeData, "Basic → Advanced", "upgradeSelect", "upgradeEntry", "Basic → Advanced", "upgrade");
 wordFamilyData.forEach(item=>{
   searchIndex.push({label:item.verb, cat:"Word family", action:()=>{
@@ -27283,52 +28241,132 @@ const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).
   entries.forEach(entry=> addVocabEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
-/* Phrasal Words — same "manually trigger, automatically populate" idea
-   as addVocabEntry() above, but for phrasalData/#phrasalSelect instead
-   of the Vocabulary Bank, and tagged "Phrasal Verb" in search results.
-   Shares wordIndexMap with every other module, so a phrasal verb that's
-   already known anywhere (built-in or previously added) is never
-   duplicated. */
-function addPhrasalEntry(entry, options){
+/* =========================================================
+   LANGUAGE BANK — one tab, four categories (Phrasal Verbs, Idioms &
+   Expressions, Useful Sentences, Sentence Patterns) sharing the same
+   "manually trigger, automatically populate" idea as addVocabEntry()
+   above. Each category keeps its own data array/select/entry/IndexedDB
+   store (same pattern every other module in this file uses), but the
+   add/restore/lookup logic itself is written once here and
+   parameterized per category, instead of copy-pasted four times.
+========================================================= */
+const LANGUAGE_BANK_CATEGORIES = ["phrasal", "idioms", "sentences", "patterns"];
+let currentLangBankCategory = "phrasal";
+
+function activateLangBankCategory(key){
+  if(LANGUAGE_BANK_CATEGORIES.indexOf(key) === -1) key = "phrasal";
+  currentLangBankCategory = key;
+  document.querySelectorAll("#langBankCategorySeg button").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
+  LANGUAGE_BANK_CATEGORIES.forEach(k=>{
+    document.getElementById("langbank-"+k).style.display = (k===key) ? "block" : "none";
+  });
+}
+
+document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  activateLangBankCategory(btn.dataset.val);
+});
+
+// requireOnlineMatch: true means the same rule the original Phrasal
+// Words quick-add always used — refuse to add if no online source has
+// it, since a phrasal verb or idiom that can't be found is very likely
+// just a typo. false (Useful Sentences, Sentence Patterns) means add it
+// anyway when nothing's found online — a full sentence or a grammar
+// pattern usually ISN'T a dictionary headword at all, so requiring an
+// online match would make those two categories nearly impossible to
+// use for their actual purpose (capturing YOUR OWN sentence/pattern).
+const LANGUAGE_BANK_CONFIG = {
+  phrasal: {
+    data: phrasalData, selectId: "phrasalSelect", entryId: "phrasalEntry", tagLabel: "Phrasal Verb",
+    inputId: "phrasalAddInput", btnId: "phrasalAddBtn", statusId: "phrasalAddStatus", inputNoun: "a phrasal verb",
+    putFn: function(entry, opts){ return VocabCache.putPhrasal(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllPhrasal(opts); },
+    requireOnlineMatch: true
+  },
+  idioms: {
+    data: idiomsData, selectId: "idiomsSelect", entryId: "idiomsEntry", tagLabel: "Idiom / Expression",
+    inputId: "idiomsAddInput", btnId: "idiomsAddBtn", statusId: "idiomsAddStatus", inputNoun: "an idiom or expression",
+    putFn: function(entry, opts){ return VocabCache.putIdiom(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllIdioms(opts); },
+    requireOnlineMatch: true
+  },
+  sentences: {
+    data: sentencesData, selectId: "sentencesSelect", entryId: "sentencesEntry", tagLabel: "Useful Sentence",
+    inputId: "sentencesAddInput", btnId: "sentencesAddBtn", statusId: "sentencesAddStatus", inputNoun: "a useful sentence",
+    putFn: function(entry, opts){ return VocabCache.putSentence(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllSentences(opts); },
+    requireOnlineMatch: false
+  },
+  patterns: {
+    data: patternsData, selectId: "patternsSelect", entryId: "patternsEntry", tagLabel: "Sentence Pattern",
+    inputId: "patternsAddInput", btnId: "patternsAddBtn", statusId: "patternsAddStatus", inputNoun: "a sentence pattern",
+    putFn: function(entry, opts){ return VocabCache.putPattern(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllPatterns(opts); },
+    requireOnlineMatch: false
+  }
+};
+
+function addLanguageBankEntry(categoryKey, entry, options){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
   const opts = options || {};
   const key = entry.w.trim().toLowerCase();
   const existingItem = wordIndexMap.get(key);
 
   if(existingItem){
-    const existingEntry = phrasalData.find(v=>v.w.trim().toLowerCase()===key);
+    const existingEntry = config.data.find(v=>v.w.trim().toLowerCase()===key);
     if(existingEntry && existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
       Object.assign(existingEntry, entry, {w: existingEntry.w});
-      if(opts.persist) VocabCache.putPhrasal(existingEntry, {dbPromise: vocabDbPromise});
+      if(opts.persist) config.putFn(existingEntry, {dbPromise: vocabDbPromise});
     }
     return existingItem;
   }
 
-  phrasalData.push(entry);
+  config.data.push(entry);
 
   const opt = document.createElement("option");
   opt.value = entry.w;
   opt.textContent = entry.w;
-  document.getElementById("phrasalSelect").appendChild(opt);
+  document.getElementById(config.selectId).appendChild(opt);
 
   const action = ()=>{
-    document.getElementById("phrasalSelect").value = entry.w;
-    renderRuleEntry(entry, document.getElementById("phrasalEntry"), "Phrasal Verb");
-    activateTab("phrasal");
+    document.getElementById(config.selectId).value = entry.w;
+    renderRuleEntry(entry, document.getElementById(config.entryId), config.tagLabel);
+    activateTab("langbank");
+    activateLangBankCategory(categoryKey);
   };
-  const item = {label: entry.w, cat: "Phrasal Verb", action};
+  const item = {label: entry.w, cat: config.tagLabel, action};
   searchIndex.push(item);
   wordIndexMap.set(key, item);
 
-  if(opts.persist) VocabCache.putPhrasal(entry, {dbPromise: vocabDbPromise});
+  if(opts.persist) config.putFn(entry, {dbPromise: vocabDbPromise});
 
   return item;
 }
 
-// Restore anything cached from a previous session — same reasoning as
-// vocabCacheRestorePromise above, kept as a separate promise/store so a
-// test harness can await phrasal restoration independently of vocab.
+// Thin, stably-named wrappers over addLanguageBankEntry() — kept as
+// separate named functions (rather than only exposing the generic one)
+// so callers/tests read naturally and addPhrasalEntry's name/behavior
+// stays exactly what it always was.
+function addPhrasalEntry(entry, options){ return addLanguageBankEntry("phrasal", entry, options); }
+function addIdiomEntry(entry, options){ return addLanguageBankEntry("idioms", entry, options); }
+function addSentenceEntry(entry, options){ return addLanguageBankEntry("sentences", entry, options); }
+function addPatternEntry(entry, options){ return addLanguageBankEntry("patterns", entry, options); }
+
+// Restore anything cached from a previous session for each category —
+// same reasoning as vocabCacheRestorePromise above, kept as separate
+// promises so a test harness can await each one independently.
 const phrasalCacheRestorePromise = VocabCache.getAllPhrasal({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addPhrasalEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+const idiomsCacheRestorePromise = VocabCache.getAllIdioms({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addIdiomEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+const sentencesCacheRestorePromise = VocabCache.getAllSentences({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addSentenceEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+const patternsCacheRestorePromise = VocabCache.getAllPatterns({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addPatternEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 /* Prev/Next buttons.
@@ -27937,38 +28975,45 @@ document.getElementById("packImportInput").addEventListener("change", (e)=>{
   reader.readAsText(file);
 });
 
-/* Phrasal Words quick-add — user supplies only the phrase; everything
+/* Language Bank quick-add — user supplies only the text; everything
    else (definition, usage, examples, synonyms, antonyms) is fetched
    from the same two online sources used elsewhere (dictionaryapi.dev,
    then Wiktionary). generateFallbackExamples is explicitly turned off
-   here so a phrasal verb the source has no example for shows no
-   example at all, rather than a generated placeholder sentence — every
-   other field follows the same "leave it blank, don't invent it" rule
+   here so an entry the source has no example for shows no example at
+   all, rather than a generated placeholder sentence — every other
+   field follows the same "leave it blank, don't invent it" rule
    automatically, since normalizeDictionaryResponse/normalizeWiktionaryResponse
-   only ever include a field when the source actually provided it. */
-const phrasalLookupCache = OnlineLookup.createMemoryCache();
+   only ever include a field when the source actually provided it.
 
-async function addPhrasalWordFromInput(){
-  const statusEl = document.getElementById("phrasalAddStatus");
+   One shared cache across all 4 categories is fine — cache keys are
+   just lowercased input text, and a phrase can't collide across
+   categories in any way that matters (if "in a nutshell" were somehow
+   added as both an idiom and a pattern, reusing the cached lookup
+   result for both is exactly the right behavior, not a bug). */
+const languageBankLookupCache = OnlineLookup.createMemoryCache();
+
+async function addLanguageBankEntryFromInput(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const statusEl = document.getElementById(config.statusId);
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
     return;
   }
-  const input = document.getElementById("phrasalAddInput");
-  const addBtn = document.getElementById("phrasalAddBtn");
-  const phrase = input.value.trim();
+  const input = document.getElementById(config.inputId);
+  const addBtn = document.getElementById(config.btnId);
+  const text = input.value.trim();
 
-  if(!phrase){
-    statusEl.textContent = "Please enter a phrasal verb first.";
+  if(!text){
+    statusEl.textContent = `Please enter ${config.inputNoun} first.`;
     statusEl.className = "add-status error";
     return;
   }
 
-  const key = phrase.toLowerCase();
+  const key = text.toLowerCase();
   const existing = wordIndexMap.get(key);
   if(existing){
-    statusEl.textContent = `"${phrase}" is already in the database — opening it.`;
+    statusEl.textContent = `"${text}" is already in the database — opening it.`;
     statusEl.className = "add-status";
     pushSearchHistory(existing);
     existing.action();
@@ -27980,31 +29025,45 @@ async function addPhrasalWordFromInput(){
   statusEl.textContent = "Looking it up online…";
   statusEl.className = "add-status";
 
-  const result = await OnlineLookup.fetchOnlineDefinition(phrase, {
-    cache: phrasalLookupCache,
+  const result = await OnlineLookup.fetchOnlineDefinition(text, {
+    cache: languageBankLookupCache,
     generateFallbackExamples: false
   });
 
   addBtn.disabled = false;
 
-  if(!result){
-    statusEl.textContent = `Couldn't find "${phrase}" online. Check the spelling, or try again once you're connected to the internet.`;
-    statusEl.className = "add-status error";
-    return;
+  let entry = result;
+  if(!entry){
+    if(config.requireOnlineMatch){
+      statusEl.textContent = `Couldn't find "${text}" online. Check the spelling, or try again once you're connected to the internet.`;
+      statusEl.className = "add-status error";
+      return;
+    }
+    // Useful Sentences and Sentence Patterns usually aren't dictionary
+    // headwords at all — a full sentence essentially never matches an
+    // online dictionary. Add it anyway with just the text itself
+    // rather than blocking on a lookup that was never going to
+    // succeed; that's the whole point of these two categories.
+    entry = { w: text, senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
   }
 
-  const item = addPhrasalEntry(result, {persist:true});
+  const item = addLanguageBankEntry(categoryKey, entry, {persist:true});
   input.value = "";
-  statusEl.textContent = `Added "${result.w}" — now searchable and available offline.`;
+  statusEl.textContent = result
+    ? `Added "${entry.w}" — now searchable and available offline.`
+    : `Added "${entry.w}" — no online definition was found for it, so it was saved with just the text you entered.`;
   statusEl.className = "add-status success";
   pushSearchHistory(item);
   item.action();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-document.getElementById("phrasalAddBtn").addEventListener("click", addPhrasalWordFromInput);
-document.getElementById("phrasalAddInput").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") addPhrasalWordFromInput();
+LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  document.getElementById(config.btnId).addEventListener("click", ()=> addLanguageBankEntryFromInput(categoryKey));
+  document.getElementById(config.inputId).addEventListener("keydown", (e)=>{
+    if(e.key === "Enter") addLanguageBankEntryFromInput(categoryKey);
+  });
 });
 
 // Auto-reconnect if this device was already connected before. Only
@@ -28111,6 +29170,9 @@ renderRuleEntry(mistakeData[0], document.getElementById("mistakeEntry"), "Senten
 renderRuleEntry(qaData[0], document.getElementById("qaEntry"), "Question Starter");
 renderRuleEntry(vocabData[0], document.getElementById("vocabEntry"), "Vocabulary Bank");
 renderRuleEntry(phrasalData[0], document.getElementById("phrasalEntry"), "Phrasal Verb");
+renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / Expression");
+renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence");
+renderRuleEntry(patternsData[0], document.getElementById("patternsEntry"), "Sentence Pattern");
 renderRuleEntry(upgradeData[0], document.getElementById("upgradeEntry"), "Basic → Advanced");
 renderFamily(wordFamilyData[0]);
 
@@ -28327,12 +29389,17 @@ document.addEventListener("click", (e)=>{
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
   orderData, prepVerbData, mistakeData, qaData, vocabData, upgradeData,
-  phrasalData, wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
+  phrasalData, idiomsData, sentencesData, patternsData,
+  wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
   addPhrasalEntry, phrasalCacheRestorePromise,
+  addIdiomEntry, idiomsCacheRestorePromise,
+  addSentenceEntry, sentencesCacheRestorePromise,
+  addPatternEntry, patternsCacheRestorePromise,
+  addLanguageBankEntry, activateLangBankCategory,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
