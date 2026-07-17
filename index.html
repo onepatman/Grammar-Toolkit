@@ -649,7 +649,18 @@
 
     <div class="quick-add-box sync-box owner-only" id="syncBox">
       <div class="section-label">Sync across devices</div>
-      <p class="note" style="margin-bottom:8px;">Enter the same code on your phone and laptop to keep this log in sync between them.</p>
+      <p class="note" style="margin-bottom:8px;">Enter the same code on your phone and laptop to keep this log in sync between them. Anyone with the code can view the synced log; only the signed-in owner's changes are actually saved to it — enforced by the server, not just this device.</p>
+
+      <div id="syncOwnerAuthStatus" class="add-status"></div>
+      <div id="syncSignInForm">
+        <input type="email" id="syncOwnerEmailInput" placeholder="Owner email" autocomplete="off">
+        <input type="password" id="syncOwnerPasswordInput" placeholder="Owner password" autocomplete="off">
+        <button id="syncSignInBtn" class="add-btn">Sign in as owner</button>
+      </div>
+      <div id="syncSignedInPanel" style="display:none;">
+        <button id="syncSignOutBtn" class="add-btn">Sign out</button>
+      </div>
+
       <input type="text" id="syncCodeInput" placeholder="Create or enter your sync code" autocomplete="off">
       <button id="syncConnectBtn" class="add-btn">Connect</button>
       <div id="syncStatus" class="add-status"></div>
@@ -732,6 +743,7 @@
 <script src="js/fuzzy-search.js"></script>
 <script src="js/vocab-cache.js"></script>
 <script src="js/owner-mode.js"></script>
+<script src="js/sync-auth.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -27460,7 +27472,7 @@ function resetQuickAddForm(){
   document.getElementById("qaCancelEditBtn").classList.remove("show");
 }
 
-document.getElementById("qaAddBtn").addEventListener("click", ()=>{
+document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
   if(!OwnerMode.isOwnerModeUnlocked()) return;
   const wrongEl = document.getElementById("qaWrongInput");
   const rightEl = document.getElementById("qaRightInput");
@@ -27478,7 +27490,9 @@ document.getElementById("qaAddBtn").addEventListener("click", ()=>{
   }
 
   const editingId = addBtn.dataset.editingId;
-  const saved = loadPersonalCorrections();
+  const previousSaved = loadPersonalCorrections();
+  const saved = previousSaved.map(s => ({...s}));
+  let statusText, statusOk;
 
   if(editingId){
     const entry = saved.find(s => s.id === editingId);
@@ -27488,18 +27502,34 @@ document.getElementById("qaAddBtn").addEventListener("click", ()=>{
       entry.why = why;
     }
     savePersonalCorrections(saved);
-    pushToSync(saved);
-    statusEl.textContent = "Updated!";
-    statusEl.className = "add-status success";
+    statusText = "Updated!";
+    statusOk = true;
   } else {
     saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why });
-    const ok = savePersonalCorrections(saved);
-    pushToSync(saved);
-    statusEl.textContent = ok
+    const localOk = savePersonalCorrections(saved);
+    statusText = localOk
       ? "Saved! This entry is now permanent in this file — check the dropdown above."
       : "Added for this session, but your browser blocked permanent saving.";
-    statusEl.className = ok ? "add-status success" : "add-status error";
+    statusOk = localOk;
   }
+
+  // Only actually reaches Firestore when sync is connected — otherwise
+  // this resolves {ok:true, skipped:true} immediately, same as before.
+  const pushResult = await pushToSync(saved);
+  if(!pushResult.ok){
+    // The shared log rejected this write (not signed in as the real
+    // owner) — roll the local copy back so it never silently drifts
+    // from what's actually saved to the shared log.
+    savePersonalCorrections(previousSaved);
+    rebuildCorrectionLog();
+    refreshMistakeUI();
+    statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  statusEl.textContent = statusText;
+  statusEl.className = statusOk ? "add-status success" : "add-status error";
 
   rebuildCorrectionLog();
   refreshMistakeUI();
@@ -27521,7 +27551,7 @@ document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
   document.getElementById("qaAddStatus").className = "add-status";
 });
 
-document.addEventListener("click", (e)=>{
+document.addEventListener("click", async (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
   if(editBtn){
     if(!OwnerMode.isOwnerModeUnlocked()) return;
@@ -27550,15 +27580,26 @@ document.addEventListener("click", (e)=>{
     const id = delBtn.dataset.id;
     const confirmed = window.confirm ? window.confirm("Delete this correction from your log? This can't be undone.") : true;
     if(!confirmed) return;
-    let saved = loadPersonalCorrections();
-    saved = saved.filter(s => s.id !== id);
+    const previousSaved = loadPersonalCorrections();
+    const saved = previousSaved.filter(s => s.id !== id);
     savePersonalCorrections(saved);
-    pushToSync(saved);
+
+    const statusEl = document.getElementById("qaAddStatus");
+    const pushResult = await pushToSync(saved);
+    if(!pushResult.ok){
+      savePersonalCorrections(previousSaved);
+      rebuildCorrectionLog();
+      refreshMistakeUI();
+      statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
+      statusEl.className = "add-status error";
+      return;
+    }
+
     rebuildCorrectionLog();
     refreshMistakeUI();
     resetQuickAddForm();
-    document.getElementById("qaAddStatus").textContent = "Deleted.";
-    document.getElementById("qaAddStatus").className = "add-status success";
+    statusEl.textContent = "Deleted.";
+    statusEl.className = "add-status success";
     return;
   }
 });
@@ -27633,14 +27674,22 @@ function listenToSync(code){
   syncEnabled = true;
 }
 
+// Resolves to {ok:true} on a successful write, or {ok:false, error} on
+// any failure — most importantly a Firestore permission-denied when
+// the signed-in user isn't the owner (see firestore.rules). Never
+// throws, so every caller can `await` it and decide what "the shared
+// log didn't accept this change" means for its own UI/rollback.
 function pushToSync(entries){
-  if(!syncEnabled || !firestoreDb) return;
+  if(!syncEnabled || !firestoreDb) return Promise.resolve({ok:true, skipped:true});
   const code = localStorage.getItem(SYNC_CODE_KEY);
-  if(!code) return;
-  firestoreDb.collection("syncedLogs").doc(code).set({
+  if(!code) return Promise.resolve({ok:true, skipped:true});
+  return firestoreDb.collection("syncedLogs").doc(code).set({
     entries: entries,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).catch((e)=> console.warn("Sync push failed:", e));
+  }).then(()=> ({ok:true})).catch((e)=>{
+    console.warn("Sync push failed:", e);
+    return {ok:false, error:e};
+  });
 }
 
 async function connectSync(rawCode){
@@ -27663,19 +27712,28 @@ async function connectSync(rawCode){
       await firebase.auth().signInAnonymously();
     }
     localStorage.setItem(SYNC_CODE_KEY, code);
+    updateSyncAuthUI();
 
     // If this sync code has never been used before, seed the cloud copy
     // with whatever's already saved on THIS device, so nothing gets lost.
     // (Without this, the first connection would overwrite local entries
-    // with an empty cloud record.)
+    // with an empty cloud record.) Only the owner's sign-in can actually
+    // create it — firestore.rules rejects the write from anyone else,
+    // which is fine: they just start watching instead (an empty log
+    // until the real owner connects and seeds it, or whatever's already
+    // there if the owner has already connected once).
     const docRef = firestoreDb.collection("syncedLogs").doc(code);
     const snapshot = await docRef.get();
     if(!snapshot.exists){
       const localEntries = loadPersonalCorrections();
-      await docRef.set({
-        entries: localEntries,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      try{
+        await docRef.set({
+          entries: localEntries,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }catch(seedError){
+        if(seedError.code !== "permission-denied") throw seedError;
+      }
     }
 
     listenToSync(code);
@@ -27686,6 +27744,82 @@ async function connectSync(rawCode){
     statusEl.className = "add-status error";
   }
 }
+
+/* Owner sign-in for sync — a REAL, server-verifiable identity (Firebase
+   Email/Password auth), layered on top of the local owner-mode PIN.
+   The PIN controls what's visible/clickable on THIS device; this
+   controls whether the SHARED log in Firestore actually accepts a
+   write, per firestore.rules. Anyone can still connect and watch a
+   synced log without signing in here — they just can't save to it. */
+function updateSyncAuthUI(){
+  const statusEl = document.getElementById("syncOwnerAuthStatus");
+  const signInForm = document.getElementById("syncSignInForm");
+  const signedInPanel = document.getElementById("syncSignedInPanel");
+  if(!statusEl) return;
+  const user = (typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+
+  if(SyncAuth.isOwnerAuthenticated(user)){
+    statusEl.textContent = `Signed in as ${user.email} — if this is the owner account, your changes will save to the shared log.`;
+    statusEl.className = "add-status success";
+    signInForm.style.display = "none";
+    signedInPanel.style.display = "block";
+  } else {
+    statusEl.textContent = "Not signed in as owner — you can still connect below to view a synced log, but your changes won't be saved to it unless you sign in here first.";
+    statusEl.className = "add-status";
+    signInForm.style.display = "block";
+    signedInPanel.style.display = "none";
+  }
+}
+
+async function signInAsOwner(email, password){
+  const statusEl = document.getElementById("syncOwnerAuthStatus");
+  const trimmedEmail = (email || "").trim();
+  if(!trimmedEmail || !password){
+    statusEl.textContent = "Enter both an email and a password.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(!initFirebaseIfConfigured()){
+    statusEl.textContent = "Sync isn't set up yet on this toolkit — the Firebase config is still a placeholder.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  statusEl.textContent = "Signing in…";
+  statusEl.className = "add-status";
+  try{
+    await firebase.auth().signInWithEmailAndPassword(trimmedEmail, password);
+    updateSyncAuthUI();
+    const code = localStorage.getItem(SYNC_CODE_KEY);
+    if(code) listenToSync(code);
+  }catch(e){
+    statusEl.textContent = SyncAuth.friendlySignInError(e);
+    statusEl.className = "add-status error";
+  }
+}
+
+async function signOutOwner(){
+  if(typeof firebase === "undefined") return;
+  await firebase.auth().signOut();
+  try{ await firebase.auth().signInAnonymously(); }catch(e){ /* stays signed out — sync just can't read either until reconnected */ }
+  updateSyncAuthUI();
+  const code = localStorage.getItem(SYNC_CODE_KEY);
+  if(code) listenToSync(code);
+}
+
+document.getElementById("syncSignInBtn").addEventListener("click", ()=>{
+  if(!OwnerMode.isOwnerModeUnlocked()) return;
+  const email = document.getElementById("syncOwnerEmailInput").value;
+  const password = document.getElementById("syncOwnerPasswordInput").value;
+  document.getElementById("syncOwnerPasswordInput").value = "";
+  signInAsOwner(email, password);
+});
+
+document.getElementById("syncSignOutBtn").addEventListener("click", ()=>{
+  if(!OwnerMode.isOwnerModeUnlocked()) return;
+  signOutOwner();
+});
+
+updateSyncAuthUI();
 
 document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
   if(!OwnerMode.isOwnerModeUnlocked()) return;
@@ -27795,14 +27929,20 @@ document.getElementById("phrasalAddInput").addEventListener("keydown", (e)=>{
   if(e.key === "Enter") addPhrasalWordFromInput();
 });
 
-// Auto-reconnect if this device was already connected before.
+// Auto-reconnect if this device was already connected before. Only
+// falls back to anonymous sign-in if nothing's signed in yet — so it
+// never clobbers an owner's real sign-in with an anonymous one.
 (function autoReconnectSync(){
   const savedCode = localStorage.getItem(SYNC_CODE_KEY);
   if(!savedCode) return;
   document.getElementById("syncCodeInput").value = savedCode;
   if(!initFirebaseIfConfigured()) return;
-  firebase.auth().signInAnonymously().then(()=>{
+  const signInPromise = firebase.auth().currentUser
+    ? Promise.resolve()
+    : firebase.auth().signInAnonymously();
+  signInPromise.then(()=>{
     listenToSync(savedCode);
+    updateSyncAuthUI();
     const statusEl = document.getElementById("syncStatus");
     statusEl.textContent = "Connected! Syncing as \"" + savedCode + "\".";
     statusEl.className = "add-status success";
@@ -28116,7 +28256,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
   addPhrasalEntry, phrasalCacheRestorePromise,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
-  pushSearchHistory, updateOwnerModeUI
+  pushSearchHistory, updateOwnerModeUI,
+  connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
+  updateSyncAuthUI, signInAsOwner, signOutOwner
 };
 </script>
 <script>

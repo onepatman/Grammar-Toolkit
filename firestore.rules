@@ -1,0 +1,71 @@
+// Firestore Security Rules for the Ultimate Engineering Dictionary's
+// cross-device correction-log sync.
+//
+// This is the REAL, server-enforced counterpart to the local owner PIN
+// in js/owner-mode.js. The PIN only controls what's visible/clickable in
+// a particular browser; it cannot stop someone who knows a sync code
+// from writing to the shared log directly (e.g. via dev tools), because
+// enforcing that requires a rule the *server* checks — which is exactly
+// what this file does.
+//
+// What it enforces:
+//   - READ: anyone signed in (including anonymous — used by every
+//     device that just wants to watch a synced log) can read a
+//     syncedLogs/{code} document. This matches "everyone can view
+//     corrections."
+//   - WRITE: only a request authenticated with the owner's email
+//     address, via a real (non-anonymous) sign-in with that email
+//     verified, may create or update a syncedLogs/{code} document. This
+//     matches "only the owner can add/edit/delete/import."
+//
+// ============================================================
+// DEPLOYMENT — you need to do this yourself; Claude cannot deploy to
+// your Firebase project from this environment (no console/CLI access
+// to your account). Two ways to apply this file:
+//
+//   Option A — Firebase Console (no CLI needed):
+//     1. https://console.firebase.google.com -> your project
+//        -> Firestore Database -> Rules tab.
+//     2. Paste the contents of the `service cloud.firestore { ... }`
+//        block below (everything from "rules_version" down), replacing
+//        whatever's there now.
+//     3. Replace OWNER_EMAIL_PLACEHOLDER below with the real email
+//        address you'll sign in with as the owner (see step 2 of the
+//        app setup below) — do this in the Console editor, then click
+//        Publish.
+//
+//   Option B — Firebase CLI (if you have it installed & logged in):
+//     firebase deploy --only firestore:rules
+//     (uses firebase.json in this repo, which points at this file —
+//     edit OWNER_EMAIL_PLACEHOLDER here first, then deploy.)
+//
+// You also need to turn on Email/Password sign-in (it's off by
+// default) and create the one owner account:
+//   1. Firebase Console -> Authentication -> Sign-in method
+//      -> enable "Email/Password".
+//   2. Authentication -> Users -> Add user -> enter the same email you
+//      put in OWNER_EMAIL_PLACEHOLDER above, and a password only you
+//      know. That's your owner login for the app's new "Sign in as
+//      owner" box in the Sync panel.
+//   3. Still on that user in the Console, there's no explicit "verify
+//      email" toggle for console-created users — they're created
+//      pre-verified, so email_verified is already true. If you ever
+//      invite the owner account via a sign-up flow instead, make sure
+//      to verify that email, since the rule below requires it.
+// ============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /syncedLogs/{code} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.token.email == "OWNER_EMAIL_PLACEHOLDER"
+                   && request.auth.token.email_verified == true;
+    }
+
+    // Everything else stays closed by default — Firestore denies
+    // anything not explicitly allowed above, so no other collection is
+    // reachable even if the client ever tries.
+  }
+}
