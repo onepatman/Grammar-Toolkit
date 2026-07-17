@@ -198,6 +198,10 @@
     });
   }
 
+  function deleteEntry(storeName, word, options) {
+    return storeDelete(storeName, normalizeKey(word), options);
+  }
+
   /* ---------- vocabEntries (the offline Vocabulary Bank extension) ---------- */
 
   function get(word, options) {
@@ -240,18 +244,22 @@
   function getPhrasal(word, options) { return getEntry(PHRASAL_STORE, word, options); }
   function putPhrasal(entry, options) { return putEntry(PHRASAL_STORE, entry, options); }
   function getAllPhrasal(options) { return getAllEntries(PHRASAL_STORE, options); }
+  function deletePhrasal(word, options) { return deleteEntry(PHRASAL_STORE, word, options); }
 
   function getIdiom(word, options) { return getEntry(IDIOMS_STORE, word, options); }
   function putIdiom(entry, options) { return putEntry(IDIOMS_STORE, entry, options); }
   function getAllIdioms(options) { return getAllEntries(IDIOMS_STORE, options); }
+  function deleteIdiom(word, options) { return deleteEntry(IDIOMS_STORE, word, options); }
 
   function getSentence(word, options) { return getEntry(SENTENCES_STORE, word, options); }
   function putSentence(entry, options) { return putEntry(SENTENCES_STORE, entry, options); }
   function getAllSentences(options) { return getAllEntries(SENTENCES_STORE, options); }
+  function deleteSentence(word, options) { return deleteEntry(SENTENCES_STORE, word, options); }
 
   function getPattern(word, options) { return getEntry(PATTERNS_STORE, word, options); }
   function putPattern(entry, options) { return putEntry(PATTERNS_STORE, entry, options); }
   function getAllPatterns(options) { return getAllEntries(PATTERNS_STORE, options); }
+  function deletePattern(word, options) { return deleteEntry(PATTERNS_STORE, word, options); }
 
   /* ---------- favorites ---------- */
 
@@ -352,18 +360,23 @@
     getEntry: getEntry,
     putEntry: putEntry,
     getAllEntries: getAllEntries,
+    deleteEntry: deleteEntry,
     getPhrasal: getPhrasal,
     putPhrasal: putPhrasal,
     getAllPhrasal: getAllPhrasal,
+    deletePhrasal: deletePhrasal,
     getIdiom: getIdiom,
     putIdiom: putIdiom,
     getAllIdioms: getAllIdioms,
+    deleteIdiom: deleteIdiom,
     getSentence: getSentence,
     putSentence: putSentence,
     getAllSentences: getAllSentences,
+    deleteSentence: deleteSentence,
     getPattern: getPattern,
     putPattern: putPattern,
     getAllPatterns: getAllPatterns,
+    deletePattern: deletePattern,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,
