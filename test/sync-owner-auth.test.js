@@ -424,3 +424,63 @@ describe("a real owner sign-in unlocks admin controls on a device with NO local 
     expect(document.getElementById("phrasalAddStatus").className).toContain("error");
   });
 });
+
+// Regression test for a critical bug that broke the live site: on a
+// completely ordinary page load — nobody has connected sync or signed
+// in yet — Firebase is loaded but firebase.initializeApp() has not run.
+// The real Firebase SDK throws if firebase.auth() is called in that
+// state ("No Firebase App '[DEFAULT]' has been created"). Two functions
+// called unconditionally at page-init time (isDeviceUnlocked,
+// updateSyncAuthUI) used to call firebase.auth() without checking for
+// this, which crashed and aborted the rest of the inline script's
+// execution — silently breaking every click handler defined afterward:
+// Add to my correction log, Look up & add (phrasal), Connect, Sign in
+// as owner, all of it. fake-firebase.js now throws in this exact
+// situation (matching the real SDK) specifically so this can't regress
+// without a test catching it immediately.
+describe("regression: an ordinary page load must survive Firebase being loaded but not yet initialized", () => {
+  it("loads cleanly and wires up every click handler with no sync action ever taken", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    // If isDeviceUnlocked()/updateSyncAuthUI() crashed on page load (the
+    // bug), the test-hooks object itself would never get assigned, and
+    // none of the buttons below would have a click listener attached.
+    expect(hooks).toBeTruthy();
+    expect(document.getElementById("ownerSetPinBtn")).toBeTruthy();
+
+    document.getElementById("ownerNewPinInput").value = "1234";
+    document.getElementById("ownerSetPinBtn").click();
+    await wait(30);
+    expect(document.getElementById("ownerLockBtn").style.display).not.toBe("none");
+
+    document.getElementById("qaWrongInput").value = "He go";
+    document.getElementById("qaRightInput").value = "He goes";
+    document.getElementById("qaAddBtn").click();
+    await wait(30);
+    expect(hooks.loadPersonalCorrections()).toHaveLength(1);
+
+    document.getElementById("phrasalAddInput").value = "wind down";
+    document.getElementById("phrasalAddBtn").click();
+    await wait(30);
+    // The click handler ran at all (as opposed to never being attached,
+    // the bug) — whether the lookup itself succeeds or not depends on
+    // network, which isn't the point of this test.
+    expect(document.getElementById("phrasalAddStatus").textContent).not.toBe("");
+  });
+
+  it("isDeviceUnlocked() itself never throws before any Firebase app has been initialized", async () => {
+    const firebase = makeFirebase();
+    const { hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    expect(() => hooks.isDeviceUnlocked()).not.toThrow();
+    expect(hooks.isDeviceUnlocked()).toBe(false);
+  });
+
+  it("getCurrentFirebaseUser() resolves to null instead of throwing before initializeApp has run", async () => {
+    const firebase = makeFirebase();
+    const { hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    expect(() => hooks.getCurrentFirebaseUser()).not.toThrow();
+    expect(hooks.getCurrentFirebaseUser()).toBeNull();
+  });
+});
