@@ -41,7 +41,11 @@ describe("online lookup runs even when a partial local match exists", () => {
     const resultsText = document.getElementById("searchResults").textContent;
     expect(resultsText).toContain("express");
     expect(resultsText).toContain("press");
-    expect(resultsText).toContain("Online dictionary");
+    // The online result is adopted into the Vocabulary Bank immediately
+    // (see test/vocab-cache-integration.test.js) — no separate "Online
+    // dictionary" label, indistinguishable from a local match.
+    expect(resultsText).not.toContain("Online dictionary");
+    expect(document.getElementById("searchResults").textContent).toContain("Vocabulary Bank");
   });
 
   it("leaves local matches in place if the online augment finds nothing", async () => {
