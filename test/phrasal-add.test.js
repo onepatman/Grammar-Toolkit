@@ -206,3 +206,87 @@ describe("addPhrasalEntry deduplication and richer-data updates", () => {
     expect(builtin.senses[0].use).not.toBe("fabricated");
   });
 });
+
+// Regression coverage for: "the lookup can't find most idioms/sentences,
+// don't leave the entry unusable." Phrasal Verbs requires an actual
+// meaning before saving (it's a dictionary-style category), unlike
+// Useful Sentences/Sentence Patterns which allow an "Add without notes"
+// skip — see test/language-bank.test.js for that side of the split.
+describe("manual completion when no online source has the phrase", () => {
+  it("shows the manual-entry box instead of refusing outright", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubFetch(window, null);
+
+    document.getElementById("phrasalAddInput").value = "zzznotaphrase";
+    document.getElementById("phrasalAddBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(document.getElementById("phrasalManualBox").style.display).not.toBe("none");
+    expect(document.getElementById("phrasalManualWord").textContent).toBe("zzznotaphrase");
+    expect(hooks.languageBankPendingManual.phrasal).toBe("zzznotaphrase");
+  });
+
+  it("saves with a manually-typed meaning and optional example when Save is clicked", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubFetch(window, null);
+
+    document.getElementById("phrasalAddInput").value = "zonk out";
+    document.getElementById("phrasalAddBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    document.getElementById("phrasalManualUse").value = "(verb) To fall asleep very suddenly.";
+    document.getElementById("phrasalManualExample").value = "He zonked out right after dinner.";
+    document.getElementById("phrasalManualSaveBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(document.getElementById("phrasalAddStatus").className).toContain("success");
+    const added = hooks.phrasalData.find((p) => p.w === "zonk out");
+    expect(added.senses[0]).toEqual({
+      use: "(verb) To fall asleep very suddenly.",
+      examples: ["He zonked out right after dinner."]
+    });
+    expect(document.getElementById("phrasalManualBox").style.display).toBe("none");
+  });
+
+  it("refuses to save with a blank meaning — a phrasal verb entry needs an actual definition", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubFetch(window, null);
+
+    document.getElementById("phrasalAddInput").value = "zzznotaphrase";
+    document.getElementById("phrasalAddBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    document.getElementById("phrasalManualSaveBtn").click();
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(document.getElementById("phrasalAddStatus").className).toContain("error");
+    expect(hooks.phrasalData.some((p) => p.w === "zzznotaphrase")).toBe(false);
+    expect(document.getElementById("phrasalManualBox").style.display).not.toBe("none");
+  });
+
+  it("Cancel hides the manual box without adding anything", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubFetch(window, null);
+
+    document.getElementById("phrasalAddInput").value = "zzznotaphrase";
+    document.getElementById("phrasalAddBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    document.getElementById("phrasalManualCancelBtn").click();
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(document.getElementById("phrasalManualBox").style.display).toBe("none");
+    expect(document.getElementById("phrasalAddStatus").textContent).toContain("Cancelled");
+    expect(hooks.phrasalData.some((p) => p.w === "zzznotaphrase")).toBe(false);
+  });
+
+  it("has no 'Add without notes' skip button for Phrasal Verbs — a blank dictionary entry isn't useful", () => {
+    return loadApp().then(({ window }) => {
+      expect(window.document.getElementById("phrasalManualSkipBtn")).toBeNull();
+    });
+  });
+});

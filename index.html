@@ -355,19 +355,28 @@
   .quick-add-box.sync-box{
     border:1.5px dashed var(--teal);
   }
-  .quick-add-box input{
+  .quick-add-box input, .quick-add-box textarea{
     width:100%; box-sizing:border-box; margin-bottom:8px;
     border:1.5px solid var(--rule); border-radius:8px; padding:9px 12px;
     font-family:'IBM Plex Sans', sans-serif; font-size:13.5px; color:var(--ink);
-    background:var(--paper);
+    background:var(--paper); resize:vertical;
   }
-  .quick-add-box input:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .quick-add-box input:focus, .quick-add-box textarea:focus{ outline:2px solid var(--gold); outline-offset:1px; }
   .add-btn{
     width:100%; border:none; border-radius:8px; padding:10px 12px;
     background:var(--teal-deep); color:#fff; font-weight:600; font-size:13.5px;
     cursor:pointer; font-family:'IBM Plex Sans', sans-serif;
   }
   .add-btn:active{ background:var(--teal); }
+  .add-btn.secondary{
+    background:var(--paper); color:var(--teal-deep); border:1.5px solid var(--teal-deep);
+  }
+  .add-btn.secondary:active{ background:#E4F1E9; }
+  .manual-entry-box{
+    margin-top:12px; padding-top:12px; border-top:1.5px dashed var(--rule);
+  }
+  .manual-entry-box .add-btn{ margin-top:8px; }
+  .manual-entry-box .add-btn:first-of-type{ margin-top:0; }
   .add-status{
     margin-top:8px; font-size:12.5px; font-weight:600; min-height:16px;
   }
@@ -745,6 +754,14 @@
         <input type="text" id="phrasalAddInput" placeholder="Phrasal verb (e.g. give up)" autocomplete="off">
         <button id="phrasalAddBtn" class="add-btn">+ Look up &amp; add</button>
         <div id="phrasalAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="phrasalManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">No online definition was found for "<strong id="phrasalManualWord"></strong>". Add your own meaning so this entry isn't left unusable:</p>
+          <textarea id="phrasalManualUse" placeholder='Meaning / rule &amp; usage (e.g. "(verb) To stop doing something.")' rows="2"></textarea>
+          <input type="text" id="phrasalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="phrasalManualSaveBtn" class="add-btn">Save with my notes</button>
+          <button id="phrasalManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -766,6 +783,14 @@
         <input type="text" id="idiomsAddInput" placeholder='Idiom or expression (e.g. "break the ice")' autocomplete="off">
         <button id="idiomsAddBtn" class="add-btn">+ Look up &amp; add</button>
         <div id="idiomsAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="idiomsManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">No online definition was found for "<strong id="idiomsManualWord"></strong>". Add your own meaning so this entry isn't left unusable:</p>
+          <textarea id="idiomsManualUse" placeholder='Meaning / explanation (e.g. "Used to ease tension when meeting someone new.")' rows="2"></textarea>
+          <input type="text" id="idiomsManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="idiomsManualSaveBtn" class="add-btn">Save with my notes</button>
+          <button id="idiomsManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -783,10 +808,18 @@
 
       <div class="quick-add-box owner-only" id="sentencesAddBox">
         <div class="section-label">Add a useful sentence</div>
-        <p class="note" style="margin-bottom:8px;">Type a useful sentence (e.g. "Could you please clarify what you mean?") and we'll try to find an explanation online for when/how it's used. Useful sentences don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, the sentence is still added — you can always add a note yourself later.</p>
+        <p class="note" style="margin-bottom:8px;">Type a useful sentence (e.g. "Could you please clarify what you mean?") and we'll try to find an explanation online for when/how it's used. Useful sentences don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save the sentence as-is.</p>
         <input type="text" id="sentencesAddInput" placeholder='A useful sentence (e.g. "Could you pass the salt?")' autocomplete="off">
         <button id="sentencesAddBtn" class="add-btn">+ Look up &amp; add</button>
         <div id="sentencesAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="sentencesManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">No online explanation was found for "<strong id="sentencesManualWord"></strong>". Add your own note, or just save it as-is:</p>
+          <textarea id="sentencesManualUse" placeholder="When/how it's used (optional)" rows="2"></textarea>
+          <button id="sentencesManualSaveBtn" class="add-btn">Save with my notes</button>
+          <button id="sentencesManualSkipBtn" class="add-btn secondary">Add without notes</button>
+          <button id="sentencesManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -804,10 +837,18 @@
 
       <div class="quick-add-box owner-only" id="patternsAddBox">
         <div class="section-label">Add a sentence pattern</div>
-        <p class="note" style="margin-bottom:8px;">Type a sentence pattern (e.g. "Would you mind + V-ing?") and we'll try to find an explanation online. Sentence patterns don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, the pattern is still added — you can always add a note yourself later.</p>
+        <p class="note" style="margin-bottom:8px;">Type a sentence pattern (e.g. "Would you mind + V-ing?") and we'll try to find an explanation online. Sentence patterns don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save the pattern as-is.</p>
         <input type="text" id="patternsAddInput" placeholder='A sentence pattern (e.g. "Would you mind + V-ing?")' autocomplete="off">
         <button id="patternsAddBtn" class="add-btn">+ Look up &amp; add</button>
         <div id="patternsAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="patternsManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">No online explanation was found for "<strong id="patternsManualWord"></strong>". Add your own note, or just save it as-is:</p>
+          <textarea id="patternsManualUse" placeholder="When/how it's used (optional)" rows="2"></textarea>
+          <button id="patternsManualSaveBtn" class="add-btn">Save with my notes</button>
+          <button id="patternsManualSkipBtn" class="add-btn secondary">Add without notes</button>
+          <button id="patternsManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
       </div>
     </div>
   </section>
@@ -28268,44 +28309,64 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
   activateLangBankCategory(btn.dataset.val);
 });
 
-// requireOnlineMatch: true means the same rule the original Phrasal
-// Words quick-add always used — refuse to add if no online source has
-// it, since a phrasal verb or idiom that can't be found is very likely
-// just a typo. false (Useful Sentences, Sentence Patterns) means add it
-// anyway when nothing's found online — a full sentence or a grammar
-// pattern usually ISN'T a dictionary headword at all, so requiring an
-// online match would make those two categories nearly impossible to
-// use for their actual purpose (capturing YOUR OWN sentence/pattern).
+// requireExplanation: true (Phrasal Verbs, Idioms & Expressions) means
+// a manually-typed meaning is REQUIRED before the entry can be saved
+// when no online source has it — a dictionary-style entry with no
+// meaning at all isn't useful. false (Useful Sentences, Sentence
+// Patterns) means the manual note is optional, since the sentence/
+// pattern text itself is already self-explanatory content — those
+// categories also offer an "Add without notes" skip button the strict
+// ones don't. Either way, nothing is ever silently left unusable: a
+// failed online lookup always hands off to the manualBox* fields below
+// instead of refusing outright or adding a blank entry with no user
+// choice in the matter.
 const LANGUAGE_BANK_CONFIG = {
   phrasal: {
     data: phrasalData, selectId: "phrasalSelect", entryId: "phrasalEntry", tagLabel: "Phrasal Verb",
     inputId: "phrasalAddInput", btnId: "phrasalAddBtn", statusId: "phrasalAddStatus", inputNoun: "a phrasal verb",
     putFn: function(entry, opts){ return VocabCache.putPhrasal(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPhrasal(opts); },
-    requireOnlineMatch: true
+    requireExplanation: true,
+    manualBoxId: "phrasalManualBox", manualWordId: "phrasalManualWord",
+    manualUseId: "phrasalManualUse", manualExampleId: "phrasalManualExample",
+    manualSaveBtnId: "phrasalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "phrasalManualCancelBtn"
   },
   idioms: {
     data: idiomsData, selectId: "idiomsSelect", entryId: "idiomsEntry", tagLabel: "Idiom / Expression",
     inputId: "idiomsAddInput", btnId: "idiomsAddBtn", statusId: "idiomsAddStatus", inputNoun: "an idiom or expression",
     putFn: function(entry, opts){ return VocabCache.putIdiom(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllIdioms(opts); },
-    requireOnlineMatch: true
+    requireExplanation: true,
+    manualBoxId: "idiomsManualBox", manualWordId: "idiomsManualWord",
+    manualUseId: "idiomsManualUse", manualExampleId: "idiomsManualExample",
+    manualSaveBtnId: "idiomsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "idiomsManualCancelBtn"
   },
   sentences: {
     data: sentencesData, selectId: "sentencesSelect", entryId: "sentencesEntry", tagLabel: "Useful Sentence",
     inputId: "sentencesAddInput", btnId: "sentencesAddBtn", statusId: "sentencesAddStatus", inputNoun: "a useful sentence",
     putFn: function(entry, opts){ return VocabCache.putSentence(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllSentences(opts); },
-    requireOnlineMatch: false
+    requireExplanation: false,
+    manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord",
+    manualUseId: "sentencesManualUse", manualExampleId: null,
+    manualSaveBtnId: "sentencesManualSaveBtn", manualSkipBtnId: "sentencesManualSkipBtn", manualCancelBtnId: "sentencesManualCancelBtn"
   },
   patterns: {
     data: patternsData, selectId: "patternsSelect", entryId: "patternsEntry", tagLabel: "Sentence Pattern",
     inputId: "patternsAddInput", btnId: "patternsAddBtn", statusId: "patternsAddStatus", inputNoun: "a sentence pattern",
     putFn: function(entry, opts){ return VocabCache.putPattern(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPatterns(opts); },
-    requireOnlineMatch: false
+    requireExplanation: false,
+    manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord",
+    manualUseId: "patternsManualUse", manualExampleId: null,
+    manualSaveBtnId: "patternsManualSaveBtn", manualSkipBtnId: "patternsManualSkipBtn", manualCancelBtnId: "patternsManualCancelBtn"
   }
 };
+
+// Tracks the phrase awaiting manual completion per category, between
+// "lookup failed, manual box shown" and "user clicked Save/Skip/Cancel"
+// — keyed by categoryKey, cleared whenever the box is hidden.
+const languageBankPendingManual = {};
 
 function addLanguageBankEntry(categoryKey, entry, options){
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
@@ -29045,9 +29106,54 @@ document.getElementById("packImportInput").addEventListener("change", (e)=>{
    result for both is exactly the right behavior, not a bug). */
 const languageBankLookupCache = OnlineLookup.createMemoryCache();
 
+// Shared "actually commit the entry" tail — used whether the entry came
+// from a successful online lookup, a manually-typed explanation, or the
+// no-notes skip path, so the persist/sync/status/navigate logic exists
+// in exactly one place instead of 3 near-copies of it.
+async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote){
+  const item = addLanguageBankEntry(categoryKey, entry, {persist:true});
+
+  // Unlike the correction log, a Language Bank entry that fails to
+  // reach the shared doc is NOT rolled back locally — there's no
+  // "conflicting shared list" to drift from here (every entry is its
+  // own independent dictionary item, not one slot in a single
+  // replaceable list), so keeping it on this device and offline is
+  // strictly better than discarding something the owner just typed.
+  // Only actually reaches Firestore when sync is connected — otherwise
+  // this resolves {ok:true, skipped:true} immediately, same as corrections.
+  const pushResult = await pushToSync(loadPersonalCorrections());
+  if(!pushResult.ok){
+    statusEl.textContent = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}`;
+    statusEl.className = "add-status error";
+  } else {
+    statusEl.textContent = successNote;
+    statusEl.className = "add-status success";
+  }
+  pushSearchHistory(item);
+  item.action();
+  window.scrollTo({top:0, behavior:"smooth"});
+  return item;
+}
+
+function showLanguageBankManualBox(categoryKey, text){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  languageBankPendingManual[categoryKey] = text;
+  document.getElementById(config.manualWordId).textContent = text;
+  document.getElementById(config.manualBoxId).style.display = "";
+}
+
+function hideLanguageBankManualBox(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  delete languageBankPendingManual[categoryKey];
+  document.getElementById(config.manualBoxId).style.display = "none";
+  document.getElementById(config.manualUseId).value = "";
+  if(config.manualExampleId) document.getElementById(config.manualExampleId).value = "";
+}
+
 async function addLanguageBankEntryFromInput(categoryKey){
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   const statusEl = document.getElementById(config.statusId);
+  hideLanguageBankManualBox(categoryKey);
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
@@ -29085,46 +29191,79 @@ async function addLanguageBankEntryFromInput(categoryKey){
 
   addBtn.disabled = false;
 
-  let entry = result;
-  if(!entry){
-    if(config.requireOnlineMatch){
-      statusEl.textContent = `Couldn't find "${text}" online. Check the spelling, or try again once you're connected to the internet.`;
-      statusEl.className = "add-status error";
-      return;
-    }
-    // Useful Sentences and Sentence Patterns usually aren't dictionary
-    // headwords at all — a full sentence essentially never matches an
-    // online dictionary. Add it anyway with just the text itself
-    // rather than blocking on a lookup that was never going to
-    // succeed; that's the whole point of these two categories.
-    entry = { w: text, senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
+  if(!result){
+    // Nothing found from any of the online sources (dictionary API,
+    // direct Wiktionary title, or a Wiktionary search-based match) —
+    // hand off to manual completion instead of refusing outright or
+    // silently adding a blank entry with no choice in the matter.
+    statusEl.textContent = `Couldn't find "${text}" online. Add your own explanation below, or cancel.`;
+    statusEl.className = "add-status";
+    showLanguageBankManualBox(categoryKey, text);
+    return;
   }
 
-  const item = addLanguageBankEntry(categoryKey, entry, {persist:true});
   input.value = "";
+  await finalizeLanguageBankAdd(categoryKey, result, statusEl, `Added "${result.w}" — now searchable and available offline.`);
+}
 
-  // Unlike the correction log, a Language Bank entry that fails to
-  // reach the shared doc is NOT rolled back locally — there's no
-  // "conflicting shared list" to drift from here (every entry is its
-  // own independent dictionary item, not one slot in a single
-  // replaceable list), so keeping it on this device and offline is
-  // strictly better than discarding something the owner just typed.
-  // Only actually reaches Firestore when sync is connected — otherwise
-  // this resolves {ok:true, skipped:true} immediately, same as corrections.
-  const pushResult = await pushToSync(loadPersonalCorrections());
-  const addedText = result
-    ? `Added "${entry.w}" — now searchable and available offline.`
-    : `Added "${entry.w}" — no online definition was found for it, so it was saved with just the text you entered.`;
-  if(!pushResult.ok){
-    statusEl.textContent = `${addedText} ${SyncAuth.friendlyWriteError(pushResult.error)}`;
+async function saveLanguageBankManualEntry(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const statusEl = document.getElementById(config.statusId);
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
-  } else {
-    statusEl.textContent = addedText;
-    statusEl.className = "add-status success";
+    return;
   }
-  pushSearchHistory(item);
-  item.action();
-  window.scrollTo({top:0, behavior:"smooth"});
+  const text = languageBankPendingManual[categoryKey];
+  if(!text) return; // manual box shouldn't be actionable without a pending word
+
+  const useText = document.getElementById(config.manualUseId).value.trim();
+  if(config.requireExplanation && !useText){
+    statusEl.textContent = "Please enter a meaning or explanation, or Cancel to try a different word.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const exampleText = config.manualExampleId ? document.getElementById(config.manualExampleId).value.trim() : "";
+  const entry = {
+    w: text,
+    senses: useText ? [{ use: useText, examples: exampleText ? [exampleText] : [] }] : [],
+    syn: [], ant: [], mistake: null, tagalog: null,
+    // "online" here really means "user-added, not a hardcoded seed
+    // entry" — the same label the automatic lookup path uses, so a
+    // manually-typed entry gets exactly the same treatment for
+    // dedupe/richer-entry checks and cross-device sync eligibility.
+    source: "online"
+  };
+
+  document.getElementById(config.inputId).value = "";
+  hideLanguageBankManualBox(categoryKey);
+  await finalizeLanguageBankAdd(categoryKey, entry, statusEl, `Added "${entry.w}" with your own notes — now searchable and available offline.`);
+}
+
+async function skipLanguageBankManualEntry(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const statusEl = document.getElementById(config.statusId);
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = languageBankPendingManual[categoryKey];
+  if(!text) return;
+
+  const entry = { w: text, senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
+
+  document.getElementById(config.inputId).value = "";
+  hideLanguageBankManualBox(categoryKey);
+  await finalizeLanguageBankAdd(categoryKey, entry, statusEl, `Added "${entry.w}" — no online definition was found for it, so it was saved with just the text you entered.`);
+}
+
+function cancelLanguageBankManualEntry(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  hideLanguageBankManualBox(categoryKey);
+  document.getElementById(config.statusId).textContent = "Cancelled — nothing was added.";
+  document.getElementById(config.statusId).className = "add-status";
 }
 
 LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
@@ -29133,6 +29272,11 @@ LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   document.getElementById(config.inputId).addEventListener("keydown", (e)=>{
     if(e.key === "Enter") addLanguageBankEntryFromInput(categoryKey);
   });
+  document.getElementById(config.manualSaveBtnId).addEventListener("click", ()=> saveLanguageBankManualEntry(categoryKey));
+  document.getElementById(config.manualCancelBtnId).addEventListener("click", ()=> cancelLanguageBankManualEntry(categoryKey));
+  if(config.manualSkipBtnId){
+    document.getElementById(config.manualSkipBtnId).addEventListener("click", ()=> skipLanguageBankManualEntry(categoryKey));
+  }
 });
 
 // Auto-reconnect if this device was already connected before. Only
@@ -29474,7 +29618,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
   getCurrentFirebaseUser, collectOnlineLanguageBankEntries,
-  applyRemoteLanguageBank, addLanguageBankEntryFromInput
+  applyRemoteLanguageBank, addLanguageBankEntryFromInput,
+  saveLanguageBankManualEntry, skipLanguageBankManualEntry,
+  cancelLanguageBankManualEntry, languageBankPendingManual
 };
 </script>
 <script>
