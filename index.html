@@ -291,11 +291,15 @@
     font-family:'Source Serif 4', serif; font-weight:700; font-size:15px;
     color:var(--gold-deep); flex:none; width:20px;
   }
-  .sense .body{ flex:1; }
+  .sense .body{ flex:1; counter-reset:ex-num; }
   .sense .body .use{ font-size:13.5px; line-height:1.5; color:var(--ink); margin-bottom:3px; }
   .sense .body .ex{
     font-size:13px; font-style:italic; color:var(--ink-soft);
     padding-left:10px; border-left:2px solid var(--rule);
+    counter-increment:ex-num;
+  }
+  .sense .body .ex::before{
+    content:counter(ex-num) ". "; font-style:normal; font-weight:600; color:var(--teal-deep);
   }
 
   .section-label{
@@ -27325,6 +27329,14 @@ document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
 document.addEventListener("click", (e)=>{
   const chip = e.target.closest(".word-chips .clickable");
   if(!chip) return;
+  // searchAndNavigate() (the fallback path below) can open the search
+  // results dropdown. Without this, the document-level "click outside
+  // the search bar closes the dropdown" listener further down (bound to
+  // the same document click) would fire right after and immediately
+  // hide it again, since a chip lives outside .search-bar — making the
+  // dropdown flash open and vanish, which looks exactly like the chip
+  // did nothing.
+  e.stopImmediatePropagation();
   const word = chip.dataset.word;
   const key = word.toLowerCase();
   const entryLabel = vocabLookup.get(key);

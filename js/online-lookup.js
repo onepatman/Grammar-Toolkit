@@ -36,6 +36,45 @@
     return DICTIONARY_API_BASE + encodeURIComponent(word);
   }
 
+  // The Free Dictionary API frequently omits an example sentence for a
+  // given definition. Rather than leave that sense with no example at
+  // all, fall back to a simple, grammatically-safe template sentence for
+  // the definition's part of speech, so every sense a user opens has at
+  // least one usable example — same goal as the local Vocabulary Bank,
+  // where every entry is hand-authored with one.
+  var FALLBACK_EXAMPLE_TEMPLATES = {
+    noun: [
+      "The team discussed the {word} during the meeting.",
+      "Understanding {word} is useful in this context.",
+      "The report included a section on {word}."
+    ],
+    verb: [
+      "They decided to {word} it before the deadline.",
+      "It's important to {word} carefully in this situation.",
+      "The team plans to {word} the new system next week."
+    ],
+    adjective: [
+      "The results were considered {word}.",
+      "Everyone agreed the plan was {word}.",
+      "It turned out to be a {word} approach."
+    ],
+    adverb: [
+      "She completed the task {word}.",
+      "He explained the process {word}.",
+      "The system responded {word}."
+    ],
+    _default: [
+      "Here is an example sentence using \"{word}.\"",
+      "\"{word}\" is a word commonly used in everyday English."
+    ]
+  };
+
+  function generateFallbackExample(word, partOfSpeech, seed) {
+    var templates = FALLBACK_EXAMPLE_TEMPLATES[partOfSpeech] || FALLBACK_EXAMPLE_TEMPLATES._default;
+    var index = (typeof seed === "number" ? seed : 0) % templates.length;
+    return templates[index].replace("{word}", "<b>" + word + "</b>");
+  }
+
   // Turns the Free Dictionary API's response shape into the same
   // {w, senses:[{use, examples}], syn, ant} shape renderRuleEntry()
   // already knows how to draw — so the result is indistinguishable
@@ -46,6 +85,7 @@
     var senses = [];
     var syn = [];
     var ant = [];
+    var senseIndex = 0;
 
     json.forEach(function (entry) {
       (entry.meanings || []).forEach(function (meaning) {
@@ -54,8 +94,9 @@
           if (!def.definition) return;
           senses.push({
             use: pos + def.definition,
-            examples: def.example ? [def.example] : []
+            examples: [def.example || generateFallbackExample(entry.word || word, meaning.partOfSpeech, senseIndex)]
           });
+          senseIndex++;
           if (Array.isArray(def.synonyms)) syn = syn.concat(def.synonyms);
           if (Array.isArray(def.antonyms)) ant = ant.concat(def.antonyms);
         });
@@ -142,6 +183,7 @@
     DICTIONARY_API_BASE: DICTIONARY_API_BASE,
     buildRequestUrl: buildRequestUrl,
     normalizeDictionaryResponse: normalizeDictionaryResponse,
+    generateFallbackExample: generateFallbackExample,
     createMemoryCache: createMemoryCache,
     fetchOnlineDefinition: fetchOnlineDefinition
   };
