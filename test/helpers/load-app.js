@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM, ResourceLoader } from "jsdom";
+import { IDBFactory } from "fake-indexeddb";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -28,13 +29,25 @@ class LocalOnlyResourceLoader extends ResourceLoader {
   }
 }
 
-export async function loadApp() {
+// options.indexedDBFactory: pass the SAME IDBFactory instance across two
+// loadApp() calls to simulate "close the app, reopen it later" and prove
+// data persisted. Defaults to a fresh, isolated factory per call so tests
+// never see another test's cached words.
+export async function loadApp(options) {
+  const opts = options || {};
+  const indexedDBFactory = opts.indexedDBFactory || new IDBFactory();
+
   const html = fs.readFileSync(INDEX_HTML_PATH, "utf8");
   const dom = new JSDOM(html, {
     runScripts: "dangerously",
     resources: new LocalOnlyResourceLoader(),
     url: APP_ORIGIN + "index.html",
-    pretendToBeVisual: true
+    pretendToBeVisual: true,
+    beforeParse(window) {
+      // Must be set before any inline <script> runs, since the app opens
+      // its vocab cache database synchronously during page load.
+      window.indexedDB = indexedDBFactory;
+    }
   });
 
   // jsdom doesn't implement actual scrolling — stub both so app code that
@@ -51,5 +64,10 @@ export async function loadApp() {
   if (!hooks) {
     throw new Error("window.__TOOLKIT_TEST_HOOKS__ was not set — did index.html's test-hook block run?");
   }
-  return { dom, window: dom.window, hooks };
+  // Let the async vocab-cache restore (kicked off during page load)
+  // finish before handing back control, so tests see a fully settled
+  // search index without needing their own arbitrary wait.
+  await hooks.vocabCacheRestorePromise;
+
+  return { dom, window: dom.window, hooks, indexedDBFactory };
 }

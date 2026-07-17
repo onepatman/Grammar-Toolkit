@@ -664,6 +664,7 @@
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
 <script src="js/fuzzy-search.js"></script>
+<script src="js/vocab-cache.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -27042,19 +27043,98 @@ vocabData.forEach(item=>{
   vocabLookup.set(item.w.trim().toLowerCase(), item.w);
 });
 
+/* IndexedDB-backed vocabulary cache — every word retrieved online gets
+   saved here (see tryOnlineLookup below), and anything cached from a
+   previous session is restored via addVocabEntry() as soon as the page
+   loads. Once added, a cached word is indistinguishable from a
+   built-in one: same dropdown option, same search index entry, same
+   "Vocabulary Bank" tag, same clickable synonym/antonym chips — this
+   is what makes the cache a real (offline, persistent) extension of
+   the Vocabulary Bank rather than a session-only lookup history.
+   This is also the intended seam for future local-first features —
+   favorites and "recently viewed" can live as their own IndexedDB
+   object stores next to this one (bump DB_VERSION, add an
+   onupgradeneeded branch in js/vocab-cache.js), and a downloadable
+   offline pack is just a batch of entries run through this same
+   addVocabEntry() function. */
+const vocabDbPromise = VocabCache.openDb();
+
+function addVocabEntry(entry, options){
+  const opts = options || {};
+  const key = entry.w.trim().toLowerCase();
+  const existingItem = wordIndexMap.get(key);
+
+  if(existingItem){
+    // Already a built-in word, or already cached from an earlier
+    // lookup — don't create a duplicate entry. A built-in word (no
+    // `.source` field) always stays authoritative, no matter how
+    // "rich" the new data is; a previously-cached entry can be
+    // upgraded in place if this lookup found more senses/synonyms/
+    // antonyms than what's already stored for it.
+    const existingEntry = vocabData.find(v=>v.w.trim().toLowerCase()===key);
+    if(existingEntry && existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
+      Object.assign(existingEntry, entry, {w: existingEntry.w});
+      if(opts.persist) VocabCache.put(existingEntry, {dbPromise: vocabDbPromise});
+    }
+    return existingItem;
+  }
+
+  vocabData.push(entry);
+
+  const opt = document.createElement("option");
+  opt.value = entry.w;
+  opt.textContent = entry.w;
+  document.getElementById("vocabSelect").appendChild(opt);
+
+  const action = ()=>{
+    document.getElementById("vocabSelect").value = entry.w;
+    renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
+    activateTab("vocab");
+  };
+  const item = {label: entry.w, cat: "Vocabulary Bank", action};
+  searchIndex.push(item);
+  wordIndexMap.set(key, item);
+  vocabLookup.set(key, entry.w);
+
+  if(entry.tagalog){
+    entry.tagalog.split(/[\/,;]/).map(t=>t.trim()).filter(Boolean).forEach(term=>{
+      const tagalogKey = term.toLowerCase();
+      if(wordIndexMap.has(tagalogKey)) return; // never clobber an existing exact match
+      const tagalogItem = {label: term, cat: "Tagalog → " + entry.w, action};
+      searchIndex.push(tagalogItem);
+      wordIndexMap.set(tagalogKey, tagalogItem);
+    });
+  }
+
+  if(opts.persist) VocabCache.put(entry, {dbPromise: vocabDbPromise});
+
+  return item;
+}
+
+// Restore anything cached from a previous session. Fully offline —
+// IndexedDB doesn't need a network connection — so these words stay
+// searchable even with no internet at all. Exposed as a promise (rather
+// than fire-and-forget) so a test harness can deterministically await
+// "the restore has finished" instead of guessing with a timer.
+const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addVocabEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 /* Prev/Next buttons.
-   - The small pair beside each dropdown always cycles that list in its
-     own default order (unchanged behavior).
-   - The "‹ Previous" / "Next ›" pair at the bottom of each panel follows
-     the user's SEARCH history instead (like a browser's Back/Forward),
-     once any search has happened — see searchHistory below. Until then,
-     it falls back to the same local list-order cycling as the small
-     pair, using its own panel's dropdown. */
+   - The small pair beside each dropdown follows the user's SEARCH
+     history instead (like a browser's Back/Forward), once any search
+     has happened — see searchHistory below. Until then, it falls back
+     to the same local list-order cycling as the bottom pair.
+   - The "‹ Previous" / "Next ›" pair at the bottom of each panel always
+     cycles that panel's own dropdown in its default order (unchanged
+     list-order behavior) — belongs to browsing the list itself, not to
+     search. */
 document.addEventListener("click", (e)=>{
   const btn = e.target.closest(".nav-btn");
   if(!btn) return;
 
-  if(btn.closest(".bottom-nav") && searchHistory.length > 0){
+  const isTopNav = !btn.closest(".bottom-nav");
+  if(isTopNav && searchHistory.length > 0){
     if(btn.dataset.dir === "prev"){
       if(searchHistoryIndex <= 0) return;
       searchHistoryIndex--;
@@ -27441,16 +27521,20 @@ function showNoMatches(){
   searchResultsEl.classList.add("show");
 }
 
-// Online fallback. Results are cached for the session (see
-// js/online-lookup.js) so re-typing the same word doesn't re-hit the
-// network; swapping that cache for a persistent one later is the
-// extension point for offline reuse.
+// Online fallback — the third and last search tier, after the local
+// Vocabulary Bank and the IndexedDB cache (both already covered by the
+// wordIndexMap check in runSearchPipeline, since addVocabEntry() merges
+// cached words into it on load). `onlineLookupCache` is just an
+// in-memory de-dupe for repeat lookups within THIS page load, so typing
+// the same word twice doesn't double-fetch before it's been persisted;
+// the real persistence layer is IndexedDB via addVocabEntry(..., {persist:true})
+// below, once a result comes back.
 //
 // `shown` is whatever's already rendered in the dropdown (local
 // substring matches, fuzzy "did you mean" suggestions, or [] if
 // nothing matched at all). A query only reaches here when there's no
-// EXACT local match for it — a word can still be worth looking up
-// online even when it happens to be a substring of some other local
+// EXACT local/cached match for it — a word can still be worth looking
+// up online even when it happens to be a substring of some other local
 // entry (e.g. searching "press" while "express" is a local word), so
 // this augments whatever's shown rather than requiring it to be empty.
 const onlineLookupCache = OnlineLookup.createMemoryCache();
@@ -27480,14 +27564,12 @@ function tryOnlineLookup(q, shown){
       // shown in place — the online attempt just came up empty.
       return;
     }
-    renderSearchMatches(shown.concat([{
-      label: result.w,
-      cat: "Online dictionary",
-      action: ()=>{
-        renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank (online)");
-        activateTab("vocab");
-      }
-    }]));
+    // Adopt it into the Vocabulary Bank right away (same tab, same
+    // "Vocabulary Bank" tag, same dropdown, persisted to IndexedDB) so
+    // it's indistinguishable from a built-in word from this point on,
+    // this session and every one after.
+    const item = addVocabEntry(result, {persist:true});
+    renderSearchMatches(shown.concat([item]));
   });
 }
 
@@ -27580,7 +27662,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   phrasalData, wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
-  sanitizeSyncCode, runSearchPipeline, searchAndNavigate
+  sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
+  addVocabEntry, vocabDbPromise, vocabCacheRestorePromise
 };
 </script>
 <script>
