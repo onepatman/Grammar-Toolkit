@@ -157,10 +157,70 @@ describe("fetchOnlineDefinition", () => {
   });
 
   it("does not cache a failed lookup, so a later retry can still succeed", async () => {
+    // Fails on both the primary and secondary source each time.
     const fetchImpl = vi.fn(() => jsonResponse([], false));
     const cache = OnlineLookup.createMemoryCache();
     await OnlineLookup.fetchOnlineDefinition("zzzznotaword", { fetchImpl, isOnline: () => true, cache });
     await OnlineLookup.fetchOnlineDefinition("zzzznotaword", { fetchImpl, isOnline: () => true, cache });
+    expect(fetchImpl).toHaveBeenCalledTimes(4); // 2 sources x 2 attempts
+  });
+
+  it("falls back to the secondary source (Wiktionary) when the primary has nothing", async () => {
+    const wiktionaryResponse = {
+      en: [{
+        partOfSpeech: "Verb",
+        definitions: [{ definition: "To apply steady force against something.", examples: ["She pressed the button."] }]
+      }]
+    };
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("press")) return jsonResponse([], false);
+      if (url === OnlineLookup.buildWiktionaryUrl("press")) return jsonResponse(wiktionaryResponse);
+      throw new Error("unexpected url: " + url);
+    });
+    const result = await OnlineLookup.fetchOnlineDefinition("press", { fetchImpl, isOnline: () => true });
+    expect(result).not.toBeNull();
+    expect(result.w).toBe("press");
+    expect(result.senses[0].use).toContain("apply steady force");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("resolves to null when both sources have nothing", async () => {
+    const fetchImpl = vi.fn(() => jsonResponse([], false));
+    const result = await OnlineLookup.fetchOnlineDefinition("zzzznotaword", { fetchImpl, isOnline: () => true });
+    expect(result).toBeNull();
+  });
+
+  it("does not call the secondary source when the primary already succeeded", async () => {
+    const fetchImpl = vi.fn(() => jsonResponse(SAMPLE_API_RESPONSE));
+    await OnlineLookup.fetchOnlineDefinition("resilient", { fetchImpl, isOnline: () => true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("normalizeWiktionaryResponse", () => {
+  it("strips HTML from the definition and uses the language-keyed 'en' entries", () => {
+    const response = {
+      en: [{
+        partOfSpeech: "Noun",
+        definitions: [{ definition: 'A <a href="/wiki/breeze">gentle</a> wind, especially from the west.' }]
+      }]
+    };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
+    expect(result.w).toBe("zephyr");
+    expect(result.senses[0].use).toBe("(noun) A gentle wind, especially from the west.");
+  });
+
+  it("generates a fallback example when Wiktionary provides none", () => {
+    const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
+    expect(result.senses[0].examples).toHaveLength(1);
+    expect(result.senses[0].examples[0]).toContain("zephyr");
+  });
+
+  it("returns null when the response has no English entries or is malformed", () => {
+    expect(OnlineLookup.normalizeWiktionaryResponse({}, "x")).toBeNull();
+    expect(OnlineLookup.normalizeWiktionaryResponse({ en: [] }, "x")).toBeNull();
+    expect(OnlineLookup.normalizeWiktionaryResponse(null, "x")).toBeNull();
+    expect(OnlineLookup.normalizeWiktionaryResponse({ en: [{ definitions: [] }] }, "x")).toBeNull();
   });
 });

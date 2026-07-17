@@ -29,11 +29,20 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DICTIONARY_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en/";
+  var WIKTIONARY_API_BASE = "https://en.wiktionary.org/api/rest_v1/page/definition/";
   var MAX_SENSES = 6;
   var DEFINITIONS_PER_MEANING = 2;
 
   function buildRequestUrl(word) {
     return DICTIONARY_API_BASE + encodeURIComponent(word);
+  }
+
+  function buildWiktionaryUrl(word) {
+    return WIKTIONARY_API_BASE + encodeURIComponent(word);
+  }
+
+  function stripHtml(html) {
+    return typeof html === "string" ? html.replace(/<[^>]*>/g, "").trim() : "";
   }
 
   // The Free Dictionary API frequently omits an example sentence for a
@@ -118,6 +127,55 @@
     };
   }
 
+  // Second, independent source — tried only when the primary API
+  // (dictionaryapi.dev) has nothing, e.g. words it doesn't index at all.
+  // Wiktionary's REST API (Wikimedia, no key required, CORS-enabled)
+  // returns definitions per part of speech, keyed by language code, with
+  // HTML-formatted text — stripped down to plain text here since we
+  // don't want arbitrary external markup/links rendered inside our UI.
+  function normalizeWiktionaryResponse(json, word) {
+    if (!json || typeof json !== "object") return null;
+    var entries = json.en; // English only, matching this app's audience
+    if (!Array.isArray(entries) || entries.length === 0) return null;
+
+    var senses = [];
+    var senseIndex = 0;
+
+    entries.forEach(function (entry) {
+      var partOfSpeech = (entry.partOfSpeech || "").toLowerCase();
+      var pos = partOfSpeech ? "(" + partOfSpeech + ") " : "";
+      (entry.definitions || []).slice(0, DEFINITIONS_PER_MEANING).forEach(function (def) {
+        var text = stripHtml(def.definition);
+        if (!text) return;
+
+        var rawExamples = def.parsedExamples || def.examples || [];
+        var examples = [];
+        rawExamples.slice(0, 1).forEach(function (ex) {
+          var exText = stripHtml(typeof ex === "string" ? ex : (ex.example || ex.expansion || ""));
+          if (exText) examples.push(exText);
+        });
+
+        senses.push({
+          use: pos + text,
+          examples: examples.length ? examples : [generateFallbackExample(word, partOfSpeech, senseIndex)]
+        });
+        senseIndex++;
+      });
+    });
+
+    if (senses.length === 0) return null;
+
+    return {
+      w: word,
+      senses: senses.slice(0, MAX_SENSES),
+      syn: [],
+      ant: [],
+      mistake: null,
+      tagalog: null,
+      source: "online"
+    };
+  }
+
   function dedupe(arr) {
     var seen = Object.create(null);
     var out = [];
@@ -162,27 +220,44 @@
     var fetchImpl = opts.fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
     if (!fetchImpl) return Promise.resolve(null);
 
-    return fetchImpl(buildRequestUrl(trimmed), { signal: opts.signal })
-      .then(function (res) {
-        if (!res || !res.ok) return null;
-        return res.json();
+    function fetchAndNormalize(url, normalize) {
+      return fetchImpl(url, { signal: opts.signal })
+        .then(function (res) {
+          if (!res || !res.ok) return null;
+          return res.json();
+        })
+        .then(function (json) {
+          return json ? normalize(json, trimmed) : null;
+        })
+        .catch(function () {
+          // Offline, aborted, CORS failure, malformed JSON, etc. — all
+          // treated the same: no result from this source.
+          return null;
+        });
+    }
+
+    return fetchAndNormalize(buildRequestUrl(trimmed), normalizeDictionaryResponse)
+      .then(function (result) {
+        if (result) return result;
+        // Primary source had nothing for this word — try a second,
+        // independent source before giving up. Safe to chain: any
+        // failure here (network, unexpected shape) still resolves to
+        // null the same way a single-source lookup would.
+        return fetchAndNormalize(buildWiktionaryUrl(trimmed), normalizeWiktionaryResponse);
       })
-      .then(function (json) {
-        var result = json ? normalizeDictionaryResponse(json, trimmed) : null;
+      .then(function (result) {
         if (result && cache) cache.set(trimmed, result);
         return result;
-      })
-      .catch(function () {
-        // Offline, aborted, CORS failure, malformed JSON, etc. — all
-        // treated the same: no online result, caller falls back.
-        return null;
       });
   }
 
   return {
     DICTIONARY_API_BASE: DICTIONARY_API_BASE,
+    WIKTIONARY_API_BASE: WIKTIONARY_API_BASE,
     buildRequestUrl: buildRequestUrl,
+    buildWiktionaryUrl: buildWiktionaryUrl,
     normalizeDictionaryResponse: normalizeDictionaryResponse,
+    normalizeWiktionaryResponse: normalizeWiktionaryResponse,
     generateFallbackExample: generateFallbackExample,
     createMemoryCache: createMemoryCache,
     fetchOnlineDefinition: fetchOnlineDefinition
