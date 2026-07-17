@@ -26938,25 +26938,27 @@ document.querySelectorAll(".thumb-tab").forEach(tab=>{
 ========================================================= */
 const searchIndex = [];
 
-verbData.regular.forEach(v=>{
-  searchIndex.push({label:v.w, cat:"Verb (regular)", action:()=>{
-    currentVerbType = "regular";
-    document.querySelectorAll("#verbTypeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.val==="regular"));
-    populateVerbSelect();
-    verbSelect.value = verbData.regular.findIndex(x=>x.w===v.w);
-    renderVerb();
-    activateTab("verbs");
-  }});
-});
-verbData.irregular.forEach(v=>{
-  searchIndex.push({label:v.w, cat:"Verb (irregular)", action:()=>{
-    currentVerbType = "irregular";
-    document.querySelectorAll("#verbTypeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.val==="irregular"));
-    populateVerbSelect();
-    verbSelect.value = verbData.irregular.findIndex(x=>x.w===v.w);
-    renderVerb();
-    activateTab("verbs");
-  }});
+["regular","irregular"].forEach(group=>{
+  const catLabel = "Verb (" + group + ")";
+  verbData[group].forEach(v=>{
+    const openThisVerb = ()=>{
+      currentVerbType = group;
+      document.querySelectorAll("#verbTypeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.val===group));
+      populateVerbSelect();
+      verbSelect.value = verbData[group].findIndex(x=>x.w===v.w);
+      renderVerb();
+      activateTab("verbs");
+    };
+    searchIndex.push({label:v.w, cat:catLabel, action:openThisVerb});
+    // Also index the conjugated forms (works/working/worked, etc.) so
+    // typing the form the user actually encountered ("worked") finds
+    // this verb directly, not just the base form ("work").
+    [v.s, v.ing, v.past, v.pp].forEach(form=>{
+      if(form && form !== v.w){
+        searchIndex.push({label:form, cat:catLabel + " form", action:openThisVerb});
+      }
+    });
+  });
 });
 tenseData.forEach(t=>{
   searchIndex.push({label:t.name, cat:"Tense", action:()=>{
@@ -27040,11 +27042,31 @@ vocabData.forEach(item=>{
   vocabLookup.set(item.w.trim().toLowerCase(), item.w);
 });
 
-/* Prev/Next buttons — cycle the paired <select> and re-fire its change
-   event, so every module's existing render logic just runs again. */
+/* Prev/Next buttons.
+   - The small pair beside each dropdown always cycles that list in its
+     own default order (unchanged behavior).
+   - The "‹ Previous" / "Next ›" pair at the bottom of each panel follows
+     the user's SEARCH history instead (like a browser's Back/Forward),
+     once any search has happened — see searchHistory below. Until then,
+     it falls back to the same local list-order cycling as the small
+     pair, using its own panel's dropdown. */
 document.addEventListener("click", (e)=>{
   const btn = e.target.closest(".nav-btn");
   if(!btn) return;
+
+  if(btn.closest(".bottom-nav") && searchHistory.length > 0){
+    if(btn.dataset.dir === "prev"){
+      if(searchHistoryIndex <= 0) return;
+      searchHistoryIndex--;
+    } else {
+      if(searchHistoryIndex >= searchHistory.length - 1) return;
+      searchHistoryIndex++;
+    }
+    searchHistory[searchHistoryIndex].action();
+    window.scrollTo({top:0, behavior:"smooth"});
+    return;
+  }
+
   const sel = document.getElementById(btn.dataset.target);
   if(!sel || sel.options.length === 0) return;
   const dir = btn.dataset.dir === "next" ? 1 : -1;
@@ -27343,9 +27365,13 @@ document.addEventListener("click", (e)=>{
   if(entryLabel){
     const entry = vocabData.find(v=>v.w === entryLabel);
     if(entry){
-      document.getElementById("vocabSelect").value = entry.w;
-      renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
-      activateTab("vocab");
+      const openEntry = ()=>{
+        document.getElementById("vocabSelect").value = entry.w;
+        renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
+        activateTab("vocab");
+      };
+      openEntry();
+      pushSearchHistory({label: entry.w, cat: "Vocabulary Bank", action: openEntry});
       window.scrollTo({top:0, behavior:"smooth"});
     }
     return;
@@ -27372,6 +27398,26 @@ renderFamily(wordFamilyData[0]);
 const globalSearchInput = document.getElementById("globalSearch");
 const searchResultsEl = document.getElementById("searchResults");
 
+// Search history for the bottom "‹ Previous" / "Next ›" buttons — a
+// browser-style back/forward stack of the entries the user has actually
+// searched for (local or online), separate from each panel's own
+// dropdown order. See the .bottom-nav click handler above.
+const searchHistory = [];
+let searchHistoryIndex = -1;
+
+function pushSearchHistory(entry){
+  if(!entry) return;
+  // A fresh search after going "back" starts a new forward path, same
+  // as a browser discarding forward history after you navigate anew.
+  if(searchHistoryIndex < searchHistory.length - 1){
+    searchHistory.length = searchHistoryIndex + 1;
+  }
+  const top = searchHistory[searchHistory.length - 1];
+  if(top && top.label === entry.label && top.cat === entry.cat) return;
+  searchHistory.push(entry);
+  searchHistoryIndex = searchHistory.length - 1;
+}
+
 function renderSearchMatches(matches){
   searchResultsEl.innerHTML = matches.map((m,i)=>`
     <div class="search-result-item" data-idx="${i}">
@@ -27381,6 +27427,7 @@ function renderSearchMatches(matches){
   searchResultsEl.classList.add("show");
   searchResultsEl.querySelectorAll(".search-result-item").forEach((el, i)=>{
     el.addEventListener("click", ()=>{
+      pushSearchHistory(matches[i]);
       matches[i].action();
       searchResultsEl.classList.remove("show");
       globalSearchInput.value = "";
@@ -27394,22 +27441,32 @@ function showNoMatches(){
   searchResultsEl.classList.add("show");
 }
 
-// Online fallback — only reached when nothing local matched. Results are
-// cached for the session (see js/online-lookup.js) so re-typing the same
-// word doesn't re-hit the network; swapping that cache for a persistent
-// one later is the extension point for offline reuse.
+// Online fallback. Results are cached for the session (see
+// js/online-lookup.js) so re-typing the same word doesn't re-hit the
+// network; swapping that cache for a persistent one later is the
+// extension point for offline reuse.
+//
+// `shown` is whatever's already rendered in the dropdown (local
+// substring matches, fuzzy "did you mean" suggestions, or [] if
+// nothing matched at all). A query only reaches here when there's no
+// EXACT local match for it — a word can still be worth looking up
+// online even when it happens to be a substring of some other local
+// entry (e.g. searching "press" while "express" is a local word), so
+// this augments whatever's shown rather than requiring it to be empty.
 const onlineLookupCache = OnlineLookup.createMemoryCache();
 let onlineLookupToken = 0;
 let onlineLookupTimer = null;
 let onlineLookupController = null;
 
-function tryOnlineLookup(q){
+function tryOnlineLookup(q, shown){
   const myToken = onlineLookupToken;
   if(onlineLookupController) onlineLookupController.abort();
   onlineLookupController = (typeof AbortController !== "undefined") ? new AbortController() : null;
 
-  searchResultsEl.innerHTML = '<div class="search-empty">Searching online…</div>';
-  searchResultsEl.classList.add("show");
+  if(shown.length === 0){
+    searchResultsEl.innerHTML = '<div class="search-empty">Searching online…</div>';
+    searchResultsEl.classList.add("show");
+  }
 
   OnlineLookup.fetchOnlineDefinition(q, {
     cache: onlineLookupCache,
@@ -27418,17 +27475,19 @@ function tryOnlineLookup(q){
     // Stale response (user kept typing, or cleared the box) — drop it.
     if(myToken !== onlineLookupToken) return;
     if(!result){
-      showNoMatches();
+      if(shown.length === 0) showNoMatches();
+      // Otherwise leave whatever local matches/suggestions were already
+      // shown in place — the online attempt just came up empty.
       return;
     }
-    renderSearchMatches([{
+    renderSearchMatches(shown.concat([{
       label: result.w,
       cat: "Online dictionary",
       action: ()=>{
         renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank (online)");
         activateTab("vocab");
       }
-    }]);
+    }]));
   });
 }
 
@@ -27446,32 +27505,41 @@ function runSearchPipeline(q){
     searchResultsEl.innerHTML = "";
     return;
   }
+
   const matches = searchIndex.filter(item=>item.label.toLowerCase().includes(q)).slice(0, 25);
+  const hasExactLocalMatch = wordIndexMap.has(q);
+  let shown = [];
+
   if(matches.length > 0){
     renderSearchMatches(matches);
-    return;
+    shown = matches;
+  } else {
+    // No exact/substring match — look for close spellings among
+    // everything already indexed (English and Tagalog) before trying
+    // the network.
+    const suggestions = FuzzySearch.findClosestMatches(q, searchIndex, {
+      getLabel: item=>item.label,
+      limit: 6
+    });
+    if(suggestions.length > 0){
+      shown = suggestions.map(s=>({label:s.label, cat:"Did you mean? — "+s.cat, action:s.action}));
+      renderSearchMatches(shown);
+    } else {
+      showNoMatches();
+    }
   }
 
-  // No exact/substring match — look for close spellings among everything
-  // already indexed (English and Tagalog) before trying the network.
-  const suggestions = FuzzySearch.findClosestMatches(q, searchIndex, {
-    getLabel: item=>item.label,
-    limit: 6
-  });
-  if(suggestions.length > 0){
-    renderSearchMatches(suggestions.map(s=>({label:s.label, cat:"Did you mean? — "+s.cat, action:s.action})));
-    return;
+  // Even when something local already matched, the exact word the user
+  // typed still isn't defined anywhere locally unless hasExactLocalMatch
+  // is true — so it's still worth checking online, in the background,
+  // after a short pause so we don't fire a request on every keystroke.
+  if(!hasExactLocalMatch && q.length >= 2){
+    const myToken = onlineLookupToken;
+    onlineLookupTimer = setTimeout(()=>{
+      if(myToken !== onlineLookupToken) return;
+      tryOnlineLookup(q, shown);
+    }, 350);
   }
-
-  // Nothing local — try an online lookup after a short pause so we don't
-  // fire a request on every keystroke. Falls back to "No matches" if
-  // offline, the word isn't found online either, or the request fails.
-  showNoMatches();
-  const myToken = onlineLookupToken;
-  onlineLookupTimer = setTimeout(()=>{
-    if(myToken !== onlineLookupToken) return;
-    tryOnlineLookup(q);
-  }, 350);
 }
 
 // Used by synonym/antonym chips for a word that isn't a known Vocabulary
@@ -27482,6 +27550,7 @@ function searchAndNavigate(word){
   const key = word.trim().toLowerCase();
   const exact = wordIndexMap.get(key);
   if(exact){
+    pushSearchHistory(exact);
     exact.action();
     window.scrollTo({top:0, behavior:"smooth"});
     return;
