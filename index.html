@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grammar Toolkit — MEPF Engineer's English Field Guide</title>
+<title>Ultimate Engineering Dictionary — Engineering English Database</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#134D50">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Grammar Toolkit">
+<meta name="apple-mobile-web-app-title" content="Eng. Dictionary">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <!-- Firebase SDK — loaded first so it's ready before the toolkit's own
@@ -79,10 +79,11 @@
   }
   .masthead h1{
     font-family:'Source Serif 4', serif;
-    font-weight:700;
-    font-size:26px;
-    margin:0 0 6px;
-    line-height:1.15;
+    font-weight:800;
+    font-size:38px;
+    letter-spacing:-.01em;
+    margin:0 0 8px;
+    line-height:1.1;
   }
   .masthead p{
     margin:0; font-size:13.5px; color:#CFE3E1; max-width:46ch; line-height:1.5;
@@ -422,10 +423,14 @@
     text-align:center; padding:22px 14px 30px; font-size:11.5px; color:var(--ink-soft);
     font-family:'IBM Plex Mono', monospace;
   }
+  footer .footer-brand{
+    margin-top:6px; font-weight:600; letter-spacing:.03em; color:var(--teal-deep);
+  }
 
   @media (max-width:400px){
     .headword{ font-size:25px; }
     .thumb-tab{ font-size:10.5px; padding:11px 3px 9px; }
+    .masthead h1{ font-size:29px; }
   }
 </style>
 </head>
@@ -433,9 +438,9 @@
 
 <div id="updateBanner" class="update-banner"></div>
 <div class="masthead">
-  <div class="eyebrow">Reference No. 002 — Patrick Manuel-English Field Guide</div>
-  <h1>Grammar Toolkit</h1>
-  <p>Select a word or rule to see its forms, when to use it, and example sentences — like flipping to a dictionary entry.</p>
+  <div class="eyebrow">Field Reference No. 001 — Engineering English Database</div>
+  <h1>Ultimate Engineering Dictionary</h1>
+  <p>Every word, rule, and phrase an engineer needs — searchable, bilingual, and built to last.</p>
 </div>
 
 <div class="top-sticky">
@@ -688,7 +693,10 @@
 
 </main>
 
-<footer>Built for study &amp; quick lookup — not a substitute for a full grammar course.</footer>
+<footer>
+  <div>Built for study &amp; quick lookup — not a substitute for a full grammar course.</div>
+  <div class="footer-brand">Ultimate Engineering Dictionary © 2026 — Coded by Engr. OnePatMan 🤓</div>
+</footer>
 
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>

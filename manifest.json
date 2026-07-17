@@ -1,7 +1,7 @@
 {
-  "name": "MEPF Engineer's English Grammar Toolkit",
-  "short_name": "Grammar Toolkit",
-  "description": "A dictionary-style English grammar and vocabulary reference for MEPF engineers, with Tagalog equivalents.",
+  "name": "Ultimate Engineering Dictionary",
+  "short_name": "Eng. Dictionary",
+  "description": "Every word, rule, and phrase an engineer needs — a searchable, bilingual (English-Tagalog) English grammar and vocabulary reference built for engineers.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
