@@ -651,7 +651,12 @@
       <div class="section-label">Sync across devices</div>
       <p class="note" style="margin-bottom:8px;">Enter a sync code to view a shared correction log — anyone can do this, no unlocking needed. Only the signed-in owner's changes are actually saved to it, enforced by the server.</p>
 
-      <div class="owner-only" id="syncOwnerAuthSection">
+      <!-- Deliberately NOT owner-only: this IS the unlock mechanism for
+           the real owner on a device that's never had a local PIN set —
+           hiding it would leave no way in. The password itself is the
+           gate (checked by Firebase Auth + firestore.rules), not
+           visibility of the form. -->
+      <div id="syncOwnerAuthSection">
         <div id="syncOwnerAuthStatus" class="add-status"></div>
         <div id="syncSignInForm">
           <input type="email" id="syncOwnerEmailInput" placeholder="Owner email" autocomplete="off">
@@ -26724,7 +26729,7 @@ const wordFamilyData = [
 ========================================================= */
 function renderRuleEntry(item, entryEl, tagLabel){
   const sensesHtml = item.senses.map((s,i)=>{
-    const actionsHtml = (s.personal && OwnerMode.isOwnerModeUnlocked()) ? `
+    const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
       <div class="personal-actions">
         <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
         <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
@@ -27381,6 +27386,20 @@ function refreshMistakeUI(){
    See js/owner-mode.js for exactly what this can and can't guarantee —
    it is a client-side UI gate, not server-enforced access control.
 ========================================================= */
+// A device counts as "unlocked" for admin controls either via the
+// local owner PIN (js/owner-mode.js — works fully offline, but is
+// per-device: you have to set the same PIN again on every device) OR
+// by being signed in as the real Firebase owner account (js/sync-auth.js
+// + firestore.rules). The second path is what lets the actual owner
+// get admin access on a brand-new phone or laptop just by signing in
+// with their email/password in the Sync panel — no separate PIN to
+// remember or re-set on every device.
+function isDeviceUnlocked(){
+  if(OwnerMode.isOwnerModeUnlocked()) return true;
+  const user = (typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+  return SyncAuth.isOwnerAuthenticated(user);
+}
+
 function updateOwnerModeUI(){
   const statusEl = document.getElementById("ownerAccessStatus");
   const setPinForm = document.getElementById("ownerSetPinForm");
@@ -27389,12 +27408,14 @@ function updateOwnerModeUI(){
   const ownerOnlyBoxes = document.querySelectorAll(".owner-only");
 
   const pinSet = OwnerMode.hasOwnerPinSet();
-  const unlocked = OwnerMode.isOwnerModeUnlocked();
+  const unlocked = isDeviceUnlocked();
 
   ownerOnlyBoxes.forEach(box=> box.style.display = unlocked ? "" : "none");
 
   if(unlocked){
-    statusEl.textContent = "🔓 Unlocked — admin controls are visible on this device.";
+    statusEl.textContent = OwnerMode.isOwnerModeUnlocked()
+      ? "🔓 Unlocked — admin controls are visible on this device."
+      : "🔓 Unlocked — signed in as the owner account, so admin controls are visible on this device too.";
     statusEl.className = "add-status success";
     setPinForm.style.display = "none";
     unlockForm.style.display = "none";
@@ -27475,7 +27496,12 @@ function resetQuickAddForm(){
 }
 
 document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
-  if(!OwnerMode.isOwnerModeUnlocked()) return;
+  if(!isDeviceUnlocked()){
+    const s = document.getElementById("qaAddStatus");
+    s.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    s.className = "add-status error";
+    return;
+  }
   const wrongEl = document.getElementById("qaWrongInput");
   const rightEl = document.getElementById("qaRightInput");
   const whyEl = document.getElementById("qaWhyInput");
@@ -27556,7 +27582,7 @@ document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
 document.addEventListener("click", async (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
   if(editBtn){
-    if(!OwnerMode.isOwnerModeUnlocked()) return;
+    if(!isDeviceUnlocked()) return;
     const id = editBtn.dataset.id;
     const saved = loadPersonalCorrections();
     const entry = saved.find(s => s.id === id);
@@ -27578,7 +27604,7 @@ document.addEventListener("click", async (e)=>{
 
   const delBtn = e.target.closest(".delete-correction-btn");
   if(delBtn){
-    if(!OwnerMode.isOwnerModeUnlocked()) return;
+    if(!isDeviceUnlocked()) return;
     const id = delBtn.dataset.id;
     const confirmed = window.confirm ? window.confirm("Delete this correction from your log? This can't be undone.") : true;
     if(!confirmed) return;
@@ -27796,6 +27822,13 @@ async function signInAsOwner(email, password){
   try{
     await firebase.auth().signInWithEmailAndPassword(trimmedEmail, password);
     updateSyncAuthUI();
+    // A real owner sign-in unlocks admin controls on THIS device too
+    // (see isDeviceUnlocked) — refresh the whole admin gate, not just
+    // the sync box, so e.g. the correction log's Add/Edit/Delete boxes
+    // and the phrasal quick-add appear immediately without also needing
+    // the local PIN.
+    updateOwnerModeUI();
+    refreshMistakeUI();
     const code = localStorage.getItem(SYNC_CODE_KEY);
     if(code) listenToSync(code);
   }catch(e){
@@ -27809,12 +27842,19 @@ async function signOutOwner(){
   await firebase.auth().signOut();
   try{ await firebase.auth().signInAnonymously(); }catch(e){ /* stays signed out — sync just can't read either until reconnected */ }
   updateSyncAuthUI();
+  // Signing out may also re-lock the device, if the local PIN wasn't
+  // separately unlocked — refresh the whole admin gate to match.
+  updateOwnerModeUI();
+  refreshMistakeUI();
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(code) listenToSync(code);
 }
 
+// Deliberately NOT gated by isDeviceUnlocked() — this button IS how an
+// owner unlocks a fresh device in the first place. Anyone can click it;
+// only the correct owner credentials (checked by Firebase Auth) result
+// in anything actually unlocking.
 document.getElementById("syncSignInBtn").addEventListener("click", ()=>{
-  if(!OwnerMode.isOwnerModeUnlocked()) return;
   const email = document.getElementById("syncOwnerEmailInput").value;
   const password = document.getElementById("syncOwnerPasswordInput").value;
   document.getElementById("syncOwnerPasswordInput").value = "";
@@ -27822,7 +27862,6 @@ document.getElementById("syncSignInBtn").addEventListener("click", ()=>{
 });
 
 document.getElementById("syncSignOutBtn").addEventListener("click", ()=>{
-  if(!OwnerMode.isOwnerModeUnlocked()) return;
   signOutOwner();
 });
 
@@ -27842,8 +27881,10 @@ document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
 document.getElementById("packImportInput").addEventListener("change", (e)=>{
   const file = e.target.files && e.target.files[0];
   const statusEl = document.getElementById("packImportStatus");
-  if(!OwnerMode.isOwnerModeUnlocked()){
+  if(!isDeviceUnlocked()){
     e.target.value = "";
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
     return;
   }
   if(!file) return;
@@ -27888,9 +27929,13 @@ document.getElementById("packImportInput").addEventListener("change", (e)=>{
 const phrasalLookupCache = OnlineLookup.createMemoryCache();
 
 async function addPhrasalWordFromInput(){
-  if(!OwnerMode.isOwnerModeUnlocked()) return;
-  const input = document.getElementById("phrasalAddInput");
   const statusEl = document.getElementById("phrasalAddStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const input = document.getElementById("phrasalAddInput");
   const addBtn = document.getElementById("phrasalAddBtn");
   const phrase = input.value.trim();
 
@@ -28271,7 +28316,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
-  updateSyncAuthUI, signInAsOwner, signOutOwner
+  updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked
 };
 </script>
 <script>
