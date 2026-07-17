@@ -37,6 +37,11 @@ export async function loadApp() {
     pretendToBeVisual: true
   });
 
+  // jsdom doesn't implement actual scrolling — stub both so app code that
+  // scrolls the page into view after a search/navigation doesn't throw.
+  dom.window.scrollTo = () => {};
+  dom.window.Element.prototype.scrollIntoView = () => {};
+
   await new Promise((resolve, reject) => {
     dom.window.addEventListener("load", resolve);
     setTimeout(() => reject(new Error("index.html did not finish loading within 5s")), 5000);

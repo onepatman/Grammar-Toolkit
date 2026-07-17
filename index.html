@@ -659,6 +659,7 @@
 
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
+<script src="js/fuzzy-search.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -675,13 +676,12 @@ function makeWordChips(words, type){
   if(!words || words.length === 0){
     return `<span class="none">No common ${type}</span>`;
   }
-  return words.map(w=>{
-    const key = w.toLowerCase();
-    if(vocabLookup.has(key)){
-      return `<span class="${cls} clickable" data-word="${w}" title="Look up '${w}' in the Vocab dictionary">${symbol} ${w}</span>`;
-    }
-    return `<span class="${cls}">${symbol} ${w}</span>`;
-  }).join("");
+  // Every chip is clickable — words already in the Vocabulary Bank jump
+  // straight there; anything else (including online-lookup synonyms and
+  // antonyms) runs the same search the global search box would.
+  return words.map(w=>
+    `<span class="${cls} clickable" data-word="${w}" title="Search for '${w}'">${symbol} ${w}</span>`
+  ).join("");
 }
 
 /* =========================================================
@@ -23889,6 +23889,23 @@ wordFamilyData.forEach(item=>{
   }});
 });
 
+/* Bilingual search — index each Vocabulary Bank entry's existing Tagalog
+   equivalent(s) too (every vocabData entry already carries one), so
+   typing a Tagalog word finds the English entry the same way an English
+   word would. A field like "iwan / talikuran" indexes as two terms,
+   each pointing at the same English entry. No new content — this only
+   makes the Tagalog text already in the data searchable. */
+vocabData.forEach(item=>{
+  if(!item.tagalog) return;
+  item.tagalog.split(/[\/,;]/).map(t=>t.trim()).filter(Boolean).forEach(term=>{
+    searchIndex.push({label: term, cat: "Tagalog → " + item.w, action: ()=>{
+      document.getElementById("vocabSelect").value = item.w;
+      renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank");
+      activateTab("vocab");
+    }});
+  });
+});
+
 /* Populate the dictionary cross-link map now that every entry is indexed */
 searchIndex.forEach(item=>{
   wordIndexMap.set(item.label.toLowerCase(), item);
@@ -24181,23 +24198,29 @@ document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
 })();
 
 /* Click a synonym/antonym chip anywhere (Verbs, Preps, V+Prep, Vocab,
-   Phrasal) -> always land on the Vocab tab and show that word's
-   dictionary-bank entry, never another tab. */
+   Phrasal, or an online-lookup result) -> if it's a known Vocabulary
+   Bank word, land on the Vocab tab exactly as before. Otherwise (a word
+   only found in another tab, or a word we've never seen before —
+   typically the case for online-lookup synonyms/antonyms) run the same
+   search the global search box would, via searchAndNavigate() defined
+   below with the search bar. */
 document.addEventListener("click", (e)=>{
   const chip = e.target.closest(".word-chips .clickable");
-  if(chip){
-    const key = chip.dataset.word.toLowerCase();
-    const entryLabel = vocabLookup.get(key);
-    if(entryLabel){
-      const entry = vocabData.find(v=>v.w === entryLabel);
-      if(entry){
-        document.getElementById("vocabSelect").value = entry.w;
-        renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
-        activateTab("vocab");
-        window.scrollTo({top:0, behavior:"smooth"});
-      }
+  if(!chip) return;
+  const word = chip.dataset.word;
+  const key = word.toLowerCase();
+  const entryLabel = vocabLookup.get(key);
+  if(entryLabel){
+    const entry = vocabData.find(v=>v.w === entryLabel);
+    if(entry){
+      document.getElementById("vocabSelect").value = entry.w;
+      renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
+      activateTab("vocab");
+      window.scrollTo({top:0, behavior:"smooth"});
     }
+    return;
   }
+  searchAndNavigate(word);
 });
 
 /* Re-render whatever is currently on screen now that wordIndexMap is fully
@@ -24279,8 +24302,11 @@ function tryOnlineLookup(q){
   });
 }
 
-globalSearchInput.addEventListener("input", (e)=>{
-  const q = e.target.value.trim().toLowerCase();
+// The full search pipeline for a (already trimmed/lowercased) query:
+// exact/substring match -> fuzzy "did you mean" -> online lookup ->
+// "No matches". Shared by the search box's input handler and by
+// searchAndNavigate() (used when a synonym/antonym chip is clicked).
+function runSearchPipeline(q){
   onlineLookupToken++;
   if(onlineLookupTimer) clearTimeout(onlineLookupTimer);
   if(onlineLookupController) onlineLookupController.abort();
@@ -24296,6 +24322,17 @@ globalSearchInput.addEventListener("input", (e)=>{
     return;
   }
 
+  // No exact/substring match — look for close spellings among everything
+  // already indexed (English and Tagalog) before trying the network.
+  const suggestions = FuzzySearch.findClosestMatches(q, searchIndex, {
+    getLabel: item=>item.label,
+    limit: 6
+  });
+  if(suggestions.length > 0){
+    renderSearchMatches(suggestions.map(s=>({label:s.label, cat:"Did you mean? — "+s.cat, action:s.action})));
+    return;
+  }
+
   // Nothing local — try an online lookup after a short pause so we don't
   // fire a request on every keystroke. Falls back to "No matches" if
   // offline, the word isn't found online either, or the request fails.
@@ -24305,6 +24342,27 @@ globalSearchInput.addEventListener("input", (e)=>{
     if(myToken !== onlineLookupToken) return;
     tryOnlineLookup(q);
   }, 350);
+}
+
+// Used by synonym/antonym chips for a word that isn't a known Vocabulary
+// Bank entry: jump straight to an exact match anywhere else in the app if
+// one exists, otherwise run the same pipeline the search box would (so
+// "did you mean" suggestions and the online fallback both apply).
+function searchAndNavigate(word){
+  const key = word.trim().toLowerCase();
+  const exact = wordIndexMap.get(key);
+  if(exact){
+    exact.action();
+    window.scrollTo({top:0, behavior:"smooth"});
+    return;
+  }
+  globalSearchInput.value = word;
+  runSearchPipeline(key);
+  globalSearchInput.scrollIntoView({behavior:"smooth", block:"center"});
+}
+
+globalSearchInput.addEventListener("input", (e)=>{
+  runSearchPipeline(e.target.value.trim().toLowerCase());
 });
 
 document.addEventListener("click", (e)=>{
@@ -24320,10 +24378,10 @@ document.addEventListener("click", (e)=>{
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
   orderData, prepVerbData, mistakeData, qaData, vocabData, upgradeData,
-  phrasalData, wordFamilyData, searchIndex,
+  phrasalData, wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
-  sanitizeSyncCode
+  sanitizeSyncCode, runSearchPipeline, searchAndNavigate
 };
 </script>
 <script>

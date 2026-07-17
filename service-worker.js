@@ -1,13 +1,14 @@
 // Service worker for the MEPF Grammar Toolkit — enables offline use and
 // the "Add to Home Screen" install prompt once this is hosted online.
-const CACHE_NAME = "mepf-grammar-toolkit-v2";
+const CACHE_NAME = "mepf-grammar-toolkit-v3";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
   "./js/correction-log.js",
-  "./js/online-lookup.js"
+  "./js/online-lookup.js",
+  "./js/fuzzy-search.js"
 ];
 
 self.addEventListener("install", (event) => {
