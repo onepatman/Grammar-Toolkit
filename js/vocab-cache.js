@@ -7,6 +7,8 @@
                         session lookup.
      - favorites:      bookmarked words (any category, not just Vocab).
      - recentlyViewed: the last N entries the user actually opened.
+     - phrasalEntries: phrasal verbs added via the Phrasal Words quick-add,
+                        persisted the same way vocabEntries are.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -42,10 +44,11 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 2;
+  var DB_VERSION = 3;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
+  var PHRASAL_STORE = "phrasalEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -70,6 +73,9 @@
         }
         if (!db.objectStoreNames.contains(RECENT_STORE)) {
           db.createObjectStore(RECENT_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(PHRASAL_STORE)) {
+          db.createObjectStore(PHRASAL_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -196,6 +202,25 @@
     });
   }
 
+  /* ---------- phrasalEntries (the offline Phrasal Words extension) ---------- */
+
+  function getPhrasal(word, options) {
+    return storeGet(PHRASAL_STORE, normalizeKey(word), options).then(function (row) {
+      return row ? row.entry : undefined;
+    });
+  }
+
+  function putPhrasal(entry, options) {
+    if (!entry || !entry.w) return Promise.resolve(false);
+    return storePut(PHRASAL_STORE, { key: normalizeKey(entry.w), entry: entry }, options);
+  }
+
+  function getAllPhrasal(options) {
+    return storeGetAll(PHRASAL_STORE, options).then(function (rows) {
+      return rows.map(function (row) { return row.entry; });
+    });
+  }
+
   /* ---------- favorites ---------- */
 
   function addFavorite(word, meta, options) {
@@ -283,11 +308,15 @@
     STORE_NAME: STORE_NAME,
     FAVORITES_STORE: FAVORITES_STORE,
     RECENT_STORE: RECENT_STORE,
+    PHRASAL_STORE: PHRASAL_STORE,
     RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
     put: put,
     getAll: getAll,
+    getPhrasal: getPhrasal,
+    putPhrasal: putPhrasal,
+    getAllPhrasal: getAllPhrasal,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,
