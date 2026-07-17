@@ -128,7 +128,22 @@ export function createFakeFirebase(options = {}) {
     initializeApp() {
       apps.push({});
     },
-    auth: () => auth,
+    // Matches the REAL Firebase SDK: calling firebase.auth() before
+    // firebase.initializeApp() has run throws "No Firebase App
+    // '[DEFAULT]' has been created". This bit us for real — index.html
+    // used to call firebase.auth() unconditionally at page-init time,
+    // which crashed on every real page load (before any sync action had
+    // triggered initFirebaseIfConfigured()) and silently broke every
+    // click handler defined later in the script. The fake originally
+    // never threw here regardless of init state, so no test caught it.
+    auth: () => {
+      if (!apps.length) {
+        const e = new Error("Firebase: No Firebase App '[DEFAULT]' has been created - call firebase.initializeApp() (app/no-app).");
+        e.code = "app/no-app";
+        throw e;
+      }
+      return auth;
+    },
     firestore: firestoreFn,
     // Test-only escape hatches, not part of the real Firebase SDK surface.
     _ownerEmail: ownerEmail,

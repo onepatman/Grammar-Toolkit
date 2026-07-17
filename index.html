@@ -27396,7 +27396,7 @@ function refreshMistakeUI(){
 // remember or re-set on every device.
 function isDeviceUnlocked(){
   if(OwnerMode.isOwnerModeUnlocked()) return true;
-  const user = (typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+  const user = getCurrentFirebaseUser();
   return SyncAuth.isOwnerAuthenticated(user);
 }
 
@@ -27678,6 +27678,26 @@ function initFirebaseIfConfigured(){
   }
 }
 
+// Never throws — safe to call at ANY time, including at page-init time
+// before the user has done anything sync-related. The real Firebase SDK
+// throws ("No Firebase App '[DEFAULT]' has been created") if
+// firebase.auth() is called before firebase.initializeApp() has run,
+// which is exactly the state on every normal page load until
+// initFirebaseIfConfigured() actually runs (only triggered lazily, by
+// connecting/signing in). Calling firebase.auth() unconditionally here
+// used to crash and abort the rest of this script's initialization —
+// including every click listener defined further down the file
+// (Add to my correction log, Look up & add, Connect, Sign in as owner
+// all silently never got attached at all).
+function getCurrentFirebaseUser(){
+  try{
+    if(typeof firebase === "undefined" || !firebase.auth || !firebase.apps || !firebase.apps.length) return null;
+    return firebase.auth().currentUser;
+  }catch(e){
+    return null;
+  }
+}
+
 function sanitizeSyncCode(code){
   return code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
@@ -27706,7 +27726,7 @@ function listenToSync(code){
     // overwrite local corrections with an empty log just because the
     // shared doc doesn't exist yet (that was the bug — signing in or
     // reconnecting used to wipe out whatever you'd added locally).
-    const user = (typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+    const user = getCurrentFirebaseUser();
     if(SyncAuth.isOwnerAuthenticated(user)){
       const localEntries = loadPersonalCorrections();
       docRef.set({
@@ -27789,7 +27809,7 @@ function updateSyncAuthUI(){
   const signInForm = document.getElementById("syncSignInForm");
   const signedInPanel = document.getElementById("syncSignedInPanel");
   if(!statusEl) return;
-  const user = (typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+  const user = getCurrentFirebaseUser();
 
   if(SyncAuth.isOwnerAuthenticated(user)){
     statusEl.textContent = `Signed in as ${user.email} — if this is the owner account, your changes will save to the shared log.`;
@@ -27838,7 +27858,7 @@ async function signInAsOwner(email, password){
 }
 
 async function signOutOwner(){
-  if(typeof firebase === "undefined") return;
+  if(typeof firebase === "undefined" || !firebase.apps || !firebase.apps.length) return;
   await firebase.auth().signOut();
   try{ await firebase.auth().signInAnonymously(); }catch(e){ /* stays signed out — sync just can't read either until reconnected */ }
   updateSyncAuthUI();
@@ -28316,7 +28336,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
-  updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked
+  updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
+  getCurrentFirebaseUser
 };
 </script>
 <script>
