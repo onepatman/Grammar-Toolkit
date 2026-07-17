@@ -123,7 +123,7 @@ describe("signing in as owner", () => {
     expect(window.document.getElementById("syncOwnerAuthStatus").textContent).toContain("No owner account");
   });
 
-  it("does nothing (and shows an error) via the actual sign-in button when the device is locally locked", async () => {
+  it("works via the actual sign-in button EVEN when the device is locally locked — that's how a fresh device gets unlocked", async () => {
     const firebase = makeFirebase();
     const { window } = await loadApp({ firebase, ownerUnlocked: false });
     const document = window.document;
@@ -133,7 +133,7 @@ describe("signing in as owner", () => {
     document.getElementById("syncSignInBtn").click();
     await wait();
 
-    expect(firebase.auth().currentUser).toBeNull();
+    expect(firebase.auth().currentUser.email).toBe(OWNER_EMAIL);
   });
 });
 
@@ -287,5 +287,140 @@ describe("Firebase not configured or not loaded", () => {
     const { window, hooks } = await loadApp(); // no `firebase` option — global stays undefined
     await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
     expect(window.document.getElementById("syncOwnerAuthStatus").textContent).toContain("placeholder");
+  });
+});
+
+// Regression coverage for: "I can't unlock admin controls on a second
+// device even though I'm the owner." The local PIN is per-device by
+// design (js/owner-mode.js), so a legitimate owner landing on a brand
+// new phone/laptop that's never had a PIN set needs another way in —
+// signing in with the real Firebase owner account should be enough on
+// its own, with no local PIN ever required.
+describe("a real owner sign-in unlocks admin controls on a device with NO local PIN ever set", () => {
+  it("reveals every owner-only box after signing in, with no PIN set at all", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    // The sign-in form itself is NOT owner-gated (it's the unlock
+    // mechanism), but everything else still is until it succeeds.
+    expect(document.getElementById("syncOwnerAuthSection").style.display).not.toBe("none");
+    ["correctionAddBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
+      expect(document.getElementById(id).style.display).toBe("none");
+    });
+
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+
+    ["correctionAddBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
+      expect(document.getElementById(id).style.display).not.toBe("none");
+    });
+    expect(hooks.isDeviceUnlocked()).toBe(true);
+    expect(window.OwnerMode.hasOwnerPinSet()).toBe(false); // never touched the local PIN
+  });
+
+  it("actually lets you add a correction — not just visually unlocked", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+
+    const document = window.document;
+    document.getElementById("qaWrongInput").value = "He go";
+    document.getElementById("qaRightInput").value = "He goes";
+    document.getElementById("qaAddBtn").click();
+    await wait(50);
+
+    expect(hooks.loadPersonalCorrections()).toHaveLength(1);
+    expect(document.getElementById("qaAddStatus").className).toContain("success");
+  });
+
+  it("actually lets you add a phrasal word too", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    window.OnlineLookup.fetchOnlineDefinition = async () => ({
+      w: "wind down",
+      senses: [{ use: "(verb) To relax before sleep.", examples: [] }],
+      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+    });
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+
+    const document = window.document;
+    document.getElementById("phrasalAddInput").value = "wind down";
+    document.getElementById("phrasalAddBtn").click();
+    await wait(50);
+
+    expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(true);
+  });
+
+  it("re-locks after signing out, when no local PIN was ever set as a backup", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+    expect(hooks.isDeviceUnlocked()).toBe(true);
+
+    await hooks.signOutOwner();
+
+    expect(hooks.isDeviceUnlocked()).toBe(false);
+    expect(window.document.getElementById("correctionAddBox").style.display).toBe("none");
+  });
+
+  it("stays unlocked after signing out of Firebase if the local PIN is ALSO set", async () => {
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    await window.OwnerMode.setOwnerPin("1234");
+    hooks.updateOwnerModeUI();
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+
+    await hooks.signOutOwner();
+
+    expect(hooks.isDeviceUnlocked()).toBe(true); // still unlocked via the local PIN
+    expect(window.document.getElementById("correctionAddBox").style.display).not.toBe("none");
+  });
+
+  it("regression: the owner sign-in form itself is reachable and clickable on a fresh, never-unlocked device (it IS the unlock mechanism)", async () => {
+    // Caught during review: an earlier version of this fix put the
+    // sign-in form itself behind isDeviceUnlocked()/the owner-only
+    // class, which is a catch-22 — a fresh device can never sign in to
+    // become unlocked if the sign-in form is hidden until it's unlocked.
+    const firebase = makeFirebase();
+    const { window } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    expect(document.getElementById("syncOwnerAuthSection").style.display).not.toBe("none");
+    expect(document.getElementById("syncSignInBtn").style.display).not.toBe("none");
+
+    document.getElementById("syncOwnerEmailInput").value = OWNER_EMAIL;
+    document.getElementById("syncOwnerPasswordInput").value = OWNER_PASSWORD;
+    document.getElementById("syncSignInBtn").click();
+    await wait(50);
+
+    expect(firebase.auth().currentUser.email).toBe(OWNER_EMAIL);
+    expect(document.getElementById("correctionAddBox").style.display).not.toBe("none");
+  });
+
+  it("shows a clear error instead of doing nothing when a locked device tries to add a correction directly", async () => {
+    const firebase = makeFirebase();
+    const { window } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    document.getElementById("qaWrongInput").value = "He go";
+    document.getElementById("qaRightInput").value = "He goes";
+    document.getElementById("qaAddBtn").click();
+    await wait(30);
+
+    expect(document.getElementById("qaAddStatus").textContent).toContain("isn't unlocked");
+    expect(document.getElementById("qaAddStatus").className).toContain("error");
+  });
+
+  it("shows a clear error instead of doing nothing when a locked device tries to add a phrasal word directly", async () => {
+    const firebase = makeFirebase();
+    const { window } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    document.getElementById("phrasalAddInput").value = "wind down";
+    document.getElementById("phrasalAddBtn").click();
+    await wait(30);
+
+    expect(document.getElementById("phrasalAddStatus").textContent).toContain("isn't unlocked");
+    expect(document.getElementById("phrasalAddStatus").className).toContain("error");
   });
 });
