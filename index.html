@@ -657,6 +657,8 @@
 
 <footer>Built for study &amp; quick lookup — not a substitute for a full grammar course.</footer>
 
+<script src="js/correction-log.js"></script>
+<script src="js/online-lookup.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -4690,33 +4692,21 @@ const mistakeData = [
    file from Claude. Only the entries YOU add live here; the
    30 built-in ones above stay part of the file itself.
 ========================================================= */
-const CORRECTION_LOG_KEY = "mepf_toolkit_personal_corrections_v1";
+// Storage + shaping logic lives in js/correction-log.js (shared with the
+// test suite) — these are thin delegations so the rest of this file can
+// keep calling them exactly as before.
+const CORRECTION_LOG_KEY = CorrectionLog.CORRECTION_LOG_KEY;
 
 function loadPersonalCorrections(){
-  try{
-    const raw = localStorage.getItem(CORRECTION_LOG_KEY);
-    return raw ? JSON.parse(raw) : [];
-  }catch(e){
-    return [];
-  }
+  return CorrectionLog.loadPersonalCorrections();
 }
 
 function savePersonalCorrections(list){
-  try{
-    localStorage.setItem(CORRECTION_LOG_KEY, JSON.stringify(list));
-    return true;
-  }catch(e){
-    return false;
-  }
+  return CorrectionLog.savePersonalCorrections(list);
 }
 
 function personalEntryToSense(entry){
-  return {
-    use: entry.why || "Personal correction — added by you.",
-    examples: [`✗ ${entry.wrong} → ✓ <b>${entry.right}</b>`],
-    personal: true,
-    id: entry.id
-  };
+  return CorrectionLog.personalEntryToSense(entry);
 }
 
 // Capture the 30 built-in senses ONCE, before any personal entries are
@@ -4727,7 +4717,7 @@ const BUILTIN_LOG_SENSES = CORRECTION_LOG_ENTRY.senses.slice();
 
 function rebuildCorrectionLog(){
   const saved = loadPersonalCorrections();
-  CORRECTION_LOG_ENTRY.senses = BUILTIN_LOG_SENSES.concat(saved.map(personalEntryToSense));
+  CORRECTION_LOG_ENTRY.senses = CorrectionLog.buildCorrectionSenses(BUILTIN_LOG_SENSES, saved);
 }
 rebuildCorrectionLog();
 
@@ -24229,19 +24219,7 @@ renderFamily(wordFamilyData[0]);
 const globalSearchInput = document.getElementById("globalSearch");
 const searchResultsEl = document.getElementById("searchResults");
 
-globalSearchInput.addEventListener("input", (e)=>{
-  const q = e.target.value.trim().toLowerCase();
-  if(q.length < 1){
-    searchResultsEl.classList.remove("show");
-    searchResultsEl.innerHTML = "";
-    return;
-  }
-  const matches = searchIndex.filter(item=>item.label.toLowerCase().includes(q)).slice(0, 25);
-  if(matches.length === 0){
-    searchResultsEl.innerHTML = '<div class="search-empty">No matches — try a different word.</div>';
-    searchResultsEl.classList.add("show");
-    return;
-  }
+function renderSearchMatches(matches){
   searchResultsEl.innerHTML = matches.map((m,i)=>`
     <div class="search-result-item" data-idx="${i}">
       <span class="label">${m.label}</span>
@@ -24256,6 +24234,77 @@ globalSearchInput.addEventListener("input", (e)=>{
       window.scrollTo({top:0, behavior:"smooth"});
     });
   });
+}
+
+function showNoMatches(){
+  searchResultsEl.innerHTML = '<div class="search-empty">No matches — try a different word.</div>';
+  searchResultsEl.classList.add("show");
+}
+
+// Online fallback — only reached when nothing local matched. Results are
+// cached for the session (see js/online-lookup.js) so re-typing the same
+// word doesn't re-hit the network; swapping that cache for a persistent
+// one later is the extension point for offline reuse.
+const onlineLookupCache = OnlineLookup.createMemoryCache();
+let onlineLookupToken = 0;
+let onlineLookupTimer = null;
+let onlineLookupController = null;
+
+function tryOnlineLookup(q){
+  const myToken = onlineLookupToken;
+  if(onlineLookupController) onlineLookupController.abort();
+  onlineLookupController = (typeof AbortController !== "undefined") ? new AbortController() : null;
+
+  searchResultsEl.innerHTML = '<div class="search-empty">Searching online…</div>';
+  searchResultsEl.classList.add("show");
+
+  OnlineLookup.fetchOnlineDefinition(q, {
+    cache: onlineLookupCache,
+    signal: onlineLookupController ? onlineLookupController.signal : undefined
+  }).then((result)=>{
+    // Stale response (user kept typing, or cleared the box) — drop it.
+    if(myToken !== onlineLookupToken) return;
+    if(!result){
+      showNoMatches();
+      return;
+    }
+    renderSearchMatches([{
+      label: result.w,
+      cat: "Online dictionary",
+      action: ()=>{
+        renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank (online)");
+        activateTab("vocab");
+      }
+    }]);
+  });
+}
+
+globalSearchInput.addEventListener("input", (e)=>{
+  const q = e.target.value.trim().toLowerCase();
+  onlineLookupToken++;
+  if(onlineLookupTimer) clearTimeout(onlineLookupTimer);
+  if(onlineLookupController) onlineLookupController.abort();
+
+  if(q.length < 1){
+    searchResultsEl.classList.remove("show");
+    searchResultsEl.innerHTML = "";
+    return;
+  }
+  const matches = searchIndex.filter(item=>item.label.toLowerCase().includes(q)).slice(0, 25);
+  if(matches.length > 0){
+    renderSearchMatches(matches);
+    return;
+  }
+
+  // Nothing local — try an online lookup after a short pause so we don't
+  // fire a request on every keystroke. Falls back to "No matches" if
+  // offline, the word isn't found online either, or the request fails.
+  showNoMatches();
+  const myToken = onlineLookupToken;
+  onlineLookupTimer = setTimeout(()=>{
+    if(myToken !== onlineLookupToken) return;
+    tryOnlineLookup(q);
+  }, 350);
 });
 
 document.addEventListener("click", (e)=>{
@@ -24263,6 +24312,19 @@ document.addEventListener("click", (e)=>{
     searchResultsEl.classList.remove("show");
   }
 });
+
+// Test-only hook: exposes the (otherwise script-local `const`) data sets
+// and a few pure functions so the Vitest suite can load this real page in
+// jsdom and assert against production data/behavior without duplicating
+// any of it. Harmless in the browser — nothing here is called at runtime.
+window.__TOOLKIT_TEST_HOOKS__ = {
+  verbData, tenseData, prepData, articleData, modalData, capitalData,
+  orderData, prepVerbData, mistakeData, qaData, vocabData, upgradeData,
+  phrasalData, wordFamilyData, searchIndex,
+  CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
+  loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
+  sanitizeSyncCode
+};
 </script>
 <script>
   // Register service worker for offline use + installability.
