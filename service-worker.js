@@ -1,7 +1,7 @@
 // Service worker for the Ultimate Engineering Dictionary — enables
 // offline use and the "Add to Home Screen" install prompt once this is
 // hosted online.
-const CACHE_NAME = "mepf-grammar-toolkit-v5";
+const CACHE_NAME = "mepf-grammar-toolkit-v6";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
@@ -11,7 +11,8 @@ const FILES_TO_CACHE = [
   "./js/online-lookup.js",
   "./js/fuzzy-search.js",
   "./js/vocab-cache.js",
-  "./js/owner-mode.js"
+  "./js/owner-mode.js",
+  "./js/sync-auth.js"
 ];
 
 self.addEventListener("install", (event) => {

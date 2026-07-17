@@ -66,6 +66,12 @@ export async function loadApp(options) {
       if (ownerUnlocked) {
         window.localStorage.setItem("mepf_toolkit_owner_unlocked", "1");
       }
+      // Only set when a test explicitly passes one (e.g. via
+      // createFakeFirebase()) — leaving `firebase` undefined is what
+      // makes every other test's sync code stay a no-op, same as before.
+      if (opts.firebase) {
+        window.firebase = opts.firebase;
+      }
     }
   });
 
