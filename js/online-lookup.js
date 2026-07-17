@@ -30,6 +30,7 @@
 
   var DICTIONARY_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en/";
   var WIKTIONARY_API_BASE = "https://en.wiktionary.org/api/rest_v1/page/definition/";
+  var WIKTIONARY_SEARCH_API = "https://en.wiktionary.org/w/api.php";
   var MAX_SENSES = 6;
   var DEFINITIONS_PER_MEANING = 2;
 
@@ -39,6 +40,50 @@
 
   function buildWiktionaryUrl(word) {
     return WIKTIONARY_API_BASE + encodeURIComponent(word);
+  }
+
+  // The MediaWiki Action API (keyless, CORS-enabled via origin=*, same
+  // Wikimedia infrastructure as WIKTIONARY_API_BASE above) — used as a
+  // last resort to find the closest matching Wiktionary PAGE TITLE for
+  // a phrase that doesn't have its own exact-title entry. This is what
+  // lets a full sentence or an inflected idiom ("It slipped my mind.")
+  // find its way to the dictionary entry that actually has the
+  // definition ("slip someone's mind"), without us maintaining any
+  // manual list of idiom variants ourselves.
+  function buildWiktionarySearchUrl(phrase) {
+    var params = [
+      "action=query",
+      "list=search",
+      "format=json",
+      "origin=*",
+      "srlimit=1",
+      "srsearch=" + encodeURIComponent(phrase)
+    ];
+    return WIKTIONARY_SEARCH_API + "?" + params.join("&");
+  }
+
+  // Pulls the top search hit's page title out of the Action API's
+  // response shape, or null if the search itself came back empty.
+  function extractWiktionarySearchTitle(json) {
+    var results = json && json.query && json.query.search;
+    if (!Array.isArray(results) || results.length === 0) return null;
+    return results[0].title || null;
+  }
+
+  // Query text is normalized ONLY for building lookup/search URLs — the
+  // entry actually saved always keeps the literal text the user typed
+  // (normalizeDictionaryResponse/normalizeWiktionaryResponse are always
+  // called with the original, unnormalized word). Stripping wrapping
+  // quotes and trailing sentence punctuation measurably improves exact
+  // Wiktionary title matches (e.g. an entry literally titled "no
+  // worries" won't match a query of "No worries.") without touching
+  // internal apostrophes that matter for contractions/possessives.
+  function normalizeQueryText(word) {
+    return String(word || "")
+      .trim()
+      .replace(/^["'‘“]+|["'’”]+$/g, "")
+      .replace(/[.?!]+$/, "")
+      .trim();
   }
 
   function stripHtml(html) {
@@ -228,6 +273,11 @@
     var fetchImpl = opts.fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
     if (!fetchImpl) return Promise.resolve(null);
 
+    // Only used to build outbound URLs — the entry ultimately saved
+    // always carries `trimmed` (the literal text as typed) as its `w`,
+    // via the fetchAndNormalize() closure below.
+    var queryText = normalizeQueryText(trimmed) || trimmed;
+
     function fetchAndNormalize(url, normalize) {
       return fetchImpl(url, { signal: opts.signal })
         .then(function (res) {
@@ -244,14 +294,37 @@
         });
     }
 
-    return fetchAndNormalize(buildRequestUrl(trimmed), normalizeDictionaryResponse)
+    // Third and last resort: multi-word phrases (idioms, useful
+    // sentences, sentence patterns) very often don't have their own
+    // exact-title Wiktionary entry — "It slipped my mind." is written
+    // up under the canonical title "slip someone's mind", not the
+    // literal inflected sentence — so a title lookup alone (above)
+    // misses most of them. Wiktionary's own search finds the closest
+    // matching title, which is then fetched and normalized exactly like
+    // a direct hit.
+    function searchWiktionaryThenFetch() {
+      return fetchImpl(buildWiktionarySearchUrl(queryText), { signal: opts.signal })
+        .then(function (res) { return res && res.ok ? res.json() : null; })
+        .then(function (json) {
+          var title = extractWiktionarySearchTitle(json);
+          if (!title || title.toLowerCase() === queryText.toLowerCase()) return null; // already tried this exact title above
+          return fetchAndNormalize(buildWiktionaryUrl(title), normalizeWiktionaryResponse);
+        })
+        .catch(function () { return null; });
+    }
+
+    return fetchAndNormalize(buildRequestUrl(queryText), normalizeDictionaryResponse)
       .then(function (result) {
         if (result) return result;
         // Primary source had nothing for this word — try a second,
         // independent source before giving up. Safe to chain: any
         // failure here (network, unexpected shape) still resolves to
         // null the same way a single-source lookup would.
-        return fetchAndNormalize(buildWiktionaryUrl(trimmed), normalizeWiktionaryResponse);
+        return fetchAndNormalize(buildWiktionaryUrl(queryText), normalizeWiktionaryResponse);
+      })
+      .then(function (result) {
+        if (result) return result;
+        return searchWiktionaryThenFetch();
       })
       .then(function (result) {
         if (result && cache) cache.set(trimmed, result);
@@ -262,8 +335,12 @@
   return {
     DICTIONARY_API_BASE: DICTIONARY_API_BASE,
     WIKTIONARY_API_BASE: WIKTIONARY_API_BASE,
+    WIKTIONARY_SEARCH_API: WIKTIONARY_SEARCH_API,
     buildRequestUrl: buildRequestUrl,
     buildWiktionaryUrl: buildWiktionaryUrl,
+    buildWiktionarySearchUrl: buildWiktionarySearchUrl,
+    extractWiktionarySearchTitle: extractWiktionarySearchTitle,
+    normalizeQueryText: normalizeQueryText,
     normalizeDictionaryResponse: normalizeDictionaryResponse,
     normalizeWiktionaryResponse: normalizeWiktionaryResponse,
     generateFallbackExample: generateFallbackExample,

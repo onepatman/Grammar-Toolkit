@@ -176,12 +176,13 @@ describe("fetchOnlineDefinition", () => {
   });
 
   it("does not cache a failed lookup, so a later retry can still succeed", async () => {
-    // Fails on both the primary and secondary source each time.
+    // Fails on every source (primary, direct Wiktionary, and the
+    // Wiktionary search fallback all return not-ok) each time.
     const fetchImpl = vi.fn(() => jsonResponse([], false));
     const cache = OnlineLookup.createMemoryCache();
     await OnlineLookup.fetchOnlineDefinition("zzzznotaword", { fetchImpl, isOnline: () => true, cache });
     await OnlineLookup.fetchOnlineDefinition("zzzznotaword", { fetchImpl, isOnline: () => true, cache });
-    expect(fetchImpl).toHaveBeenCalledTimes(4); // 2 sources x 2 attempts
+    expect(fetchImpl).toHaveBeenCalledTimes(6); // 3 sources x 2 attempts
   });
 
   it("falls back to the secondary source (Wiktionary) when the primary has nothing", async () => {
@@ -203,7 +204,7 @@ describe("fetchOnlineDefinition", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("resolves to null when both sources have nothing", async () => {
+  it("resolves to null when all three sources have nothing", async () => {
     const fetchImpl = vi.fn(() => jsonResponse([], false));
     const result = await OnlineLookup.fetchOnlineDefinition("zzzznotaword", { fetchImpl, isOnline: () => true });
     expect(result).toBeNull();
@@ -213,6 +214,101 @@ describe("fetchOnlineDefinition", () => {
     const fetchImpl = vi.fn(() => jsonResponse(SAMPLE_API_RESPONSE));
     await OnlineLookup.fetchOnlineDefinition("resilient", { fetchImpl, isOnline: () => true });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to a Wiktionary SEARCH match when neither direct-title source has an exact entry for the phrase", async () => {
+    // "It slipped my mind." has no page of its own — the real Wiktionary
+    // entry is titled "slip someone's mind". This is exactly the gap
+    // the search-based third tier exists to close for idioms/sentences.
+    const searchResponse = { query: { search: [{ title: "slip someone's mind" }] } };
+    const definitionResponse = {
+      en: [{ partOfSpeech: "Verb", definitions: [{ definition: "To be forgotten.", examples: ["It slipped my mind that we had a meeting."] }] }]
+    };
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("It slipped my mind")) return jsonResponse([], false);
+      if (url === OnlineLookup.buildWiktionaryUrl("It slipped my mind")) return jsonResponse({}, false);
+      if (url === OnlineLookup.buildWiktionarySearchUrl("It slipped my mind")) return jsonResponse(searchResponse);
+      if (url === OnlineLookup.buildWiktionaryUrl("slip someone's mind")) return jsonResponse(definitionResponse);
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("It slipped my mind.", { fetchImpl, isOnline: () => true });
+
+    expect(result).not.toBeNull();
+    // The saved headword stays exactly what was typed (including the
+    // trailing period) — only the LOOKUP used the normalized query and
+    // the matched title, never what gets stored.
+    expect(result.w).toBe("It slipped my mind.");
+    expect(result.senses[0].use).toContain("To be forgotten");
+  });
+
+  it("does not call the search fallback when a direct-title source already matched", async () => {
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("resilient")) return jsonResponse(SAMPLE_API_RESPONSE);
+      throw new Error("unexpected url: " + url);
+    });
+    await OnlineLookup.fetchOnlineDefinition("resilient", { fetchImpl, isOnline: () => true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-fetch a title identical to the already-failed direct lookup, even if search returns it again", async () => {
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildWiktionarySearchUrl("nonsenseword")) {
+        return jsonResponse({ query: { search: [{ title: "nonsenseword" }] } });
+      }
+      return jsonResponse([], false);
+    });
+    const result = await OnlineLookup.fetchOnlineDefinition("nonsenseword", { fetchImpl, isOnline: () => true });
+    expect(result).toBeNull();
+    // 2 direct sources + the search call itself = 3 (no 4th "re-fetch
+    // the same title" call).
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("strips wrapping quotes and trailing sentence punctuation from the query, without changing the saved word", async () => {
+    // No `word` field in the response on purpose — normalizeDictionaryResponse
+    // falls back to the `word` argument it was called with in that case,
+    // which is what this test is actually checking stays untouched.
+    const response = [{ meanings: [{ partOfSpeech: "phrase", definitions: [{ definition: "Used to reassure someone that something is fine." }] }] }];
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("No worries")) return jsonResponse(response);
+      return jsonResponse([], false);
+    });
+    const result = await OnlineLookup.fetchOnlineDefinition('"No worries."', { fetchImpl, isOnline: () => true });
+    expect(result).not.toBeNull();
+    expect(result.w).toBe('"No worries."');
+  });
+});
+
+describe("normalizeQueryText", () => {
+  it("strips wrapping quotes of several styles", () => {
+    expect(OnlineLookup.normalizeQueryText('"no worries"')).toBe("no worries");
+    expect(OnlineLookup.normalizeQueryText("'no worries'")).toBe("no worries");
+    expect(OnlineLookup.normalizeQueryText("‘no worries’")).toBe("no worries");
+  });
+
+  it("strips trailing sentence punctuation but keeps internal apostrophes", () => {
+    expect(OnlineLookup.normalizeQueryText("It slipped my mind.")).toBe("It slipped my mind");
+    expect(OnlineLookup.normalizeQueryText("Would you mind?")).toBe("Would you mind");
+    expect(OnlineLookup.normalizeQueryText("No way!")).toBe("No way");
+    expect(OnlineLookup.normalizeQueryText("It's raining.")).toBe("It's raining");
+  });
+
+  it("leaves an already-clean phrase untouched", () => {
+    expect(OnlineLookup.normalizeQueryText("break the ice")).toBe("break the ice");
+  });
+});
+
+describe("extractWiktionarySearchTitle", () => {
+  it("returns the top search result's title", () => {
+    const json = { query: { search: [{ title: "slip someone's mind" }, { title: "other" }] } };
+    expect(OnlineLookup.extractWiktionarySearchTitle(json)).toBe("slip someone's mind");
+  });
+
+  it("returns null for an empty or malformed search response", () => {
+    expect(OnlineLookup.extractWiktionarySearchTitle({ query: { search: [] } })).toBeNull();
+    expect(OnlineLookup.extractWiktionarySearchTitle({})).toBeNull();
+    expect(OnlineLookup.extractWiktionarySearchTitle(null)).toBeNull();
   });
 });
 

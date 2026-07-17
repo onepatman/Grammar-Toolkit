@@ -75,22 +75,34 @@ describe.each([
   {
     key: "idioms", label: "Idioms & Expressions", inputId: "idiomsAddInput", btnId: "idiomsAddBtn",
     statusId: "idiomsAddStatus", dataKey: "idiomsData", entryId: "idiomsEntry", tagLabel: "Idiom / Expression",
-    builtIn: "break the ice", requireOnlineMatch: true,
+    builtIn: "break the ice", requireExplanation: true, hasManualExample: true, hasSkip: false,
+    manualBoxId: "idiomsManualBox", manualWordId: "idiomsManualWord", manualUseId: "idiomsManualUse",
+    manualExampleId: "idiomsManualExample", manualSaveBtnId: "idiomsManualSaveBtn",
+    manualCancelBtnId: "idiomsManualCancelBtn", manualSkipBtnId: null,
     sample: { w: "test the waters", senses: [{ use: "(idiom) Try something cautiously before fully committing.", examples: ["We tested the waters with a small pilot first."] }], syn: ["try it out"], ant: [], mistake: null, tagalog: null, source: "online" }
   },
   {
     key: "sentences", label: "Useful Sentences", inputId: "sentencesAddInput", btnId: "sentencesAddBtn",
     statusId: "sentencesAddStatus", dataKey: "sentencesData", entryId: "sentencesEntry", tagLabel: "Useful Sentence",
-    builtIn: "I'll get back to you on that.", requireOnlineMatch: false,
+    builtIn: "I'll get back to you on that.", requireExplanation: false, hasManualExample: false, hasSkip: true,
+    manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord", manualUseId: "sentencesManualUse",
+    manualExampleId: null, manualSaveBtnId: "sentencesManualSaveBtn",
+    manualCancelBtnId: "sentencesManualCancelBtn", manualSkipBtnId: "sentencesManualSkipBtn",
     sample: { w: "Let me know if that works for you.", senses: [{ use: "Checks that a proposed plan or time is acceptable.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
   },
   {
     key: "patterns", label: "Sentence Patterns", inputId: "patternsAddInput", btnId: "patternsAddBtn",
     statusId: "patternsAddStatus", dataKey: "patternsData", entryId: "patternsEntry", tagLabel: "Sentence Pattern",
-    builtIn: "Would you mind + V-ing?", requireOnlineMatch: false,
+    builtIn: "Would you mind + V-ing?", requireExplanation: false, hasManualExample: false, hasSkip: true,
+    manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord", manualUseId: "patternsManualUse",
+    manualExampleId: null, manualSaveBtnId: "patternsManualSaveBtn",
+    manualCancelBtnId: "patternsManualCancelBtn", manualSkipBtnId: "patternsManualSkipBtn",
     sample: { w: "Not only + inverted clause, but also...", senses: [{ use: "Emphasizes two facts with subject-verb inversion.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
   }
-])("$label quick-add", ({ key, inputId, btnId, statusId, dataKey, entryId, tagLabel, builtIn, requireOnlineMatch, sample }) => {
+])("$label quick-add", ({
+  key, inputId, btnId, statusId, dataKey, entryId, tagLabel, builtIn, requireExplanation, hasManualExample, hasSkip,
+  manualBoxId, manualWordId, manualUseId, manualExampleId, manualSaveBtnId, manualCancelBtnId, manualSkipBtnId, sample
+}) => {
   function stubFetch(window, result) {
     window.OnlineLookup.fetchOnlineDefinition = async () => result;
   }
@@ -164,8 +176,8 @@ describe.each([
     expect(hooks[dataKey].some((p) => p.w === sample.w)).toBe(false);
   });
 
-  if (requireOnlineMatch) {
-    it("refuses to add and shows a graceful error when nothing is found online", async () => {
+  describe("when nothing is found online", () => {
+    it("shows the manual-completion box instead of refusing outright or silently adding a blank entry", async () => {
       const { window, hooks } = await loadApp();
       const document = window.document;
       stubFetch(window, null);
@@ -175,29 +187,121 @@ describe.each([
       await wait(30);
 
       expect(document.getElementById(statusId).textContent).toContain("Couldn't find");
-      expect(document.getElementById(statusId).className).toContain("error");
+      expect(document.getElementById(manualBoxId).style.display).not.toBe("none");
+      expect(document.getElementById(manualWordId).textContent).toBe("zzznotfound zzz");
+      expect(hooks.languageBankPendingManual[key]).toBe("zzznotfound zzz");
+      // Not added yet — only after Save/Skip.
       expect(hooks[dataKey].some((p) => p.w === "zzznotfound zzz")).toBe(false);
     });
-  } else {
-    it("still adds the entry — with just the typed text — when nothing is found online", async () => {
+
+    it("saves with a manually-typed explanation when Save is clicked", async () => {
       const { window, hooks } = await loadApp();
       const document = window.document;
       stubFetch(window, null);
-
       const text = "a brand new entry with no dictionary match";
+
       document.getElementById(inputId).value = text;
       document.getElementById(btnId).click();
       await wait(30);
 
+      document.getElementById(manualUseId).value = "My own explanation of what this means.";
+      if (hasManualExample) document.getElementById(manualExampleId).value = "An example I wrote myself.";
+      document.getElementById(manualSaveBtnId).click();
+      await wait(30);
+
       expect(document.getElementById(statusId).className).toContain("success");
-      expect(document.getElementById(statusId).textContent).toContain("no online definition was found");
+      expect(document.getElementById(statusId).textContent).toContain("your own notes");
       const added = hooks[dataKey].find((p) => p.w === text);
       expect(added).toBeTruthy();
-      expect(added.senses).toEqual([]);
-      // Rendered with no crash and no fabricated content under Rule & usage.
-      expect(document.getElementById(entryId).querySelectorAll(".sense")).toHaveLength(0);
+      expect(added.senses[0].use).toBe("My own explanation of what this means.");
+      if (hasManualExample) expect(added.senses[0].examples).toEqual(["An example I wrote myself."]);
+      expect(document.getElementById(manualBoxId).style.display).toBe("none");
+      expect(document.getElementById(entryId).querySelector(".headword").textContent).toBe(text);
     });
-  }
+
+    it("Cancel hides the manual box and adds nothing", async () => {
+      const { window, hooks } = await loadApp();
+      const document = window.document;
+      stubFetch(window, null);
+      const text = "something to cancel";
+
+      document.getElementById(inputId).value = text;
+      document.getElementById(btnId).click();
+      await wait(30);
+      document.getElementById(manualCancelBtnId).click();
+      await wait(10);
+
+      expect(document.getElementById(manualBoxId).style.display).toBe("none");
+      expect(document.getElementById(statusId).textContent).toContain("Cancelled");
+      expect(hooks[dataKey].some((p) => p.w === text)).toBe(false);
+      expect(hooks.languageBankPendingManual[key]).toBeUndefined();
+    });
+
+    if (requireExplanation) {
+      it("refuses to save with a blank explanation — a dictionary-style entry needs a meaning", async () => {
+        const { window, hooks } = await loadApp();
+        const document = window.document;
+        stubFetch(window, null);
+        const text = "needs an explanation";
+
+        document.getElementById(inputId).value = text;
+        document.getElementById(btnId).click();
+        await wait(30);
+        document.getElementById(manualSaveBtnId).click();
+        await wait(20);
+
+        expect(document.getElementById(statusId).className).toContain("error");
+        expect(hooks[dataKey].some((p) => p.w === text)).toBe(false);
+        // Box stays open so the user can still fill it in.
+        expect(document.getElementById(manualBoxId).style.display).not.toBe("none");
+      });
+    }
+
+    if (hasSkip) {
+      it("adds the entry with just the typed text when Skip/Add-without-notes is clicked", async () => {
+        const { window, hooks } = await loadApp();
+        const document = window.document;
+        stubFetch(window, null);
+        const text = "a brand new entry with no dictionary match";
+
+        document.getElementById(inputId).value = text;
+        document.getElementById(btnId).click();
+        await wait(30);
+        document.getElementById(manualSkipBtnId).click();
+        await wait(30);
+
+        expect(document.getElementById(statusId).className).toContain("success");
+        expect(document.getElementById(statusId).textContent).toContain("no online definition was found");
+        const added = hooks[dataKey].find((p) => p.w === text);
+        expect(added).toBeTruthy();
+        expect(added.senses).toEqual([]);
+        // Rendered with no crash and no fabricated content under Rule & usage.
+        expect(document.getElementById(entryId).querySelectorAll(".sense")).toHaveLength(0);
+      });
+    }
+
+    it("is gated behind isDeviceUnlocked() even though the manual box would normally be hidden while locked", async () => {
+      const { window, hooks } = await loadApp();
+      const document = window.document;
+      stubFetch(window, null);
+      const text = "gate check";
+
+      document.getElementById(inputId).value = text;
+      document.getElementById(btnId).click();
+      await wait(30);
+
+      // Lock the device out from under the already-open manual box.
+      window.OwnerMode.lockOwnerMode();
+      hooks.updateOwnerModeUI();
+
+      document.getElementById(manualUseId).value = "trying anyway";
+      document.getElementById(manualSaveBtnId).click();
+      await wait(20);
+
+      expect(document.getElementById(statusId).textContent).toContain("isn't unlocked");
+      expect(hooks[dataKey].some((p) => p.w === text)).toBe(false);
+    });
+  });
 
   it("persists across sessions via its own IndexedDB store, independent of the other categories", async () => {
     const indexedDBFactory = new IDBFactory();
