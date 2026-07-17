@@ -28465,7 +28465,7 @@ function updateOwnerModeUI(){
     unlockForm.style.display = "block";
     unlockedPanel.style.display = "none";
   } else {
-    statusEl.textContent = "No owner PIN has been set on this device yet. Set one to unlock admin controls here — enter the same PIN on your other devices to unlock those too.";
+    statusEl.textContent = "No owner PIN has been set on this device yet. Set one to unlock admin controls here — PINs aren't synced automatically, so you'll need to set the same PIN on each device yourself, or just sign in with your owner email and password in \"Sync across devices\" below to unlock any device without a PIN at all.";
     statusEl.className = "add-status";
     setPinForm.style.display = "block";
     unlockForm.style.display = "none";
@@ -28494,7 +28494,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   const ok = await OwnerMode.unlockOwnerMode(input.value);
   input.value = "";
   if(!ok){
-    statusEl.textContent = "Incorrect PIN.";
+    statusEl.textContent = "Incorrect PIN. PINs are set per device, not synced — if you're the real owner, sign in with your owner email and password in \"Sync across devices\" below instead; that unlocks this device without needing to know its PIN.";
     statusEl.className = "add-status error";
     return;
   }
@@ -28509,8 +28509,20 @@ document.getElementById("ownerNewPinInput").addEventListener("keydown", (e)=>{
   if(e.key === "Enter") document.getElementById("ownerSetPinBtn").click();
 });
 
-document.getElementById("ownerLockBtn").addEventListener("click", ()=>{
+document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   OwnerMode.lockOwnerMode();
+  // isDeviceUnlocked() also accepts a real Firebase owner sign-in (see
+  // isDeviceUnlocked above) — clearing only the local PIN flag left that
+  // path still unlocked, so this button did nothing visible on a device
+  // that got unlocked by signing in rather than by a PIN. Signing out of
+  // Firebase too (via the same signOutOwner() the Sync panel's own
+  // "Sign out" button uses) makes Lock actually lock regardless of which
+  // path unlocked the device.
+  const user = getCurrentFirebaseUser();
+  if(SyncAuth.isOwnerAuthenticated(user)){
+    await signOutOwner();
+    return;
+  }
   updateOwnerModeUI();
   refreshMistakeUI();
 });
@@ -28740,9 +28752,39 @@ function sanitizeSyncCode(code){
   return code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
-// The single place that reconciles local personal corrections with the
-// shared Firestore doc — called on every connect, sign-in, sign-out,
-// and page-load reconnect, so this one function is the only place that
+// Only the entries a person actually typed in (source:"online") travel
+// through sync — every client already ships the exact same hardcoded
+// seed content (phrasalData/idiomsData/sentencesData/patternsData's
+// built-ins have no `source` field at all), so re-syncing those would
+// just be redundant traffic, not new information.
+function collectOnlineLanguageBankEntries(){
+  const result = {};
+  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+    result[categoryKey] = LANGUAGE_BANK_CONFIG[categoryKey].data.filter(e=> e.source === "online");
+  });
+  return result;
+}
+
+// Applies a `languageBank` field read off the shared Firestore doc to
+// this device — reuses addLanguageBankEntry() itself (same dedupe /
+// "never overwrite with something less rich" / IndexedDB-persist logic
+// the local quick-add path already relies on), so a device that already
+// has an entry locally just keeps whichever version is richer instead
+// of always trusting the remote copy.
+function applyRemoteLanguageBank(remote){
+  if(!remote) return;
+  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+    const list = remote[categoryKey];
+    if(!Array.isArray(list)) return;
+    list.forEach(entry=> addLanguageBankEntry(categoryKey, entry, {persist:true}));
+  });
+}
+
+// The single place that reconciles local personal corrections (and, as
+// of the Language Bank's cross-device sync, locally-added phrasal
+// verbs/idioms/useful sentences/sentence patterns) with the shared
+// Firestore doc — called on every connect, sign-in, sign-out, and
+// page-load reconnect, so this one function is the only place that
 // needs to get "what happens when the doc doesn't exist yet" right.
 function listenToSync(code){
   if(!firestoreDb) return;
@@ -28754,6 +28796,7 @@ function listenToSync(code){
       savePersonalCorrections(data.entries || []);
       rebuildCorrectionLog();
       refreshMistakeUI();
+      applyRemoteLanguageBank(data.languageBank);
       return;
     }
     // Nothing saved under this code yet. If we're signed in as the
@@ -28769,6 +28812,7 @@ function listenToSync(code){
       const localEntries = loadPersonalCorrections();
       docRef.set({
         entries: localEntries,
+        languageBank: collectOnlineLanguageBankEntries(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
     }
@@ -28788,12 +28832,21 @@ function listenToSync(code){
 // the signed-in user isn't the owner (see firestore.rules). Never
 // throws, so every caller can `await` it and decide what "the shared
 // log didn't accept this change" means for its own UI/rollback.
+//
+// Always writes BOTH `entries` and `languageBank` together, even though
+// most callers only just changed one of the two — a plain Firestore
+// .set() replaces the whole document, so writing only the field that
+// changed would silently wipe out the other one. Reading the current
+// value of whichever field didn't change (loadPersonalCorrections() /
+// collectOnlineLanguageBankEntries()) right before every write keeps
+// this a single safe entry point instead of two that can race.
 function pushToSync(entries){
   if(!syncEnabled || !firestoreDb) return Promise.resolve({ok:true, skipped:true});
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(!code) return Promise.resolve({ok:true, skipped:true});
   return firestoreDb.collection("syncedLogs").doc(code).set({
     entries: entries,
+    languageBank: collectOnlineLanguageBankEntries(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
     console.warn("Sync push failed:", e);
@@ -29049,10 +29102,26 @@ async function addLanguageBankEntryFromInput(categoryKey){
 
   const item = addLanguageBankEntry(categoryKey, entry, {persist:true});
   input.value = "";
-  statusEl.textContent = result
+
+  // Unlike the correction log, a Language Bank entry that fails to
+  // reach the shared doc is NOT rolled back locally — there's no
+  // "conflicting shared list" to drift from here (every entry is its
+  // own independent dictionary item, not one slot in a single
+  // replaceable list), so keeping it on this device and offline is
+  // strictly better than discarding something the owner just typed.
+  // Only actually reaches Firestore when sync is connected — otherwise
+  // this resolves {ok:true, skipped:true} immediately, same as corrections.
+  const pushResult = await pushToSync(loadPersonalCorrections());
+  const addedText = result
     ? `Added "${entry.w}" — now searchable and available offline.`
     : `Added "${entry.w}" — no online definition was found for it, so it was saved with just the text you entered.`;
-  statusEl.className = "add-status success";
+  if(!pushResult.ok){
+    statusEl.textContent = `${addedText} ${SyncAuth.friendlyWriteError(pushResult.error)}`;
+    statusEl.className = "add-status error";
+  } else {
+    statusEl.textContent = addedText;
+    statusEl.className = "add-status success";
+  }
   pushSearchHistory(item);
   item.action();
   window.scrollTo({top:0, behavior:"smooth"});
@@ -29404,7 +29473,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   pushSearchHistory, updateOwnerModeUI,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
-  getCurrentFirebaseUser
+  getCurrentFirebaseUser, collectOnlineLanguageBankEntries,
+  applyRemoteLanguageBank, addLanguageBankEntryFromInput
 };
 </script>
 <script>
