@@ -49,6 +49,43 @@ describe("connecting without owner sign-in (anonymous, read-only)", () => {
       { id: "pc_1", wrong: "He go", right: "He goes", why: "" }
     ]);
   });
+
+  it("does NOT clear local corrections just because the shared doc doesn't exist yet", async () => {
+    // Regression test: connecting (or signing in) used to always run
+    // savePersonalCorrections(doc.exists ? doc.data().entries : [])
+    // unconditionally, which wiped out anything already on the device
+    // the moment you connected to a brand-new/unseeded code.
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase });
+    hooks.savePersonalCorrections([{ id: "pc_local", wrong: "He go", right: "He goes", why: "" }]);
+
+    await hooks.connectSync("brand-new-code");
+    await wait();
+
+    expect(hooks.loadPersonalCorrections()).toEqual([
+      { id: "pc_local", wrong: "He go", right: "He goes", why: "" }
+    ]);
+  });
+
+  it("the Connect button works without unlocking the local owner PIN — viewers don't need it", async () => {
+    const firebase = makeFirebase();
+    firebase._docs.set("syncedLogs/public-code", {
+      entries: [{ id: "pc_1", wrong: "He go", right: "He goes", why: "" }]
+    });
+
+    const { window } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    expect(document.getElementById("syncConnectBtn")).toBeTruthy();
+    document.getElementById("syncCodeInput").value = "public-code";
+    document.getElementById("syncConnectBtn").click();
+    await wait(50);
+
+    expect(document.getElementById("syncStatus").textContent).toContain("Connected");
+    expect(window.__TOOLKIT_TEST_HOOKS__.loadPersonalCorrections()).toEqual([
+      { id: "pc_1", wrong: "He go", right: "He goes", why: "" }
+    ]);
+  });
 });
 
 describe("signing in as owner", () => {
@@ -127,6 +164,38 @@ describe("the owner's writes reach the shared log", () => {
     const doc = firebase._docs.get("syncedLogs/team-code-4");
     expect(doc.entries.some((e) => e.wrong === "He go")).toBe(true);
     expect(document.getElementById("qaAddStatus").textContent).toContain("Saved");
+  });
+
+  it("regression: a correction added locally BEFORE signing in as owner survives the sign-in and ends up in the shared doc", async () => {
+    // This is the exact bug reported: unlock the local PIN, add a
+    // correction (no sync connected yet), THEN sign in as owner in the
+    // Sync panel — the local addition used to vanish, because signing
+    // in re-attached the Firestore listener, which unconditionally
+    // wrote `entries: []` over local storage since the shared doc
+    // didn't exist yet.
+    const firebase = makeFirebase();
+    const { window, hooks } = await loadApp({ firebase });
+    const document = window.document;
+
+    document.getElementById("qaWrongInput").value = "He go";
+    document.getElementById("qaRightInput").value = "He goes";
+    document.getElementById("qaAddBtn").click();
+    await wait(50);
+    expect(hooks.loadPersonalCorrections()).toHaveLength(1);
+
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+    await wait(50);
+
+    expect(hooks.loadPersonalCorrections()).toHaveLength(1);
+    expect(hooks.loadPersonalCorrections()[0].wrong).toBe("He go");
+
+    // And once they connect, the owner's local entry should reach the
+    // shared doc (proving sync isn't just silently broken post-sign-in).
+    await hooks.connectSync("team-code-regression");
+    await wait(50);
+
+    const doc = firebase._docs.get("syncedLogs/team-code-regression");
+    expect(doc.entries.some((e) => e.wrong === "He go")).toBe(true);
   });
 });
 

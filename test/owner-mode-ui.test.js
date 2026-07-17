@@ -15,9 +15,17 @@ describe("a locked device (no PIN set yet)", () => {
   it("hides every admin control", async () => {
     const { window } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
-    ["correctionAddBox", "syncBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
+    ["correctionAddBox", "syncOwnerAuthSection", "packImportBox", "phrasalAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).toBe("none");
     });
+  });
+
+  it("still shows the Sync box itself (connecting to view is not owner-gated)", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    expect(document.getElementById("syncBox").style.display).not.toBe("none");
+    expect(document.getElementById("syncCodeInput")).toBeTruthy();
+    expect(document.getElementById("syncConnectBtn")).toBeTruthy();
   });
 
   it("shows the set-PIN form, not the unlock form", async () => {
@@ -104,7 +112,7 @@ describe("setting an owner PIN", () => {
     document.getElementById("ownerSetPinBtn").click();
     await wait();
 
-    ["correctionAddBox", "syncBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
+    ["correctionAddBox", "syncOwnerAuthSection", "packImportBox", "phrasalAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).not.toBe("none");
     });
     expect(document.getElementById("ownerAccessStatus").textContent).toContain("Unlocked");

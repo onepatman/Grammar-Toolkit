@@ -15,18 +15,18 @@ describe("isOwnerAuthenticated", () => {
     expect(SyncAuth.isOwnerAuthenticated(user)).toBe(false);
   });
 
-  it("is false for a real sign-in with an unverified email", () => {
+  it("is true for a real sign-in even with an UNverified email — a Firebase Console 'Add user' account is never pre-verified", () => {
     const user = { isAnonymous: false, email: "owner@example.com", emailVerified: false };
-    expect(SyncAuth.isOwnerAuthenticated(user)).toBe(false);
+    expect(SyncAuth.isOwnerAuthenticated(user)).toBe(true);
   });
 
-  it("is true for a real, verified sign-in with no specific owner email required", () => {
+  it("is true for a real sign-in with no specific owner email required", () => {
     const user = { isAnonymous: false, email: "owner@example.com", emailVerified: true };
     expect(SyncAuth.isOwnerAuthenticated(user)).toBe(true);
   });
 
   it("checks the email matches when an owner email is given", () => {
-    const user = { isAnonymous: false, email: "someone-else@example.com", emailVerified: true };
+    const user = { isAnonymous: false, email: "someone-else@example.com", emailVerified: false };
     expect(SyncAuth.isOwnerAuthenticated(user, "owner@example.com")).toBe(false);
     expect(SyncAuth.isOwnerAuthenticated({ ...user, email: "owner@example.com" }, "owner@example.com")).toBe(true);
   });
