@@ -1,0 +1,15 @@
+{
+  "name": "grammar-toolkit",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Test suite for the MEPF Engineer's English Grammar Toolkit (static, no-build-step PWA).",
+  "type": "commonjs",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.9"
+  }
+}
