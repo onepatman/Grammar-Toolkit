@@ -104,6 +104,7 @@ describe("Favorites tab", () => {
 
     openVocabEntry(hooks, document, "abandon");
     document.querySelector("#vocabEntry .fav-toggle").click();
+    await wait(5); // ensure distinct addedAt timestamps so ordering is deterministic
     openVocabEntry(hooks, document, "above");
     document.querySelector("#vocabEntry .fav-toggle").click();
 
