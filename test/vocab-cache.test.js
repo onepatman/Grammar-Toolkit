@@ -112,3 +112,143 @@ describe("richnessScore / isRicherEntry", () => {
     expect(VocabCache.isRicherEntry(thin, thin)).toBe(false); // equal is not "richer"
   });
 });
+
+describe("validateEntry / filterValidEntries", () => {
+  it("accepts a well-formed entry", () => {
+    expect(VocabCache.validateEntry(SAMPLE_ENTRY)).toBe(true);
+  });
+
+  it("rejects an entry with no word, no senses, or malformed senses", () => {
+    expect(VocabCache.validateEntry({ senses: [] })).toBe(false);
+    expect(VocabCache.validateEntry({ w: "   ", senses: [{ use: "x", examples: [] }] })).toBe(false);
+    expect(VocabCache.validateEntry({ w: "x", senses: [] })).toBe(false);
+    expect(VocabCache.validateEntry({ w: "x", senses: [{ use: "", examples: [] }] })).toBe(false);
+    expect(VocabCache.validateEntry({ w: "x", senses: [{ use: "ok" }] })).toBe(false); // examples not an array
+    expect(VocabCache.validateEntry(null)).toBe(false);
+  });
+
+  it("filters a batch down to only the valid entries", () => {
+    const batch = [
+      SAMPLE_ENTRY,
+      { w: "", senses: [] },
+      { w: "compress", senses: [{ use: "(verb) squeeze", examples: [] }] },
+      "not even an object"
+    ];
+    const valid = VocabCache.filterValidEntries(batch);
+    expect(valid.map((e) => e.w)).toEqual(["press", "compress"]);
+  });
+
+  it("returns an empty array for non-array input", () => {
+    expect(VocabCache.filterValidEntries(null)).toEqual([]);
+    expect(VocabCache.filterValidEntries("nope")).toEqual([]);
+  });
+});
+
+describe("favorites", () => {
+  it("adds, checks, and removes a favorite", async () => {
+    const idb = freshIndexedDB();
+    expect(await VocabCache.isFavorite("press", { indexedDB: idb })).toBe(false);
+
+    await VocabCache.addFavorite("press", { cat: "Vocabulary Bank" }, { indexedDB: idb });
+    expect(await VocabCache.isFavorite("Press", { indexedDB: idb })).toBe(true);
+
+    await VocabCache.removeFavorite("press", { indexedDB: idb });
+    expect(await VocabCache.isFavorite("press", { indexedDB: idb })).toBe(false);
+  });
+
+  it("lists favorites newest-first", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.addFavorite("first", { cat: "Vocabulary Bank" }, { indexedDB: idb });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await VocabCache.addFavorite("second", { cat: "Vocabulary Bank" }, { indexedDB: idb });
+
+    const favs = await VocabCache.getAllFavorites({ indexedDB: idb });
+    expect(favs.map((f) => f.word)).toEqual(["second", "first"]);
+  });
+
+  it("adding an already-favorited word again does not duplicate it", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.addFavorite("press", {}, { indexedDB: idb });
+    await VocabCache.addFavorite("press", {}, { indexedDB: idb });
+    const favs = await VocabCache.getAllFavorites({ indexedDB: idb });
+    expect(favs).toHaveLength(1);
+  });
+});
+
+describe("recently viewed", () => {
+  it("records and lists views, newest first", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.recordRecentlyViewed("abandon", "Vocabulary Bank", { indexedDB: idb });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await VocabCache.recordRecentlyViewed("above", "Vocabulary Bank", { indexedDB: idb });
+
+    const recent = await VocabCache.getRecentlyViewed(10, { indexedDB: idb });
+    expect(recent.map((r) => r.word)).toEqual(["above", "abandon"]);
+  });
+
+  it("viewing the same word again moves it to the front instead of duplicating it", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.recordRecentlyViewed("abandon", "Vocabulary Bank", { indexedDB: idb });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await VocabCache.recordRecentlyViewed("above", "Vocabulary Bank", { indexedDB: idb });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await VocabCache.recordRecentlyViewed("abandon", "Vocabulary Bank", { indexedDB: idb });
+
+    const recent = await VocabCache.getRecentlyViewed(10, { indexedDB: idb });
+    expect(recent.map((r) => r.word)).toEqual(["abandon", "above"]);
+  });
+
+  it("respects the limit parameter", async () => {
+    const idb = freshIndexedDB();
+    for (const w of ["a", "b", "c", "d"]) {
+      await VocabCache.recordRecentlyViewed(w, "Vocabulary Bank", { indexedDB: idb });
+    }
+    const recent = await VocabCache.getRecentlyViewed(2, { indexedDB: idb });
+    expect(recent).toHaveLength(2);
+  });
+
+  it("trims older entries once RECENT_LIMIT is exceeded", async () => {
+    const idb = freshIndexedDB();
+    const dbPromise = VocabCache.openDb(idb);
+    const total = VocabCache.RECENT_LIMIT + 5;
+    for (let i = 0; i < total; i++) {
+      await VocabCache.recordRecentlyViewed("word" + i, "Vocabulary Bank", { dbPromise });
+    }
+    const all = await VocabCache.getRecentlyViewed(total, { dbPromise });
+    expect(all.length).toBeLessThanOrEqual(VocabCache.RECENT_LIMIT);
+    // The most recently added word must have survived the trim.
+    expect(all.some((r) => r.word === "word" + (total - 1))).toBe(true);
+  });
+});
+
+describe("schema migration from DB_VERSION 1 (pre-favorites/recently-viewed)", () => {
+  it("upgrading an existing v1 database preserves cached vocabEntries and adds the new stores", async () => {
+    const idb = new IDBFactory();
+
+    // Simulate a database created by the earlier version of this app
+    // (only the vocabEntries store, at version 1).
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.STORE_NAME, "readwrite");
+        tx.objectStore(VocabCache.STORE_NAME).put({ key: "press", entry: SAMPLE_ENTRY });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    // Now open with the current module (DB_VERSION 2) against the same factory.
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.STORE_NAME)).toBe(true);
+    expect(db.objectStoreNames.contains(VocabCache.FAVORITES_STORE)).toBe(true);
+    expect(db.objectStoreNames.contains(VocabCache.RECENT_STORE)).toBe(true);
+
+    const preserved = await VocabCache.get("press", { indexedDB: idb });
+    expect(preserved).toEqual(SAMPLE_ENTRY);
+  });
+});
