@@ -63,6 +63,18 @@ export async function loadApp(options) {
       // owner-mode.js needs TextEncoder to turn a PIN into bytes to hash.
       if (!window.TextEncoder) window.TextEncoder = TextEncoder;
       if (!window.TextDecoder) window.TextDecoder = TextDecoder;
+      // jsdom has no Web Speech API at all — a minimal stub keeps the
+      // Listen button's feature-detection (`"speechSynthesis" in window`)
+      // true by default so it's exercised in tests; individual tests can
+      // still override/spy on window.speechSynthesis.speak themselves.
+      if (!window.speechSynthesis) {
+        window.speechSynthesis = { speak: () => {}, cancel: () => {} };
+      }
+      if (!window.SpeechSynthesisUtterance) {
+        window.SpeechSynthesisUtterance = function SpeechSynthesisUtterance(text) {
+          this.text = text;
+        };
+      }
       if (ownerUnlocked) {
         window.localStorage.setItem("mepf_toolkit_owner_unlocked", "1");
       }

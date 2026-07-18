@@ -46,6 +46,27 @@ describe("normalizeDictionaryResponse", () => {
     expect(result.ant).toEqual(["fragile"]);
   });
 
+  it("captures the phonetic spelling when the API provides one", () => {
+    const response = [{ ...SAMPLE_API_RESPONSE[0], phonetic: "/rɪˈzɪliənt/" }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "resilient");
+    expect(result.phonetic).toBe("/rɪˈzɪliənt/");
+  });
+
+  it("falls back to phonetics[].text when the top-level phonetic field is blank", () => {
+    const response = [{
+      ...SAMPLE_API_RESPONSE[0],
+      phonetic: "",
+      phonetics: [{ text: "" }, { text: "/rɪˈzɪljənt/", audio: "https://example.com/audio.mp3" }]
+    }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "resilient");
+    expect(result.phonetic).toBe("/rɪˈzɪljənt/");
+  });
+
+  it("leaves phonetic null (never fabricated) when the API has neither field", () => {
+    const result = OnlineLookup.normalizeDictionaryResponse(SAMPLE_API_RESPONSE, "resilient");
+    expect(result.phonetic).toBeNull();
+  });
+
   it("never leaves a sense without an example, even when the API provides none at all", () => {
     const response = [{
       word: "zephyr",
@@ -309,6 +330,24 @@ describe("extractWiktionarySearchTitle", () => {
     expect(OnlineLookup.extractWiktionarySearchTitle({ query: { search: [] } })).toBeNull();
     expect(OnlineLookup.extractWiktionarySearchTitle({})).toBeNull();
     expect(OnlineLookup.extractWiktionarySearchTitle(null)).toBeNull();
+  });
+});
+
+describe("extractPhonetic", () => {
+  it("prefers the top-level phonetic field", () => {
+    const json = [{ phonetic: "/ˈwɜːd/", phonetics: [{ text: "/ˈother/" }] }];
+    expect(OnlineLookup.extractPhonetic(json)).toBe("/ˈwɜːd/");
+  });
+
+  it("falls back to the first non-empty phonetics[].text", () => {
+    const json = [{ phonetic: "", phonetics: [{ text: "" }, { text: "/ˈwɜːd/" }] }];
+    expect(OnlineLookup.extractPhonetic(json)).toBe("/ˈwɜːd/");
+  });
+
+  it("returns null when nothing is available anywhere in the response", () => {
+    expect(OnlineLookup.extractPhonetic([{ meanings: [] }])).toBeNull();
+    expect(OnlineLookup.extractPhonetic([])).toBeNull();
+    expect(OnlineLookup.extractPhonetic(null)).toBeNull();
   });
 });
 
