@@ -29868,11 +29868,40 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   // Register service worker for offline use + installability.
   // This will not work when opened as a local file:// — it needs to be
   // hosted (e.g. GitHub Pages, Netlify) for the browser to allow it.
+  //
+  // Two things make a NEW deployment actually reach an already-open
+  // tab/installed PWA automatically, instead of requiring the user to
+  // notice nothing changed and go hunting for a hard-refresh:
+  //   1. registration.update() right after registering — the browser's
+  //      own background check for a new service-worker.js can be as
+  //      infrequent as once every 24h otherwise, which is why "it'll
+  //      show up eventually" wasn't actually happening promptly.
+  //   2. A one-time reload the moment a new worker takes control
+  //      (controllerchange) — service-worker.js's own skipWaiting() +
+  //      clients.claim() already make the new worker take over
+  //      immediately, but a page that already finished loading under
+  //      the OLD worker won't re-render new content on its own just
+  //      because the worker underneath it changed; it needs a reload.
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    // A controllerchange also fires on this page's very FIRST-ever
+    // activation (no prior worker to replace) — only reload when an
+    // OLD worker was already controlling the page and a new one just
+    // took over, not on a brand-new visit with nothing to refresh.
+    const hadExistingController = !!navigator.serviceWorker.controller;
+
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      navigator.serviceWorker.register("./service-worker.js").then((registration) => {
+        registration.update().catch(() => {});
+      }).catch(() => {
         // Silently ignore — most likely not hosted over HTTPS yet.
       });
+    });
+
+    let reloadedForNewWorker = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadExistingController || reloadedForNewWorker) return; // guards first-activation + reload loops
+      reloadedForNewWorker = true;
+      window.location.reload();
     });
   }
 
@@ -29880,7 +29909,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      Bump TOOLKIT_VERSION any time meaningful content changes (new vocab,
      new Fixes rules, new features). If this version differs from what's
      stored from the last visit, show a small confirmation banner. */
-  const TOOLKIT_VERSION = "2026.07.16-1742";
+  const TOOLKIT_VERSION = "2026.07.18-0900";
   const VERSION_KEY = "mepf_toolkit_last_seen_version";
 
   (function checkForUpdate(){
