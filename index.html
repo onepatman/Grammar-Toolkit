@@ -28534,9 +28534,7 @@ function renderFavoritesTab(){
         const key = row.dataset.word.trim().toLowerCase();
         const item = wordIndexMap.get(key);
         if(!item) return;
-        pushSearchHistory(item);
-        item.action();
-        window.scrollTo({top:0, behavior:"smooth"});
+        navigateToEntry(item);
       });
     });
   });
@@ -28591,9 +28589,7 @@ function showStudyCard(){
   const fav = studyQueue[studyIndex];
   const item = fav && wordIndexMap.get(fav.key);
   if(item){
-    pushSearchHistory(item);
-    item.action();
-    window.scrollTo({top:0, behavior:"smooth"});
+    navigateToEntry(item);
   }
   // Kept short ("1 / 3" rather than "Card 1 of 3") so it doesn't crowd
   // the Previous/Next buttons out of room on a narrow phone screen —
@@ -30323,9 +30319,7 @@ async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote
     statusEl.textContent = successNote;
     statusEl.className = "add-status success";
   }
-  pushSearchHistory(item);
-  item.action();
-  window.scrollTo({top:0, behavior:"smooth"});
+  navigateToEntry(item);
   return item;
 }
 
@@ -30368,9 +30362,7 @@ async function addLanguageBankEntryFromInput(categoryKey){
   if(existing){
     statusEl.textContent = `"${text}" is already in the database — opening it.`;
     statusEl.className = "add-status";
-    pushSearchHistory(existing);
-    existing.action();
-    window.scrollTo({top:0, behavior:"smooth"});
+    navigateToEntry(existing);
     return;
   }
 
@@ -30702,9 +30694,7 @@ document.addEventListener("click", (e)=>{
         renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
         activateTab("vocab");
       };
-      openEntry();
-      pushSearchHistory({label: entry.w, cat: "Vocabulary Bank", action: openEntry});
-      window.scrollTo({top:0, behavior:"smooth"});
+      navigateToEntry({label: entry.w, cat: "Vocabulary Bank", action: openEntry});
     }
     return;
   }
@@ -30795,6 +30785,78 @@ function pushSearchHistory(entry){
   searchHistoryIndex = searchHistory.length - 1;
 }
 
+// Figures out which entry is currently on screen, so navigating to a
+// related word (a synonym chip, a search result, etc.) can record where
+// the user was BEFORE jumping away — not just where they land. Without
+// this, the very first hop away from an entry the user reached by plain
+// browsing (not searching) has no "origin" in searchHistory, so the top
+// Previous/Next pair's back/forward stack has nowhere to go back to.
+function getCurrentlyDisplayedItem(){
+  let visibleSection = null;
+  for(const sec of document.querySelectorAll("main > section")){
+    if(sec.style.display !== "none"){ visibleSection = sec; break; }
+  }
+  if(!visibleSection) return null;
+
+  // wordIndexMap only keeps the LAST-indexed entry for a given label, so
+  // a word that exists in more than one place under different meanings
+  // (e.g. "under" is both a Preposition and a separate Vocabulary Bank
+  // entry) would silently resolve to the wrong one — corrupting the
+  // history stack instead of just picking the entry actually on screen.
+  // Knowing which panel is visible tells us which `cat` string that
+  // entry was indexed under, so we can disambiguate exactly.
+  let scope = visibleSection;
+  let expectedCat = null;
+  if(visibleSection.id === "panel-langbank"){
+    scope = null;
+    for(const sub of visibleSection.querySelectorAll(".langbank-category")){
+      if(sub.style.display !== "none"){ scope = sub; break; }
+    }
+    if(!scope) return null;
+    const categoryKey = scope.id.replace("langbank-", "");
+    expectedCat = LANGUAGE_BANK_CONFIG[categoryKey] && LANGUAGE_BANK_CONFIG[categoryKey].tagLabel;
+  } else if(visibleSection.id === "panel-vocab"){
+    expectedCat = "Vocabulary Bank";
+  } else if(visibleSection.id === "panel-preps"){
+    expectedCat = "Preposition";
+  } else if(visibleSection.id === "panel-verbs"){
+    expectedCat = currentVerbType === "prepverb" ? "Verb + Preposition" : ("Verb (" + currentVerbType + ")");
+  } else if(visibleSection.id === "panel-family"){
+    expectedCat = "Word family";
+  }
+
+  const headwordEl = scope.querySelector(".headword");
+  if(!headwordEl) return null;
+  const key = headwordEl.textContent.trim().toLowerCase();
+  if(!key) return null;
+
+  if(expectedCat){
+    const expectedLower = expectedCat.toLowerCase();
+    const disambiguated = searchIndex.find(it=> it.label.toLowerCase() === key && it.cat.toLowerCase() === expectedLower);
+    if(disambiguated) return disambiguated;
+  }
+  return wordIndexMap.get(key) || null;
+}
+
+// Shared navigation entry point for every "jump to a related word" action
+// (synonym/antonym chips, search results, favorites, quick-add reveals,
+// Study Mode, etc). Records the entry the user is leaving (if any) before
+// recording the destination, so the top Previous/Next pair can always
+// browser-Back to exactly where the user came from — even the very first
+// time they navigate this way. The bottom "‹ Previous / Next ›" pair and
+// Study Mode's own controls are untouched by this and keep cycling their
+// panel's dropdown in list order, as before.
+function navigateToEntry(item){
+  if(!item) return;
+  const origin = getCurrentlyDisplayedItem();
+  if(origin && (origin.label !== item.label || origin.cat !== item.cat)){
+    pushSearchHistory(origin);
+  }
+  pushSearchHistory(item);
+  item.action();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
 function renderSearchMatches(matches){
   searchResultsEl.innerHTML = matches.map((m,i)=>`
     <div class="search-result-item" data-idx="${i}">
@@ -30804,11 +30866,9 @@ function renderSearchMatches(matches){
   searchResultsEl.classList.add("show");
   searchResultsEl.querySelectorAll(".search-result-item").forEach((el, i)=>{
     el.addEventListener("click", ()=>{
-      pushSearchHistory(matches[i]);
-      matches[i].action();
+      navigateToEntry(matches[i]);
       searchResultsEl.classList.remove("show");
       globalSearchInput.value = "";
-      window.scrollTo({top:0, behavior:"smooth"});
     });
   });
 }
@@ -30929,9 +30989,7 @@ function searchAndNavigate(word){
   const key = word.trim().toLowerCase();
   const exact = wordIndexMap.get(key);
   if(exact){
-    pushSearchHistory(exact);
-    exact.action();
-    window.scrollTo({top:0, behavior:"smooth"});
+    navigateToEntry(exact);
     return;
   }
   globalSearchInput.value = word;
@@ -30993,6 +31051,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addLanguageBankEntry, activateLangBankCategory,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
+  getCurrentlyDisplayedItem, navigateToEntry, activateTab,
+  getSearchHistory: ()=> searchHistory, getSearchHistoryIndex: ()=> searchHistoryIndex,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
   buildLanguageBankStudySheet, shareOrExportLanguageBank,
