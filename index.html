@@ -767,6 +767,7 @@
         <button data-val="idioms">Idioms &amp; Expressions</button>
         <button data-val="sentences">Useful Sentences</button>
         <button data-val="patterns">Sentence Patterns</button>
+        <button data-val="technical">Technical Terms</button>
       </div>
     </div>
 
@@ -882,6 +883,35 @@
           <button id="patternsManualSaveBtn" class="add-btn">Save with my notes</button>
           <button id="patternsManualSkipBtn" class="add-btn secondary">Add without notes</button>
           <button id="patternsManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="langbank-category" id="langbank-technical" style="display:none;">
+      <div class="controls">
+        <select id="technicalSelect"></select>
+        <button class="nav-btn" data-target="technicalSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="technicalSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="technicalEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="technicalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="technicalSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="technicalAddBox">
+        <div class="section-label">Add a technical / engineering term</div>
+        <p class="note" style="margin-bottom:8px;">Type an engineering or technical term (e.g. "tolerance") and we'll automatically look up its meaning, example sentences, synonyms, and antonyms from a reliable online dictionary. If the source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+        <input type="text" id="technicalAddInput" placeholder='Technical term (e.g. "tolerance")' autocomplete="off">
+        <button id="technicalAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <div id="technicalAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="technicalManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">No online definition was found for "<strong id="technicalManualWord"></strong>". Add your own meaning so this entry isn't left unusable:</p>
+          <textarea id="technicalManualUse" placeholder='Meaning / rule &amp; usage (e.g. "(noun) The permissible limit of variation in a measured value.")' rows="2"></textarea>
+          <input type="text" id="technicalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="technicalManualSaveBtn" class="add-btn">Save with my notes</button>
+          <button id="technicalManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -27406,6 +27436,390 @@ const patternsData = [
 ];
 
 /* =========================================================
+   DATA — TECHNICAL / ENGINEERING TERMS (Language Bank's 5th category)
+   Jargon distinct from the general Vocabulary Bank — spans civil,
+   mechanical, electrical, and software/project-management usage since
+   "engineer" here covers all of those disciplines.
+========================================================= */
+const technicalData = [
+  {
+    "w": "tolerance",
+    "senses": [
+      {
+        "use": "(noun) The permissible limit of variation in a physical dimension or measured value.",
+        "examples": [
+          "The manufacturing <b>tolerance</b> for this shaft is ±0.05 mm.",
+          "Parts outside the specified <b>tolerance</b> are rejected during inspection."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["margin", "allowance"],
+    "ant": []
+  },
+  {
+    "w": "specification",
+    "senses": [
+      {
+        "use": "(noun) A detailed description of the requirements, dimensions, or materials for a design or project. Often shortened to \"spec.\"",
+        "examples": [
+          "Please review the technical <b>specification</b> before submitting your proposal.",
+          "The client changed the <b>spec</b> halfway through the project."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["spec", "requirement"],
+    "ant": []
+  },
+  {
+    "w": "calibration",
+    "senses": [
+      {
+        "use": "(noun) The process of adjusting an instrument so its measurements are accurate.",
+        "examples": [
+          "The pressure gauge requires <b>calibration</b> every six months.",
+          "Sensor <b>calibration</b> drifted after the equipment was moved."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["adjustment"],
+    "ant": []
+  },
+  {
+    "w": "prototype",
+    "senses": [
+      {
+        "use": "(noun) An early sample or model built to test a concept before full production.",
+        "examples": [
+          "We built a <b>prototype</b> to validate the design before mass production.",
+          "The first <b>prototype</b> failed the stress test."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["model", "mockup"],
+    "ant": []
+  },
+  {
+    "w": "torque",
+    "senses": [
+      {
+        "use": "(noun) A rotational (twisting) force applied to an object.",
+        "examples": [
+          "Tighten the bolt to the specified <b>torque</b> of 25 Nm.",
+          "The motor produces enough <b>torque</b> to drive the conveyor."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["rotational force"],
+    "ant": []
+  },
+  {
+    "w": "schematic",
+    "senses": [
+      {
+        "use": "(noun) A simplified diagram showing the components and connections of a system.",
+        "examples": [
+          "Refer to the electrical <b>schematic</b> before starting the wiring.",
+          "The <b>schematic</b> shows how each valve connects to the main line."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["diagram", "blueprint"],
+    "ant": []
+  },
+  {
+    "w": "feasibility",
+    "senses": [
+      {
+        "use": "(noun) The degree to which a plan or project can be successfully carried out.",
+        "examples": [
+          "A <b>feasibility</b> study was conducted before approving the bridge project.",
+          "The team questioned the <b>feasibility</b> of finishing on the original timeline."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["viability"],
+    "ant": []
+  },
+  {
+    "w": "redundancy",
+    "senses": [
+      {
+        "use": "(noun) The duplication of critical components or systems to increase reliability if one fails.",
+        "examples": [
+          "The system has built-in <b>redundancy</b> in case one power supply fails.",
+          "Adding <b>redundancy</b> to the network reduced downtime significantly."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["backup", "duplication"],
+    "ant": []
+  },
+  {
+    "w": "commissioning",
+    "senses": [
+      {
+        "use": "(noun) The process of testing and adjusting equipment to confirm it operates as intended before full operation begins.",
+        "examples": [
+          "<b>Commissioning</b> of the new plant will begin next month.",
+          "Several issues surfaced during <b>commissioning</b> and had to be fixed."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["start-up"],
+    "ant": ["decommissioning"]
+  },
+  {
+    "w": "decommissioning",
+    "senses": [
+      {
+        "use": "(noun) The process of taking equipment or a facility out of service permanently.",
+        "examples": [
+          "The old reactor is scheduled for <b>decommissioning</b> next year.",
+          "<b>Decommissioning</b> the pipeline required an environmental review."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["retirement", "shutdown"],
+    "ant": ["commissioning"]
+  },
+  {
+    "w": "retrofit",
+    "senses": [
+      {
+        "use": "(verb/noun) To add new technology, materials, or features to an older system or structure.",
+        "examples": [
+          "The building was <b>retrofitted</b> with seismic reinforcements.",
+          "The <b>retrofit</b> extended the machine's service life by ten years."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["upgrade", "refit"],
+    "ant": []
+  },
+  {
+    "w": "benchmark",
+    "senses": [
+      {
+        "use": "(noun/verb) A standard point of reference used to measure or compare performance.",
+        "examples": [
+          "We <b>benchmarked</b> the new design against the industry standard.",
+          "The old system is still the <b>benchmark</b> for reliability."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["standard", "baseline"],
+    "ant": []
+  },
+  {
+    "w": "load-bearing",
+    "senses": [
+      {
+        "use": "(adjective) Capable of supporting weight as part of a structure.",
+        "examples": [
+          "Do not remove that <b>load-bearing</b> wall without consulting an engineer.",
+          "The beam was upgraded to handle a greater <b>load-bearing</b> capacity."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["structural"],
+    "ant": ["non-structural"]
+  },
+  {
+    "w": "deliverable",
+    "senses": [
+      {
+        "use": "(noun) A tangible or intangible output that must be produced as part of a project.",
+        "examples": [
+          "The final report is the last <b>deliverable</b> for this phase.",
+          "Each <b>deliverable</b> was reviewed by the client before sign-off."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["output", "result"],
+    "ant": []
+  },
+  {
+    "w": "milestone",
+    "senses": [
+      {
+        "use": "(noun) A significant point or event marking progress in a project.",
+        "examples": [
+          "Completing the foundation is the first <b>milestone</b> of the construction.",
+          "The project hit its second <b>milestone</b> ahead of schedule."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["checkpoint"],
+    "ant": []
+  },
+  {
+    "w": "stakeholder",
+    "senses": [
+      {
+        "use": "(noun) A person or group with an interest in the outcome of a project.",
+        "examples": [
+          "All <b>stakeholders</b> were invited to review the design plans.",
+          "The engineer presented the risks to key <b>stakeholders</b>."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["interested party"],
+    "ant": []
+  },
+  {
+    "w": "throughput",
+    "senses": [
+      {
+        "use": "(noun) The amount of material, data, or items passing through a system in a given time.",
+        "examples": [
+          "The new conveyor increased <b>throughput</b> by 20 percent.",
+          "Network <b>throughput</b> dropped during peak hours."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["output rate"],
+    "ant": []
+  },
+  {
+    "w": "bottleneck",
+    "senses": [
+      {
+        "use": "(noun) A point of congestion or constraint that limits the overall capacity of a system.",
+        "examples": [
+          "The single inspection station became a <b>bottleneck</b> in production.",
+          "We identified the <b>bottleneck</b> and added a second server to fix it."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["constraint", "choke point"],
+    "ant": []
+  },
+  {
+    "w": "scalability",
+    "senses": [
+      {
+        "use": "(noun) The capacity of a system to handle increased load or growth without redesign.",
+        "examples": [
+          "The software architecture was designed with <b>scalability</b> in mind.",
+          "Poor <b>scalability</b> forced the team to rebuild the platform later."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["expandability"],
+    "ant": []
+  },
+  {
+    "w": "latency",
+    "senses": [
+      {
+        "use": "(noun) The delay between an input and the corresponding output in a system.",
+        "examples": [
+          "High <b>latency</b> in the network caused delays in the control system.",
+          "Reducing <b>latency</b> was the main goal of the redesign."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["lag", "delay"],
+    "ant": []
+  },
+  {
+    "w": "legacy system",
+    "senses": [
+      {
+        "use": "(noun) An outdated computer system, process, or piece of equipment still in use.",
+        "examples": [
+          "Migrating data from the <b>legacy system</b> took several months.",
+          "The plant still relies on a <b>legacy system</b> from the 1990s."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["old system"],
+    "ant": []
+  },
+  {
+    "w": "rollout",
+    "senses": [
+      {
+        "use": "(noun) The introduction of a new product, system, or process.",
+        "examples": [
+          "The <b>rollout</b> of the new safety protocol begins Monday.",
+          "A phased <b>rollout</b> reduced the risk of major failures."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["launch", "deployment"],
+    "ant": []
+  },
+  {
+    "w": "downtime",
+    "senses": [
+      {
+        "use": "(noun) A period when equipment or a system is not operational.",
+        "examples": [
+          "Scheduled <b>downtime</b> is required for the annual maintenance.",
+          "Unplanned <b>downtime</b> cost the plant several hours of production."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["outage"],
+    "ant": ["uptime"]
+  },
+  {
+    "w": "iteration",
+    "senses": [
+      {
+        "use": "(noun) One cycle of development, testing, and refinement in a repeated process.",
+        "examples": [
+          "Each <b>iteration</b> of the design was tested before moving forward.",
+          "The team completed three <b>iterations</b> before the final version shipped."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["cycle", "round"],
+    "ant": []
+  },
+  {
+    "w": "deprecate",
+    "senses": [
+      {
+        "use": "(verb) To discontinue support for a method, feature, or technology in favor of a newer one.",
+        "examples": [
+          "This function has been <b>deprecated</b> in favor of the updated API.",
+          "The old reporting tool was <b>deprecated</b> after the migration."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": ["phase out", "discontinue"],
+    "ant": []
+  }
+];
+
+/* =========================================================
    DATA — WORD FAMILY (verb → noun → person → adjective)
 ========================================================= */
 const wordFamilyData = [
@@ -27880,6 +28294,7 @@ setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "p
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
 setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence", "sentences");
 setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern", "patterns");
+setupRuleModule(technicalData, "technicalSelect", "technicalEntry", "Technical Term", "technical");
 setupRuleModule(upgradeData, "upgradeSelect", "upgradeEntry", "Basic → Advanced");
 
 /* =========================================================
@@ -28264,6 +28679,7 @@ indexLanguageBankCategory(phrasalData, "Phrasal verb", "phrasal", "phrasalSelect
 indexLanguageBankCategory(idiomsData, "Idiom / Expression", "idioms", "idiomsSelect", "idiomsEntry", "Idiom / Expression");
 indexLanguageBankCategory(sentencesData, "Useful Sentence", "sentences", "sentencesSelect", "sentencesEntry", "Useful Sentence");
 indexLanguageBankCategory(patternsData, "Sentence Pattern", "patterns", "patternsSelect", "patternsEntry", "Sentence Pattern");
+indexLanguageBankCategory(technicalData, "Technical Term", "technical", "technicalSelect", "technicalEntry", "Technical Term");
 indexRuleModule(upgradeData, "Basic → Advanced", "upgradeSelect", "upgradeEntry", "Basic → Advanced", "upgrade");
 wordFamilyData.forEach(item=>{
   searchIndex.push({label:item.verb, cat:"Word family", action:()=>{
@@ -28400,7 +28816,7 @@ const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).
    add/restore/lookup logic itself is written once here and
    parameterized per category, instead of copy-pasted four times.
 ========================================================= */
-const LANGUAGE_BANK_CATEGORIES = ["phrasal", "idioms", "sentences", "patterns"];
+const LANGUAGE_BANK_CATEGORIES = ["phrasal", "idioms", "sentences", "patterns", "technical"];
 let currentLangBankCategory = "phrasal";
 
 function activateLangBankCategory(key){
@@ -28473,6 +28889,17 @@ const LANGUAGE_BANK_CONFIG = {
     manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord",
     manualUseId: "patternsManualUse", manualExampleId: null,
     manualSaveBtnId: "patternsManualSaveBtn", manualSkipBtnId: "patternsManualSkipBtn", manualCancelBtnId: "patternsManualCancelBtn"
+  },
+  technical: {
+    data: technicalData, selectId: "technicalSelect", entryId: "technicalEntry", tagLabel: "Technical Term",
+    inputId: "technicalAddInput", btnId: "technicalAddBtn", statusId: "technicalAddStatus", inputNoun: "a technical or engineering term",
+    putFn: function(entry, opts){ return VocabCache.putTechnical(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllTechnical(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteTechnical(word, opts); },
+    requireExplanation: true,
+    manualBoxId: "technicalManualBox", manualWordId: "technicalManualWord",
+    manualUseId: "technicalManualUse", manualExampleId: "technicalManualExample",
+    manualSaveBtnId: "technicalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "technicalManualCancelBtn"
   }
 };
 
@@ -28526,6 +28953,7 @@ function addPhrasalEntry(entry, options){ return addLanguageBankEntry("phrasal",
 function addIdiomEntry(entry, options){ return addLanguageBankEntry("idioms", entry, options); }
 function addSentenceEntry(entry, options){ return addLanguageBankEntry("sentences", entry, options); }
 function addPatternEntry(entry, options){ return addLanguageBankEntry("patterns", entry, options); }
+function addTechnicalEntry(entry, options){ return addLanguageBankEntry("technical", entry, options); }
 
 // Restore anything cached from a previous session for each category —
 // same reasoning as vocabCacheRestorePromise above, kept as separate
@@ -28541,6 +28969,9 @@ const sentencesCacheRestorePromise = VocabCache.getAllSentences({dbPromise: voca
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 const patternsCacheRestorePromise = VocabCache.getAllPatterns({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addPatternEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+const technicalCacheRestorePromise = VocabCache.getAllTechnical({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addTechnicalEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 /* Prev/Next buttons.
@@ -29730,6 +30161,7 @@ renderRuleEntry(phrasalData[0], document.getElementById("phrasalEntry"), "Phrasa
 renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
 renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
 renderRuleEntry(patternsData[0], document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
+renderRuleEntry(technicalData[0], document.getElementById("technicalEntry"), "Technical Term", "technical");
 renderRuleEntry(upgradeData[0], document.getElementById("upgradeEntry"), "Basic → Advanced");
 renderFamily(wordFamilyData[0]);
 
@@ -29946,7 +30378,7 @@ document.addEventListener("click", (e)=>{
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
   orderData, prepVerbData, mistakeData, qaData, vocabData, upgradeData,
-  phrasalData, idiomsData, sentencesData, patternsData,
+  phrasalData, idiomsData, sentencesData, patternsData, technicalData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
@@ -29956,6 +30388,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addIdiomEntry, idiomsCacheRestorePromise,
   addSentenceEntry, sentencesCacheRestorePromise,
   addPatternEntry, patternsCacheRestorePromise,
+  addTechnicalEntry, technicalCacheRestorePromise,
   addLanguageBankEntry, activateLangBankCategory,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,

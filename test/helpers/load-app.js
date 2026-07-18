@@ -119,7 +119,8 @@ export async function loadApp(options) {
     hooks.phrasalCacheRestorePromise,
     hooks.idiomsCacheRestorePromise,
     hooks.sentencesCacheRestorePromise,
-    hooks.patternsCacheRestorePromise
+    hooks.patternsCacheRestorePromise,
+    hooks.technicalCacheRestorePromise
   ]);
 
   return { dom, window: dom.window, hooks, indexedDBFactory };

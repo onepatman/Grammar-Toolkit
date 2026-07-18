@@ -40,7 +40,7 @@ const ONLINE_IDIOM_RESULT = {
 };
 
 describe("the owner's Language Bank additions reach the shared Firestore doc", () => {
-  it("seeds an empty languageBank object (all 4 categories) alongside entries on first connect", async () => {
+  it("seeds an empty languageBank object (all 5 categories) alongside entries on first connect", async () => {
     const firebase = makeFirebase();
     const { hooks } = await loadApp({ firebase });
 
@@ -49,7 +49,7 @@ describe("the owner's Language Bank additions reach the shared Firestore doc", (
 
     const doc = firebase._docs.get("syncedLogs/lb-code-1");
     expect(doc).toBeTruthy();
-    expect(doc.languageBank).toEqual({ phrasal: [], idioms: [], sentences: [], patterns: [] });
+    expect(doc.languageBank).toEqual({ phrasal: [], idioms: [], sentences: [], patterns: [], technical: [] });
   });
 
   it("an idiom added while connected as owner is saved to languageBank.idioms in the shared doc, not just local IndexedDB", async () => {
@@ -107,7 +107,7 @@ describe("a non-owner's Language Bank additions are not pushed to the shared log
     const firebase = makeFirebase();
     firebase._docs.set("syncedLogs/lb-code-4", {
       entries: [],
-      languageBank: { phrasal: [], idioms: [], sentences: [], patterns: [] }
+      languageBank: { phrasal: [], idioms: [], sentences: [], patterns: [], technical: [] }
     });
     const { window, hooks } = await loadApp({ firebase });
     window.OnlineLookup.fetchOnlineDefinition = async () => ONLINE_IDIOM_RESULT;
@@ -156,7 +156,7 @@ describe("a device that connects to an already-seeded code pulls in the shared L
     expect(window.document.getElementById("searchResults").textContent).toContain("zonk out");
   });
 
-  it("pulls in entries across all 4 categories at once", async () => {
+  it("pulls in entries across all 5 categories at once", async () => {
     const firebase = makeFirebase();
     firebase._docs.set("syncedLogs/lb-code-6", {
       entries: [],
@@ -164,7 +164,8 @@ describe("a device that connects to an already-seeded code pulls in the shared L
         phrasal: [{ w: "zonk out", senses: [{ use: "u", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }],
         idioms: [{ w: "burn the midnight oil", senses: [{ use: "u", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }],
         sentences: [{ w: "Could you send that file when you get a chance?", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }],
-        patterns: [{ w: "Should + subject + have + past participle", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }]
+        patterns: [{ w: "Should + subject + have + past participle", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }],
+        technical: [{ w: "load balancer", senses: [{ use: "u", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }]
       }
     });
 
@@ -176,6 +177,7 @@ describe("a device that connects to an already-seeded code pulls in the shared L
     expect(hooks.idiomsData.some((p) => p.w === "burn the midnight oil")).toBe(true);
     expect(hooks.sentencesData.some((p) => p.w === "Could you send that file when you get a chance?")).toBe(true);
     expect(hooks.patternsData.some((p) => p.w === "Should + subject + have + past participle")).toBe(true);
+    expect(hooks.technicalData.some((p) => p.w === "load balancer")).toBe(true);
   });
 
   it("does not duplicate an entry that already exists locally as a built-in", async () => {
