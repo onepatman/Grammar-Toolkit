@@ -270,6 +270,24 @@
   }
   .seg button.active{ background:var(--teal-deep); color:#fff; }
 
+  /* Language Bank's category seg has 5 longer labels — too many to fit
+     a phone-width screen without either wrapping each pill's text onto
+     two lines or shrinking illegibly. Scrolls horizontally instead,
+     same pattern as .thumb-tabs above: no wrap, natural-width pills,
+     scroll to reach the rest. Scoped to this one control (by ID) so the
+     Verbs tab's 3-button .seg is untouched. */
+  #langBankCategorySeg{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    flex-wrap:nowrap;
+    max-width:100%;
+  }
+  #langBankCategorySeg button{
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+
   select{
     flex:1; min-width:180px;
     appearance:none;
@@ -901,7 +919,7 @@
       </div>
     </div>
 
-    <button class="add-btn secondary" id="exportLanguageBankBtn" style="margin-bottom:10px;">📤 Export / share study sheet</button>
+    <button class="add-btn secondary" id="exportLanguageBankBtn" style="margin-bottom:10px;">📄 Export / share PDF study sheet</button>
     <div id="exportLanguageBankStatus" class="add-status"></div>
 
     <div class="langbank-category" id="langbank-phrasal">
@@ -29748,8 +29766,15 @@ function setExportLanguageBankStatus(message, cls){
 // Web Share API first (the natural "share sheet" on a phone — Messages,
 // Email, Notes, anything installed); a plain-text download whenever
 // that's unavailable or the user's browser rejects it for a reason
-// other than them just cancelling the share sheet.
-async function shareOrExportLanguageBank(){
+// other than them just cancelling the share sheet. This is now the
+// FALLBACK behind PDF export (see below) — kept exactly as it was so
+// there's still a working export when the PDF library can't load.
+// `options.statusPrefix` lets the PDF path explain WHY it fell back to
+// text, without needing its own separate status message that would
+// just get overwritten by this function's own final one.
+async function shareOrExportLanguageBank(options){
+  const opts = options || {};
+  const prefix = opts.statusPrefix ? opts.statusPrefix + " " : "";
   setExportLanguageBankStatus("");
   const text = buildLanguageBankStudySheet();
   const filename = "language-bank-study-sheet.txt";
@@ -29757,7 +29782,7 @@ async function shareOrExportLanguageBank(){
   if(navigator.share){
     try {
       await navigator.share({ title: "Language Bank Study Sheet", text });
-      setExportLanguageBankStatus("Shared!", "success");
+      setExportLanguageBankStatus(prefix + "Shared!", "success");
       return;
     } catch(e){
       if(e && e.name === "AbortError") return; // user cancelled the share sheet — not an error
@@ -29767,10 +29792,197 @@ async function shareOrExportLanguageBank(){
   }
 
   downloadTextFile(filename, text);
-  setExportLanguageBankStatus("Downloaded " + filename + " — save it or open it in any text app.", "success");
+  setExportLanguageBankStatus(prefix + "Downloaded " + filename + " — save it or open it in any text app.", "success");
 }
 
-document.getElementById("exportLanguageBankBtn").addEventListener("click", shareOrExportLanguageBank);
+/* ---------- PDF study sheet ---------- */
+
+// Same content as the text export, but shaped for layout (a list of
+// {use, examples} per entry, HTML already stripped) instead of a
+// single joined string — the PDF renderer below needs to measure and
+// wrap each piece individually, and a test can assert on this data
+// directly without needing a real PDF library loaded.
+function buildLanguageBankPdfData(){
+  const generatedDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const sections = [];
+
+  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+    const entries = LANGUAGE_BANK_CONFIG[categoryKey].data;
+    if(!entries || entries.length === 0) return;
+    sections.push({
+      title: LANGUAGE_BANK_SECTION_TITLES[categoryKey] || categoryKey,
+      entries: entries.map(entry=> ({
+        word: entry.w,
+        meanings: (entry.senses || []).map(sense=> ({
+          use: stripHtmlTags(sense.use),
+          examples: (sense.examples || []).map(ex=> stripHtmlTags(ex))
+        })),
+        syn: entry.syn || [],
+        ant: entry.ant || [],
+        mistake: entry.mistake ? stripHtmlTags(entry.mistake) : null,
+        tagalog: entry.tagalog || null
+      }))
+    });
+  });
+
+  return { generatedDate, sections };
+}
+
+// jsPDF is only ever needed for this one feature, so it's loaded lazily
+// on first use rather than shipped in the initial page load. Vendored
+// locally (js/jspdf.umd.min.js, MIT-licensed, unmodified build from the
+// jspdf npm package) rather than pulled from a third-party CDN — this
+// PWA promises to work offline and on locked-down networks, and a
+// same-origin file the service worker can reliably cache after first
+// use fits that promise better than depending on a CDN's uptime and
+// reachability. If it somehow fails to load (e.g. offline before it's
+// ever been fetched once) this resolves to false and the caller falls
+// back to the text export, exactly like a missing `firebase` global
+// already degrades elsewhere.
+let jsPdfLoadPromise = null;
+function loadJsPdf(){
+  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve(true);
+  if(jsPdfLoadPromise) return jsPdfLoadPromise;
+  jsPdfLoadPromise = new Promise(resolve=>{
+    const script = document.createElement("script");
+    script.src = "js/jspdf.umd.min.js";
+    script.onload = ()=> resolve(!!(window.jspdf && window.jspdf.jsPDF));
+    script.onerror = ()=> resolve(false);
+    document.head.appendChild(script);
+  });
+  return jsPdfLoadPromise;
+}
+
+const PDF_MARGIN = 40;
+const PDF_SIZE_TITLE = 18;
+const PDF_SIZE_SUBTITLE = 13;
+const PDF_SIZE_SECTION = 14;
+const PDF_SIZE_HEADWORD = 12;
+const PDF_SIZE_BODY = 10;
+const PDF_SIZE_FOOTER = 8;
+
+// Builds the actual PDF document from buildLanguageBankPdfData()'s
+// output. Paginates by tracking a y cursor and starting a fresh page
+// whenever the next line wouldn't fit — plain, fast text operations
+// (no per-word rendering/canvas work), so even a large Language Bank
+// collection generates in well under a second.
+function renderLanguageBankPdf(pdfData){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - PDF_MARGIN * 2;
+  let y = PDF_MARGIN;
+
+  function ensureSpace(neededHeight){
+    if(y + neededHeight > pageHeight - PDF_MARGIN){
+      doc.addPage();
+      y = PDF_MARGIN;
+    }
+  }
+
+  function writeLine(text, opts){
+    opts = opts || {};
+    const indent = opts.indent || 0;
+    const lineHeight = opts.lineHeight || 13;
+    doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+    doc.setFontSize(opts.size || PDF_SIZE_BODY);
+    const wrapped = doc.splitTextToSize(String(text), Math.max(contentWidth - indent, 40));
+    wrapped.forEach(line=>{
+      ensureSpace(lineHeight);
+      doc.text(line, PDF_MARGIN + indent, y);
+      y += lineHeight;
+    });
+  }
+
+  // Title block — page 1 only; every page gets its own footer below.
+  writeLine("Ultimate Engineering Dictionary", { bold: true, size: PDF_SIZE_TITLE, lineHeight: 22 });
+  writeLine("Language Bank Study Sheet", { size: PDF_SIZE_SUBTITLE, lineHeight: 18 });
+  writeLine("Generated " + pdfData.generatedDate, { size: PDF_SIZE_BODY, lineHeight: 14 });
+  y += 10;
+
+  pdfData.sections.forEach(section=>{
+    ensureSpace(26);
+    writeLine(`${section.title} (${section.entries.length})`, { bold: true, size: PDF_SIZE_SECTION, lineHeight: 18 });
+    y += 4;
+
+    section.entries.forEach((entry, i)=>{
+      ensureSpace(16);
+      writeLine(`${i + 1}. ${entry.word}`, { bold: true, size: PDF_SIZE_HEADWORD, lineHeight: 15 });
+      entry.meanings.forEach((m, mi)=>{
+        const prefix = entry.meanings.length > 1 ? `${mi + 1}) ` : "";
+        writeLine(prefix + m.use, { indent: 14 });
+        m.examples.forEach(ex=> writeLine("e.g. " + ex, { indent: 26 }));
+      });
+      if(entry.syn.length) writeLine("Synonyms: " + entry.syn.join(", "), { indent: 14 });
+      if(entry.ant.length) writeLine("Antonyms: " + entry.ant.join(", "), { indent: 14 });
+      if(entry.mistake) writeLine("Common mistake: " + entry.mistake, { indent: 14 });
+      if(entry.tagalog) writeLine("Tagalog: " + entry.tagalog, { indent: 14 });
+      y += 6;
+    });
+    y += 10;
+  });
+
+  // Footer on every page: app name + generation date (left), page
+  // numbers (right) — added last, once the true page count is known.
+  const totalPages = doc.internal.getNumberOfPages();
+  for(let p = 1; p <= totalPages; p++){
+    doc.setPage(p);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(PDF_SIZE_FOOTER);
+    doc.setTextColor(120);
+    doc.text(`Ultimate Engineering Dictionary — Language Bank · Generated ${pdfData.generatedDate}`, PDF_MARGIN, pageHeight - 20);
+    doc.text(`Page ${p} of ${totalPages}`, pageWidth - PDF_MARGIN, pageHeight - 20, { align: "right" });
+    doc.setTextColor(0);
+  }
+
+  return doc;
+}
+
+// The button's actual handler: PDF first, sharing the file itself when
+// the device supports it (Web Share Level 2's `files`), otherwise a
+// direct download — falling back to the plain-text flow above whenever
+// the PDF library can't be loaded or generation itself fails for any
+// reason, so this never leaves the user with nothing.
+async function exportLanguageBankPdf(){
+  setExportLanguageBankStatus("Generating PDF…");
+  await new Promise(resolve=> setTimeout(resolve, 0)); // let that message actually paint first
+
+  const pdfReady = await loadJsPdf();
+  if(!pdfReady){
+    await shareOrExportLanguageBank({ statusPrefix: "PDF export isn't available right now — shared a text version instead." });
+    return;
+  }
+
+  let doc;
+  try {
+    doc = renderLanguageBankPdf(buildLanguageBankPdfData());
+  } catch(e){
+    await shareOrExportLanguageBank({ statusPrefix: "Couldn't generate the PDF — shared a text version instead." });
+    return;
+  }
+
+  const filename = "language-bank-study-sheet.pdf";
+
+  if(navigator.canShare && navigator.share){
+    try {
+      const file = new File([doc.output("blob")], filename, { type: "application/pdf" });
+      if(navigator.canShare({ files: [file] })){
+        await navigator.share({ title: "Language Bank Study Sheet", files: [file] });
+        setExportLanguageBankStatus("Shared!", "success");
+        return;
+      }
+    } catch(e){
+      if(e && e.name === "AbortError") return; // user cancelled the share sheet — not an error
+      // Any other failure falls through to a direct download below.
+    }
+  }
+
+  doc.save(filename);
+  setExportLanguageBankStatus("Downloaded " + filename + ".", "success");
+}
+
+document.getElementById("exportLanguageBankBtn").addEventListener("click", exportLanguageBankPdf);
 
 // Only the entries a person actually typed in (source:"online") travel
 // through sync — every client already ships the exact same hardcoded
@@ -30784,6 +30996,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
   buildLanguageBankStudySheet, shareOrExportLanguageBank,
+  buildLanguageBankPdfData, loadJsPdf, renderLanguageBankPdf, exportLanguageBankPdf,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
