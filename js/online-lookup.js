@@ -129,6 +129,25 @@
     return templates[index].replace("{word}", "<b>" + word + "</b>");
   }
 
+  // The Free Dictionary API usually has a top-level `phonetic` string,
+  // but that field is sometimes blank while one of the per-source
+  // `phonetics[].text` entries still has a value — checked in that
+  // order, first non-empty one wins. Returns null (never a fabricated
+  // guess) when neither is present, same "only show what's genuinely
+  // there" rule every other optional field in this app follows.
+  function extractPhonetic(json) {
+    if (!Array.isArray(json) || json.length === 0) return null;
+    for (var i = 0; i < json.length; i++) {
+      var entry = json[i];
+      if (entry.phonetic) return entry.phonetic;
+      var phonetics = entry.phonetics || [];
+      for (var j = 0; j < phonetics.length; j++) {
+        if (phonetics[j] && phonetics[j].text) return phonetics[j].text;
+      }
+    }
+    return null;
+  }
+
   // Turns the Free Dictionary API's response shape into the same
   // {w, senses:[{use, examples}], syn, ant} shape renderRuleEntry()
   // already knows how to draw — so the result is indistinguishable
@@ -170,6 +189,7 @@
 
     return {
       w: (json[0].word || word),
+      phonetic: extractPhonetic(json),
       senses: senses.slice(0, MAX_SENSES),
       syn: dedupe(syn).slice(0, 8),
       ant: dedupe(ant).slice(0, 8),
@@ -340,6 +360,7 @@
     buildWiktionaryUrl: buildWiktionaryUrl,
     buildWiktionarySearchUrl: buildWiktionarySearchUrl,
     extractWiktionarySearchTitle: extractWiktionarySearchTitle,
+    extractPhonetic: extractPhonetic,
     normalizeQueryText: normalizeQueryText,
     normalizeDictionaryResponse: normalizeDictionaryResponse,
     normalizeWiktionaryResponse: normalizeWiktionaryResponse,

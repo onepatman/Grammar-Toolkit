@@ -280,6 +280,23 @@
   .fav-toggle:hover{ color:var(--gold-deep); }
   .fav-toggle.active{ color:var(--gold-deep); }
 
+  .listen-btn{
+    margin-left:auto; background:none; border:none; cursor:pointer;
+    font-size:18px; line-height:1; color:var(--teal-deep); padding:0 2px;
+    opacity:.75;
+  }
+  .listen-btn:hover{ opacity:1; }
+  /* When a fav-toggle follows a listen-btn in the same row, only the
+     FIRST auto-margin element should actually push right — otherwise
+     both would fight for the same space and the tag(s) between the
+     headword and them could get squeezed unpredictably. */
+  .listen-btn + .fav-toggle{ margin-left:0; }
+
+  .phonetic{
+    font-family:'IBM Plex Mono', monospace; font-size:14px;
+    color:var(--ink-soft); font-style:italic;
+  }
+
   .recent-list, .favorites-list{ display:flex; flex-direction:column; gap:8px; }
   .recent-list .search-result-item, .favorites-list .search-result-item{
     border:1px solid var(--rule); border-radius:8px;
@@ -916,6 +933,38 @@ function makeFavToggleHtml(word, cat){
   const key = word.trim().toLowerCase();
   const active = favoriteKeys.has(key);
   return `<button class="fav-toggle${active?" active":""}" data-word="${word}" data-cat="${cat}" aria-label="${active?"Remove from favorites":"Add to favorites"}" title="${active?"Remove from favorites":"Add to favorites"}">${active?"★":"☆"}</button>`;
+}
+
+/* =========================================================
+   PRONUNCIATION — text-to-speech via the Web Speech API. Entirely
+   client-side (no network call, no API key), and feature-detected so
+   it quietly disappears on a browser/webview that doesn't support it
+   instead of leaving a dead button.
+========================================================= */
+function speakText(text){
+  if(!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel(); // don't let a fast double-tap queue/overlap utterances
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  window.speechSynthesis.speak(utterance);
+}
+
+function makeListenButtonHtml(){
+  if(!("speechSynthesis" in window)) return "";
+  return `<button class="listen-btn" aria-label="Listen" title="Listen">🔊</button>`;
+}
+
+// Wired via a closure over `text` (not a data-attribute) so a word or
+// phrase containing a quote can't break the button's HTML — same
+// reasoning as the Language Bank Edit/Delete buttons.
+function wireListenButton(containerEl, text){
+  const btn = containerEl.querySelector(".listen-btn");
+  if(!btn) return;
+  btn.addEventListener("click", ()=> speakText(text));
+}
+
+function makePhoneticHtml(phonetic){
+  return phonetic ? `<span class="phonetic">${phonetic}</span>` : "";
 }
 
 function makeWordChips(words, type){
@@ -27773,7 +27822,9 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   entryEl.innerHTML = `
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.w}</span>
+      ${makePhoneticHtml(item.phonetic)}
       <span class="tag ghost">${tagLabel}</span>
+      ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
     ${entryActionsHtml}
@@ -27782,6 +27833,7 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     ${tagalogHtml}
     ${wordsHtml}
   `;
+  wireListenButton(entryEl, item.w);
 
   if(canManage){
     // Wired via closures (not data-attributes) so a word/phrase
@@ -27839,6 +27891,7 @@ function renderFamily(item){
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.verb}</span>
       <span class="tag ghost">Word Family</span>
+      ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.verb, "Word Family")}
     </div>
     <div class="forms-grid">
@@ -27851,6 +27904,7 @@ function renderFamily(item){
     <div class="example-line">${item.exNoun}</div>
     ${item.exAdj ? `<div class="example-line">${item.exAdj}</div>` : ""}
   `;
+  wireListenButton(familyEntry, item.verb);
 }
 function setupFamilyModule(){
   const sel = document.getElementById("familySelect");
@@ -27954,6 +28008,7 @@ function renderVerb(){
     <div class="headword-row">
       <span class="headword">${v.w}</span>
       <span class="tag ${currentVerbType==="irregular"?"alt":""}">${currentVerbType} verb</span>
+      ${makeListenButtonHtml()}
       ${makeFavToggleHtml(v.w, currentVerbType + " verb")}
     </div>
     <div class="forms-grid">
@@ -27985,6 +28040,7 @@ function renderVerb(){
     <div class="word-chips">${makeWordChips(v.syn,"synonym")}</div>
     <div class="word-chips">${makeWordChips(v.ant,"antonym")}</div>
   `;
+  wireListenButton(verbEntry, v.w);
 }
 
 document.getElementById("verbTypeSeg").addEventListener("click",(e)=>{
@@ -28090,6 +28146,7 @@ function renderPrep(){
     <div class="headword-row">
       <span class="headword">${p.w}</span>
       ${p.cats.map(c=>`<span class="tag ghost">${c}</span>`).join("")}
+      ${makeListenButtonHtml()}
       ${makeFavToggleHtml(p.w, "Preposition")}
     </div>
     <div class="section-label">Where &amp; when it's used</div>
@@ -28099,6 +28156,7 @@ function renderPrep(){
     <div class="word-chips">${makeWordChips(p.syn,"synonym")}</div>
     <div class="word-chips">${makeWordChips(p.ant,"antonym")}</div>
   `;
+  wireListenButton(prepEntry, p.w);
 }
 prepSelect.addEventListener("change", renderPrep);
 populatePrepSelect();
@@ -29909,7 +29967,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   cancelLanguageBankManualEntry, languageBankPendingManual,
   deleteLanguageBankEntry, openLanguageBankEditForm, saveLanguageBankEdit,
   renderLanguageBankAfterDelete, refreshLanguageBankUI, renderRuleEntry,
-  waitForInitialAuthState
+  waitForInitialAuthState, speakText, makeListenButtonHtml, wireListenButton,
+  makePhoneticHtml, renderVerb, renderPrep, renderFamily
 };
 </script>
 <script>
