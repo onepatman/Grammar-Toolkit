@@ -7,12 +7,13 @@
                         session lookup.
      - favorites:      bookmarked words (any category, not just Vocab).
      - recentlyViewed: the last N entries the user actually opened.
-     - phrasalEntries, idiomEntries, sentenceEntries, patternEntries:
-                        the four Language Bank categories (Phrasal
+     - phrasalEntries, idiomEntries, sentenceEntries, patternEntries,
+       technicalEntries:
+                        the five Language Bank categories (Phrasal
                         Verbs, Idioms & Expressions, Useful Sentences,
-                        Sentence Patterns), each added via that
-                        category's own quick-add and persisted the same
-                        way vocabEntries are.
+                        Sentence Patterns, Technical/Engineering Terms),
+                        each added via that category's own quick-add and
+                        persisted the same way vocabEntries are.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -48,7 +49,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 4;
+  var DB_VERSION = 5;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -56,6 +57,7 @@
   var IDIOMS_STORE = "idiomEntries";
   var SENTENCES_STORE = "sentenceEntries";
   var PATTERNS_STORE = "patternEntries";
+  var TECHNICAL_STORE = "technicalEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -92,6 +94,9 @@
         }
         if (!db.objectStoreNames.contains(PATTERNS_STORE)) {
           db.createObjectStore(PATTERNS_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(TECHNICAL_STORE)) {
+          db.createObjectStore(TECHNICAL_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -261,6 +266,11 @@
   function getAllPatterns(options) { return getAllEntries(PATTERNS_STORE, options); }
   function deletePattern(word, options) { return deleteEntry(PATTERNS_STORE, word, options); }
 
+  function getTechnical(word, options) { return getEntry(TECHNICAL_STORE, word, options); }
+  function putTechnical(entry, options) { return putEntry(TECHNICAL_STORE, entry, options); }
+  function getAllTechnical(options) { return getAllEntries(TECHNICAL_STORE, options); }
+  function deleteTechnical(word, options) { return deleteEntry(TECHNICAL_STORE, word, options); }
+
   /* ---------- favorites ---------- */
 
   function addFavorite(word, meta, options) {
@@ -352,6 +362,7 @@
     IDIOMS_STORE: IDIOMS_STORE,
     SENTENCES_STORE: SENTENCES_STORE,
     PATTERNS_STORE: PATTERNS_STORE,
+    TECHNICAL_STORE: TECHNICAL_STORE,
     RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
@@ -377,6 +388,10 @@
     putPattern: putPattern,
     getAllPatterns: getAllPatterns,
     deletePattern: deletePattern,
+    getTechnical: getTechnical,
+    putTechnical: putTechnical,
+    getAllTechnical: getAllTechnical,
+    deleteTechnical: deleteTechnical,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,

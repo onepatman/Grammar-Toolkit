@@ -375,10 +375,47 @@ describe("schema migration from DB_VERSION 3 (pre-Language-Bank-categories)", ()
   });
 });
 
+describe("schema migration from DB_VERSION 4 (pre-Technical-Terms)", () => {
+  it("upgrading an existing v4 database preserves phrasalEntries and adds technicalEntries", async () => {
+    const idb = new IDBFactory();
+
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 4);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PHRASAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.IDIOMS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.SENTENCES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PATTERNS_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.PHRASAL_STORE, "readwrite");
+        tx.objectStore(VocabCache.PHRASAL_STORE).put({ key: "give up", entry: { w: "give up", senses: [] } });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.TECHNICAL_STORE)).toBe(true);
+
+    const preserved = await VocabCache.getPhrasal("give up", { indexedDB: idb });
+    expect(preserved).toEqual({ w: "give up", senses: [] });
+
+    expect(await VocabCache.getAllTechnical({ indexedDB: idb })).toEqual([]);
+  });
+});
+
 describe.each([
   ["idioms", "getIdiom", "putIdiom", "getAllIdioms", "break the ice"],
   ["sentences", "getSentence", "putSentence", "getAllSentences", "Could you pass the salt?"],
-  ["patterns", "getPattern", "putPattern", "getAllPatterns", "Would you mind + V-ing?"]
+  ["patterns", "getPattern", "putPattern", "getAllPatterns", "Would you mind + V-ing?"],
+  ["technical", "getTechnical", "putTechnical", "getAllTechnical", "tolerance"]
 ])("%s entries (get/put/getAll)", (categoryName, getFn, putFn, getAllFn, sampleWord) => {
   const sampleEntry = {
     w: sampleWord,
