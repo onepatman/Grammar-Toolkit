@@ -315,42 +315,49 @@
      rounded top, lifted shadow) so it clearly reads as a separate
      floating control rather than blending into the panel's own
      Previous/Next underneath it. Extra bottom padding on <body> keeps
-     that panel content clear of the bar instead of crowding it. */
-  body.study-mode-active{ padding-bottom:112px; }
+     that panel content clear of the bar instead of crowding it.
+     Previous/Next get their own full-width row (below the progress
+     count + exit button) rather than fighting those for horizontal
+     room — that's what makes generously padded, comfortably spaced
+     buttons possible on a phone-width screen without ever wrapping. */
+  body.study-mode-active{ padding-bottom:158px; }
   .study-bar{
     position:fixed; left:0; right:0; bottom:0; z-index:40;
     background:var(--sky-bg); border-top:1.5px solid var(--sky-border);
-    border-radius:18px 18px 0 0;
+    border-radius:20px 20px 0 0;
     box-shadow:0 -8px 24px rgba(27,111,168,.18);
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    padding:16px 18px calc(16px + env(safe-area-inset-bottom));
   }
   .study-bar-inner{
-    max-width:640px; margin:0 auto; display:flex; align-items:center; gap:8px;
+    width:100%; max-width:480px; margin:0 auto; display:flex; flex-direction:column; gap:12px;
+  }
+  .study-bar-top{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
   }
   .study-progress{
-    font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--sky-deep);
-    font-weight:600; white-space:nowrap; flex:none;
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--sky-deep);
+    font-weight:600; white-space:nowrap;
   }
-  .study-bar-actions{ display:flex; gap:8px; flex:1; min-width:0; }
+  .study-bar-actions{ display:flex; gap:14px; }
   .study-bar-actions .nav-btn{
     flex:1; width:auto; height:auto; min-width:0; border-radius:999px;
-    padding:10px 4px; font-size:12px; font-weight:700; white-space:nowrap;
-    overflow:hidden; text-overflow:ellipsis;
+    padding:15px 18px; font-size:14.5px; font-weight:700; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; letter-spacing:.01em;
     background:var(--card); color:var(--sky-deep); border:1.5px solid var(--sky-border);
-    transition:background .12s ease, color .12s ease;
+    transition:background .12s ease, color .12s ease, transform .08s ease;
   }
   .study-bar-actions .nav-btn:hover{ background:#F3FAFF; }
-  .study-bar-actions .nav-btn:active{ background:var(--sky-border); }
+  .study-bar-actions .nav-btn:active{ background:var(--sky-border); transform:scale(.98); }
   .study-bar-actions #studyNextBtn{
     background:var(--sky); color:#fff; border-color:var(--sky);
   }
   .study-bar-actions #studyNextBtn:hover{ background:var(--sky-deep); }
   .study-bar-actions #studyNextBtn:active{ background:#154F79; }
   .study-exit-btn{
-    flex:none; width:30px; height:30px; border-radius:50%;
+    flex:none; width:32px; height:32px; border-radius:50%;
     background:var(--card); border:1.5px solid var(--sky-border);
     display:flex; align-items:center; justify-content:center;
-    font-size:13px; color:var(--sky-deep); cursor:pointer; padding:0; line-height:1;
+    font-size:14px; color:var(--sky-deep); cursor:pointer; padding:0; line-height:1;
     transition:background .12s ease;
   }
   .study-exit-btn:hover{ background:#F3FAFF; }
@@ -982,12 +989,14 @@
      on, so this only needs to float the progress + outcome controls. -->
 <div id="studyBar" class="study-bar" style="display:none;">
   <div class="study-bar-inner">
-    <span class="study-progress" id="studyProgressText"></span>
+    <div class="study-bar-top">
+      <span class="study-progress" id="studyProgressText"></span>
+      <button class="study-exit-btn" id="studyExitBtn" aria-label="Exit study mode" title="Exit study mode">✕</button>
+    </div>
     <div class="study-bar-actions">
       <button class="nav-btn" id="studyPrevBtn" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" id="studyNextBtn" aria-label="Next">Next ›</button>
     </div>
-    <button class="study-exit-btn" id="studyExitBtn" aria-label="Exit study mode" title="Exit study mode">✕</button>
   </div>
 </div>
 
