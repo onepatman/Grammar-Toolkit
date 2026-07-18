@@ -1,10 +1,17 @@
-// Integration tests for Favorites "Study mode" — a spaced-repetition
-// review flow layered on top of the existing Favorites list. Each card
-// is the real entry (rendered via the same wordIndexMap action() a
-// favorite row or search result already uses), so this file focuses on
-// the parts that ARE new: the "Study my favorites" entry point, the due
-// queue (js/spaced-repetition.js + VocabCache.reviewSchedule), the
-// floating outcome bar, and persistence across a session.
+// Integration tests for Favorites "Study mode" — a repeatable review
+// flow layered on top of the existing Favorites list. Each card is the
+// real entry (rendered via the same wordIndexMap action() a favorite
+// row or search result already uses), so this file focuses on the
+// parts that ARE new: the "Study my favorites" entry point, the review
+// queue (js/spaced-repetition.js + VocabCache.reviewSchedule, used only
+// to order cards — never to gate/withhold them), the floating outcome
+// bar, and persistence across a session.
+//
+// Deliberately NOT covered here: any notion of a "due date" blocking a
+// favorite from appearing. Study mode must always include every
+// favorite and be restartable instantly and indefinitely — see the
+// "restarting immediately" describe block below, which is the
+// regression coverage for that requirement.
 import { describe, it, expect } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
@@ -36,14 +43,14 @@ describe("'Study my favorites' entry point", () => {
 });
 
 describe("starting a study session", () => {
-  it("shows 'nothing due' instead of starting when there are no favorites at all", async () => {
+  it("reports no favorites to study when there are none at all", async () => {
     const { window, hooks } = await loadApp();
     await hooks.startStudyMode();
-    expect(window.document.getElementById("studyStatus").textContent).toContain("Nothing due");
+    expect(window.document.getElementById("studyStatus").textContent).toContain("could be found to study");
     expect(window.document.getElementById("studyBar").style.display).toBe("none");
   });
 
-  it("opens the real entry for the first due favorite and shows the floating bar with correct progress", async () => {
+  it("opens the real entry for the first favorite and shows the floating bar with correct progress", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
@@ -58,14 +65,14 @@ describe("starting a study session", () => {
     expect(document.getElementById("technicalEntry").querySelector(".headword").textContent).toBe("tolerance");
   });
 
-  it("orders the queue most-overdue-first, with never-reviewed cards sorted before ones due later", async () => {
-    const { window, hooks } = await loadApp();
+  it("orders the queue least-recently-reviewed first, with never-reviewed cards leading", async () => {
+    const { hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
     await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    // "torque" was already reviewed and is overdue by a lot; "tolerance"
-    // has never been reviewed (always due, sorts as maximally overdue).
+    // "torque" was reviewed a while ago; "tolerance" has never been
+    // reviewed, so it should still lead the queue.
     await VocabCache.putReviewSchedule(
-      { word: "torque", level: 1, dueAt: Date.now() - 1000, lastReviewedAt: Date.now() - 100000 },
+      { word: "torque", level: 1, dueAt: Date.now() + 1000 * 60 * 60 * 24 * 30, lastReviewedAt: Date.now() - 100000 },
       { dbPromise: hooks.vocabDbPromise }
     );
 
@@ -73,16 +80,51 @@ describe("starting a study session", () => {
     expect(queue.map((f) => f.word)).toEqual(["tolerance", "torque"]);
   });
 
-  it("excludes a favorite that isn't due yet", async () => {
+  it("includes a favorite even though it was already reviewed moments ago — no cooldown withholds it", async () => {
     const { hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    // Scheduled far into the future by a prior "Got it" — under the old
+    // due-gated design this would have been excluded from the queue.
     await VocabCache.putReviewSchedule(
-      { word: "tolerance", level: 3, dueAt: Date.now() + 1000 * 60 * 60 * 24 * 7, lastReviewedAt: Date.now() },
+      { word: "tolerance", level: 5, dueAt: Date.now() + 1000 * 60 * 60 * 24 * 30, lastReviewedAt: Date.now() },
       { dbPromise: hooks.vocabDbPromise }
     );
 
     const queue = await hooks.buildStudyQueue();
-    expect(queue).toEqual([]);
+    expect(queue.map((f) => f.word)).toEqual(["tolerance"]);
+  });
+});
+
+describe("restarting immediately, over and over", () => {
+  it("finishing a session and clicking 'Study my favorites' again starts a new session with the same favorites, instantly", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+
+    await hooks.startStudyMode();
+    window.document.getElementById("studyGoodBtn").click(); // finishes the 1-card deck
+    await wait(30);
+    expect(window.document.getElementById("studyBar").style.display).toBe("none");
+
+    await hooks.startStudyMode(); // immediately again, no waiting
+    expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 1");
+  });
+
+  it("the same word can be marked 'Got it' repeatedly across back-to-back sessions with no lock ever appearing", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+
+    for (let i = 0; i < 3; i++) {
+      await hooks.startStudyMode();
+      expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
+      window.document.getElementById("studyGoodBtn").click();
+      await wait(30);
+    }
+
+    const schedule = await VocabCache.getReviewSchedule("tolerance", { dbPromise: hooks.vocabDbPromise });
+    expect(schedule.level).toBe(3); // schedule still tracks progress...
+    const queue = await hooks.buildStudyQueue();
+    expect(queue.map((f) => f.word)).toEqual(["tolerance"]); // ...but never blocks restudy
   });
 });
 
@@ -170,7 +212,7 @@ describe("un-favoriting clears its study schedule", () => {
 });
 
 describe("study session persists across a reload (real IndexedDB, not mocked)", () => {
-  it("a schedule recorded in one session is respected by buildStudyQueue in the next", async () => {
+  it("a favorite stays studyable in the next session even right after being marked 'Got it'", async () => {
     const indexedDBFactory = new IDBFactory();
     const first = await loadApp({ indexedDBFactory });
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: first.hooks.vocabDbPromise });
@@ -180,8 +222,8 @@ describe("study session persists across a reload (real IndexedDB, not mocked)", 
 
     const second = await loadApp({ indexedDBFactory });
     const queue = await second.hooks.buildStudyQueue();
-    // Just reviewed with "Got it" -> due a couple days out, so it should
-    // NOT show up as due again immediately in a fresh session.
-    expect(queue.some((f) => f.word === "tolerance")).toBe(false);
+    // Just reviewed with "Got it" in the previous session — must still
+    // be available to study again immediately, no cooldown carried over.
+    expect(queue.some((f) => f.word === "tolerance")).toBe(true);
   });
 });
