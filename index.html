@@ -637,39 +637,15 @@
 
     <div class="quick-add-box" id="ownerAccessBox">
       <div class="section-label">Owner access</div>
-      <p class="note" style="margin-bottom:8px;">Admin controls — adding, editing, or deleting corrections, connecting sync, importing an offline pack, and adding phrasal words — stay hidden on a device until it's unlocked with the owner PIN. Everyone else can still search, browse, and use every learning feature; they just can't change the shared content.</p>
+      <p class="note" style="margin-bottom:8px;">Admin controls — adding, editing, or deleting corrections and Language Bank entries, connecting sync, and importing an offline pack — stay hidden on a device until it's unlocked. Everyone else can still search, browse, and use every learning feature; they just can't change the shared content.</p>
       <div id="ownerAccessStatus" class="add-status"></div>
-
-      <div id="ownerSetPinForm" style="display:none;">
-        <input type="password" id="ownerNewPinInput" placeholder="Choose a PIN (min 4 characters)" autocomplete="off" inputmode="numeric">
-        <button id="ownerSetPinBtn" class="add-btn">Set PIN &amp; unlock this device</button>
-      </div>
-
-      <div id="ownerUnlockForm" style="display:none;">
-        <input type="password" id="ownerUnlockPinInput" placeholder="Enter owner PIN" autocomplete="off" inputmode="numeric">
-        <button id="ownerUnlockBtn" class="add-btn">Unlock</button>
-        <button id="ownerForgotPinBtn" class="cancel-edit-link">Forgot PIN? Reset</button>
-      </div>
 
       <div id="ownerUnlockedPanel" style="display:none;">
         <button id="ownerLockBtn" class="add-btn">Lock this device</button>
       </div>
-    </div>
 
-    <div class="quick-add-box owner-only" id="correctionAddBox">
-      <div class="section-label">Add to my correction log</div>
-      <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
-      <input type="text" id="qaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
-      <input type="text" id="qaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
-      <input type="text" id="qaWhyInput" placeholder="Why (optional, e.g. subject-verb agreement)" autocomplete="off">
-      <button id="qaAddBtn" class="add-btn">+ Add to my log</button>
-      <button id="qaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
-      <div id="qaAddStatus" class="add-status"></div>
-    </div>
-
-    <div class="quick-add-box sync-box" id="syncBox">
-      <div class="section-label">Sync across devices</div>
-      <p class="note" style="margin-bottom:8px;">Enter a sync code to view a shared correction log — anyone can do this, no unlocking needed. Only the signed-in owner's changes are actually saved to it, enforced by the server.</p>
+      <div class="section-label">Sign in with owner account (recommended)</div>
+      <p class="note" style="margin-bottom:8px;">Required for cloud synchronization and multi-device management — unlocking this way also unlocks this device, so you won't be asked for the PIN too.</p>
 
       <!-- Deliberately NOT owner-only: this IS the unlock mechanism for
            the real owner on a device that's never had a local PIN set —
@@ -687,6 +663,36 @@
           <button id="syncSignOutBtn" class="add-btn">Sign out</button>
         </div>
       </div>
+
+      <div class="section-label">Unlock with local PIN (offline mode)</div>
+      <p class="note" style="margin-bottom:8px;">Only unlocks owner features on THIS device — it does not synchronize ownership or permissions to your other devices. Use this when Firebase isn't set up, you're offline, or you're working fully offline on purpose.</p>
+
+      <div id="ownerSetPinForm" style="display:none;">
+        <input type="password" id="ownerNewPinInput" placeholder="Choose a PIN (min 4 characters)" autocomplete="off" inputmode="numeric">
+        <button id="ownerSetPinBtn" class="add-btn">Set PIN &amp; unlock this device</button>
+      </div>
+
+      <div id="ownerUnlockForm" style="display:none;">
+        <input type="password" id="ownerUnlockPinInput" placeholder="Enter owner PIN" autocomplete="off" inputmode="numeric">
+        <button id="ownerUnlockBtn" class="add-btn">Unlock</button>
+        <button id="ownerForgotPinBtn" class="cancel-edit-link">Forgot PIN? Reset</button>
+      </div>
+    </div>
+
+    <div class="quick-add-box owner-only" id="correctionAddBox">
+      <div class="section-label">Add to my correction log</div>
+      <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
+      <input type="text" id="qaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+      <input type="text" id="qaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+      <input type="text" id="qaWhyInput" placeholder="Why (optional, e.g. subject-verb agreement)" autocomplete="off">
+      <button id="qaAddBtn" class="add-btn">+ Add to my log</button>
+      <button id="qaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
+      <div id="qaAddStatus" class="add-status"></div>
+    </div>
+
+    <div class="quick-add-box sync-box" id="syncBox">
+      <div class="section-label">Sync across devices</div>
+      <p class="note" style="margin-bottom:8px;">Enter a sync code to view a shared correction log — anyone can do this, no unlocking needed. Sign in as the owner above to have your changes actually saved to it, enforced by the server.</p>
 
       <input type="text" id="syncCodeInput" placeholder="Create or enter your sync code" autocomplete="off">
       <button id="syncConnectBtn" class="add-btn">Connect</button>
@@ -28575,7 +28581,7 @@ function updateOwnerModeUI(){
     unlockForm.style.display = "block";
     unlockedPanel.style.display = "none";
   } else {
-    statusEl.textContent = "No owner PIN has been set on this device yet. Set one to unlock admin controls here — PINs aren't synced automatically, so you'll need to set the same PIN on each device yourself, or just sign in with your owner email and password in \"Sync across devices\" below to unlock any device without a PIN at all.";
+    statusEl.textContent = "No owner PIN has been set on this device yet. Signing in with your owner email and password above is the recommended way to unlock any device — it also enables cloud sync. Only set a PIN here if you need an offline fallback for when Firebase isn't available; PINs aren't synced automatically, so you'd need to set the same one on each device yourself.";
     statusEl.className = "add-status";
     setPinForm.style.display = "block";
     unlockForm.style.display = "none";
@@ -28605,7 +28611,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   const ok = await OwnerMode.unlockOwnerMode(input.value);
   input.value = "";
   if(!ok){
-    statusEl.textContent = "Incorrect PIN. PINs are set per device, not synced — if you're the real owner, sign in with your owner email and password in \"Sync across devices\" below instead; that unlocks this device without needing to know its PIN.";
+    statusEl.textContent = "Incorrect PIN. PINs are set per device, not synced — if you're the real owner, sign in with your owner email and password above instead; that's the recommended way in and unlocks this device without needing to know its PIN.";
     statusEl.className = "add-status error";
     return;
   }

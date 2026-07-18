@@ -20,15 +20,17 @@ describe("a locked device (no PIN set yet)", () => {
     });
   });
 
-  it("still shows the Sync box, including the owner sign-in form — that's how a fresh device gets unlocked", async () => {
+  it("still shows the owner sign-in form (in the Owner Access box) and the Sync box's connect form — that's how a fresh device gets unlocked", async () => {
     const { window } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
-    expect(document.getElementById("syncBox").style.display).not.toBe("none");
-    expect(document.getElementById("syncCodeInput")).toBeTruthy();
-    expect(document.getElementById("syncConnectBtn")).toBeTruthy();
+    expect(document.getElementById("ownerAccessBox").style.display).not.toBe("none");
     expect(document.getElementById("syncOwnerAuthSection").style.display).not.toBe("none");
     expect(document.getElementById("syncOwnerEmailInput")).toBeTruthy();
     expect(document.getElementById("syncSignInBtn")).toBeTruthy();
+
+    expect(document.getElementById("syncBox").style.display).not.toBe("none");
+    expect(document.getElementById("syncCodeInput")).toBeTruthy();
+    expect(document.getElementById("syncConnectBtn")).toBeTruthy();
   });
 
   it("shows the set-PIN form, not the unlock form", async () => {
@@ -218,5 +220,58 @@ describe("read-only access still works while locked", () => {
     const favToggle = document.querySelector("#vocabEntry .fav-toggle");
     favToggle.click();
     expect(favToggle.classList.contains("active")).toBe(true);
+  });
+});
+
+// Regression coverage for the Owner Access reorganization: signing in
+// with the owner account is now presented as the primary/recommended
+// path, with the local PIN clearly labeled as an offline-only fallback
+// that never travels between devices — both live in the same box now,
+// instead of the sign-in form being tucked inside the separate Sync box.
+describe("Owner Access reorganization — sign-in primary, PIN as offline fallback", () => {
+  it("the owner sign-in form lives inside the Owner Access box, not the Sync box", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+
+    const ownerAccessBox = document.getElementById("ownerAccessBox");
+    const syncBox = document.getElementById("syncBox");
+    const signInSection = document.getElementById("syncOwnerAuthSection");
+
+    expect(ownerAccessBox.contains(signInSection)).toBe(true);
+    expect(syncBox.contains(signInSection)).toBe(false);
+  });
+
+  it("the Sync box only contains the sync-code connect form, not the sign-in form", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+
+    const syncBox = document.getElementById("syncBox");
+    expect(syncBox.querySelector("#syncOwnerEmailInput")).toBeNull();
+    expect(syncBox.querySelector("#syncCodeInput")).toBeTruthy();
+    expect(syncBox.querySelector("#syncConnectBtn")).toBeTruthy();
+  });
+
+  it("labels sign-in as the recommended method and the PIN as an offline fallback", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    const ownerAccessBox = document.getElementById("ownerAccessBox");
+    const labels = Array.from(ownerAccessBox.querySelectorAll(".section-label")).map((el) => el.textContent.toLowerCase());
+
+    expect(labels.some((l) => l.includes("sign in") && l.includes("recommended"))).toBe(true);
+    expect(labels.some((l) => l.includes("local pin") && l.includes("offline"))).toBe(true);
+  });
+
+  it("hides the PIN forms (no re-prompt) once signed in with the owner account, with no local PIN ever set", async () => {
+    const { createFakeFirebase } = await import("./helpers/fake-firebase.js");
+    const firebase = createFakeFirebase({ ownerEmail: "owner@example.com", users: { "owner@example.com": "pw" } });
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+
+    await hooks.signInAsOwner("owner@example.com", "pw");
+
+    expect(document.getElementById("ownerSetPinForm").style.display).toBe("none");
+    expect(document.getElementById("ownerUnlockForm").style.display).toBe("none");
+    expect(document.getElementById("ownerUnlockedPanel").style.display).not.toBe("none");
+    expect(window.OwnerMode.hasOwnerPinSet()).toBe(false);
   });
 });
