@@ -274,16 +274,19 @@
      a phone-width screen without either wrapping each pill's text onto
      two lines or shrinking illegibly. Scrolls horizontally instead,
      same pattern as .thumb-tabs above: no wrap, natural-width pills,
-     scroll to reach the rest. Scoped to this one control (by ID) so the
-     Verbs tab's 3-button .seg is untouched. */
-  #langBankCategorySeg{
+     scroll to reach the rest. Scoped to these controls (by ID) so the
+     Verbs tab's 3-button .seg is untouched. The Favorites category
+     filter can have just as many (or more) pills, depending on how
+     many different kinds of things the user has favorited, so it gets
+     the same treatment. */
+  #langBankCategorySeg, #favoritesCategorySeg{
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
     flex-wrap:nowrap;
     max-width:100%;
   }
-  #langBankCategorySeg button{
+  #langBankCategorySeg button, #favoritesCategorySeg button{
     flex:0 0 auto;
     white-space:nowrap;
   }
@@ -888,8 +891,11 @@
   <!-- ===== FAVORITES PANEL ===== -->
   <section id="panel-favorites" style="display:none;">
     <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
+    <div class="seg" id="favoritesCategorySeg" style="margin-bottom:10px;"></div>
     <button class="add-btn" id="studyFavoritesBtn" style="display:none; margin-bottom:10px;">🎴 Study my favorites</button>
     <div id="studyStatus" class="add-status"></div>
+    <button class="add-btn secondary" id="exportFavoritesBtn" style="display:none; margin-bottom:10px;">📄 Export / share PDF study sheet</button>
+    <div id="exportFavoritesStatus" class="add-status"></div>
     <div id="favoritesList" class="favorites-list"></div>
   </section>
 
@@ -918,9 +924,6 @@
         <button data-val="technical">Technical Terms</button>
       </div>
     </div>
-
-    <button class="add-btn secondary" id="exportLanguageBankBtn" style="margin-bottom:10px;">📄 Export / share PDF study sheet</button>
-    <div id="exportLanguageBankStatus" class="add-status"></div>
 
     <div class="langbank-category" id="langbank-phrasal">
       <div class="controls">
@@ -28511,18 +28514,59 @@ setupFamilyModule();
    Clicking a row jumps to that word's actual entry via wordIndexMap —
    the same lookup every other cross-link in the app uses — so it stays
    correct automatically as entries get added, cached, or upgraded.
+
+   The category filter below lets the user narrow this list down to
+   just one kind of favorite (e.g. only Phrasal Verbs) — and the
+   Export/Share PDF button (wired further down, near the rest of the
+   export code) exports exactly what's currently filtered here, not
+   the whole favorites list or the whole database.
 ========================================================= */
+let favoritesFilterCat = "All";
+
+function getFilteredFavorites(favs){
+  return favoritesFilterCat === "All" ? favs : favs.filter(f=> f.cat === favoritesFilterCat);
+}
+
 function renderFavoritesTab(){
   const container = document.getElementById("favoritesList");
+  const filterSeg = document.getElementById("favoritesCategorySeg");
   VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
     const studyBtn = document.getElementById("studyFavoritesBtn");
+    const exportBtn = document.getElementById("exportFavoritesBtn");
     if(studyBtn) studyBtn.style.display = favs.length > 0 ? "" : "none";
+    if(exportBtn) exportBtn.style.display = favs.length > 0 ? "" : "none";
 
     if(favs.length === 0){
+      if(filterSeg){ filterSeg.style.display = "none"; filterSeg.innerHTML = ""; }
       container.innerHTML = '<div class="favorites-empty">No favorites yet — tap the ☆ on any entry to bookmark it here.</div>';
       return;
     }
-    container.innerHTML = favs.map(f=>`
+
+    // Only offer categories that actually have a favorite in them right
+    // now, so the filter never dead-ends on an empty list. If the
+    // category the user had selected no longer has anything in it (its
+    // last favorite was just removed), fall back to "All" instead of
+    // silently showing nothing.
+    const distinctCats = Array.from(new Set(favs.map(f=> f.cat))).sort((a,b)=> a.localeCompare(b));
+    if(favoritesFilterCat !== "All" && !distinctCats.includes(favoritesFilterCat)){
+      favoritesFilterCat = "All";
+    }
+
+    if(filterSeg){
+      filterSeg.style.display = "";
+      const chips = ["All", ...distinctCats];
+      filterSeg.innerHTML = chips.map(c=>{
+        const count = c === "All" ? favs.length : favs.filter(f=> f.cat === c).length;
+        return `<button class="${c === favoritesFilterCat ? "active" : ""}" data-val="${c}">${c} (${count})</button>`;
+      }).join("");
+    }
+
+    const filtered = getFilteredFavorites(favs);
+    if(filtered.length === 0){
+      container.innerHTML = '<div class="favorites-empty">No favorites in this category.</div>';
+      return;
+    }
+    container.innerHTML = filtered.map(f=>`
       <div class="search-result-item" data-word="${f.word}">
         <span class="label">${f.word}</span>
         <span class="cat">${f.cat}</span>
@@ -28539,6 +28583,13 @@ function renderFavoritesTab(){
     });
   });
 }
+
+document.getElementById("favoritesCategorySeg").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  favoritesFilterCat = btn.dataset.val;
+  renderFavoritesTab();
+});
 
 /* =========================================================
    STUDY MODE — a flashcard-style browser through the Favorites list.
@@ -29687,18 +29738,15 @@ function sanitizeSyncCode(code){
 }
 
 /* =========================================================
-   LANGUAGE BANK — EXPORT / SHARE AS A STUDY SHEET. Plain text so it
-   opens/prints/pastes anywhere with zero dependencies — every entry
-   already on the device (built-in seed content plus anything looked up
-   or typed in), across all 5 categories, formatted for offline review.
+   FAVORITES — EXPORT / SHARE AS A PERSONAL STUDY SHEET. Builds a
+   PDF (or plain-text fallback) from exactly the favorites currently
+   shown in the Favorites tab — i.e. respecting whatever category
+   filter is active there — rather than the whole vocabulary/Language
+   Bank database. A favorite only ever stores its {word, cat}, so the
+   resolver below cross-references that back to the entry's full
+   content (meaning, examples, synonyms, antonyms) across every kind of
+   thing in the app that can be favorited.
 ========================================================= */
-const LANGUAGE_BANK_SECTION_TITLES = {
-  phrasal: "Phrasal Verbs",
-  idioms: "Idioms & Expressions",
-  sentences: "Useful Sentences",
-  patterns: "Sentence Patterns",
-  technical: "Technical / Engineering Terms"
-};
 
 // Entries carry a few fields (examples, mistake) that may contain <b>
 // markup for on-screen bolding — meaningless (and ugly) in plain text.
@@ -29706,32 +29754,129 @@ function stripHtmlTags(text){
   return String(text || "").replace(/<[^>]+>/g, "");
 }
 
-function buildLanguageBankStudySheet(){
-  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+// Most favoritable things (Vocabulary Bank, all 5 Language Bank
+// categories, Prepositions, Verb + Preposition, and every grammar rule
+// module) already share the same {w, senses, syn, ant, mistake,
+// tagalog} shape — whatever renderRuleEntry()/renderPrep() render from
+// — so they're all resolved through this one generic table, keyed by
+// the exact cat string stamped on the favorite when it was starred.
+// Verbs and Word Family have their own shapes and are handled by hand
+// in resolveFavoriteEntryData() below.
+function getFavoriteRuleEntrySources(){
+  return [
+    { cat: "Vocabulary Bank", data: vocabData },
+    { cat: "Article Rule", data: articleData },
+    { cat: "Modal Verb", data: modalData },
+    { cat: "Capitalization Rule", data: capitalData },
+    { cat: "Word Order Pattern", data: orderData },
+    { cat: "Sentence Error", data: mistakeData },
+    { cat: "Question Starter", data: qaData },
+    { cat: "Basic → Advanced", data: upgradeData },
+    { cat: "Verb + Preposition", data: prepVerbData },
+    { cat: "Preposition", data: prepData }
+  ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
+}
+
+function resolveFavoriteEntryData(fav){
+  const key = String(fav.word || "").trim().toLowerCase();
+  const catLower = String(fav.cat || "").trim().toLowerCase();
+
+  if(catLower === "regular verb" || catLower === "irregular verb"){
+    const group = catLower === "regular verb" ? "regular" : "irregular";
+    const v = verbData[group].find(x=> x.w.toLowerCase() === key);
+    if(v){
+      return {
+        word: v.w,
+        meanings: [{
+          use: "Verb forms (base / he-she-it / -ing / past / participle)",
+          examples: [`${v.w} / ${v.s} / ${v.ing} / ${v.past} / ${v.pp}`]
+        }],
+        syn: [], ant: [], mistake: null, tagalog: null
+      };
+    }
+  } else if(catLower === "word family"){
+    const item = wordFamilyData.find(x=> x.verb.toLowerCase() === key);
+    if(item){
+      return {
+        word: item.verb,
+        meanings: [{
+          use: `Noun: ${item.noun} · Person: ${item.person} · Adjective: ${item.adj}`,
+          examples: [item.exNoun, item.exAdj].filter(Boolean)
+        }],
+        syn: [], ant: [], mistake: null, tagalog: null
+      };
+    }
+  } else {
+    const source = getFavoriteRuleEntrySources().find(s=> s.cat.toLowerCase() === catLower);
+    const entry = source && source.data.find(e=> e.w && e.w.trim().toLowerCase() === key);
+    if(entry){
+      return {
+        word: entry.w,
+        meanings: (entry.senses || []).map(sense=> ({
+          use: stripHtmlTags(sense.use),
+          examples: (sense.examples || []).map(ex=> stripHtmlTags(ex))
+        })),
+        syn: entry.syn || [],
+        ant: entry.ant || [],
+        mistake: entry.mistake ? stripHtmlTags(entry.mistake) : null,
+        tagalog: entry.tagalog || null
+      };
+    }
+  }
+
+  // A favorite whose source entry can no longer be found (e.g. deleted
+  // since being favorited) still gets its own row — just the word and
+  // category, rather than silently dropping out of a sheet the user
+  // explicitly built from their own selections.
+  return { word: fav.word, meanings: [], syn: [], ant: [], mistake: null, tagalog: null };
+}
+
+// Same content as the text export, but shaped for layout (a list of
+// {use, examples} per entry, HTML already stripped) instead of a
+// single joined string — the PDF renderer below needs to measure and
+// wrap each piece individually, and a test can assert on this data
+// directly without needing a real PDF library loaded. Grouped by
+// category and sorted alphabetically for a clean, predictable sheet;
+// entries keep the newest-favorited-first order within their section,
+// same as the Favorites list itself.
+function buildFavoritesPdfData(favs){
+  const generatedDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const byCat = new Map();
+  favs.forEach(fav=>{
+    const list = byCat.get(fav.cat) || [];
+    list.push(resolveFavoriteEntryData(fav));
+    byCat.set(fav.cat, list);
+  });
+  const sections = Array.from(byCat.entries())
+    .map(([title, entries])=> ({ title, entries }))
+    .sort((a, b)=> a.title.localeCompare(b.title));
+
+  return { generatedDate, sections };
+}
+
+function buildFavoritesStudySheet(favs){
+  const pdfData = buildFavoritesPdfData(favs);
   const lines = [
-    "ULTIMATE ENGINEERING DICTIONARY — LANGUAGE BANK STUDY SHEET",
-    "Generated " + today,
+    "ULTIMATE ENGINEERING DICTIONARY — FAVORITES STUDY SHEET",
+    "Generated " + pdfData.generatedDate,
     ""
   ];
 
-  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
-    const entries = LANGUAGE_BANK_CONFIG[categoryKey].data;
-    if(!entries || entries.length === 0) return;
-    const title = (LANGUAGE_BANK_SECTION_TITLES[categoryKey] || categoryKey).toUpperCase() + ` (${entries.length})`;
+  pdfData.sections.forEach(section=>{
+    const title = section.title.toUpperCase() + ` (${section.entries.length})`;
     const rule = "=".repeat(title.length);
     lines.push(rule, title, rule, "");
 
-    entries.forEach((entry, i)=>{
-      lines.push(`${i + 1}. ${entry.w}`);
-      const senses = entry.senses || [];
-      senses.forEach((sense, si)=>{
-        const prefix = senses.length > 1 ? `   ${si + 1}) ` : "   ";
-        lines.push(`${prefix}${stripHtmlTags(sense.use)}`);
-        (sense.examples || []).forEach(ex=> lines.push(`      e.g. ${stripHtmlTags(ex)}`));
+    section.entries.forEach((entry, i)=>{
+      lines.push(`${i + 1}. ${entry.word}`);
+      entry.meanings.forEach((m, mi)=>{
+        const prefix = entry.meanings.length > 1 ? `   ${mi + 1}) ` : "   ";
+        lines.push(`${prefix}${m.use}`);
+        m.examples.forEach(ex=> lines.push(`      e.g. ${ex}`));
       });
-      if(entry.syn && entry.syn.length) lines.push(`   Synonyms: ${entry.syn.join(", ")}`);
-      if(entry.ant && entry.ant.length) lines.push(`   Antonyms: ${entry.ant.join(", ")}`);
-      if(entry.mistake) lines.push(`   Common mistake: ${stripHtmlTags(entry.mistake)}`);
+      if(entry.syn.length) lines.push(`   Synonyms: ${entry.syn.join(", ")}`);
+      if(entry.ant.length) lines.push(`   Antonyms: ${entry.ant.join(", ")}`);
+      if(entry.mistake) lines.push(`   Common mistake: ${entry.mistake}`);
       if(entry.tagalog) lines.push(`   Tagalog: ${entry.tagalog}`);
       lines.push("");
     });
@@ -29752,8 +29897,8 @@ function downloadTextFile(filename, text){
   URL.revokeObjectURL(url);
 }
 
-function setExportLanguageBankStatus(message, cls){
-  const el = document.getElementById("exportLanguageBankStatus");
+function setExportFavoritesStatus(message, cls){
+  const el = document.getElementById("exportFavoritesStatus");
   if(!el) return;
   el.textContent = message || "";
   el.className = "add-status" + (cls ? " " + cls : "");
@@ -29768,17 +29913,17 @@ function setExportLanguageBankStatus(message, cls){
 // `options.statusPrefix` lets the PDF path explain WHY it fell back to
 // text, without needing its own separate status message that would
 // just get overwritten by this function's own final one.
-async function shareOrExportLanguageBank(options){
+async function shareOrExportFavorites(favs, options){
   const opts = options || {};
   const prefix = opts.statusPrefix ? opts.statusPrefix + " " : "";
-  setExportLanguageBankStatus("");
-  const text = buildLanguageBankStudySheet();
-  const filename = "language-bank-study-sheet.txt";
+  setExportFavoritesStatus("");
+  const text = buildFavoritesStudySheet(favs);
+  const filename = "favorites-study-sheet.txt";
 
   if(navigator.share){
     try {
-      await navigator.share({ title: "Language Bank Study Sheet", text });
-      setExportLanguageBankStatus(prefix + "Shared!", "success");
+      await navigator.share({ title: "Favorites Study Sheet", text });
+      setExportFavoritesStatus(prefix + "Shared!", "success");
       return;
     } catch(e){
       if(e && e.name === "AbortError") return; // user cancelled the share sheet — not an error
@@ -29788,41 +29933,10 @@ async function shareOrExportLanguageBank(options){
   }
 
   downloadTextFile(filename, text);
-  setExportLanguageBankStatus(prefix + "Downloaded " + filename + " — save it or open it in any text app.", "success");
+  setExportFavoritesStatus(prefix + "Downloaded " + filename + " — save it or open it in any text app.", "success");
 }
 
 /* ---------- PDF study sheet ---------- */
-
-// Same content as the text export, but shaped for layout (a list of
-// {use, examples} per entry, HTML already stripped) instead of a
-// single joined string — the PDF renderer below needs to measure and
-// wrap each piece individually, and a test can assert on this data
-// directly without needing a real PDF library loaded.
-function buildLanguageBankPdfData(){
-  const generatedDate = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  const sections = [];
-
-  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
-    const entries = LANGUAGE_BANK_CONFIG[categoryKey].data;
-    if(!entries || entries.length === 0) return;
-    sections.push({
-      title: LANGUAGE_BANK_SECTION_TITLES[categoryKey] || categoryKey,
-      entries: entries.map(entry=> ({
-        word: entry.w,
-        meanings: (entry.senses || []).map(sense=> ({
-          use: stripHtmlTags(sense.use),
-          examples: (sense.examples || []).map(ex=> stripHtmlTags(ex))
-        })),
-        syn: entry.syn || [],
-        ant: entry.ant || [],
-        mistake: entry.mistake ? stripHtmlTags(entry.mistake) : null,
-        tagalog: entry.tagalog || null
-      }))
-    });
-  });
-
-  return { generatedDate, sections };
-}
 
 // jsPDF is only ever needed for this one feature, so it's loaded lazily
 // on first use rather than shipped in the initial page load. Vendored
@@ -29857,12 +29971,12 @@ const PDF_SIZE_HEADWORD = 12;
 const PDF_SIZE_BODY = 10;
 const PDF_SIZE_FOOTER = 8;
 
-// Builds the actual PDF document from buildLanguageBankPdfData()'s
+// Builds the actual PDF document from buildFavoritesPdfData()'s
 // output. Paginates by tracking a y cursor and starting a fresh page
 // whenever the next line wouldn't fit — plain, fast text operations
-// (no per-word rendering/canvas work), so even a large Language Bank
-// collection generates in well under a second.
-function renderLanguageBankPdf(pdfData){
+// (no per-word rendering/canvas work), so even a large favorites
+// selection generates in well under a second.
+function renderFavoritesPdf(pdfData){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -29893,7 +30007,7 @@ function renderLanguageBankPdf(pdfData){
 
   // Title block — page 1 only; every page gets its own footer below.
   writeLine("Ultimate Engineering Dictionary", { bold: true, size: PDF_SIZE_TITLE, lineHeight: 22 });
-  writeLine("Language Bank Study Sheet", { size: PDF_SIZE_SUBTITLE, lineHeight: 18 });
+  writeLine("Favorites Study Sheet", { size: PDF_SIZE_SUBTITLE, lineHeight: 18 });
   writeLine("Generated " + pdfData.generatedDate, { size: PDF_SIZE_BODY, lineHeight: 14 });
   y += 10;
 
@@ -29927,7 +30041,7 @@ function renderLanguageBankPdf(pdfData){
     doc.setFont("helvetica", "normal");
     doc.setFontSize(PDF_SIZE_FOOTER);
     doc.setTextColor(120);
-    doc.text(`Ultimate Engineering Dictionary — Language Bank · Generated ${pdfData.generatedDate}`, PDF_MARGIN, pageHeight - 20);
+    doc.text(`Ultimate Engineering Dictionary — Favorites · Generated ${pdfData.generatedDate}`, PDF_MARGIN, pageHeight - 20);
     doc.text(`Page ${p} of ${totalPages}`, pageWidth - PDF_MARGIN, pageHeight - 20, { align: "right" });
     doc.setTextColor(0);
   }
@@ -29939,33 +30053,46 @@ function renderLanguageBankPdf(pdfData){
 // the device supports it (Web Share Level 2's `files`), otherwise a
 // direct download — falling back to the plain-text flow above whenever
 // the PDF library can't be loaded or generation itself fails for any
-// reason, so this never leaves the user with nothing.
-async function exportLanguageBankPdf(){
-  setExportLanguageBankStatus("Generating PDF…");
+// reason, so this never leaves the user with nothing. Only exports the
+// favorites currently matching the Favorites tab's category filter —
+// re-reads favorites + the live filter at click time rather than
+// trusting whatever was last rendered, so this is always in sync with
+// what's actually showing on screen.
+async function exportFavoritesPdf(){
+  const allFavs = await VocabCache.getAllFavorites({dbPromise: vocabDbPromise});
+  const favs = getFilteredFavorites(allFavs);
+
+  if(favs.length === 0){
+    const scope = favoritesFilterCat === "All" ? "" : ` in "${favoritesFilterCat}"`;
+    setExportFavoritesStatus(`No favorites${scope} to export yet.`, "error");
+    return;
+  }
+
+  setExportFavoritesStatus("Generating PDF…");
   await new Promise(resolve=> setTimeout(resolve, 0)); // let that message actually paint first
 
   const pdfReady = await loadJsPdf();
   if(!pdfReady){
-    await shareOrExportLanguageBank({ statusPrefix: "PDF export isn't available right now — shared a text version instead." });
+    await shareOrExportFavorites(favs, { statusPrefix: "PDF export isn't available right now — shared a text version instead." });
     return;
   }
 
   let doc;
   try {
-    doc = renderLanguageBankPdf(buildLanguageBankPdfData());
+    doc = renderFavoritesPdf(buildFavoritesPdfData(favs));
   } catch(e){
-    await shareOrExportLanguageBank({ statusPrefix: "Couldn't generate the PDF — shared a text version instead." });
+    await shareOrExportFavorites(favs, { statusPrefix: "Couldn't generate the PDF — shared a text version instead." });
     return;
   }
 
-  const filename = "language-bank-study-sheet.pdf";
+  const filename = "favorites-study-sheet.pdf";
 
   if(navigator.canShare && navigator.share){
     try {
       const file = new File([doc.output("blob")], filename, { type: "application/pdf" });
       if(navigator.canShare({ files: [file] })){
-        await navigator.share({ title: "Language Bank Study Sheet", files: [file] });
-        setExportLanguageBankStatus("Shared!", "success");
+        await navigator.share({ title: "Favorites Study Sheet", files: [file] });
+        setExportFavoritesStatus("Shared!", "success");
         return;
       }
     } catch(e){
@@ -29975,10 +30102,10 @@ async function exportLanguageBankPdf(){
   }
 
   doc.save(filename);
-  setExportLanguageBankStatus("Downloaded " + filename + ".", "success");
+  setExportFavoritesStatus("Downloaded " + filename + ".", "success");
 }
 
-document.getElementById("exportLanguageBankBtn").addEventListener("click", exportLanguageBankPdf);
+document.getElementById("exportFavoritesBtn").addEventListener("click", exportFavoritesPdf);
 
 // Only the entries a person actually typed in (source:"online") travel
 // through sync — every client already ships the exact same hardcoded
@@ -31055,8 +31182,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getSearchHistory: ()=> searchHistory, getSearchHistoryIndex: ()=> searchHistoryIndex,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
-  buildLanguageBankStudySheet, shareOrExportLanguageBank,
-  buildLanguageBankPdfData, loadJsPdf, renderLanguageBankPdf, exportLanguageBankPdf,
+  resolveFavoriteEntryData, buildFavoritesPdfData, buildFavoritesStudySheet,
+  shareOrExportFavorites, loadJsPdf, renderFavoritesPdf, exportFavoritesPdf,
+  getFavoritesFilterCat: ()=> favoritesFilterCat,
+  setFavoritesFilterCat: (v)=>{ favoritesFilterCat = v; },
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
