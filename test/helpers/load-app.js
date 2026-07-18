@@ -100,6 +100,14 @@ export async function loadApp(options) {
           listeners.forEach((cb) => cb({ matches }));
         };
       }
+      // jsdom has no URL.createObjectURL — the Language Bank study-sheet
+      // export's download fallback needs it to turn the generated text
+      // into a downloadable Blob. A fake object-URL string is enough;
+      // tests care about the Blob's contents, not the URL itself.
+      if (!window.URL.createObjectURL) {
+        window.URL.createObjectURL = () => "blob:mock-url";
+        window.URL.revokeObjectURL = () => {};
+      }
       if (ownerUnlocked) {
         window.localStorage.setItem("mepf_toolkit_owner_unlocked", "1");
       }
