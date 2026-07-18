@@ -75,6 +75,31 @@ export async function loadApp(options) {
           this.text = text;
         };
       }
+      // jsdom has no matchMedia at all — the dark-mode toggle uses it both
+      // to detect the OS preference on load and to live-follow OS changes.
+      // opts.prefersDarkScheme simulates "OS is set to dark" for a test;
+      // window.__triggerColorSchemeChange lets a test simulate the OS
+      // theme flipping mid-session (dispatches the same "change" event
+      // addEventListener("change", ...) callers are listening for).
+      if (!window.matchMedia) {
+        const listeners = [];
+        const darkModeQuery = {
+          matches: !!opts.prefersDarkScheme,
+          media: "(prefers-color-scheme: dark)",
+          addEventListener: (event, cb) => { if (event === "change") listeners.push(cb); },
+          removeEventListener: (event, cb) => {
+            const i = listeners.indexOf(cb);
+            if (i !== -1) listeners.splice(i, 1);
+          },
+          addListener: () => {},
+          removeListener: () => {}
+        };
+        window.matchMedia = () => darkModeQuery;
+        window.__triggerColorSchemeChange = (matches) => {
+          darkModeQuery.matches = matches;
+          listeners.forEach((cb) => cb({ matches }));
+        };
+      }
       if (ownerUnlocked) {
         window.localStorage.setItem("mepf_toolkit_owner_unlocked", "1");
       }
