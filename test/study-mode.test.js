@@ -1,17 +1,11 @@
-// Integration tests for Favorites "Study mode" — a repeatable review
-// flow layered on top of the existing Favorites list. Each card is the
-// real entry (rendered via the same wordIndexMap action() a favorite
-// row or search result already uses), so this file focuses on the
-// parts that ARE new: the "Study my favorites" entry point, the review
-// queue (js/spaced-repetition.js + VocabCache.reviewSchedule, used only
-// to order cards — never to gate/withhold them), the floating outcome
-// bar, and persistence across a session.
-//
-// Deliberately NOT covered here: any notion of a "due date" blocking a
-// favorite from appearing. Study mode must always include every
-// favorite and be restartable instantly and indefinitely — see the
-// "restarting immediately" describe block below, which is the
-// regression coverage for that requirement.
+// Integration tests for Favorites "Study mode" — a flashcard-style
+// browser through the Favorites list. Each card is the real entry
+// (rendered via the same wordIndexMap action() a favorite row or
+// search result already uses), so this file focuses on the parts that
+// ARE new: the "Study my favorites" entry point, the queue (every
+// favorite, in Favorites-list order, no filtering or scheduling), and
+// the floating Previous/Next bar — which wraps in both directions and
+// never locks the user out of restarting or re-browsing.
 import { describe, it, expect } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
@@ -65,44 +59,104 @@ describe("starting a study session", () => {
     expect(document.getElementById("technicalEntry").querySelector(".headword").textContent).toBe("tolerance");
   });
 
-  it("orders the queue least-recently-reviewed first, with never-reviewed cards leading", async () => {
+  it("queues every favorite, in the same order as the Favorites list (newest-favorited first)", async () => {
     const { hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await wait(5);
     await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    // "torque" was reviewed a while ago; "tolerance" has never been
-    // reviewed, so it should still lead the queue.
-    await VocabCache.putReviewSchedule(
-      { word: "torque", level: 1, dueAt: Date.now() + 1000 * 60 * 60 * 24 * 30, lastReviewedAt: Date.now() - 100000 },
-      { dbPromise: hooks.vocabDbPromise }
-    );
 
     const queue = await hooks.buildStudyQueue();
-    expect(queue.map((f) => f.word)).toEqual(["tolerance", "torque"]);
+    expect(queue.map((f) => f.word)).toEqual(["torque", "tolerance"]);
   });
 
-  it("includes a favorite even though it was already reviewed moments ago — no cooldown withholds it", async () => {
+  it("skips a favorite whose underlying entry no longer exists, instead of crashing", async () => {
     const { hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    // Scheduled far into the future by a prior "Got it" — under the old
-    // due-gated design this would have been excluded from the queue.
-    await VocabCache.putReviewSchedule(
-      { word: "tolerance", level: 5, dueAt: Date.now() + 1000 * 60 * 60 * 24 * 30, lastReviewedAt: Date.now() },
-      { dbPromise: hooks.vocabDbPromise }
-    );
+    await VocabCache.addFavorite("not-a-real-entry", { cat: "Vocabulary Bank" }, { dbPromise: hooks.vocabDbPromise });
 
     const queue = await hooks.buildStudyQueue();
     expect(queue.map((f) => f.word)).toEqual(["tolerance"]);
   });
 });
 
+describe("Previous / Next navigation", () => {
+  it("Next moves to the next card and updates the progress text", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await wait(5);
+    await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await hooks.startStudyMode();
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 2");
+
+    window.document.getElementById("studyNextBtn").click();
+
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 2 of 2");
+    expect(window.document.getElementById("technicalEntry").querySelector(".headword").textContent).toBe("tolerance");
+  });
+
+  it("Next wraps from the last card back to the first — never ends the session on its own", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await hooks.startStudyMode();
+
+    window.document.getElementById("studyNextBtn").click(); // only 1 card -> wraps to itself
+    await wait(10);
+
+    expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 1");
+  });
+
+  it("Previous wraps from the first card to the last", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await wait(5);
+    await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await hooks.startStudyMode(); // starts on card 1 ("torque", newest-favorited)
+
+    window.document.getElementById("studyPrevBtn").click();
+
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 2 of 2");
+  });
+
+  it("can move back and forth indefinitely without ever hitting a dead end or a lock", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await wait(5);
+    await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await hooks.startStudyMode();
+
+    for (let i = 0; i < 5; i++) {
+      window.document.getElementById("studyNextBtn").click();
+    }
+    for (let i = 0; i < 7; i++) {
+      window.document.getElementById("studyPrevBtn").click();
+    }
+
+    expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
+    expect(window.document.getElementById("studyProgressText").textContent).toMatch(/Card \d of 2/);
+  });
+});
+
+describe("exiting study mode", () => {
+  it("hides the bar and returns to the Favorites tab", async () => {
+    const { window, hooks } = await loadApp();
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
+    await hooks.startStudyMode();
+
+    window.document.getElementById("studyExitBtn").click();
+
+    expect(window.document.getElementById("studyBar").style.display).toBe("none");
+    expect(window.document.querySelector(".thumb-tab.active").dataset.tab).toBe("favorites");
+  });
+});
+
 describe("restarting immediately, over and over", () => {
-  it("finishing a session and clicking 'Study my favorites' again starts a new session with the same favorites, instantly", async () => {
+  it("exiting and clicking 'Study my favorites' again starts a new session with the same favorites, instantly", async () => {
     const { window, hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
 
     await hooks.startStudyMode();
-    window.document.getElementById("studyGoodBtn").click(); // finishes the 1-card deck
-    await wait(30);
+    window.document.getElementById("studyExitBtn").click();
     expect(window.document.getElementById("studyBar").style.display).toBe("none");
 
     await hooks.startStudyMode(); // immediately again, no waiting
@@ -110,88 +164,21 @@ describe("restarting immediately, over and over", () => {
     expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 1");
   });
 
-  it("the same word can be marked 'Got it' repeatedly across back-to-back sessions with no lock ever appearing", async () => {
+  it("can be started many times in a row with no lock ever appearing", async () => {
     const { window, hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       await hooks.startStudyMode();
       expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
-      window.document.getElementById("studyGoodBtn").click();
-      await wait(30);
+      expect(window.document.getElementById("studyStatus").textContent).not.toContain("Nothing due");
+      window.document.getElementById("studyExitBtn").click();
     }
-
-    const schedule = await VocabCache.getReviewSchedule("tolerance", { dbPromise: hooks.vocabDbPromise });
-    expect(schedule.level).toBe(3); // schedule still tracks progress...
-    const queue = await hooks.buildStudyQueue();
-    expect(queue.map((f) => f.word)).toEqual(["tolerance"]); // ...but never blocks restudy
   });
 });
 
-describe("advancing through cards", () => {
-  it("'Got it' advances the schedule forward and moves to the next card", async () => {
-    const { window, hooks } = await loadApp();
-    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    await hooks.startStudyMode();
-
-    const firstWord = hooks.getStudyQueue()[0].word;
-    window.document.getElementById("studyGoodBtn").click();
-    await wait(30);
-
-    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 2 of 2");
-    const schedule = await VocabCache.getReviewSchedule(firstWord, { dbPromise: hooks.vocabDbPromise });
-    expect(schedule.level).toBe(1);
-    expect(schedule.dueAt).toBeGreaterThan(Date.now());
-  });
-
-  it("'Still learning' resets the level and keeps it due again soon", async () => {
-    const { window, hooks } = await loadApp();
-    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    await hooks.startStudyMode();
-
-    window.document.getElementById("studyAgainBtn").click();
-    await wait(30);
-
-    const schedule = await VocabCache.getReviewSchedule("tolerance", { dbPromise: hooks.vocabDbPromise });
-    expect(schedule.level).toBe(0);
-    expect(schedule.dueAt).toBeGreaterThan(Date.now());
-  });
-
-  it("finishing the last card hides the bar, returns to Favorites, and shows a completion message", async () => {
-    const { window, hooks } = await loadApp();
-    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    await hooks.startStudyMode();
-
-    window.document.getElementById("studyGoodBtn").click();
-    await wait(30);
-
-    expect(window.document.getElementById("studyBar").style.display).toBe("none");
-    expect(window.document.querySelector(".thumb-tab.active").dataset.tab).toBe("favorites");
-    expect(window.document.getElementById("studyStatus").textContent).toContain("Reviewed 1 word");
-  });
-
-  it("Exit mid-deck hides the bar without losing already-recorded outcomes", async () => {
-    const { window, hooks } = await loadApp();
-    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
-    await hooks.startStudyMode();
-
-    const firstWord = hooks.getStudyQueue()[0].word;
-    window.document.getElementById("studyGoodBtn").click();
-    await wait(30);
-    window.document.getElementById("studyExitBtn").click();
-    await wait(30);
-
-    expect(window.document.getElementById("studyBar").style.display).toBe("none");
-    expect(window.document.querySelector(".thumb-tab.active").dataset.tab).toBe("favorites");
-    const schedule = await VocabCache.getReviewSchedule(firstWord, { dbPromise: hooks.vocabDbPromise });
-    expect(schedule).toBeTruthy(); // the one card reviewed before exiting kept its outcome
-  });
-});
-
-describe("un-favoriting clears its study schedule", () => {
-  it("removes the reviewSchedule record when a word is un-favorited", async () => {
+describe("un-favoriting clears its (legacy) study schedule record", () => {
+  it("removes any stale reviewSchedule record when a word is un-favorited", async () => {
     const { window, hooks } = await loadApp();
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
     await VocabCache.putReviewSchedule(
@@ -212,18 +199,16 @@ describe("un-favoriting clears its study schedule", () => {
 });
 
 describe("study session persists across a reload (real IndexedDB, not mocked)", () => {
-  it("a favorite stays studyable in the next session even right after being marked 'Got it'", async () => {
+  it("a favorite stays studyable in the next session with no waiting period carried over", async () => {
     const indexedDBFactory = new IDBFactory();
     const first = await loadApp({ indexedDBFactory });
     await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { dbPromise: first.hooks.vocabDbPromise });
     await first.hooks.startStudyMode();
-    first.window.document.getElementById("studyGoodBtn").click();
-    await wait(50);
+    first.window.document.getElementById("studyNextBtn").click();
+    await wait(30);
 
     const second = await loadApp({ indexedDBFactory });
     const queue = await second.hooks.buildStudyQueue();
-    // Just reviewed with "Got it" in the previous session — must still
-    // be available to study again immediately, no cooldown carried over.
     expect(queue.some((f) => f.word === "tolerance")).toBe(true);
   });
 });

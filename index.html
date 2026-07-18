@@ -323,14 +323,10 @@
     white-space:nowrap;
   }
   .study-bar-actions{ display:flex; gap:8px; flex:1; }
-  .study-btn{
-    flex:1; border:none; border-radius:8px; padding:10px 8px; font-weight:600;
-    font-size:12.5px; cursor:pointer; font-family:'IBM Plex Sans', sans-serif;
+  .study-bar-actions .nav-btn{
+    flex:1; width:auto; height:auto; border-radius:999px;
+    padding:10px 8px; font-size:12.5px; font-weight:600;
   }
-  .study-btn.again{ background:var(--brick-bg); color:var(--brick); }
-  .study-btn.again:active{ background:#F0D5CC; }
-  .study-btn.good{ background:var(--teal-deep); color:#fff; }
-  .study-btn.good:active{ background:var(--teal); }
   .study-exit-btn{
     background:none; border:none; font-size:16px; color:var(--ink-soft);
     cursor:pointer; padding:4px 6px; line-height:1;
@@ -965,8 +961,8 @@
   <div class="study-bar-inner">
     <span class="study-progress" id="studyProgressText"></span>
     <div class="study-bar-actions">
-      <button class="study-btn again" id="studyAgainBtn">Still learning</button>
-      <button class="study-btn good" id="studyGoodBtn">Got it ✓</button>
+      <button class="nav-btn" id="studyPrevBtn" aria-label="Previous">‹ Previous</button>
+      <button class="nav-btn" id="studyNextBtn" aria-label="Next">Next ›</button>
     </div>
     <button class="study-exit-btn" id="studyExitBtn" aria-label="Exit study mode" title="Exit study mode">✕</button>
   </div>
@@ -28424,35 +28420,25 @@ function renderFavoritesTab(){
 }
 
 /* =========================================================
-   STUDY MODE — spaced-repetition review of the Favorites list. Each
-   "card" is just the real entry (rendered via the same wordIndexMap
-   action() every search result and favorite row already uses), so
-   Listen/Edit/Delete/synonym chips etc. all keep working unmodified —
-   this only adds the review queue, the floating outcome bar, and the
-   per-word scheduling (js/spaced-repetition.js + VocabCache's
-   reviewSchedule store).
+   STUDY MODE — a flashcard-style browser through the Favorites list.
+   Each "card" is just the real entry (rendered via the same
+   wordIndexMap action() every search result and favorite row already
+   uses), so Listen/Edit/Delete/synonym chips etc. all keep working
+   unmodified — this only adds the queue, the floating Previous/Next
+   bar, and free, unlimited cycling through it. No outcome is ever
+   recorded and nothing is ever "due" — Previous/Next just wrap around
+   the list, so the same words can be reviewed as many times, in
+   either direction, as the user wants.
 ========================================================= */
 let studyQueue = [];
 let studyIndex = 0;
 
-// EVERY favorite, every time — deliberately no due-date gating, so
-// "Study my favorites" can be restarted immediately and as many times
-// in a row as the user wants (the whole point is repetition on demand,
-// not a once-a-day quiz). Ordered least-recently-practiced first purely
-// as a helpful default (never-reviewed cards lead), never as a filter
-// that blocks anything from appearing.
+// EVERY favorite, every time, in the same order as the Favorites list
+// itself — no filtering, no scheduling, so "Study my favorites" can be
+// (re)started instantly as many times as the user wants.
 function buildStudyQueue(){
   return VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
-    return VocabCache.getAllReviewSchedule({dbPromise: vocabDbPromise}).then(schedules=>{
-      const scheduleMap = new Map(schedules.map(s=> [s.key, s]));
-      return favs
-        .filter(f=> wordIndexMap.has(f.key)) // skip a favorite whose entry was since deleted
-        .sort((a,b)=>{
-          const lastA = scheduleMap.has(a.key) ? scheduleMap.get(a.key).lastReviewedAt : -Infinity;
-          const lastB = scheduleMap.has(b.key) ? scheduleMap.get(b.key).lastReviewedAt : -Infinity;
-          return lastA - lastB;
-        });
-    });
+    return favs.filter(f=> wordIndexMap.has(f.key)); // skip a favorite whose entry was since deleted
   });
 }
 
@@ -28489,39 +28475,28 @@ function showStudyCard(){
   document.getElementById("studyProgressText").textContent = `Card ${studyIndex + 1} of ${studyQueue.length}`;
 }
 
-function advanceStudy(outcome){
-  const fav = studyQueue[studyIndex];
-  if(!fav) return;
-  VocabCache.getReviewSchedule(fav.word, {dbPromise: vocabDbPromise}).then(existing=>{
-    const next = SpacedRepetition.nextReviewState(existing, outcome);
-    VocabCache.putReviewSchedule({
-      word: fav.word, cat: fav.cat,
-      level: next.level, dueAt: next.dueAt, lastReviewedAt: next.lastReviewedAt
-    }, {dbPromise: vocabDbPromise});
-  });
-
-  studyIndex++;
-  if(studyIndex >= studyQueue.length){
-    const count = studyQueue.length;
-    endStudyMode(`Nice work! Reviewed ${count} word${count === 1 ? "" : "s"}.`);
-  } else {
-    showStudyCard();
-  }
+// Wraps in both directions — Next past the last card loops back to the
+// first, Previous before the first loops to the last — so browsing
+// never hits a dead end and there's always a "next" word to see.
+function goToStudyCard(delta){
+  if(studyQueue.length === 0) return;
+  studyIndex = (studyIndex + delta + studyQueue.length) % studyQueue.length;
+  showStudyCard();
 }
 
-function endStudyMode(message){
+function endStudyMode(){
   studyQueue = [];
   studyIndex = 0;
   document.body.classList.remove("study-mode-active");
   document.getElementById("studyBar").style.display = "none";
   activateTab("favorites");
-  setStudyStatus(message || "", message ? "success" : "");
+  setStudyStatus("");
 }
 
 document.getElementById("studyFavoritesBtn").addEventListener("click", startStudyMode);
-document.getElementById("studyGoodBtn").addEventListener("click", ()=> advanceStudy("good"));
-document.getElementById("studyAgainBtn").addEventListener("click", ()=> advanceStudy("again"));
-document.getElementById("studyExitBtn").addEventListener("click", ()=> endStudyMode(""));
+document.getElementById("studyPrevBtn").addEventListener("click", ()=> goToStudyCard(-1));
+document.getElementById("studyNextBtn").addEventListener("click", ()=> goToStudyCard(1));
+document.getElementById("studyExitBtn").addEventListener("click", endStudyMode);
 
 /* =========================================================
    RENDER — VERBS
@@ -30548,7 +30523,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addLanguageBankEntry, activateLangBankCategory,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
-  buildStudyQueue, startStudyMode, advanceStudy, endStudyMode,
+  buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
