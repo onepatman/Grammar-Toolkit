@@ -28435,21 +28435,22 @@ function renderFavoritesTab(){
 let studyQueue = [];
 let studyIndex = 0;
 
-// Favorites that are due for review (never reviewed, or past their
-// scheduled interval), most-overdue first — a brand new favorite with
-// no schedule yet sorts first since it's treated as maximally overdue.
+// EVERY favorite, every time — deliberately no due-date gating, so
+// "Study my favorites" can be restarted immediately and as many times
+// in a row as the user wants (the whole point is repetition on demand,
+// not a once-a-day quiz). Ordered least-recently-practiced first purely
+// as a helpful default (never-reviewed cards lead), never as a filter
+// that blocks anything from appearing.
 function buildStudyQueue(){
   return VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
     return VocabCache.getAllReviewSchedule({dbPromise: vocabDbPromise}).then(schedules=>{
       const scheduleMap = new Map(schedules.map(s=> [s.key, s]));
-      const now = Date.now();
       return favs
         .filter(f=> wordIndexMap.has(f.key)) // skip a favorite whose entry was since deleted
-        .filter(f=> SpacedRepetition.isDue(scheduleMap.get(f.key), now))
         .sort((a,b)=>{
-          const dueA = scheduleMap.has(a.key) ? scheduleMap.get(a.key).dueAt : -Infinity;
-          const dueB = scheduleMap.has(b.key) ? scheduleMap.get(b.key).dueAt : -Infinity;
-          return dueA - dueB;
+          const lastA = scheduleMap.has(a.key) ? scheduleMap.get(a.key).lastReviewedAt : -Infinity;
+          const lastB = scheduleMap.has(b.key) ? scheduleMap.get(b.key).lastReviewedAt : -Infinity;
+          return lastA - lastB;
         });
     });
   });
@@ -28466,7 +28467,7 @@ function startStudyMode(){
   setStudyStatus("");
   return buildStudyQueue().then(queue=>{
     if(queue.length === 0){
-      setStudyStatus("Nothing due for review right now — nice work! Check back later.", "success");
+      setStudyStatus("None of your favorited words could be found to study — they may have been removed.", "error");
       return;
     }
     studyQueue = queue;
