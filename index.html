@@ -35,6 +35,10 @@
     --brick:#B4432E;
     --brick-bg:#F7E7E2;
     --tab-off:#D7DED9;
+    --sky-bg:#EAF4FC;
+    --sky-border:#BFE0F5;
+    --sky:#3E8FC7;
+    --sky-deep:#1B6FA8;
     --radius:10px;
   }
   *{box-sizing:border-box;}
@@ -305,33 +309,51 @@
     font-size:13.5px; color:var(--ink-soft); padding:20px 4px; text-align:center;
   }
 
-  /* Study mode (spaced-repetition review of Favorites) — the "card"
+  /* Study mode (flashcard browser through Favorites) — the "card"
      itself is just the real entry rendered on its own tab; this bar
-     floats above it with progress + outcome controls. */
-  body.study-mode-active{ padding-bottom:72px; }
+     floats above it as a distinct, elegant toolbar (light-blue tint,
+     rounded top, lifted shadow) so it clearly reads as a separate
+     floating control rather than blending into the panel's own
+     Previous/Next underneath it. Extra bottom padding on <body> keeps
+     that panel content clear of the bar instead of crowding it. */
+  body.study-mode-active{ padding-bottom:112px; }
   .study-bar{
     position:fixed; left:0; right:0; bottom:0; z-index:40;
-    background:var(--card); border-top:1.5px solid var(--rule);
-    box-shadow:0 -4px 16px rgba(0,0,0,.12);
-    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    background:var(--sky-bg); border-top:1.5px solid var(--sky-border);
+    border-radius:18px 18px 0 0;
+    box-shadow:0 -8px 24px rgba(27,111,168,.18);
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
   }
   .study-bar-inner{
-    max-width:640px; margin:0 auto; display:flex; align-items:center; gap:10px;
+    max-width:640px; margin:0 auto; display:flex; align-items:center; gap:12px;
   }
   .study-progress{
-    font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-soft);
-    white-space:nowrap;
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--sky-deep);
+    font-weight:600; white-space:nowrap;
   }
   .study-bar-actions{ display:flex; gap:8px; flex:1; }
   .study-bar-actions .nav-btn{
     flex:1; width:auto; height:auto; border-radius:999px;
-    padding:10px 8px; font-size:12.5px; font-weight:600;
+    padding:11px 8px; font-size:12.5px; font-weight:700;
+    background:var(--card); color:var(--sky-deep); border:1.5px solid var(--sky-border);
+    transition:background .12s ease, color .12s ease;
   }
+  .study-bar-actions .nav-btn:hover{ background:#F3FAFF; }
+  .study-bar-actions .nav-btn:active{ background:var(--sky-border); }
+  .study-bar-actions #studyNextBtn{
+    background:var(--sky); color:#fff; border-color:var(--sky);
+  }
+  .study-bar-actions #studyNextBtn:hover{ background:var(--sky-deep); }
+  .study-bar-actions #studyNextBtn:active{ background:#154F79; }
   .study-exit-btn{
-    background:none; border:none; font-size:16px; color:var(--ink-soft);
-    cursor:pointer; padding:4px 6px; line-height:1;
+    flex:none; width:30px; height:30px; border-radius:50%;
+    background:var(--card); border:1.5px solid var(--sky-border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; color:var(--sky-deep); cursor:pointer; padding:0; line-height:1;
+    transition:background .12s ease;
   }
-  .study-exit-btn:hover{ color:var(--ink); }
+  .study-exit-btn:hover{ background:#F3FAFF; }
+  .study-exit-btn:active{ background:var(--sky-border); }
 
   .forms-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr));
