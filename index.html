@@ -901,6 +901,9 @@
       </div>
     </div>
 
+    <button class="add-btn secondary" id="exportLanguageBankBtn" style="margin-bottom:10px;">📤 Export / share study sheet</button>
+    <div id="exportLanguageBankStatus" class="add-status"></div>
+
     <div class="langbank-category" id="langbank-phrasal">
       <div class="controls">
         <select id="phrasalSelect"></select>
@@ -29669,6 +29672,106 @@ function sanitizeSyncCode(code){
   return code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
 
+/* =========================================================
+   LANGUAGE BANK — EXPORT / SHARE AS A STUDY SHEET. Plain text so it
+   opens/prints/pastes anywhere with zero dependencies — every entry
+   already on the device (built-in seed content plus anything looked up
+   or typed in), across all 5 categories, formatted for offline review.
+========================================================= */
+const LANGUAGE_BANK_SECTION_TITLES = {
+  phrasal: "Phrasal Verbs",
+  idioms: "Idioms & Expressions",
+  sentences: "Useful Sentences",
+  patterns: "Sentence Patterns",
+  technical: "Technical / Engineering Terms"
+};
+
+// Entries carry a few fields (examples, mistake) that may contain <b>
+// markup for on-screen bolding — meaningless (and ugly) in plain text.
+function stripHtmlTags(text){
+  return String(text || "").replace(/<[^>]+>/g, "");
+}
+
+function buildLanguageBankStudySheet(){
+  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const lines = [
+    "ULTIMATE ENGINEERING DICTIONARY — LANGUAGE BANK STUDY SHEET",
+    "Generated " + today,
+    ""
+  ];
+
+  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+    const entries = LANGUAGE_BANK_CONFIG[categoryKey].data;
+    if(!entries || entries.length === 0) return;
+    const title = (LANGUAGE_BANK_SECTION_TITLES[categoryKey] || categoryKey).toUpperCase() + ` (${entries.length})`;
+    const rule = "=".repeat(title.length);
+    lines.push(rule, title, rule, "");
+
+    entries.forEach((entry, i)=>{
+      lines.push(`${i + 1}. ${entry.w}`);
+      const senses = entry.senses || [];
+      senses.forEach((sense, si)=>{
+        const prefix = senses.length > 1 ? `   ${si + 1}) ` : "   ";
+        lines.push(`${prefix}${stripHtmlTags(sense.use)}`);
+        (sense.examples || []).forEach(ex=> lines.push(`      e.g. ${stripHtmlTags(ex)}`));
+      });
+      if(entry.syn && entry.syn.length) lines.push(`   Synonyms: ${entry.syn.join(", ")}`);
+      if(entry.ant && entry.ant.length) lines.push(`   Antonyms: ${entry.ant.join(", ")}`);
+      if(entry.mistake) lines.push(`   Common mistake: ${stripHtmlTags(entry.mistake)}`);
+      if(entry.tagalog) lines.push(`   Tagalog: ${entry.tagalog}`);
+      lines.push("");
+    });
+  });
+
+  return lines.join("\n").trim() + "\n";
+}
+
+function downloadTextFile(filename, text){
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function setExportLanguageBankStatus(message, cls){
+  const el = document.getElementById("exportLanguageBankStatus");
+  if(!el) return;
+  el.textContent = message || "";
+  el.className = "add-status" + (cls ? " " + cls : "");
+}
+
+// Web Share API first (the natural "share sheet" on a phone — Messages,
+// Email, Notes, anything installed); a plain-text download whenever
+// that's unavailable or the user's browser rejects it for a reason
+// other than them just cancelling the share sheet.
+async function shareOrExportLanguageBank(){
+  setExportLanguageBankStatus("");
+  const text = buildLanguageBankStudySheet();
+  const filename = "language-bank-study-sheet.txt";
+
+  if(navigator.share){
+    try {
+      await navigator.share({ title: "Language Bank Study Sheet", text });
+      setExportLanguageBankStatus("Shared!", "success");
+      return;
+    } catch(e){
+      if(e && e.name === "AbortError") return; // user cancelled the share sheet — not an error
+      // Any other failure (e.g. share not permitted in this context) falls
+      // through to a plain download instead of leaving the user stuck.
+    }
+  }
+
+  downloadTextFile(filename, text);
+  setExportLanguageBankStatus("Downloaded " + filename + " — save it or open it in any text app.", "success");
+}
+
+document.getElementById("exportLanguageBankBtn").addEventListener("click", shareOrExportLanguageBank);
+
 // Only the entries a person actually typed in (source:"online") travel
 // through sync — every client already ships the exact same hardcoded
 // seed content (phrasalData/idiomsData/sentencesData/patternsData's
@@ -30680,6 +30783,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   pushSearchHistory, updateOwnerModeUI,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
+  buildLanguageBankStudySheet, shareOrExportLanguageBank,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
