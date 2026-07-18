@@ -325,16 +325,17 @@
     padding:14px 16px calc(14px + env(safe-area-inset-bottom));
   }
   .study-bar-inner{
-    max-width:640px; margin:0 auto; display:flex; align-items:center; gap:12px;
+    max-width:640px; margin:0 auto; display:flex; align-items:center; gap:8px;
   }
   .study-progress{
     font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--sky-deep);
-    font-weight:600; white-space:nowrap;
+    font-weight:600; white-space:nowrap; flex:none;
   }
-  .study-bar-actions{ display:flex; gap:8px; flex:1; }
+  .study-bar-actions{ display:flex; gap:8px; flex:1; min-width:0; }
   .study-bar-actions .nav-btn{
-    flex:1; width:auto; height:auto; border-radius:999px;
-    padding:11px 8px; font-size:12.5px; font-weight:700;
+    flex:1; width:auto; height:auto; min-width:0; border-radius:999px;
+    padding:10px 4px; font-size:12px; font-weight:700; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;
     background:var(--card); color:var(--sky-deep); border:1.5px solid var(--sky-border);
     transition:background .12s ease, color .12s ease;
   }
@@ -28494,7 +28495,10 @@ function showStudyCard(){
     item.action();
     window.scrollTo({top:0, behavior:"smooth"});
   }
-  document.getElementById("studyProgressText").textContent = `Card ${studyIndex + 1} of ${studyQueue.length}`;
+  // Kept short ("1 / 3" rather than "Card 1 of 3") so it doesn't crowd
+  // the Previous/Next buttons out of room on a narrow phone screen —
+  // a long progress label was pushing "Previous" onto two lines.
+  document.getElementById("studyProgressText").textContent = `${studyIndex + 1} / ${studyQueue.length}`;
 }
 
 // Wraps in both directions — Next past the last card loops back to the
