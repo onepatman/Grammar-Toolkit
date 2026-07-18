@@ -72,6 +72,15 @@ export async function loadApp(options) {
       if (opts.firebase) {
         window.firebase = opts.firebase;
       }
+      // Lets a test simulate "this device was already connected/signed
+      // in before this load" (e.g. a saved sync code triggering
+      // autoReconnectSync on startup) — must be set before any inline
+      // <script> runs, same reasoning as everything else in this hook.
+      if (opts.localStorage) {
+        Object.entries(opts.localStorage).forEach(([key, value]) => {
+          window.localStorage.setItem(key, value);
+        });
+      }
     }
   });
 

@@ -20,8 +20,27 @@ export function createFakeFirebase(options = {}) {
 
   const docs = new Map(); // "collection/id" -> data object
   const listeners = new Map(); // path -> Set<{onNext, onError}>
+  const authStateListeners = new Set();
   let currentUser = null;
   let uidCounter = 0;
+
+  function setCurrentUser(user) {
+    currentUser = user;
+    authStateListeners.forEach((fn) => fn(currentUser));
+  }
+
+  // Simulates the real SDK's async persisted-session restore: a
+  // previously-signed-in user (real owner or anonymous) does NOT show up
+  // in .currentUser synchronously right after initializeApp() — it's
+  // only available a tick later, once IndexedDB has actually been read.
+  // This exact timing gap is what broke the real app (code that read
+  // .currentUser synchronously always saw null and signed in
+  // anonymously, permanently overwriting the real session before it
+  // came back) — options.persistedUser lets a test reproduce that gap
+  // on purpose instead of the fake always resolving instantly.
+  if (options.persistedUser) {
+    Promise.resolve().then(() => setCurrentUser(options.persistedUser));
+  }
 
   function permissionDenied() {
     const e = new Error("Missing or insufficient permissions.");
@@ -85,8 +104,18 @@ export function createFakeFirebase(options = {}) {
     get currentUser() {
       return currentUser;
     },
+    // Fires once, asynchronously (matching the real SDK — never
+    // synchronously), with whatever the current user is at that moment;
+    // then again on every later change. Returns an unsubscribe function.
+    onAuthStateChanged(callback) {
+      authStateListeners.add(callback);
+      Promise.resolve().then(() => {
+        if (authStateListeners.has(callback)) callback(currentUser);
+      });
+      return () => authStateListeners.delete(callback);
+    },
     signInAnonymously() {
-      currentUser = { uid: "anon-" + ++uidCounter, isAnonymous: true, email: null, emailVerified: false };
+      setCurrentUser({ uid: "anon-" + ++uidCounter, isAnonymous: true, email: null, emailVerified: false });
       return Promise.resolve({ user: currentUser });
     },
     signInWithEmailAndPassword(email, password) {
@@ -102,11 +131,11 @@ export function createFakeFirebase(options = {}) {
       }
       // emailVerified: false on purpose — matches a real Console-created
       // account, which is never pre-verified. See canWrite() above.
-      currentUser = { uid: "user-" + email, isAnonymous: false, email, emailVerified: false };
+      setCurrentUser({ uid: "user-" + email, isAnonymous: false, email, emailVerified: false });
       return Promise.resolve({ user: currentUser });
     },
     signOut() {
-      currentUser = null;
+      setCurrentUser(null);
       return Promise.resolve();
     }
   };

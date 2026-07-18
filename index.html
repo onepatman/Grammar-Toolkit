@@ -28861,6 +28861,33 @@ function getCurrentFirebaseUser(){
   }
 }
 
+// Firebase's persisted sign-in (a real owner, or a previously-anonymous
+// viewer) is restored ASYNCHRONOUSLY after firebase.initializeApp()
+// runs, by reading from IndexedDB — firebase.auth().currentUser is
+// unreliable immediately afterward, and reading it synchronously right
+// then used to cause a real bug: it almost always saw null (even when a
+// real session was about to be restored a moment later), so the code
+// would call signInAnonymously() — permanently overwriting the real
+// owner's session with a fresh anonymous one before it ever got a
+// chance to come back. That's why signing in as owner never survived a
+// page refresh or PWA relaunch: every reload's auto-reconnect silently
+// clobbered it before this function existed.
+//
+// onAuthStateChanged's FIRST firing is Firebase's own signal that it
+// has finished checking (with whichever user it found, including null
+// for genuinely nobody) — this resolves once that first firing happens
+// and then stops listening; callers that need to react to LATER auth
+// changes already have their own explicit paths for that (signInAsOwner,
+// signOutOwner, etc.), so a one-shot listener here is deliberate.
+function waitForInitialAuthState(){
+  return new Promise((resolve)=>{
+    const unsubscribe = firebase.auth().onAuthStateChanged((user)=>{
+      unsubscribe();
+      resolve(user);
+    });
+  });
+}
+
 function sanitizeSyncCode(code){
   return code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
 }
@@ -29003,7 +29030,8 @@ async function connectSync(rawCode){
   statusEl.textContent = "Connecting…";
   statusEl.className = "add-status";
   try{
-    if(!firebase.auth().currentUser){
+    const user = await waitForInitialAuthState();
+    if(!user){
       await firebase.auth().signInAnonymously();
     }
     localStorage.setItem(SYNC_CODE_KEY, code);
@@ -29518,20 +29546,33 @@ LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   }
 });
 
-// Auto-reconnect if this device was already connected before. Only
-// falls back to anonymous sign-in if nothing's signed in yet — so it
-// never clobbers an owner's real sign-in with an anonymous one.
+// Auto-reconnect if this device was already connected before. Waits for
+// Firebase's initial auth state (see waitForInitialAuthState) before
+// deciding whether to fall back to an anonymous sign-in — reading
+// firebase.auth().currentUser synchronously here used to see null on
+// EVERY page load/PWA relaunch even when the real owner had signed in
+// before, since the real session hadn't finished being restored yet,
+// which meant this always signed in anonymously and permanently wiped
+// out the owner's session. This is why "sign in as owner" never
+// survived a refresh.
 (function autoReconnectSync(){
   const savedCode = localStorage.getItem(SYNC_CODE_KEY);
   if(!savedCode) return;
   document.getElementById("syncCodeInput").value = savedCode;
   if(!initFirebaseIfConfigured()) return;
-  const signInPromise = firebase.auth().currentUser
-    ? Promise.resolve()
-    : firebase.auth().signInAnonymously();
-  signInPromise.then(()=>{
+  waitForInitialAuthState().then((user)=>{
+    return user ? Promise.resolve() : firebase.auth().signInAnonymously();
+  }).then(()=>{
     listenToSync(savedCode);
     updateSyncAuthUI();
+    // If the restored user IS the real owner, the admin UI (Language
+    // Bank Edit/Delete, quick-add boxes, correction log controls) needs
+    // to actually reflect that — without these, a successfully-restored
+    // owner session still looked locked until some unrelated click
+    // happened to call updateOwnerModeUI() itself.
+    updateOwnerModeUI();
+    refreshMistakeUI();
+    refreshLanguageBankUI();
     const statusEl = document.getElementById("syncStatus");
     statusEl.textContent = "Connected! Syncing as \"" + savedCode + "\".";
     statusEl.className = "add-status success";
@@ -29861,7 +29902,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   saveLanguageBankManualEntry, skipLanguageBankManualEntry,
   cancelLanguageBankManualEntry, languageBankPendingManual,
   deleteLanguageBankEntry, openLanguageBankEditForm, saveLanguageBankEdit,
-  renderLanguageBankAfterDelete, refreshLanguageBankUI, renderRuleEntry
+  renderLanguageBankAfterDelete, refreshLanguageBankUI, renderRuleEntry,
+  waitForInitialAuthState
 };
 </script>
 <script>
