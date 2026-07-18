@@ -305,6 +305,38 @@
     font-size:13.5px; color:var(--ink-soft); padding:20px 4px; text-align:center;
   }
 
+  /* Study mode (spaced-repetition review of Favorites) — the "card"
+     itself is just the real entry rendered on its own tab; this bar
+     floats above it with progress + outcome controls. */
+  body.study-mode-active{ padding-bottom:72px; }
+  .study-bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    background:var(--card); border-top:1.5px solid var(--rule);
+    box-shadow:0 -4px 16px rgba(0,0,0,.12);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  }
+  .study-bar-inner{
+    max-width:640px; margin:0 auto; display:flex; align-items:center; gap:10px;
+  }
+  .study-progress{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .study-bar-actions{ display:flex; gap:8px; flex:1; }
+  .study-btn{
+    flex:1; border:none; border-radius:8px; padding:10px 8px; font-weight:600;
+    font-size:12.5px; cursor:pointer; font-family:'IBM Plex Sans', sans-serif;
+  }
+  .study-btn.again{ background:var(--brick-bg); color:var(--brick); }
+  .study-btn.again:active{ background:#F0D5CC; }
+  .study-btn.good{ background:var(--teal-deep); color:#fff; }
+  .study-btn.good:active{ background:var(--teal); }
+  .study-exit-btn{
+    background:none; border:none; font-size:16px; color:var(--ink-soft);
+    cursor:pointer; padding:4px 6px; line-height:1;
+  }
+  .study-exit-btn:hover{ color:var(--ink); }
+
   .forms-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr));
     gap:8px; margin-bottom:16px;
@@ -742,6 +774,8 @@
   <!-- ===== FAVORITES PANEL ===== -->
   <section id="panel-favorites" style="display:none;">
     <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
+    <button class="add-btn" id="studyFavoritesBtn" style="display:none; margin-bottom:10px;">🎴 Study my favorites</button>
+    <div id="studyStatus" class="add-status"></div>
     <div id="favoritesList" class="favorites-list"></div>
   </section>
 
@@ -924,10 +958,25 @@
   <div class="footer-brand">Ultimate Engineering Dictionary © 2026 — Coded by Engr.OnePatMan🤓</div>
 </footer>
 
+<!-- ===== STUDY MODE BAR — shown while reviewing favorites; the card
+     itself is just the real entry, rendered on whichever tab it lives
+     on, so this only needs to float the progress + outcome controls. -->
+<div id="studyBar" class="study-bar" style="display:none;">
+  <div class="study-bar-inner">
+    <span class="study-progress" id="studyProgressText"></span>
+    <div class="study-bar-actions">
+      <button class="study-btn again" id="studyAgainBtn">Still learning</button>
+      <button class="study-btn good" id="studyGoodBtn">Got it ✓</button>
+    </div>
+    <button class="study-exit-btn" id="studyExitBtn" aria-label="Exit study mode" title="Exit study mode">✕</button>
+  </div>
+</div>
+
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
 <script src="js/fuzzy-search.js"></script>
 <script src="js/vocab-cache.js"></script>
+<script src="js/spaced-repetition.js"></script>
 <script src="js/owner-mode.js"></script>
 <script src="js/sync-auth.js"></script>
 <script>
@@ -28347,6 +28396,9 @@ setupFamilyModule();
 function renderFavoritesTab(){
   const container = document.getElementById("favoritesList");
   VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+    const studyBtn = document.getElementById("studyFavoritesBtn");
+    if(studyBtn) studyBtn.style.display = favs.length > 0 ? "" : "none";
+
     if(favs.length === 0){
       container.innerHTML = '<div class="favorites-empty">No favorites yet — tap the ☆ on any entry to bookmark it here.</div>';
       return;
@@ -28370,6 +28422,105 @@ function renderFavoritesTab(){
     });
   });
 }
+
+/* =========================================================
+   STUDY MODE — spaced-repetition review of the Favorites list. Each
+   "card" is just the real entry (rendered via the same wordIndexMap
+   action() every search result and favorite row already uses), so
+   Listen/Edit/Delete/synonym chips etc. all keep working unmodified —
+   this only adds the review queue, the floating outcome bar, and the
+   per-word scheduling (js/spaced-repetition.js + VocabCache's
+   reviewSchedule store).
+========================================================= */
+let studyQueue = [];
+let studyIndex = 0;
+
+// Favorites that are due for review (never reviewed, or past their
+// scheduled interval), most-overdue first — a brand new favorite with
+// no schedule yet sorts first since it's treated as maximally overdue.
+function buildStudyQueue(){
+  return VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+    return VocabCache.getAllReviewSchedule({dbPromise: vocabDbPromise}).then(schedules=>{
+      const scheduleMap = new Map(schedules.map(s=> [s.key, s]));
+      const now = Date.now();
+      return favs
+        .filter(f=> wordIndexMap.has(f.key)) // skip a favorite whose entry was since deleted
+        .filter(f=> SpacedRepetition.isDue(scheduleMap.get(f.key), now))
+        .sort((a,b)=>{
+          const dueA = scheduleMap.has(a.key) ? scheduleMap.get(a.key).dueAt : -Infinity;
+          const dueB = scheduleMap.has(b.key) ? scheduleMap.get(b.key).dueAt : -Infinity;
+          return dueA - dueB;
+        });
+    });
+  });
+}
+
+function setStudyStatus(message, cls){
+  const statusEl = document.getElementById("studyStatus");
+  if(!statusEl) return;
+  statusEl.textContent = message || "";
+  statusEl.className = "add-status" + (cls ? " " + cls : "");
+}
+
+function startStudyMode(){
+  setStudyStatus("");
+  return buildStudyQueue().then(queue=>{
+    if(queue.length === 0){
+      setStudyStatus("Nothing due for review right now — nice work! Check back later.", "success");
+      return;
+    }
+    studyQueue = queue;
+    studyIndex = 0;
+    document.body.classList.add("study-mode-active");
+    document.getElementById("studyBar").style.display = "flex";
+    showStudyCard();
+  });
+}
+
+function showStudyCard(){
+  const fav = studyQueue[studyIndex];
+  const item = fav && wordIndexMap.get(fav.key);
+  if(item){
+    pushSearchHistory(item);
+    item.action();
+    window.scrollTo({top:0, behavior:"smooth"});
+  }
+  document.getElementById("studyProgressText").textContent = `Card ${studyIndex + 1} of ${studyQueue.length}`;
+}
+
+function advanceStudy(outcome){
+  const fav = studyQueue[studyIndex];
+  if(!fav) return;
+  VocabCache.getReviewSchedule(fav.word, {dbPromise: vocabDbPromise}).then(existing=>{
+    const next = SpacedRepetition.nextReviewState(existing, outcome);
+    VocabCache.putReviewSchedule({
+      word: fav.word, cat: fav.cat,
+      level: next.level, dueAt: next.dueAt, lastReviewedAt: next.lastReviewedAt
+    }, {dbPromise: vocabDbPromise});
+  });
+
+  studyIndex++;
+  if(studyIndex >= studyQueue.length){
+    const count = studyQueue.length;
+    endStudyMode(`Nice work! Reviewed ${count} word${count === 1 ? "" : "s"}.`);
+  } else {
+    showStudyCard();
+  }
+}
+
+function endStudyMode(message){
+  studyQueue = [];
+  studyIndex = 0;
+  document.body.classList.remove("study-mode-active");
+  document.getElementById("studyBar").style.display = "none";
+  activateTab("favorites");
+  setStudyStatus(message || "", message ? "success" : "");
+}
+
+document.getElementById("studyFavoritesBtn").addEventListener("click", startStudyMode);
+document.getElementById("studyGoodBtn").addEventListener("click", ()=> advanceStudy("good"));
+document.getElementById("studyAgainBtn").addEventListener("click", ()=> advanceStudy("again"));
+document.getElementById("studyExitBtn").addEventListener("click", ()=> endStudyMode(""));
 
 /* =========================================================
    RENDER — VERBS
@@ -30132,6 +30283,10 @@ document.addEventListener("click", (e)=>{
   } else {
     favoriteKeys.delete(key);
     VocabCache.removeFavorite(word, {dbPromise: vocabDbPromise});
+    // No longer a favorite, so its study-mode schedule is meaningless —
+    // clear it rather than leaving an orphaned record that would just
+    // resurface with a stale level if the word is ever re-favorited.
+    VocabCache.deleteReviewSchedule(word, {dbPromise: vocabDbPromise});
   }
 
   btn.classList.toggle("active", nowActive);
@@ -30392,6 +30547,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addLanguageBankEntry, activateLangBankCategory,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
+  buildStudyQueue, startStudyMode, advanceStudy, endStudyMode,
+  getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
   getCurrentFirebaseUser, collectOnlineLanguageBankEntries,

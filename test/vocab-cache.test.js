@@ -411,6 +411,103 @@ describe("schema migration from DB_VERSION 4 (pre-Technical-Terms)", () => {
   });
 });
 
+describe("schema migration from DB_VERSION 5 (pre-reviewSchedule)", () => {
+  it("upgrading an existing v5 database preserves technicalEntries and adds reviewSchedule", async () => {
+    const idb = new IDBFactory();
+
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 5);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PHRASAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.IDIOMS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.SENTENCES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PATTERNS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.TECHNICAL_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.TECHNICAL_STORE, "readwrite");
+        tx.objectStore(VocabCache.TECHNICAL_STORE).put({ key: "tolerance", entry: { w: "tolerance", senses: [] } });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.REVIEW_STORE)).toBe(true);
+
+    const preserved = await VocabCache.getTechnical("tolerance", { indexedDB: idb });
+    expect(preserved).toEqual({ w: "tolerance", senses: [] });
+
+    expect(await VocabCache.getAllReviewSchedule({ indexedDB: idb })).toEqual([]);
+  });
+});
+
+describe("review schedule (Favorites study mode)", () => {
+  it("round-trips a schedule record by word, case-insensitively", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putReviewSchedule(
+      { word: "Tolerance", cat: "Technical Term", level: 2, dueAt: 12345, lastReviewedAt: 100 },
+      { indexedDB: idb }
+    );
+    expect(ok).toBe(true);
+
+    const found = await VocabCache.getReviewSchedule("tolerance", { indexedDB: idb });
+    expect(found).toEqual({
+      key: "tolerance", word: "Tolerance", cat: "Technical Term",
+      level: 2, dueAt: 12345, lastReviewedAt: 100
+    });
+  });
+
+  it("resolves to undefined for a word with no schedule yet", async () => {
+    const idb = freshIndexedDB();
+    const found = await VocabCache.getReviewSchedule("nonexistent", { indexedDB: idb });
+    expect(found).toBeUndefined();
+  });
+
+  it("resolves to false when putting a record with no word", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putReviewSchedule({ level: 0 }, { indexedDB: idb });
+    expect(ok).toBe(false);
+  });
+
+  it("put overwrites the existing schedule for the same word", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putReviewSchedule({ word: "tolerance", level: 0, dueAt: 1, lastReviewedAt: 1 }, { indexedDB: idb });
+    await VocabCache.putReviewSchedule({ word: "tolerance", level: 3, dueAt: 999, lastReviewedAt: 999 }, { indexedDB: idb });
+
+    const found = await VocabCache.getReviewSchedule("tolerance", { indexedDB: idb });
+    expect(found.level).toBe(3);
+    expect(found.dueAt).toBe(999);
+  });
+
+  it("getAllReviewSchedule returns every stored schedule, independent of other stores", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putReviewSchedule({ word: "tolerance", level: 1, dueAt: 1, lastReviewedAt: 1 }, { indexedDB: idb });
+    await VocabCache.putReviewSchedule({ word: "torque", level: 2, dueAt: 2, lastReviewedAt: 2 }, { indexedDB: idb });
+    await VocabCache.addFavorite("tolerance", { cat: "Technical Term" }, { indexedDB: idb });
+
+    const all = await VocabCache.getAllReviewSchedule({ indexedDB: idb });
+    expect(all.map((r) => r.word).sort()).toEqual(["tolerance", "torque"]);
+  });
+
+  it("deleteReviewSchedule removes just that word's record", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putReviewSchedule({ word: "tolerance", level: 1, dueAt: 1, lastReviewedAt: 1 }, { indexedDB: idb });
+    await VocabCache.putReviewSchedule({ word: "torque", level: 2, dueAt: 2, lastReviewedAt: 2 }, { indexedDB: idb });
+
+    await VocabCache.deleteReviewSchedule("tolerance", { indexedDB: idb });
+
+    expect(await VocabCache.getReviewSchedule("tolerance", { indexedDB: idb })).toBeUndefined();
+    expect(await VocabCache.getReviewSchedule("torque", { indexedDB: idb })).toBeTruthy();
+  });
+});
+
 describe.each([
   ["idioms", "getIdiom", "putIdiom", "getAllIdioms", "break the ice"],
   ["sentences", "getSentence", "putSentence", "getAllSentences", "Could you pass the salt?"],

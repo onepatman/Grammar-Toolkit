@@ -14,6 +14,10 @@
                         Sentence Patterns, Technical/Engineering Terms),
                         each added via that category's own quick-add and
                         persisted the same way vocabEntries are.
+     - reviewSchedule: per-favorited-word spaced-repetition state (level
+                        + next-due timestamp) driving the Favorites tab's
+                        "Study mode" — see js/spaced-repetition.js for the
+                        scheduling math itself, kept out of this file.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -49,7 +53,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 5;
+  var DB_VERSION = 6;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -58,6 +62,7 @@
   var SENTENCES_STORE = "sentenceEntries";
   var PATTERNS_STORE = "patternEntries";
   var TECHNICAL_STORE = "technicalEntries";
+  var REVIEW_STORE = "reviewSchedule";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -97,6 +102,9 @@
         }
         if (!db.objectStoreNames.contains(TECHNICAL_STORE)) {
           db.createObjectStore(TECHNICAL_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(REVIEW_STORE)) {
+          db.createObjectStore(REVIEW_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -301,6 +309,32 @@
     });
   }
 
+  /* ---------- review schedule (Favorites "Study mode") ---------- */
+
+  function getReviewSchedule(word, options) {
+    return storeGet(REVIEW_STORE, normalizeKey(word), options);
+  }
+
+  function putReviewSchedule(record, options) {
+    if (!record || !record.word) return Promise.resolve(false);
+    return storePut(REVIEW_STORE, {
+      key: normalizeKey(record.word),
+      word: record.word,
+      cat: record.cat || "",
+      level: record.level,
+      dueAt: record.dueAt,
+      lastReviewedAt: record.lastReviewedAt
+    }, options);
+  }
+
+  function getAllReviewSchedule(options) {
+    return storeGetAll(REVIEW_STORE, options);
+  }
+
+  function deleteReviewSchedule(word, options) {
+    return storeDelete(REVIEW_STORE, normalizeKey(word), options);
+  }
+
   /* ---------- recently viewed ---------- */
 
   function recordRecentlyViewed(word, cat, options) {
@@ -363,6 +397,7 @@
     SENTENCES_STORE: SENTENCES_STORE,
     PATTERNS_STORE: PATTERNS_STORE,
     TECHNICAL_STORE: TECHNICAL_STORE,
+    REVIEW_STORE: REVIEW_STORE,
     RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
@@ -400,6 +435,10 @@
     removeFavorite: removeFavorite,
     isFavorite: isFavorite,
     getAllFavorites: getAllFavorites,
+    getReviewSchedule: getReviewSchedule,
+    putReviewSchedule: putReviewSchedule,
+    getAllReviewSchedule: getAllReviewSchedule,
+    deleteReviewSchedule: deleteReviewSchedule,
     recordRecentlyViewed: recordRecentlyViewed,
     getRecentlyViewed: getRecentlyViewed
   };
