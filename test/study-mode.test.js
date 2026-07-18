@@ -52,7 +52,7 @@ describe("starting a study session", () => {
     await hooks.startStudyMode();
 
     expect(document.getElementById("studyBar").style.display).not.toBe("none");
-    expect(document.getElementById("studyProgressText").textContent).toBe("Card 1 of 1");
+    expect(document.getElementById("studyProgressText").textContent).toBe("1 / 1");
     // "tolerance" is a built-in Technical Term — landing on its real entry
     // proves this reused the normal wordIndexMap action(), not a stripped copy.
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
@@ -86,11 +86,11 @@ describe("Previous / Next navigation", () => {
     await wait(5);
     await VocabCache.addFavorite("torque", { cat: "Technical Term" }, { dbPromise: hooks.vocabDbPromise });
     await hooks.startStudyMode();
-    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 2");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("1 / 2");
 
     window.document.getElementById("studyNextBtn").click();
 
-    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 2 of 2");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("2 / 2");
     expect(window.document.getElementById("technicalEntry").querySelector(".headword").textContent).toBe("tolerance");
   });
 
@@ -103,7 +103,7 @@ describe("Previous / Next navigation", () => {
     await wait(10);
 
     expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
-    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 1");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("1 / 1");
   });
 
   it("Previous wraps from the first card to the last", async () => {
@@ -115,7 +115,7 @@ describe("Previous / Next navigation", () => {
 
     window.document.getElementById("studyPrevBtn").click();
 
-    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 2 of 2");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("2 / 2");
   });
 
   it("can move back and forth indefinitely without ever hitting a dead end or a lock", async () => {
@@ -133,7 +133,7 @@ describe("Previous / Next navigation", () => {
     }
 
     expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
-    expect(window.document.getElementById("studyProgressText").textContent).toMatch(/Card \d of 2/);
+    expect(window.document.getElementById("studyProgressText").textContent).toMatch(/\d \/ 2/);
   });
 });
 
@@ -161,7 +161,7 @@ describe("restarting immediately, over and over", () => {
 
     await hooks.startStudyMode(); // immediately again, no waiting
     expect(window.document.getElementById("studyBar").style.display).not.toBe("none");
-    expect(window.document.getElementById("studyProgressText").textContent).toBe("Card 1 of 1");
+    expect(window.document.getElementById("studyProgressText").textContent).toBe("1 / 1");
   });
 
   it("can be started many times in a row with no lock ever appearing", async () => {
