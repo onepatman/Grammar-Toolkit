@@ -12,6 +12,22 @@
 <meta name="apple-mobile-web-app-title" content="Eng. Dictionary">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<!-- Applies the right theme (light/dark) before the CSS below ever
+     paints, so there's no flash of the wrong theme on load. Only READS
+     the saved preference/system setting here — it never writes to
+     localStorage itself; that only happens when the user actually
+     clicks the toggle (see the main script), so an unset preference
+     keeps following the OS setting live across visits. -->
+<script>
+(function(){
+  try {
+    var stored = localStorage.getItem("mepf_toolkit_theme");
+    var theme = (stored === "light" || stored === "dark") ? stored :
+      ((window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch(e) { /* localStorage/matchMedia unavailable — defaults to light, same as before this feature existed */ }
+})();
+</script>
 <!-- Firebase SDK — loaded first so it's ready before the toolkit's own
      script runs. Safe if it fails to load (e.g. offline): sync code
      below checks for this before using it. -->
@@ -39,7 +55,51 @@
     --sky-border:#BFE0F5;
     --sky:#3E8FC7;
     --sky-deep:#1B6FA8;
+    --sky-hover:#F3FAFF;
+    --sky-active:#154F79;
+    --brand-deep:#134D50;
+    --mint-bg:#E4F1E9;
+    --mint-border:#9CC7AC;
+    --mint:#1F6F4A;
+    --brick-border:#E3B8AB;
+    --callout-text:#6E2A1C;
+    --warn-bg:#FBF3E3;
+    --warn-border:#E3C98A;
+    --warn-text:#6B4E12;
     --radius:10px;
+  }
+  /* Dark theme — same tokens, overridden where a light-mode value would
+     be unreadable on a dark surface. --brand-deep is deliberately left
+     unset here: the masthead is a fixed dark-teal brand banner with its
+     own light text in both themes, not something that should invert. */
+  :root[data-theme="dark"]{
+    --paper:#141C1F;
+    --paper-alt:#0F1517;
+    --card:#1C2629;
+    --ink:#E6EDEC;
+    --ink-soft:#9FB2B0;
+    --rule:#2C3A3D;
+    --gold:#E0A93D;
+    --gold-deep:#F0C669;
+    --teal:#3FB6B0;
+    --teal-deep:#23A69E;
+    --brick:#E2836C;
+    --brick-bg:#3A2420;
+    --tab-off:#1A2427;
+    --sky-bg:#16232B;
+    --sky-border:#2E4655;
+    --sky:#4FA6DD;
+    --sky-deep:#4A93D1;
+    --sky-hover:#1E2F38;
+    --sky-active:#0F3B57;
+    --mint-bg:#1E3328;
+    --mint-border:#3D5B47;
+    --mint:#6FCB94;
+    --brick-border:#5C382F;
+    --callout-text:#F0C4B4;
+    --warn-bg:#332A14;
+    --warn-border:#5C4A22;
+    --warn-text:#E8C976;
   }
   *{box-sizing:border-box;}
   body{
@@ -64,7 +124,7 @@
 
   /* Header */
   .masthead{
-    background:var(--teal-deep);
+    background:var(--brand-deep);
     color:#F2F6F4;
     padding:22px 18px 18px;
     position:relative;
@@ -99,12 +159,13 @@
   }
   .search-bar{
     position:relative;
+    display:flex; align-items:center; gap:8px;
     background:var(--paper-alt);
     padding:10px 12px 9px;
     border-bottom:1px solid var(--rule);
   }
   #globalSearch{
-    width:100%;
+    flex:1; width:auto; min-width:0;
     border:1.5px solid var(--rule);
     border-radius:999px;
     padding:9px 16px;
@@ -114,6 +175,14 @@
     color:var(--ink);
   }
   #globalSearch:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .theme-toggle-btn{
+    flex:none; width:38px; height:38px; border-radius:50%;
+    border:1.5px solid var(--rule); background:var(--card);
+    font-size:16px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease;
+  }
+  .theme-toggle-btn:hover{ background:var(--paper); }
   .search-results{
     position:absolute; left:12px; right:12px; top:100%;
     margin-top:4px;
@@ -346,13 +415,13 @@
     background:var(--card); color:var(--sky-deep); border:1.5px solid var(--sky-border);
     transition:background .12s ease, color .12s ease, transform .08s ease;
   }
-  .study-bar-actions .nav-btn:hover{ background:#F3FAFF; }
+  .study-bar-actions .nav-btn:hover{ background:var(--sky-hover); }
   .study-bar-actions .nav-btn:active{ background:var(--sky-border); transform:scale(.98); }
   .study-bar-actions #studyNextBtn{
     background:var(--sky); color:#fff; border-color:var(--sky);
   }
   .study-bar-actions #studyNextBtn:hover{ background:var(--sky-deep); }
-  .study-bar-actions #studyNextBtn:active{ background:#154F79; }
+  .study-bar-actions #studyNextBtn:active{ background:var(--sky-active); }
   .study-exit-btn{
     flex:none; width:32px; height:32px; border-radius:50%;
     background:var(--card); border:1.5px solid var(--sky-border);
@@ -360,7 +429,7 @@
     font-size:14px; color:var(--sky-deep); cursor:pointer; padding:0; line-height:1;
     transition:background .12s ease;
   }
-  .study-exit-btn:hover{ background:#F3FAFF; }
+  .study-exit-btn:hover{ background:var(--sky-hover); }
   .study-exit-btn:active{ background:var(--sky-border); }
 
   .forms-grid{
@@ -409,17 +478,17 @@
 
   .callout{
     margin-top:14px; padding:12px 14px; border-radius:8px;
-    background:var(--brick-bg); border:1px solid #E3B8AB;
+    background:var(--brick-bg); border:1px solid var(--brick-border);
   }
   .callout .lbl{
     font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase;
     letter-spacing:.05em; color:var(--brick); font-weight:700; margin-bottom:4px;
   }
-  .callout p{ margin:0; font-size:13px; color:#6E2A1C; line-height:1.5; }
+  .callout p{ margin:0; font-size:13px; color:var(--callout-text); line-height:1.5; }
 
   .tagalog-box{
-    background:#FBF3E3; border:1px solid #E3C98A; border-left:3px solid var(--gold-deep);
-    border-radius:6px; padding:9px 13px; font-size:14px; color:#6B4E12;
+    background:var(--warn-bg); border:1px solid var(--warn-border); border-left:3px solid var(--gold-deep);
+    border-radius:6px; padding:9px 13px; font-size:14px; color:var(--warn-text);
     font-weight:600; margin-bottom:4px;
   }
 
@@ -448,7 +517,7 @@
   .add-btn.secondary{
     background:var(--paper); color:var(--teal-deep); border:1.5px solid var(--teal-deep);
   }
-  .add-btn.secondary:active{ background:#E4F1E9; }
+  .add-btn.secondary:active{ background:var(--mint-bg); }
   .manual-entry-box{
     margin-top:12px; padding-top:12px; border-top:1.5px dashed var(--rule);
   }
@@ -457,7 +526,7 @@
   .add-status{
     margin-top:8px; font-size:12.5px; font-weight:600; min-height:16px;
   }
-  .add-status.success{ color:#1F6F4A; }
+  .add-status.success{ color:var(--mint); }
   .add-status.error{ color:var(--brick); }
 
   .personal-actions{ display:flex; gap:8px; margin-top:6px; }
@@ -466,8 +535,8 @@
     padding:4px 10px; font-size:11.5px; font-weight:600; cursor:pointer;
     font-family:'IBM Plex Sans', sans-serif; color:var(--ink-soft);
   }
-  .edit-correction-btn:hover{ background:#E4F1E9; border-color:#9CC7AC; color:#1F6F4A; }
-  .delete-correction-btn:hover{ background:var(--brick-bg); border-color:#E3B8AB; color:var(--brick); }
+  .edit-correction-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
+  .delete-correction-btn:hover{ background:var(--brick-bg); border-color:var(--brick-border); color:var(--brick); }
 
   .entry-actions{ display:flex; gap:8px; margin:10px 0 4px; }
   .entry-actions button{
@@ -475,8 +544,8 @@
     padding:5px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
     font-family:'IBM Plex Sans', sans-serif; color:var(--ink-soft);
   }
-  .entry-actions .lb-edit-btn:hover{ background:#E4F1E9; border-color:#9CC7AC; color:#1F6F4A; }
-  .entry-actions .lb-delete-btn:hover{ background:var(--brick-bg); border-color:#E3B8AB; color:var(--brick); }
+  .entry-actions .lb-edit-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
+  .entry-actions .lb-delete-btn:hover{ background:var(--brick-bg); border-color:var(--brick-border); color:var(--brick); }
   .cancel-edit-link{
     display:none; margin-top:6px; font-size:12.5px; color:var(--teal-deep);
     text-decoration:underline; cursor:pointer; background:none; border:none;
@@ -495,8 +564,8 @@
     font-family:'IBM Plex Mono', monospace; font-size:11.5px;
     border-radius:5px; padding:3px 9px;
   }
-  .word-chips span.syn{ background:#E4F1E9; border:1px solid #9CC7AC; color:#1F6F4A; }
-  .word-chips span.ant{ background:var(--brick-bg); border:1px solid #E3B8AB; color:var(--brick); }
+  .word-chips span.syn{ background:var(--mint-bg); border:1px solid var(--mint-border); color:var(--mint); }
+  .word-chips span.ant{ background:var(--brick-bg); border:1px solid var(--brick-border); color:var(--brick); }
   .word-chips .none{ font-family:'IBM Plex Sans', sans-serif; font-size:12px; color:var(--ink-soft); font-style:italic; }
   .word-chips span.clickable{
     cursor:pointer;
@@ -541,6 +610,7 @@
 <div class="top-sticky">
   <div class="search-bar">
     <input type="text" id="globalSearch" placeholder="Search any word or rule…" autocomplete="off">
+    <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Switch to dark mode" title="Switch to dark mode">🌙</button>
     <div id="searchResults" class="search-results"></div>
   </div>
   <div class="thumb-tabs">
@@ -28739,6 +28809,56 @@ prepSelect.addEventListener("change", renderPrep);
 populatePrepSelect();
 
 /* =========================================================
+   DARK MODE — a small inline <script> in <head> already applied the
+   correct theme (saved preference, or the OS setting if the user has
+   never explicitly chosen) before this script ever runs, so there's no
+   flash on load. This block only owns the toggle button itself.
+========================================================= */
+const THEME_STORAGE_KEY = "mepf_toolkit_theme";
+
+function getCurrentTheme(){
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+
+function updateThemeToggleUI(theme){
+  const btn = document.getElementById("themeToggleBtn");
+  if(!btn) return;
+  const label = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("title", label);
+}
+
+// Only a real user click writes to localStorage — an auto-detected
+// theme (from the OS) stays "unset" so it keeps following the OS live,
+// same reasoning as the early <head> script above.
+function setTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  try { localStorage.setItem(THEME_STORAGE_KEY, theme); } catch(e){ /* private mode etc. — theme still applies for this session */ }
+  updateThemeToggleUI(theme);
+}
+
+function toggleTheme(){
+  setTheme(getCurrentTheme() === "dark" ? "light" : "dark");
+}
+
+updateThemeToggleUI(getCurrentTheme());
+document.getElementById("themeToggleBtn").addEventListener("click", toggleTheme);
+
+// Live-follow the OS theme for as long as the user hasn't explicitly
+// chosen one here — e.g. their phone switches to dark mode at sunset.
+if(window.matchMedia){
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e)=>{
+    let stored = null;
+    try { stored = localStorage.getItem(THEME_STORAGE_KEY); } catch(err){ /* ignore */ }
+    if(stored !== "light" && stored !== "dark"){
+      document.documentElement.setAttribute("data-theme", e.matches ? "dark" : "light");
+      updateThemeToggleUI(getCurrentTheme());
+    }
+  });
+}
+
+/* =========================================================
    TAB SWITCHING
 ========================================================= */
 function activateTab(name){
@@ -30559,6 +30679,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
+  getCurrentTheme, setTheme, toggleTheme,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
