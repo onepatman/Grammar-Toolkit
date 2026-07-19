@@ -326,7 +326,7 @@ describe("PDF rendering covers every favoritable entry shape without crashing", 
     const document = window.document;
     favoriteVocab(hooks, document, "abandon");
     favoritePhrasal(document);
-    favoritePreposition(hooks, document, "under");
+    favoritePreposition(hooks, document, "between");
     favoriteVerb(document);
     favoriteWordFamily(document);
 

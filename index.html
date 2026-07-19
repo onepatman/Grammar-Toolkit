@@ -922,6 +922,13 @@
         <button id="distinctionsManualCancelBtn" class="add-btn secondary">Cancel</button>
       </div>
     </div>
+
+    <div class="quick-add-box owner-only" id="distinctionsVocabCheckBox">
+      <div class="section-label">Check / Save a word to the Vocabulary Bank</div>
+      <p class="note" style="margin-bottom:8px;">Type any word to see whether it's already in the Vocabulary Bank, or save it as a new entry.</p>
+      <input type="text" id="distinctionsVocabCheckInput" placeholder="Type a word to check…" autocomplete="off">
+      <div id="distinctionsVocabCheckResult" class="add-status"></div>
+    </div>
   </section>
 
   <!-- ===== WORD FAMILY PANEL ===== -->
@@ -1221,6 +1228,13 @@
         </div>
       </div>
     </div>
+
+    <div class="quick-add-box owner-only" id="langbankVocabCheckBox">
+      <div class="section-label">Check / Save a word to the Vocabulary Bank</div>
+      <p class="note" style="margin-bottom:8px;">Type any word to see whether it's already in the Vocabulary Bank, or save it as a new entry — independent of whichever Language Bank category is showing above.</p>
+      <input type="text" id="langbankVocabCheckInput" placeholder="Type a word to check…" autocomplete="off">
+      <div id="langbankVocabCheckResult" class="add-status"></div>
+    </div>
   </section>
 
 </main>
@@ -1263,6 +1277,18 @@
 ========================================================= */
 const wordIndexMap = new Map();
 const vocabLookup = new Map();
+
+// Canonical dedup/lookup key for a vocabulary word or phrase — trims
+// leading/trailing space, lowercases, AND collapses internal runs of
+// whitespace (so "give  up" and "give up" are recognized as the same
+// entry, which plain .trim().toLowerCase() would miss). Used everywhere
+// a word gets checked against or added to the Master Vocabulary Bank
+// (wordIndexMap/vocabLookup) — NOT used for unrelated normalized keys
+// elsewhere in the file (sync codes, favorites keys, etc.), which have
+// their own established, already-tested normalization.
+function normalizeWordKey(w){
+  return String(w || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
 
 // The Vocabulary Bank's currently-displayed online lookup result that
 // hasn't been saved yet (or null) — declared here, alongside
@@ -31152,16 +31178,53 @@ vocabData.forEach(item=>{
   });
 });
 
-/* Populate the dictionary cross-link map now that every entry is indexed */
+// Lower number = more "primary"/canonical when the same word happens to
+// be indexed under more than one category (e.g. a word that's both a
+// Vocabulary Bank entry and a Verb) — Vocabulary Bank content is the
+// richest (senses/synonyms/antonyms/Tagalog), so it wins; conjugated
+// verb-form aliases and Tagalog cross-links are the least "primary"
+// since they're really pointers to another word's own entry.
+function vocabCategoryPriority(cat){
+  if(cat === "Vocabulary Bank") return 0;
+  if(cat === "Phrasal verb" || cat === "Idiom / Expression" || cat === "Useful Sentence" || cat === "Sentence Pattern" || cat === "Technical Term") return 1;
+  if(cat === DISTINCTIONS_TAG_LABEL) return 2;
+  if(cat === "Word family") return 3;
+  if(cat === "Verb (regular)" || cat === "Verb (irregular)") return 4;
+  return 5;
+}
+
+/* Populate the dictionary cross-link map now that every entry is
+   indexed — this is the Master Vocabulary Bank's canonical lookup: one
+   record per unique word no matter how many categories it appears in.
+   Entries are grouped by normalizeWordKey() first, rather than a raw
+   last-write-wins .set() loop, so a word seen in more than one category
+   resolves to whichever is the more "primary" one (vocabCategoryPriority
+   above) instead of whichever happened to be indexed last — and every
+   category it was seen in is recorded on that canonical item's
+   `.categories`, so the same word is never represented by more than one
+   record even though it can legitimately belong to several categories. */
+const wordIndexGroups = new Map();
 searchIndex.forEach(item=>{
-  wordIndexMap.set(item.label.toLowerCase(), item);
+  const key = normalizeWordKey(item.label);
+  if(!key) return;
+  let group = wordIndexGroups.get(key);
+  if(!group){
+    group = [];
+    wordIndexGroups.set(key, group);
+  }
+  group.push(item);
+});
+wordIndexGroups.forEach((group, key)=>{
+  const canonical = group.slice().sort((a, b)=> vocabCategoryPriority(a.cat) - vocabCategoryPriority(b.cat))[0];
+  canonical.categories = Array.from(new Set(group.map(g=> g.cat)));
+  wordIndexMap.set(key, canonical);
 });
 
 /* Populate the unified Vocabulary Bank lookup. Every entry in vocabData
    is now a single word (confusable/near-synonym word pairs live in
    Distinctions Words instead), so this is a direct one-to-one mapping. */
 vocabData.forEach(item=>{
-  vocabLookup.set(item.w.trim().toLowerCase(), item.w);
+  vocabLookup.set(normalizeWordKey(item.w), item.w);
 });
 
 /* IndexedDB-backed vocabulary cache — every word retrieved online gets
@@ -31177,9 +31240,19 @@ vocabData.forEach(item=>{
    downloadable offline pack is just a batch of entries run through
    this same addVocabEntry() function — see importVocabPack() below. */
 
+// Records that `cat` also claims a word already represented by
+// `existingItem` in the Master Vocabulary Bank — additive only (never
+// changes which item is canonical or reroutes its action), so a word
+// that legitimately belongs to more than one category still resolves
+// to exactly one record, annotated with every category it appears in.
+function recordCategoryOnExisting(existingItem, cat){
+  if(!existingItem.categories) existingItem.categories = [existingItem.cat];
+  if(existingItem.categories.indexOf(cat) === -1) existingItem.categories.push(cat);
+}
+
 function addVocabEntry(entry, options){
   const opts = options || {};
-  const key = entry.w.trim().toLowerCase();
+  const key = normalizeWordKey(entry.w);
   const existingItem = wordIndexMap.get(key);
 
   if(existingItem){
@@ -31189,10 +31262,21 @@ function addVocabEntry(entry, options){
     // "rich" the new data is; a previously-cached entry can be
     // upgraded in place if this lookup found more senses/synonyms/
     // antonyms than what's already stored for it.
-    const existingEntry = vocabData.find(v=>v.w.trim().toLowerCase()===key);
-    if(existingEntry && existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
-      Object.assign(existingEntry, entry, {w: existingEntry.w});
-      if(opts.persist) VocabCache.put(existingEntry, {dbPromise: vocabDbPromise});
+    recordCategoryOnExisting(existingItem, "Vocabulary Bank");
+    const existingEntry = vocabData.find(v=>normalizeWordKey(v.w)===key);
+    if(existingEntry){
+      if(existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
+        Object.assign(existingEntry, entry, {w: existingEntry.w});
+        if(opts.persist) VocabCache.put(existingEntry, {dbPromise: vocabDbPromise});
+      }
+      // Already a Vocabulary Bank word too — navigate to ITS OWN entry,
+      // not whichever other category's record the Master Vocabulary
+      // Bank happens to treat as canonical for this same spelling.
+      return {label: existingEntry.w, cat: "Vocabulary Bank", action: ()=>{
+        document.getElementById("vocabSelect").value = existingEntry.w;
+        renderRuleEntry(existingEntry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+        activateTab("vocab");
+      }};
     }
     return existingItem;
   }
@@ -31209,14 +31293,14 @@ function addVocabEntry(entry, options){
     renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
     activateTab("vocab");
   };
-  const item = {label: entry.w, cat: "Vocabulary Bank", action};
+  const item = {label: entry.w, cat: "Vocabulary Bank", categories: ["Vocabulary Bank"], action};
   searchIndex.push(item);
   wordIndexMap.set(key, item);
   vocabLookup.set(key, entry.w);
 
   if(entry.tagalog){
     entry.tagalog.split(/[\/,;]/).map(t=>t.trim()).filter(Boolean).forEach(term=>{
-      const tagalogKey = term.toLowerCase();
+      const tagalogKey = normalizeWordKey(term);
       if(wordIndexMap.has(tagalogKey)) return; // never clobber an existing exact match
       const tagalogItem = {label: term, cat: "Tagalog → " + entry.w, action};
       searchIndex.push(tagalogItem);
@@ -31504,14 +31588,26 @@ const languageBankPendingManual = {};
 function addLanguageBankEntry(categoryKey, entry, options){
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   const opts = options || {};
-  const key = entry.w.trim().toLowerCase();
+  const key = normalizeWordKey(entry.w);
   const existingItem = wordIndexMap.get(key);
 
   if(existingItem){
-    const existingEntry = config.data.find(v=>v.w.trim().toLowerCase()===key);
-    if(existingEntry && existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
-      Object.assign(existingEntry, entry, {w: existingEntry.w});
-      if(opts.persist) config.putFn(existingEntry, {dbPromise: vocabDbPromise});
+    recordCategoryOnExisting(existingItem, config.tagLabel);
+    const existingEntry = config.data.find(v=>normalizeWordKey(v.w)===key);
+    if(existingEntry){
+      if(existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
+        Object.assign(existingEntry, entry, {w: existingEntry.w});
+        if(opts.persist) config.putFn(existingEntry, {dbPromise: vocabDbPromise});
+      }
+      // Already exists in THIS category too — navigate to its own
+      // entry, not whichever other category's record the Master
+      // Vocabulary Bank happens to treat as canonical for this spelling.
+      return {label: existingEntry.w, cat: config.tagLabel, action: ()=>{
+        document.getElementById(config.selectId).value = existingEntry.w;
+        renderRuleEntry(existingEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
+        activateTab("langbank");
+        activateLangBankCategory(categoryKey);
+      }};
     }
     return existingItem;
   }
@@ -31529,7 +31625,7 @@ function addLanguageBankEntry(categoryKey, entry, options){
     activateTab("langbank");
     activateLangBankCategory(categoryKey);
   };
-  const item = {label: entry.w, cat: config.tagLabel, action};
+  const item = {label: entry.w, cat: config.tagLabel, categories: [config.tagLabel], action};
   searchIndex.push(item);
   wordIndexMap.set(key, item);
 
@@ -32799,7 +32895,7 @@ document.addEventListener("click", async (e)=>{
   btn.disabled = true;
   btn.textContent = "Looking up…";
 
-  const key = word.trim().toLowerCase();
+  const key = normalizeWordKey(word);
   if(wordIndexMap.has(key)){
     rowEl.innerHTML = `<span>✅ "${word}" is already in your Vocabulary Bank.</span>`;
     return;
@@ -32823,6 +32919,132 @@ document.addEventListener("click", async (e)=>{
   await pushToSync(loadPersonalCorrections());
   rowEl.innerHTML = `<span>✅ "${word}" has been added to your Vocabulary Bank.</span>`;
 });
+
+/* =========================================================
+   VOCABULARY CHECK / SAVE WIDGET — a manual, always-visible companion
+   to the auto-extracted suggestions above: type ANY word (not just one
+   the app noticed in an entry's own text) and it's checked against the
+   Master Vocabulary Bank (wordIndexMap) live as you type. Already
+   known -> a "View entry" link, no save option offered (nothing to add
+   — see Scenario A in the spec this implements). Not known -> a "Save
+   '<exact text>' to Vocabulary" button that looks the word up online,
+   falling back to a manual meaning/example box (same shape as every
+   other manual-completion flow in this file) if no source has it.
+   Whatever the online source returns, the word actually saved is
+   always the exact text the Owner typed — never a spelling/casing the
+   API happened to normalize it to. One shared setup function, mounted
+   once for the Language Bank tab and once for Distinctions Words, so
+   it's usable no matter which of those two tabs is open. */
+function renderVocabCheckResult(resultEl, html, cls){
+  resultEl.innerHTML = html;
+  resultEl.className = "add-status" + (cls ? " " + cls : "");
+}
+
+function setupVocabCheckWidget(inputId, resultId){
+  const input = document.getElementById(inputId);
+  const resultEl = document.getElementById(resultId);
+  let debounceTimer = null;
+
+  function showManualFallback(word){
+    renderVocabCheckResult(resultEl, `
+      <p class="note" style="margin-bottom:8px;">No online definition was found for "<strong>${word}</strong>". Add your own meaning so this entry isn't left unusable:</p>
+      <textarea class="vocab-check-manual-use" placeholder='Meaning / rule &amp; usage (e.g. "(adjective) Very unusual or remarkable.")' rows="2"></textarea>
+      <input type="text" class="vocab-check-manual-example" placeholder="Example sentence (optional)" autocomplete="off">
+      <button class="add-btn vocab-check-manual-save-btn" data-word="${word}" style="margin-top:8px;">Save with my notes</button>
+      <button class="add-btn secondary vocab-check-manual-cancel-btn">Cancel</button>
+    `);
+  }
+
+  function checkNow(){
+    const typed = input.value.trim();
+    if(!typed){
+      renderVocabCheckResult(resultEl, "");
+      return;
+    }
+    const key = normalizeWordKey(typed);
+    const existing = wordIndexMap.get(key);
+    if(existing){
+      renderVocabCheckResult(resultEl, `
+        <p class="note" style="margin-bottom:6px;">✅ "${typed}" is already available in the Vocabulary Bank.</p>
+        <button class="add-btn secondary vocab-check-view-btn">View entry</button>
+      `);
+      resultEl.querySelector(".vocab-check-view-btn").addEventListener("click", ()=> navigateToEntry(existing));
+    } else if(isDeviceUnlocked()){
+      renderVocabCheckResult(resultEl, `<button class="add-btn vocab-check-save-btn" data-word="${typed}">Save "${typed}" to Vocabulary</button>`);
+    } else {
+      renderVocabCheckResult(resultEl, "");
+    }
+  }
+
+  input.addEventListener("input", ()=>{
+    if(debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(checkNow, 300);
+  });
+
+  resultEl.addEventListener("click", async (e)=>{
+    const saveBtn = e.target.closest(".vocab-check-save-btn");
+    const manualSaveBtn = e.target.closest(".vocab-check-manual-save-btn");
+    const manualCancelBtn = e.target.closest(".vocab-check-manual-cancel-btn");
+
+    if(manualCancelBtn){
+      checkNow();
+      return;
+    }
+
+    if(manualSaveBtn){
+      if(!isDeviceUnlocked()) return;
+      const word = manualSaveBtn.dataset.word;
+      const useText = resultEl.querySelector(".vocab-check-manual-use").value.trim();
+      const exampleText = resultEl.querySelector(".vocab-check-manual-example").value.trim();
+      if(!useText){
+        manualSaveBtn.insertAdjacentHTML("afterend", '<div class="add-status error" style="margin-top:6px;">Please add a meaning before saving.</div>');
+        return;
+      }
+      addVocabEntry({
+        w: word,
+        senses: [{use: useText, examples: exampleText ? [exampleText] : []}],
+        syn: [], ant: [], mistake: null, tagalog: null, phonetic: null,
+        source: "online"
+      }, {persist:true});
+      await pushToSync(loadPersonalCorrections());
+      renderVocabCheckResult(resultEl, `<p class="note">✅ "${word}" has been added to your Vocabulary Bank.</p>`, "success");
+      input.value = "";
+      return;
+    }
+
+    if(saveBtn){
+      if(!isDeviceUnlocked()) return;
+      const word = saveBtn.dataset.word;
+      const key = normalizeWordKey(word);
+      if(wordIndexMap.has(key)){
+        // Saved from elsewhere (another device via sync, the other
+        // widget instance, etc.) while this button sat waiting to be
+        // clicked — re-check rather than risk a duplicate.
+        checkNow();
+        return;
+      }
+      saveBtn.disabled = true;
+      saveBtn.textContent = "Looking up…";
+      const result = await OnlineLookup.fetchOnlineDefinition(word, {
+        cache: languageBankLookupCache,
+        generateFallbackExamples: false
+      });
+      if(!result){
+        showManualFallback(word);
+        return;
+      }
+      // Always save the EXACT word the Owner typed — never whatever
+      // spelling/casing the online source happened to normalize it to.
+      addVocabEntry({...result, w: word}, {persist:true});
+      await pushToSync(loadPersonalCorrections());
+      renderVocabCheckResult(resultEl, `<p class="note">✅ "${word}" has been added to your Vocabulary Bank.</p>`, "success");
+      input.value = "";
+    }
+  });
+}
+
+setupVocabCheckWidget("langbankVocabCheckInput", "langbankVocabCheckResult");
+setupVocabCheckWidget("distinctionsVocabCheckInput", "distinctionsVocabCheckResult");
 
 // Shared "actually commit the entry" tail — used whether the entry came
 // from a successful online lookup, a manually-typed explanation, or the
@@ -32886,8 +33108,22 @@ async function addLanguageBankEntryFromInput(categoryKey){
     return;
   }
 
-  const key = text.toLowerCase();
-  const existing = wordIndexMap.get(key);
+  const key = normalizeWordKey(text);
+  // Prefer THIS category's own entry over the Master Vocabulary Bank's
+  // generic canonical pointer, which may resolve to a different
+  // category's same-spelled record (e.g. a plain Vocabulary Bank word
+  // that happens to share a spelling with a phrasal verb) — the owner
+  // typed this into the Phrasal Verb box, so "already in the database"
+  // should mean and navigate to the phrasal verb entry specifically.
+  const existingOwnEntry = config.data.find(v=>normalizeWordKey(v.w)===key);
+  const existing = existingOwnEntry
+    ? {label: existingOwnEntry.w, cat: config.tagLabel, action: ()=>{
+        document.getElementById(config.selectId).value = existingOwnEntry.w;
+        renderRuleEntry(existingOwnEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
+        activateTab("langbank");
+        activateLangBankCategory(categoryKey);
+      }}
+    : wordIndexMap.get(key);
   if(existing){
     statusEl.textContent = `"${text}" is already in the database — opening it.`;
     statusEl.className = "add-status";
@@ -33301,31 +33537,31 @@ function indexDistinctionsData(data){
       renderDistinctionEntry(item, document.getElementById("distinctionsEntry"));
       activateTab("distinctions");
     };
-    const key1 = item.word1.w.trim().toLowerCase();
-    const key2 = item.word2.w.trim().toLowerCase();
-    if(!searchIndex.some(it=> it.label.toLowerCase() === key1)){
+    const key1 = normalizeWordKey(item.word1.w);
+    const key2 = normalizeWordKey(item.word2.w);
+    if(!searchIndex.some(it=> normalizeWordKey(it.label) === key1)){
       searchIndex.push({label: item.word1.w, cat: DISTINCTIONS_TAG_LABEL, action});
     }
-    if(!searchIndex.some(it=> it.label.toLowerCase() === key2)){
+    if(!searchIndex.some(it=> normalizeWordKey(it.label) === key2)){
       searchIndex.push({label: item.word2.w, cat: DISTINCTIONS_TAG_LABEL, action});
     }
   });
 }
 
 function findExistingDistinctionPair(word1Text, word2Text){
-  const k1 = word1Text.trim().toLowerCase();
-  const k2 = word2Text.trim().toLowerCase();
+  const k1 = normalizeWordKey(word1Text);
+  const k2 = normalizeWordKey(word2Text);
   return distinctionsData.find(e=>{
-    const a = e.word1.w.trim().toLowerCase();
-    const b = e.word2.w.trim().toLowerCase();
+    const a = normalizeWordKey(e.word1.w);
+    const b = normalizeWordKey(e.word2.w);
     return (a===k1 && b===k2) || (a===k2 && b===k1);
   });
 }
 
 function addDistinctionEntry(entry, options){
   const opts = options || {};
-  const key1 = entry.word1.w.trim().toLowerCase();
-  const key2 = entry.word2.w.trim().toLowerCase();
+  const key1 = normalizeWordKey(entry.word1.w);
+  const key2 = normalizeWordKey(entry.word2.w);
 
   const existingPair = findExistingDistinctionPair(entry.word1.w, entry.word2.w);
   if(existingPair){
@@ -33350,14 +33586,18 @@ function addDistinctionEntry(entry, options){
   };
 
   if(!wordIndexMap.has(key1)){
-    const item1 = {label: entry.word1.w, cat: DISTINCTIONS_TAG_LABEL, action};
+    const item1 = {label: entry.word1.w, cat: DISTINCTIONS_TAG_LABEL, categories: [DISTINCTIONS_TAG_LABEL], action};
     searchIndex.push(item1);
     wordIndexMap.set(key1, item1);
+  } else {
+    recordCategoryOnExisting(wordIndexMap.get(key1), DISTINCTIONS_TAG_LABEL);
   }
   if(!wordIndexMap.has(key2)){
-    const item2 = {label: entry.word2.w, cat: DISTINCTIONS_TAG_LABEL, action};
+    const item2 = {label: entry.word2.w, cat: DISTINCTIONS_TAG_LABEL, categories: [DISTINCTIONS_TAG_LABEL], action};
     searchIndex.push(item2);
     wordIndexMap.set(key2, item2);
+  } else {
+    recordCategoryOnExisting(wordIndexMap.get(key2), DISTINCTIONS_TAG_LABEL);
   }
 
   if(opts.persist) VocabCache.putDistinction(entry, {dbPromise: vocabDbPromise});
@@ -34172,7 +34412,14 @@ function renderSearchMatches(matches){
 }
 
 function showNoMatches(){
-  searchResultsEl.innerHTML = '<div class="search-empty">No matches — try a different word.</div>';
+  // navigator.onLine === false is a reliable "definitely offline" signal
+  // (though not a perfect "definitely online" one) — good enough to tell
+  // an offline user why nothing turned up, rather than leaving them
+  // wondering whether the word just isn't in the app at all.
+  const message = (typeof navigator !== "undefined" && navigator.onLine === false)
+    ? "No matches in your offline Vocabulary Bank. Connect to the internet to search online."
+    : "No matches — try a different word.";
+  searchResultsEl.innerHTML = `<div class="search-empty">${message}</div>`;
   searchResultsEl.classList.add("show");
 }
 
@@ -34275,9 +34522,9 @@ function looksLikeVerb(result){
 }
 
 function isKnownVerb(word){
-  const key = word.trim().toLowerCase();
-  return verbData.regular.some(v=> v.w.trim().toLowerCase() === key) ||
-    verbData.irregular.some(v=> v.w.trim().toLowerCase() === key);
+  const key = normalizeWordKey(word);
+  return verbData.regular.some(v=> normalizeWordKey(v.w) === key) ||
+    verbData.irregular.some(v=> normalizeWordKey(v.w) === key);
 }
 
 function offerVerbFlagIfApplicable(item, result){
@@ -34396,7 +34643,7 @@ function addVerbEntry(group, entry, options){
   // addVocabEntry()'s own dedup check (which also reads wordIndexMap)
   // doesn't mistake the verb's about-to-be-created search entry for an
   // existing Vocabulary Bank entry and skip creating a real one.
-  if(!vocabLookup.has(entry.w.trim().toLowerCase())){
+  if(!vocabLookup.has(normalizeWordKey(entry.w))){
     addVocabEntry({
       w: entry.w,
       senses: [{ use: "(verb) See the Verbs tab for full conjugation.", examples: [] }],
@@ -34416,14 +34663,15 @@ function addVerbEntry(group, entry, options){
     renderVerb();
     activateTab("verbs");
   };
-  const item = {label: entry.w, cat: catLabel, action: openThisVerb};
+  const item = {label: entry.w, cat: catLabel, categories: [catLabel], action: openThisVerb};
   searchIndex.push(item);
-  wordIndexMap.set(entry.w.trim().toLowerCase(), item);
+  wordIndexMap.set(normalizeWordKey(entry.w), item);
   [entry.s, entry.ing, entry.past, entry.pp].forEach(form=>{
     if(form && form !== entry.w){
       const formItem = {label: form, cat: catLabel + " form", action: openThisVerb};
       searchIndex.push(formItem);
-      if(!wordIndexMap.has(form.trim().toLowerCase())) wordIndexMap.set(form.trim().toLowerCase(), formItem);
+      const formKey = normalizeWordKey(form);
+      if(!wordIndexMap.has(formKey)) wordIndexMap.set(formKey, formItem);
     }
   });
 
@@ -34502,6 +34750,20 @@ function tryOnlineLookup(q, shown){
   });
 }
 
+// Ranks substring matches so the most relevant word leads the list: an
+// exact match first, then words starting with what was typed, then
+// everything else that merely contains it somewhere — instead of
+// whatever order they happened to be indexed in.
+function rankSearchMatches(items, q){
+  function tier(item){
+    const label = item.label.toLowerCase();
+    if(label === q) return 0;
+    if(label.startsWith(q)) return 1;
+    return 2;
+  }
+  return items.slice().sort((a, b)=> tier(a) - tier(b));
+}
+
 // The full search pipeline for a (already trimmed/lowercased) query:
 // exact/substring match -> fuzzy "did you mean" -> online lookup ->
 // "No matches". Shared by the search box's input handler and by
@@ -34517,7 +34779,17 @@ function runSearchPipeline(q){
     return;
   }
 
-  const matches = searchIndex.filter(item=>item.label.toLowerCase().includes(q)).slice(0, 25);
+  // Matched against wordIndexMap — the Master Vocabulary Bank's
+  // deduplicated, one-record-per-word view — rather than the raw
+  // searchIndex array, which can hold several entries for the very same
+  // word across categories (e.g. "press" as both a Vocabulary Bank word
+  // and a Verb). Matching the deduped map means a unique word can only
+  // ever appear once in the results, however many categories it's
+  // actually indexed under. Ranked so the most relevant match leads:
+  // an exact match, then words starting with what was typed, then
+  // anything else that merely contains it.
+  const candidates = Array.from(wordIndexMap.values()).filter(item=>item.label.toLowerCase().includes(q));
+  const matches = rankSearchMatches(candidates, q).slice(0, 25);
   const hasExactLocalMatch = wordIndexMap.has(q);
   let shown = [];
 
@@ -34527,8 +34799,8 @@ function runSearchPipeline(q){
   } else {
     // No exact/substring match — look for close spellings among
     // everything already indexed (English and Tagalog) before trying
-    // the network.
-    const suggestions = FuzzySearch.findClosestMatches(q, searchIndex, {
+    // the network. Also deduped via wordIndexMap for the same reason.
+    const suggestions = FuzzySearch.findClosestMatches(q, Array.from(wordIndexMap.values()), {
       getLabel: item=>item.label,
       limit: 6
     });
@@ -34558,7 +34830,7 @@ function runSearchPipeline(q){
 // one exists, otherwise run the same pipeline the search box would (so
 // "did you mean" suggestions and the online fallback both apply).
 function searchAndNavigate(word){
-  const key = word.trim().toLowerCase();
+  const key = normalizeWordKey(word);
   const exact = wordIndexMap.get(key);
   if(exact){
     navigateToEntry(exact);
@@ -34570,7 +34842,7 @@ function searchAndNavigate(word){
 }
 
 globalSearchInput.addEventListener("input", (e)=>{
-  runSearchPipeline(e.target.value.trim().toLowerCase());
+  runSearchPipeline(normalizeWordKey(e.target.value));
 });
 
 // Enter jumps straight to the top result, same as clicking it — there's
@@ -34666,7 +34938,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   looksLikeVerb, isKnownVerb, offerVerbFlagIfApplicable,
   renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
   addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
-  customVerbsCacheRestorePromise
+  customVerbsCacheRestorePromise, normalizeWordKey, rankSearchMatches,
+  vocabCategoryPriority
 };
 </script>
 <script>
