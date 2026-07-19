@@ -105,7 +105,9 @@ describe("Favorites category filter", () => {
     await wait(); // the chip's click handler re-renders the list asynchronously, same as fav-toggle
 
     const labels = Array.from(document.querySelectorAll("#favoritesList .label")).map((el) => el.textContent);
-    expect(labels).toEqual(["move on"]);
+    // favoritePhrasal() favorites whatever's shown by default on the
+    // Language Bank tab, which is now the alphabetically-first phrasal verb.
+    expect(labels).toEqual(["back up"]);
     const phrasalChipAfter = Array.from(document.querySelectorAll("#favoritesCategorySeg button"))
       .find((b) => b.textContent.startsWith("Phrasal Verb"));
     expect(phrasalChipAfter.classList.contains("active")).toBe(true);
@@ -128,7 +130,7 @@ describe("Favorites category filter", () => {
     await wait();
 
     const labels = Array.from(document.querySelectorAll("#favoritesList .label")).map((el) => el.textContent);
-    expect(labels.sort()).toEqual(["abandon", "move on"]);
+    expect(labels.sort()).toEqual(["abandon", "back up"]);
   });
 
   it("falls back to 'All' automatically once the selected category's only favorite is removed", async () => {
@@ -258,7 +260,7 @@ describe("exportFavoritesPdf() — the button's actual handler, filter-aware", (
     const doc = hooks.renderFavoritesPdf(hooks.buildFavoritesPdfData(filtered));
     const asText = doc.output("datauristring");
 
-    expect(filtered.map((f) => f.word)).toEqual(["move on"]);
+    expect(filtered.map((f) => f.word)).toEqual(["back up"]);
     expect(asText.startsWith("data:application/pdf")).toBe(true);
   });
 

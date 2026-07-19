@@ -75,7 +75,12 @@ describe("renamed from Upgrade to Distinctions Words", () => {
     const { window, hooks } = await loadApp();
     window.document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
     const headwords = Array.from(window.document.querySelectorAll("#distinctionsEntry .headword")).map((el) => el.textContent);
-    const first = hooks.distinctionsData[0];
+    // Dropdown options are alphabetically sorted (case-insensitive), so the
+    // entry shown on load is the alphabetically-first pair, not necessarily
+    // distinctionsData[0] in its original declaration order.
+    const first = hooks.distinctionsData
+      .slice()
+      .sort((a, b) => a.word1.w.localeCompare(b.word1.w, undefined, { sensitivity: "base" }))[0];
     expect(headwords).toEqual([first.word1.w, first.word2.w]);
   });
 });
