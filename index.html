@@ -30394,10 +30394,38 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   }
 }
 
+// Keeps every panel dropdown alphabetically sorted (case-insensitive).
+// Two call patterns, both feeding into it:
+//   - appendOptionSorted(selectEl, opt) — inserts ONE new option at its
+//     correct position via a linear scan. Fine for incremental adds
+//     (a single new word saved by the Owner is a rare event), but
+//     calling this once per item to bulk-populate a fresh dropdown of
+//     hundreds of words is O(n^2) DOM scans — cheap in a real browser,
+//     but slow enough in jsdom (this app's test harness) to blow past
+//     test timeouts. Bulk population instead uses
+//     sortedByLabel(data, getLabel) once up front (a single O(n log n)
+//     array sort) and then appends in that already-correct order, with
+//     no scanning needed at all.
+// Neither touches an option's `value` or the underlying data array —
+// only DOM node order changes, so anything that looks entries up by
+// value (word text, or an array index for Verbs) keeps working exactly
+// as before.
+function sortedByLabel(items, getLabel){
+  return items.slice().sort((a, b)=> getLabel(a).localeCompare(getLabel(b), undefined, {sensitivity:"base"}));
+}
+
+function appendOptionSorted(selectEl, opt){
+  const label = opt.textContent;
+  const insertBeforeEl = Array.from(selectEl.options).find(o=>
+    o.textContent.localeCompare(label, undefined, {sensitivity:"base"}) > 0
+  );
+  selectEl.insertBefore(opt, insertBeforeEl || null);
+}
+
 function setupRuleModule(data, selectId, entryId, tagLabel, categoryKey){
   const sel = document.getElementById(selectId);
   const entry = document.getElementById(entryId);
-  data.forEach(item=>{
+  sortedByLabel(data, item=>item.w).forEach(item=>{
     const opt = document.createElement("option");
     opt.value = item.w;
     opt.textContent = item.w;
@@ -30407,7 +30435,10 @@ function setupRuleModule(data, selectId, entryId, tagLabel, categoryKey){
     const item = data.find(x=>x.w===sel.value);
     renderRuleEntry(item, entry, tagLabel, categoryKey);
   });
-  renderRuleEntry(data[0], entry, tagLabel, categoryKey);
+  // Render whatever the (now alphabetically-sorted) dropdown actually
+  // shows as selected first — NOT data[0], which is just the array's
+  // original insertion order and may not be the same word anymore.
+  renderRuleEntry(data.find(x=>x.w===sel.value), entry, tagLabel, categoryKey);
 }
 
 setupRuleModule(articleData, "articleSelect", "articleEntry", "Article Rule");
@@ -30450,7 +30481,7 @@ function renderFamily(item){
 }
 function setupFamilyModule(){
   const sel = document.getElementById("familySelect");
-  wordFamilyData.forEach(item=>{
+  sortedByLabel(wordFamilyData, item=>item.verb).forEach(item=>{
     const opt = document.createElement("option");
     opt.value = item.verb;
     opt.textContent = item.verb;
@@ -30459,7 +30490,7 @@ function setupFamilyModule(){
   sel.addEventListener("change", ()=>{
     renderFamily(wordFamilyData.find(x=>x.verb===sel.value));
   });
-  renderFamily(wordFamilyData[0]);
+  renderFamily(wordFamilyData.find(x=>x.verb===sel.value));
 }
 setupFamilyModule();
 
@@ -30637,19 +30668,26 @@ const verbEntry = document.getElementById("verbEntry");
 function populateVerbSelect(){
   verbSelect.innerHTML = "";
   if(currentVerbType === "prepverb"){
-    prepVerbData.forEach((v)=>{
+    sortedByLabel(prepVerbData, v=>v.w).forEach((v)=>{
       const opt = document.createElement("option");
       opt.value = v.w;
       opt.textContent = v.w;
       verbSelect.appendChild(opt);
     });
   } else {
-    verbData[currentVerbType].forEach((v,i)=>{
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.textContent = v.w;
-      verbSelect.appendChild(opt);
-    });
+    // opt.value must stay the entry's INDEX into verbData[currentVerbType]
+    // (renderVerb() reads verbData[...][verbSelect.value]) — sorting a
+    // {v,i} pair by v.w and reading i back out keeps that index attached
+    // to the right word no matter where it ends up in the sorted list.
+    verbData[currentVerbType]
+      .map((v, i)=> ({v, i}))
+      .sort((a, b)=> a.v.w.localeCompare(b.v.w, undefined, {sensitivity:"base"}))
+      .forEach(({v, i})=>{
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.textContent = v.w;
+        verbSelect.appendChild(opt);
+      });
   }
   verbSelect.selectedIndex = 0;
   renderVerb();
@@ -30791,7 +30829,7 @@ categories.forEach(c=>{
 function populatePrepSelect(){
   prepSelect.innerHTML = "";
   const filtered = activeCat==="All" ? prepData : prepData.filter(p=>p.cats.includes(activeCat));
-  filtered.forEach((p,i)=>{
+  sortedByLabel(filtered, p=>p.w).forEach((p)=>{
     const opt = document.createElement("option");
     opt.value = p.w;
     opt.textContent = p.w;
@@ -31062,7 +31100,7 @@ function addVocabEntry(entry, options){
   const opt = document.createElement("option");
   opt.value = entry.w;
   opt.textContent = entry.w;
-  document.getElementById("vocabSelect").appendChild(opt);
+  appendOptionSorted(document.getElementById("vocabSelect"), opt);
 
   const action = ()=>{
     document.getElementById("vocabSelect").value = entry.w;
@@ -31380,7 +31418,7 @@ function addLanguageBankEntry(categoryKey, entry, options){
   const opt = document.createElement("option");
   opt.value = entry.w;
   opt.textContent = entry.w;
-  document.getElementById(config.selectId).appendChild(opt);
+  appendOptionSorted(document.getElementById(config.selectId), opt);
 
   const action = ()=>{
     document.getElementById(config.selectId).value = entry.w;
@@ -31429,51 +31467,48 @@ const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise
   entries.forEach(entry=> addDistinctionEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
-/* Prev/Next buttons — two independent systems, deliberately kept apart:
-   - The small "‹ / ›" pair beside each dropdown follows the CONTEXT
-     stack (searchHistory) — a browser-style Back/Forward through every
-     entry the user has actually landed on (search results, online-
-     lookup previews, synonym/antonym/related-word chips, favorites,
-     Study Mode, etc), once any such navigation has happened. Until
-     then, it falls back to the same local list-order cycling as the
-     bottom pair.
-   - The "‹ Previous" / "Next ›" pair at the bottom of each panel
-     follows the TYPED-SEARCH stack (typedSearchHistory) — a separate
-     Back/Forward through ONLY the words the user explicitly searched
-     for (typed into the global search box, or picked from recently-
-     viewed), once any such search has happened. A chip hop never
-     touches this stack, so it stays a clean Word A -> B -> C sequence.
-     Falls back to the panel's own list-order cycling when no explicit
-     search has happened yet, same as the top pair. */
+// Set to true only for the instant the bottom Previous/Next pair
+// synthetically dispatches a "change" event on a select purely to reuse
+// its existing render listener — the universal top-nav history tracker
+// checks this flag and ignores such events, so pure list-order cycling
+// on the bottom pair can never be mistaken for a real navigation and
+// leak into the top pair's Back/Forward stack.
+let suppressTopNavTracking = false;
+
+/* Prev/Next buttons — two COMPLETELY INDEPENDENT systems that must never
+   read each other's state:
+   - The small "‹ / ›" BACK/FORWARD pair beside each dropdown is
+     browser-style application navigation history (searchHistory) —
+     every tab you've switched to, every Language Bank category or Verb
+     type you've picked, every dropdown selection you've made, and every
+     synonym/antonym/related-word/search-result/online-preview jump, all
+     as one ordered stack. See the "TOP BACK/FORWARD — universal
+     navigation history" block further down for how non-chip navigation
+     (plain tab clicks, category switches, dropdown changes) also feeds
+     this same stack. Falls back to the current panel's own list-order
+     cycling only when nothing has been visited yet.
+   - The "‹ Previous" / "Next ›" pair at the BOTTOM of each panel is
+     PURE list-order cycling through that panel's own dropdown — always,
+     unconditionally, regardless of anything visited via the top pair.
+     It never reads searchHistory and never wraps a word in it. */
 document.addEventListener("click", (e)=>{
   const btn = e.target.closest(".nav-btn");
   if(!btn) return;
 
   const isBottomNav = !!btn.closest(".bottom-nav");
-  const historyStack = isBottomNav ? typedSearchHistory : searchHistory;
 
-  if(historyStack.length > 0){
+  if(!isBottomNav && searchHistory.length > 0){
     // At the oldest/newest entry, the index itself doesn't move any
     // further (no wraparound) — but the entry AT that boundary still
     // gets re-displayed rather than silently doing nothing, so a stack
-    // that's drifted out of sync with what's currently on screen (e.g.
-    // the OTHER pair's stack moved the view away in between) still
+    // that's drifted out of sync with what's currently on screen still
     // lands back on the one edge it does know about.
-    if(isBottomNav){
-      if(btn.dataset.dir === "prev"){
-        if(typedSearchHistoryIndex > 0) typedSearchHistoryIndex--;
-      } else {
-        if(typedSearchHistoryIndex < typedSearchHistory.length - 1) typedSearchHistoryIndex++;
-      }
-      typedSearchHistory[typedSearchHistoryIndex].action();
+    if(btn.dataset.dir === "prev"){
+      if(searchHistoryIndex > 0) searchHistoryIndex--;
     } else {
-      if(btn.dataset.dir === "prev"){
-        if(searchHistoryIndex > 0) searchHistoryIndex--;
-      } else {
-        if(searchHistoryIndex < searchHistory.length - 1) searchHistoryIndex++;
-      }
-      searchHistory[searchHistoryIndex].action();
+      if(searchHistoryIndex < searchHistory.length - 1) searchHistoryIndex++;
     }
+    searchHistory[searchHistoryIndex].action();
     window.scrollTo({top:0, behavior:"smooth"});
     return;
   }
@@ -31485,7 +31520,14 @@ document.addEventListener("click", (e)=>{
   if(idx < 0) idx = sel.options.length - 1;
   if(idx >= sel.options.length) idx = 0;
   sel.selectedIndex = idx;
+  // This dispatch is what actually triggers the panel's own "change"
+  // listener to re-render — the universal top-nav tracker further down
+  // deliberately ignores change events fired while
+  // suppressTopNavTracking is true, so plain list-order cycling on the
+  // bottom pair NEVER leaks into the top pair's Back/Forward stack.
+  suppressTopNavTracking = true;
   sel.dispatchEvent(new Event("change"));
+  suppressTopNavTracking = false;
 });
 
 /* Personal correction log — Add, Edit, Delete, Cancel.
@@ -33105,7 +33147,7 @@ function renderDistinctionEntry(entry, entryEl){
 function setupDistinctionsModule(){
   const sel = document.getElementById("distinctionsSelect");
   const entry = document.getElementById("distinctionsEntry");
-  distinctionsData.forEach(item=>{
+  sortedByLabel(distinctionsData, item=>item.word1.w).forEach(item=>{
     const opt = document.createElement("option");
     opt.value = item.w;
     opt.textContent = item.word1.w + " vs " + item.word2.w;
@@ -33171,7 +33213,7 @@ function addDistinctionEntry(entry, options){
   const opt = document.createElement("option");
   opt.value = entry.w;
   opt.textContent = entry.word1.w + " vs " + entry.word2.w;
-  document.getElementById("distinctionsSelect").appendChild(opt);
+  appendOptionSorted(document.getElementById("distinctionsSelect"), opt);
 
   const action = ()=>{
     document.getElementById("distinctionsSelect").value = entry.w;
@@ -33707,7 +33749,7 @@ document.addEventListener("click", (e)=>{
         renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
         activateTab("vocab");
       };
-      navigateToEntry({label: entry.w, cat: "Vocabulary Bank", action: openEntry}, {isExplicitSearch:false});
+      navigateToEntry({label: entry.w, cat: "Vocabulary Bank", action: openEntry});
     }
     return;
   }
@@ -33750,24 +33792,28 @@ document.addEventListener("click", (e)=>{
 });
 
 /* Re-render whatever is currently on screen now that wordIndexMap is fully
-   populated, so the very first view of every tab also has clickable chips */
+   populated, so the very first view of every tab also has clickable chips.
+   Each dropdown's own .value (not data[0]) is the source of truth for
+   "what's currently selected" — every <select> is now alphabetically
+   sorted, so data[0] (the array's original insertion order) is often a
+   DIFFERENT word than whatever the dropdown itself shows as selected. */
 renderVerb();
 renderTense();
 renderPrep();
-renderRuleEntry(articleData[0], document.getElementById("articleEntry"), "Article Rule");
-renderRuleEntry(modalData[0], document.getElementById("modalEntry"), "Modal Verb");
-renderRuleEntry(capitalData[0], document.getElementById("capitalEntry"), "Capitalization Rule");
-renderRuleEntry(orderData[0], document.getElementById("orderEntry"), "Word Order Pattern");
-renderRuleEntry(mistakeData[0], document.getElementById("mistakeEntry"), "Sentence Error");
-renderRuleEntry(qaData[0], document.getElementById("qaEntry"), "Question Starter");
-renderRuleEntry(vocabData[0], document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
-renderRuleEntry(phrasalData[0], document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
-renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
-renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
-renderRuleEntry(patternsData[0], document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
-renderRuleEntry(technicalData[0], document.getElementById("technicalEntry"), "Technical Term", "technical");
-renderDistinctionEntry(distinctionsData[0], document.getElementById("distinctionsEntry"));
-renderFamily(wordFamilyData[0]);
+renderRuleEntry(articleData.find(x=>x.w===document.getElementById("articleSelect").value), document.getElementById("articleEntry"), "Article Rule");
+renderRuleEntry(modalData.find(x=>x.w===document.getElementById("modalSelect").value), document.getElementById("modalEntry"), "Modal Verb");
+renderRuleEntry(capitalData.find(x=>x.w===document.getElementById("capitalSelect").value), document.getElementById("capitalEntry"), "Capitalization Rule");
+renderRuleEntry(orderData.find(x=>x.w===document.getElementById("orderSelect").value), document.getElementById("orderEntry"), "Word Order Pattern");
+renderRuleEntry(mistakeData.find(x=>x.w===document.getElementById("mistakeSelect").value), document.getElementById("mistakeEntry"), "Sentence Error");
+renderRuleEntry(qaData.find(x=>x.w===document.getElementById("qaSelect").value), document.getElementById("qaEntry"), "Question Starter");
+renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
+renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
+renderRuleEntry(sentencesData.find(x=>x.w===document.getElementById("sentencesSelect").value), document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
+renderRuleEntry(patternsData.find(x=>x.w===document.getElementById("patternsSelect").value), document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
+renderRuleEntry(technicalData.find(x=>x.w===document.getElementById("technicalSelect").value), document.getElementById("technicalEntry"), "Technical Term", "technical");
+renderDistinctionEntry(distinctionsData.find(x=>x.w===document.getElementById("distinctionsSelect").value), document.getElementById("distinctionsEntry"));
+renderFamily(wordFamilyData.find(x=>x.verb===document.getElementById("familySelect").value));
 
 const globalSearchInput = document.getElementById("globalSearch");
 const searchResultsEl = document.getElementById("searchResults");
@@ -33799,29 +33845,6 @@ function pushSearchHistory(entry){
   if(top && top.label === entry.label && top.cat === entry.cat) return;
   searchHistory.push(entry);
   searchHistoryIndex = searchHistory.length - 1;
-}
-
-// Separate back/forward stack for the "‹ Previous" / "Next ›" buttons at
-// the BOTTOM of each panel — unlike the context stack above, this only
-// ever records words reached through an EXPLICIT search (the user
-// actually typed into the global search box, or clicked a recently-
-// viewed suggestion there) — never a synonym/antonym chip hop. So
-// searching Word A, then B, then C gives this stack exactly [A, B, C],
-// letting Previous/Next replay that sequence like a browser's history,
-// regardless of any chip-driven detours the context stack above also
-// recorded in between. See navigateToEntry()'s `isExplicitSearch` flag.
-const typedSearchHistory = [];
-let typedSearchHistoryIndex = -1;
-
-function pushTypedSearchHistory(entry){
-  if(!entry) return;
-  if(typedSearchHistoryIndex < typedSearchHistory.length - 1){
-    typedSearchHistory.length = typedSearchHistoryIndex + 1;
-  }
-  const top = typedSearchHistory[typedSearchHistory.length - 1];
-  if(top && top.label === entry.label && top.cat === entry.cat) return;
-  typedSearchHistory.push(entry);
-  typedSearchHistoryIndex = typedSearchHistory.length - 1;
 }
 
 // Figures out which entry is currently on screen, so navigating to a
@@ -33908,32 +33931,98 @@ function getCurrentlyDisplayedItem(){
 // Study Mode, etc). Records the entry the user is leaving (if any) before
 // recording the destination, so the top "‹ / ›" pair beside the dropdown
 // can always browser-Back to exactly where the user came from — even the
-// very first time they navigate this way.
-//
-// Pass {isExplicitSearch:true} ONLY when this jump is the direct result
-// of the user typing into the global search box (or clicking a recently-
-// viewed suggestion there) — that ALSO feeds the separate bottom-of-panel
-// "‹ Previous / Next ›" stack (typedSearchHistory), which exists purely
-// to replay Word A -> B -> C the way the user actually searched them,
-// deliberately excluding synonym/antonym/related-word chip hops. Every
-// other caller (chips, favorites, quick-add reveals, Study Mode) omits
-// it, so those jumps only ever affect the top pair's context stack.
-function navigateToEntry(item, options){
+// very first time they navigate this way. This is the SAME context stack
+// (searchHistory) that plain tab clicks, Language Bank category
+// switches, Verb type switches, and any panel's own dropdown selection
+// also feed — see the "TOP BACK/FORWARD — universal navigation history"
+// block below. The bottom "‹ Previous / Next ›" pair is a completely
+// separate system (plain list-order cycling of the current dropdown)
+// and never reads this stack at all.
+function navigateToEntry(item){
   if(!item) return;
-  const opts = options || {};
   const origin = getCurrentlyDisplayedItem();
   if(origin && (origin.label !== item.label || origin.cat !== item.cat)){
     pushSearchHistory(origin);
   }
   pushSearchHistory(item);
-  if(opts.isExplicitSearch) pushTypedSearchHistory(item);
   item.action();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-function renderSearchMatches(matches, options){
-  const opts = options || {};
-  const isExplicitSearch = opts.isExplicitSearch !== false;
+/* =========================================================
+   TOP BACK/FORWARD — universal navigation history. navigateToEntry()
+   above already covers "jump to a related word" actions (chips, search
+   results, online previews, favorites, Study Mode). This block covers
+   everything else that changes "where the user is" in the app: plain
+   tab clicks, a Language Bank category switch, a Verb type switch, and
+   picking a different entry from any panel's own dropdown — all of
+   which used to leave searchHistory (and therefore the top Back/Forward
+   pair) completely blind to that hop.
+
+   A capturing-phase listener on document ALWAYS runs before the target
+   element's own bubble-phase listener (the one that performs the real
+   tab switch / re-render), regardless of which was registered first in
+   the code — see MDN's event-flow model: capturing phase completes,
+   target listeners run in AT_TARGET, then bubbling phase runs, and a
+   listener on an ANCESTOR (document) in the capturing phase always
+   precedes both. So the capturing listener below reliably snapshots the
+   LOCATION BEING LEFT before anything re-renders; a second, ordinary
+   bubble-phase listener then reads the LOCATION LANDED ON once the
+   target's own handler has already updated the panel. Both "click" (via
+   the standard .click() method) and a form control's native "change"
+   are specified to bubble for genuine interaction, so this stays fully
+   synchronous — no microtask/setTimeout deferral needed. The one thing
+   to watch: a script-constructed `new Event("change")` (as opposed to a
+   real user interaction) defaults to NOT bubbling unless {bubbles:true}
+   is passed explicitly — anything that synthesizes a change event to
+   simulate real navigation (test code included) needs that flag, or
+   this tracker's bubble-phase half silently never runs for it.
+
+   #lbEditCategory is deliberately excluded — it's a plain form field
+   inside the Language Bank edit form (picking which category to file an
+   edited entry under), not a navigation dropdown. suppressTopNavTracking
+   (declared above the .nav-btn click handler) excludes the bottom
+   Previous/Next pair's own synthetic "change" dispatch, so pure
+   list-order cycling down there can never leak into this stack. */
+const NAV_HISTORY_TAB_SELECTOR = ".thumb-tab, #langBankCategorySeg button, #verbTypeSeg button";
+let pendingTopNavOrigin = null;
+
+function isTrackedNavSelect(el){
+  return !!el && el.tagName === "SELECT" && el.id !== "lbEditCategory";
+}
+
+function recordTopNavHopIfChanged(){
+  const origin = pendingTopNavOrigin;
+  pendingTopNavOrigin = null;
+  if(!origin) return;
+  const destination = getCurrentlyDisplayedItem();
+  if(!destination) return;
+  if(origin.label === destination.label && origin.cat === destination.cat) return;
+  pushSearchHistory(origin);
+  pushSearchHistory(destination);
+}
+
+document.addEventListener("click", (e)=>{
+  if(suppressTopNavTracking) return;
+  if(e.target.closest(NAV_HISTORY_TAB_SELECTOR)) pendingTopNavOrigin = getCurrentlyDisplayedItem();
+}, true);
+document.addEventListener("change", (e)=>{
+  if(suppressTopNavTracking) return;
+  if(isTrackedNavSelect(e.target)) pendingTopNavOrigin = getCurrentlyDisplayedItem();
+}, true);
+
+document.addEventListener("click", (e)=>{
+  if(suppressTopNavTracking) return;
+  if(!e.target.closest(NAV_HISTORY_TAB_SELECTOR)) return;
+  recordTopNavHopIfChanged();
+});
+document.addEventListener("change", (e)=>{
+  if(suppressTopNavTracking) return;
+  if(!isTrackedNavSelect(e.target)) return;
+  recordTopNavHopIfChanged();
+});
+
+function renderSearchMatches(matches){
   searchResultsEl.innerHTML = matches.map((m,i)=>`
     <div class="search-result-item" data-idx="${i}">
       <span class="label">${m.label}</span>
@@ -33942,7 +34031,7 @@ function renderSearchMatches(matches, options){
   searchResultsEl.classList.add("show");
   searchResultsEl.querySelectorAll(".search-result-item").forEach((el, i)=>{
     el.addEventListener("click", ()=>{
-      navigateToEntry(matches[i], {isExplicitSearch});
+      navigateToEntry(matches[i]);
       searchResultsEl.classList.remove("show");
       globalSearchInput.value = "";
     });
@@ -34247,11 +34336,8 @@ let onlineLookupController = null;
 // at all, and otherwise buried the online result as one more clickable
 // row the user had to notice and click themselves — which is exactly
 // why the "This word is not currently in your Vocabulary Bank" prompt
-// so often seemed to never show up. `isExplicitSearch` threads through
-// so this jump is tracked by the right stack — see navigateToEntry().
-function tryOnlineLookup(q, shown, options){
-  const opts = options || {};
-  const isExplicitSearch = opts.isExplicitSearch !== false;
+// so often seemed to never show up.
+function tryOnlineLookup(q, shown){
   const myToken = onlineLookupToken;
   if(onlineLookupController) onlineLookupController.abort();
   onlineLookupController = (typeof AbortController !== "undefined") ? new AbortController() : null;
@@ -34278,20 +34364,15 @@ function tryOnlineLookup(q, shown, options){
       label: result.w,
       cat: "Vocabulary Bank",
       action: ()=> showOnlineVocabResult(result)
-    }, {isExplicitSearch});
+    });
   });
 }
 
 // The full search pipeline for a (already trimmed/lowercased) query:
 // exact/substring match -> fuzzy "did you mean" -> online lookup ->
-// "No matches". Shared by the search box's input handler (a genuine
-// typed search — isExplicitSearch defaults true) and by
-// searchAndNavigate() (a synonym/antonym chip's fallback when the word
-// isn't already known locally — explicitly passes isExplicitSearch:false
-// so a chip hop never gets mistaken for something the user searched for).
-function runSearchPipeline(q, options){
-  const opts = options || {};
-  const isExplicitSearch = opts.isExplicitSearch !== false;
+// "No matches". Shared by the search box's input handler and by
+// searchAndNavigate() (used when a synonym/antonym chip is clicked).
+function runSearchPipeline(q){
   onlineLookupToken++;
   if(onlineLookupTimer) clearTimeout(onlineLookupTimer);
   if(onlineLookupController) onlineLookupController.abort();
@@ -34307,7 +34388,7 @@ function runSearchPipeline(q, options){
   let shown = [];
 
   if(matches.length > 0){
-    renderSearchMatches(matches, {isExplicitSearch});
+    renderSearchMatches(matches);
     shown = matches;
   } else {
     // No exact/substring match — look for close spellings among
@@ -34319,7 +34400,7 @@ function runSearchPipeline(q, options){
     });
     if(suggestions.length > 0){
       shown = suggestions.map(s=>({label:s.label, cat:"Did you mean? — "+s.cat, action:s.action}));
-      renderSearchMatches(shown, {isExplicitSearch});
+      renderSearchMatches(shown);
     } else {
       showNoMatches();
     }
@@ -34333,7 +34414,7 @@ function runSearchPipeline(q, options){
     const myToken = onlineLookupToken;
     onlineLookupTimer = setTimeout(()=>{
       if(myToken !== onlineLookupToken) return;
-      tryOnlineLookup(q, shown, {isExplicitSearch});
+      tryOnlineLookup(q, shown);
     }, 350);
   }
 }
@@ -34346,11 +34427,11 @@ function searchAndNavigate(word){
   const key = word.trim().toLowerCase();
   const exact = wordIndexMap.get(key);
   if(exact){
-    navigateToEntry(exact, {isExplicitSearch:false});
+    navigateToEntry(exact);
     return;
   }
   globalSearchInput.value = word;
-  runSearchPipeline(key, {isExplicitSearch:false});
+  runSearchPipeline(key);
   globalSearchInput.scrollIntoView({behavior:"smooth", block:"center"});
 }
 
@@ -34410,7 +34491,6 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   pushSearchHistory, updateOwnerModeUI,
   getCurrentlyDisplayedItem, navigateToEntry, activateTab,
   getSearchHistory: ()=> searchHistory, getSearchHistoryIndex: ()=> searchHistoryIndex,
-  getTypedSearchHistory: ()=> typedSearchHistory, getTypedSearchHistoryIndex: ()=> typedSearchHistoryIndex,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
   resolveFavoriteEntryData, buildFavoritesPdfData, buildFavoritesStudySheet,
