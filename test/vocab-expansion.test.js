@@ -189,14 +189,11 @@ describe("Vocabulary Bank + Verbs sync via Firestore", () => {
   });
 });
 
-/* ---------- Vocabulary suggestions (Language Bank / Distinctions) ---------- */
+/* ---------- Save to Vocabulary Bank (targeted check tied to Look Up & Add's Save step) ---------- */
 
-describe("Vocabulary suggestions surfaced after a Language Bank add — never auto-saved", () => {
-  it("shows a per-word Save button for the Owner, and nothing is added until it's clicked", async () => {
-    const firebase = makeFirebase();
-    const { window, hooks } = await loadApp({ firebase });
-    // A definition text with real candidate words the stopword heuristic
-    // should surface (not stopwords, length >= 4, not already known).
+describe("Save to Vocabulary Bank — checks only the exact word(s) intentionally entered, never auto-extracted, and is never automatic", () => {
+  it("offers an independent Save-to-Vocabulary-Bank button for a brand-new word once Look Up & Add is saved, and adds nothing until it's clicked", async () => {
+    const { window, hooks } = await loadApp();
     window.OnlineLookup.fetchOnlineDefinition = async () => ({
       w: "burn the midnight oil",
       senses: [{ use: "(idiom) Work diligently through the entire evening on a difficult assignment.", examples: [] }],
@@ -206,58 +203,147 @@ describe("Vocabulary suggestions surfaced after a Language Bank add — never au
     const document = window.document;
     document.getElementById("idiomsAddInput").value = "burn the midnight oil";
     document.getElementById("idiomsAddBtn").click();
+    await wait(50);
+    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
     await wait(50);
 
     const statusEl = document.getElementById("idiomsAddStatus");
-    const suggestBtn = statusEl.querySelector(".vocab-suggest-save-btn");
-    expect(suggestBtn).toBeTruthy();
-    const suggestedWord = suggestBtn.dataset.word;
-    expect(hooks.wordIndexMap.has(suggestedWord)).toBe(false);
+    const saveBtn = statusEl.querySelector(".vocab-bank-check-save-btn");
+    expect(saveBtn).toBeTruthy();
+    expect(saveBtn.dataset.word).toBe("burn the midnight oil");
+    expect(hooks.vocabData.some((v) => v.w === "burn the midnight oil")).toBe(false);
 
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => ({
-      w: word, senses: [{ use: `(adjective) A definition for ${word}.`, examples: [] }],
-      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-    });
-    suggestBtn.click();
+    saveBtn.click();
     await wait(50);
 
-    expect(hooks.wordIndexMap.has(suggestedWord)).toBe(true);
+    expect(hooks.vocabData.some((v) => v.w === "burn the midnight oil")).toBe(true);
     expect(statusEl.textContent).toContain("has been added to your Vocabulary Bank");
   });
 
-  it("shows no suggestion box at all for a locked/non-owner device", async () => {
-    const { window } = await loadApp({ ownerUnlocked: false });
-    window.OnlineLookup.fetchOnlineDefinition = async () => ({
-      w: "burn the midnight oil",
-      senses: [{ use: "(idiom) Work diligently through the entire evening on a difficult assignment.", examples: [] }],
-      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-    });
-
-    const document = window.document;
-    document.getElementById("idiomsAddInput").value = "burn the midnight oil";
-    document.getElementById("idiomsAddBtn").click();
-    await wait(50);
-
-    expect(document.getElementById("idiomsAddStatus").querySelector(".vocab-suggest-save-btn")).toBeNull();
-  });
-
-  it("does not suggest ordinary short/common words from a plain sentence", async () => {
+  it("re-checks at click time — if the word became known to the Vocabulary Bank while the button sat waiting (e.g. synced in from another device), it shows the checkmark instead of double-adding", async () => {
     const { window, hooks } = await loadApp();
     window.OnlineLookup.fetchOnlineDefinition = async () => ({
-      w: "went to the store",
-      senses: [{ use: "(sentence) I went to the store yesterday.", examples: [] }],
+      w: "resilient-race",
+      senses: [{ use: "(idiom) A test phrase.", examples: [] }],
       syn: [], ant: [], mistake: null, tagalog: null, source: "online"
     });
 
     const document = window.document;
-    document.getElementById("sentencesAddInput").value = "went to the store";
-    document.getElementById("sentencesAddBtn").click();
+    document.getElementById("idiomsAddInput").value = "resilient-race";
+    document.getElementById("idiomsAddBtn").click();
+    await wait(50);
+    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
     await wait(50);
 
-    const candidates = hooks.suggestVocabFromEntryText({ senses: [{ use: "I went to the store yesterday.", examples: [] }] });
-    expect(candidates).not.toContain("went");
-    expect(candidates).not.toContain("the");
-    expect(candidates).not.toContain("store".slice(0, 2));
+    const statusEl = document.getElementById("idiomsAddStatus");
+    const saveBtn = statusEl.querySelector(".vocab-bank-check-save-btn");
+    expect(saveBtn).toBeTruthy();
+
+    // Something else (a sync pull-in, another device) adds a dedicated
+    // Vocabulary Bank record for this exact word before the button is clicked.
+    hooks.addVocabEntry(
+      { w: "resilient-race", senses: [{ use: "(idiom) A test phrase.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+
+    saveBtn.click();
+    await wait(50);
+
+    expect(hooks.vocabData.filter((v) => v.w === "resilient-race")).toHaveLength(1);
+    expect(statusEl.textContent).toContain('"resilient-race" is already available in the Vocabulary Bank');
+  });
+
+  it("treats the whole typed sentence as a single candidate — never sub-extracts individual words from it", async () => {
+    const { window, hooks } = await loadApp();
+    window.OnlineLookup.fetchOnlineDefinition = async () => ({
+      w: "Could you send that file when you get a chance?",
+      senses: [],
+      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+    });
+
+    const document = window.document;
+    document.getElementById("sentencesAddInput").value = "Could you send that file when you get a chance?";
+    document.getElementById("sentencesAddBtn").click();
+    await wait(50);
+    document.getElementById("sentencesAddStatus").querySelector(".lb-lookup-save-btn").click();
+    await wait(50);
+
+    const statusEl = document.getElementById("sentencesAddStatus");
+    const rows = statusEl.querySelectorAll(".vocab-suggest-row");
+    expect(rows.length).toBe(1);
+    expect(statusEl.querySelector(".vocab-bank-check-save-btn").dataset.word).toBe("Could you send that file when you get a chance?");
+    // The old stopword-heuristic extractor is gone entirely — no
+    // fragment of a sentence/definition is ever surfaced as a candidate.
+    expect(hooks.suggestVocabFromEntryText).toBeUndefined();
+  });
+
+  it("shows nothing at all while the device is locked", async () => {
+    const { hooks } = await loadApp({ ownerUnlocked: false });
+    const html = hooks.renderVocabBankCheckRows([{ w: "whatever", entry: {}, alreadyKnown: false }]);
+    expect(html).toBe("");
+  });
+
+  it("Distinctions: checks each of the two typed words independently — a Save button only for the one not already known", async () => {
+    const { window, hooks } = await loadApp();
+    hooks.addVocabEntry(
+      { w: "quibblet-test", senses: [{ use: "(verb) Pre-existing definition.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+
+    const document = window.document;
+    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
+      const key = word.trim().toLowerCase();
+      if (key === "arise-test") return { w: "arise-test", senses: [{ use: "(verb) To come into being.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
+      if (key === "quibblet-test") return { w: "quibblet-test", senses: [{ use: "(verb) A fresh online lookup result.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
+      return null;
+    };
+
+    document.getElementById("distinctionsAddInput1").value = "arise-test";
+    document.getElementById("distinctionsAddInput2").value = "quibblet-test";
+    document.getElementById("distinctionsAddBtn").click();
+    await wait(50);
+    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    await wait(50);
+
+    const statusEl = document.getElementById("distinctionsAddStatus");
+    expect(statusEl.textContent).toContain('"quibblet-test" is already available in the Vocabulary Bank');
+    const saveBtn = statusEl.querySelector(".vocab-bank-check-save-btn");
+    expect(saveBtn).toBeTruthy();
+    expect(saveBtn.dataset.word).toBe("arise-test");
+    expect(hooks.vocabData.some((v) => v.w === "arise-test")).toBe(false);
+
+    saveBtn.click();
+    await wait(50);
+    expect(hooks.vocabData.some((v) => v.w === "arise-test")).toBe(true);
+  });
+
+  it("Distinctions: neither word already known — two independent Save buttons, saving one never touches the other", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
+      const key = word.trim().toLowerCase();
+      if (key === "arise-test2") return { w: "arise-test2", senses: [{ use: "(verb) u1", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
+      if (key === "quibblet-test2") return { w: "quibblet-test2", senses: [{ use: "(verb) u2", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
+      return null;
+    };
+
+    document.getElementById("distinctionsAddInput1").value = "arise-test2";
+    document.getElementById("distinctionsAddInput2").value = "quibblet-test2";
+    document.getElementById("distinctionsAddBtn").click();
+    await wait(50);
+    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    await wait(50);
+
+    const statusEl = document.getElementById("distinctionsAddStatus");
+    const saveBtns = statusEl.querySelectorAll(".vocab-bank-check-save-btn");
+    expect(saveBtns.length).toBe(2);
+
+    saveBtns[0].click();
+    await wait(50);
+
+    expect(hooks.vocabData.some((v) => v.w === "arise-test2")).toBe(true);
+    expect(hooks.vocabData.some((v) => v.w === "quibblet-test2")).toBe(false);
+    expect(statusEl.querySelectorAll(".vocab-bank-check-save-btn").length).toBe(1);
   });
 });
 

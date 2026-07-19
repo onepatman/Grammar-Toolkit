@@ -135,110 +135,17 @@ describe("Language Bank duplicate-add navigates to its OWN entry, not a same-spe
   });
 });
 
-describe("'Check / Save a word to the Vocabulary Bank' widget (Language Bank + Distinctions tabs)", () => {
-  it("shows an 'already available' message with a working View entry link for a known word", async () => {
+describe("the removed manual 'Check / Save a word to the Vocabulary Bank' widget stays gone (superseded by the targeted Save-to-Vocabulary-Bank check tied to Look Up & Add's Save step)", () => {
+  it("no longer renders on the Language Bank or Distinctions Words tabs", async () => {
     const { window } = await loadApp();
     const document = window.document;
+
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
+    expect(document.getElementById("langbankVocabCheckInput")).toBeNull();
+    expect(document.getElementById("langbankVocabCheckResult")).toBeNull();
 
-    const input = document.getElementById("langbankVocabCheckInput");
-    input.value = "abandon";
-    input.dispatchEvent(new window.Event("input"));
-    await wait(400);
-
-    const resultEl = document.getElementById("langbankVocabCheckResult");
-    expect(resultEl.textContent).toContain("already available in the Vocabulary Bank");
-    const viewBtn = resultEl.querySelector(".vocab-check-view-btn");
-    expect(viewBtn).toBeTruthy();
-
-    viewBtn.click();
-    await wait(30);
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
-    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
-  });
-
-  it("offers to save a not-yet-known word using the exact typed text, and saving preserves that exact text", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="langbank"]').click();
-
-    // Online source returns a DIFFERENT casing/spelling than typed — the
-    // saved entry must still use the exact word the Owner typed.
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      if (word.trim().toLowerCase() !== "extraordinary") return null;
-      return { w: "Extraordinary (from API)", senses: [{ use: "(adjective) Very unusual.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-    };
-
-    const input = document.getElementById("langbankVocabCheckInput");
-    input.value = "extraordinary";
-    input.dispatchEvent(new window.Event("input"));
-    await wait(400);
-
-    const resultEl = document.getElementById("langbankVocabCheckResult");
-    const saveBtn = resultEl.querySelector(".vocab-check-save-btn");
-    expect(saveBtn).toBeTruthy();
-    expect(saveBtn.textContent).toContain("extraordinary");
-
-    saveBtn.click();
-    await wait(50);
-
-    expect(resultEl.textContent).toContain("has been added to your Vocabulary Bank");
-    const saved = hooks.vocabData.find((v) => v.w.toLowerCase() === "extraordinary");
-    expect(saved).toBeTruthy();
-    expect(saved.w).toBe("extraordinary");
-    expect(document.getElementById("vocabSelect").querySelector('option[value="extraordinary"]')).toBeTruthy();
-  });
-
-  it("falls back to a manual meaning/example box when no online source has the word, and saves with the typed text", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="langbank"]').click();
-    window.OnlineLookup.fetchOnlineDefinition = async () => null;
-
-    const input = document.getElementById("langbankVocabCheckInput");
-    input.value = "zibbleflorp";
-    input.dispatchEvent(new window.Event("input"));
-    await wait(400);
-
-    const resultEl = document.getElementById("langbankVocabCheckResult");
-    resultEl.querySelector(".vocab-check-save-btn").click();
-    await wait(50);
-
-    expect(resultEl.textContent).toContain("No online definition was found");
-    resultEl.querySelector(".vocab-check-manual-use").value = "(noun) A made-up test word.";
-    resultEl.querySelector(".vocab-check-manual-save-btn").click();
-    await wait(50);
-
-    expect(resultEl.textContent).toContain("has been added to your Vocabulary Bank");
-    const saved = hooks.vocabData.find((v) => v.w.toLowerCase() === "zibbleflorp");
-    expect(saved).toBeTruthy();
-    expect(saved.senses[0].use).toBe("(noun) A made-up test word.");
-  });
-
-  it("does not offer a save button while the device is locked", async () => {
-    const { window } = await loadApp({ ownerUnlocked: false });
-    const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="langbank"]').click();
-
-    const input = document.getElementById("langbankVocabCheckInput");
-    input.value = "extraordinary";
-    input.dispatchEvent(new window.Event("input"));
-    await wait(400);
-
-    const resultEl = document.getElementById("langbankVocabCheckResult");
-    expect(resultEl.querySelector(".vocab-check-save-btn")).toBeNull();
-  });
-
-  it("also works on the Distinctions Words tab", async () => {
-    const { window } = await loadApp();
-    const document = window.document;
     document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
-
-    const input = document.getElementById("distinctionsVocabCheckInput");
-    input.value = "abandon";
-    input.dispatchEvent(new window.Event("input"));
-    await wait(400);
-
-    expect(document.getElementById("distinctionsVocabCheckResult").textContent).toContain("already available in the Vocabulary Bank");
+    expect(document.getElementById("distinctionsVocabCheckInput")).toBeNull();
+    expect(document.getElementById("distinctionsVocabCheckResult")).toBeNull();
   });
 });

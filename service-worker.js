@@ -6,7 +6,7 @@
 // treats it as a new script (triggers install -> activate, which
 // purges every OTHER cache bucket below) instead of silently reusing
 // whatever's already registered.
-const CACHE_NAME = "mepf-grammar-toolkit-v10";
+const CACHE_NAME = "mepf-grammar-toolkit-v11";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
@@ -19,8 +19,7 @@ const FILES_TO_CACHE = [
   "./js/fuzzy-search.js",
   "./js/vocab-cache.js",
   "./js/owner-mode.js",
-  "./js/sync-auth.js",
-  "./js/vocab-suggest.js"
+  "./js/sync-auth.js"
 ];
 
 self.addEventListener("install", (event) => {
