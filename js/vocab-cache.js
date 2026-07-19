@@ -58,7 +58,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 7;
+  var DB_VERSION = 8;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -69,6 +69,7 @@
   var TECHNICAL_STORE = "technicalEntries";
   var REVIEW_STORE = "reviewSchedule";
   var DISTINCTIONS_STORE = "distinctionsEntries";
+  var CUSTOM_VERBS_STORE = "customVerbs";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -114,6 +115,9 @@
         }
         if (!db.objectStoreNames.contains(DISTINCTIONS_STORE)) {
           db.createObjectStore(DISTINCTIONS_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(CUSTOM_VERBS_STORE)) {
+          db.createObjectStore(CUSTOM_VERBS_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -234,6 +238,10 @@
     return putEntry(STORE_NAME, entry, options);
   }
 
+  function deleteVocab(word, options) {
+    return deleteEntry(STORE_NAME, word, options);
+  }
+
   function getAll(options) {
     return getAllEntries(STORE_NAME, options);
   }
@@ -297,6 +305,16 @@
   function putDistinction(entry, options) { return putEntry(DISTINCTIONS_STORE, entry, options); }
   function getAllDistinctions(options) { return getAllEntries(DISTINCTIONS_STORE, options); }
   function deleteDistinction(word, options) { return deleteEntry(DISTINCTIONS_STORE, word, options); }
+
+  /* ---------- customVerbs (Owner-added verbs, manual 5-form entry) ----------
+     Same generic { key, entry } shape; entry.group is "regular" or
+     "irregular" so the store round-trips which Verbs sub-tab the entry
+     belongs to. */
+
+  function getCustomVerb(word, options) { return getEntry(CUSTOM_VERBS_STORE, word, options); }
+  function putCustomVerb(entry, options) { return putEntry(CUSTOM_VERBS_STORE, entry, options); }
+  function getAllCustomVerbs(options) { return getAllEntries(CUSTOM_VERBS_STORE, options); }
+  function deleteCustomVerb(word, options) { return deleteEntry(CUSTOM_VERBS_STORE, word, options); }
 
   /* ---------- favorites ---------- */
 
@@ -409,6 +427,7 @@
     DB_NAME: DB_NAME,
     DB_VERSION: DB_VERSION,
     STORE_NAME: STORE_NAME,
+    deleteVocab: deleteVocab,
     FAVORITES_STORE: FAVORITES_STORE,
     RECENT_STORE: RECENT_STORE,
     PHRASAL_STORE: PHRASAL_STORE,
@@ -418,6 +437,7 @@
     TECHNICAL_STORE: TECHNICAL_STORE,
     REVIEW_STORE: REVIEW_STORE,
     DISTINCTIONS_STORE: DISTINCTIONS_STORE,
+    CUSTOM_VERBS_STORE: CUSTOM_VERBS_STORE,
     RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
@@ -451,6 +471,10 @@
     putDistinction: putDistinction,
     getAllDistinctions: getAllDistinctions,
     deleteDistinction: deleteDistinction,
+    getCustomVerb: getCustomVerb,
+    putCustomVerb: putCustomVerb,
+    getAllCustomVerbs: getAllCustomVerbs,
+    deleteCustomVerb: deleteCustomVerb,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,

@@ -562,6 +562,17 @@
   .add-status.success{ color:var(--mint); }
   .add-status.error{ color:var(--brick); }
 
+  /* Owner-only "potential new vocabulary" suggestions shown after
+     adding a Language Bank/Distinctions entry — deliberately understated
+     (not a callout box) so it reads as a secondary, optional prompt
+     rather than competing with the main success message above it. */
+  .vocab-suggest-box{ margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+  .vocab-suggest-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    flex-wrap:wrap; font-weight:500; color:var(--ink-soft);
+  }
+  .vocab-suggest-row .add-btn{ margin:0; flex:none; }
+
   .personal-actions{ display:flex; gap:8px; margin-top:6px; }
   .edit-correction-btn, .delete-correction-btn{
     border:1px solid var(--rule); background:var(--paper); border-radius:6px;
@@ -948,6 +959,8 @@
       <button class="nav-btn" data-target="vocabSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="vocabSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+    <div id="vocabSaveArea" class="add-status" style="display:none;"></div>
+    <div id="verbFlagArea" class="add-status" style="display:none;"></div>
   </section>
 
   <!-- ===== PHRASAL VERBS PANEL ===== -->
@@ -1138,6 +1151,7 @@
 <script src="js/spaced-repetition.js"></script>
 <script src="js/owner-mode.js"></script>
 <script src="js/sync-auth.js"></script>
+<script src="js/vocab-suggest.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -1147,6 +1161,14 @@
 ========================================================= */
 const wordIndexMap = new Map();
 const vocabLookup = new Map();
+
+// The Vocabulary Bank's currently-displayed online lookup result that
+// hasn't been saved yet (or null) — declared here, alongside
+// wordIndexMap, for the same reason: renderRuleEntry() and other early
+// renders reference it, and a `const`/`let` referenced before its own
+// declaration line throws even though the function using it is safely
+// hoisted. See showOnlineVocabResult()/saveOnlineVocabResult() below.
+let pendingOnlineVocabResult = null;
 
 /* =========================================================
    LOCAL-FIRST DATA LAYER — one shared IndexedDB connection for the
@@ -30271,6 +30293,15 @@ const wordFamilyData = [
 // Edit/Delete buttons below scoped to just the Language Bank instead of
 // showing up anywhere renderRuleEntry() is used.
 function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
+  // Displaying an actual saved/built-in Vocabulary Bank entry (not the
+  // not-yet-saved online preview itself) always retires any pending
+  // online result and its Save UI — otherwise a stale "Save to
+  // Vocabulary Bank" prompt for a DIFFERENT word could linger after the
+  // user has navigated elsewhere within Vocab.
+  if(categoryKey === "vocab" && item !== pendingOnlineVocabResult){
+    pendingOnlineVocabResult = null;
+    renderVocabSaveArea();
+  }
   const sensesHtml = item.senses.map((s,i)=>{
     const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
       <div class="personal-actions">
@@ -30338,16 +30369,27 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     // Wired via closures (not data-attributes) so a word/phrase
     // containing a quote or other special character can't break an
     // HTML attribute — the button just references `item` directly.
+    // "vocab" isn't one of the LANGUAGE_BANK_CATEGORIES (it has its own
+    // dedicated store/edit/delete functions, not a config entry), so it
+    // gets its own small branch here rather than forcing it through the
+    // Language Bank's category-config machinery.
     entryEl.querySelector(".lb-edit-btn").addEventListener("click", ()=>{
-      openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel);
+      if(categoryKey === "vocab") openVocabEditForm(item, entryEl);
+      else openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel);
     });
     entryEl.querySelector(".lb-delete-btn").addEventListener("click", async ()=>{
+      const bankName = categoryKey === "vocab" ? "Vocabulary Bank" : "Language Bank";
       const confirmed = window.confirm
-        ? window.confirm(`Delete "${item.w}" from your Language Bank? This can't be undone.`)
+        ? window.confirm(`Delete "${item.w}" from your ${bankName}? This can't be undone.`)
         : true;
       if(!confirmed) return;
-      await deleteLanguageBankEntry(categoryKey, item.w);
-      renderLanguageBankAfterDelete(categoryKey);
+      if(categoryKey === "vocab"){
+        await deleteVocabEntry(item.w);
+        renderVocabAfterDelete();
+      } else {
+        await deleteLanguageBankEntry(categoryKey, item.w);
+        renderLanguageBankAfterDelete(categoryKey);
+      }
     });
   }
 }
@@ -30374,7 +30416,7 @@ setupRuleModule(capitalData, "capitalSelect", "capitalEntry", "Capitalization Ru
 setupRuleModule(orderData, "orderSelect", "orderEntry", "Word Order Pattern");
 setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
 setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter");
-setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank");
+setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
 setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence", "sentences");
@@ -30964,7 +31006,7 @@ vocabData.forEach(item=>{
   item.tagalog.split(/[\/,;]/).map(t=>t.trim()).filter(Boolean).forEach(term=>{
     searchIndex.push({label: term, cat: "Tagalog → " + item.w, action: ()=>{
       document.getElementById("vocabSelect").value = item.w;
-      renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank");
+      renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
       activateTab("vocab");
     }});
   });
@@ -31024,7 +31066,7 @@ function addVocabEntry(entry, options){
 
   const action = ()=>{
     document.getElementById("vocabSelect").value = entry.w;
-    renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
+    renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
     activateTab("vocab");
   };
   const item = {label: entry.w, cat: "Vocabulary Bank", action};
@@ -31060,6 +31102,152 @@ function importVocabPack(rawEntries){
     imported: valid.length,
     skipped: (Array.isArray(rawEntries) ? rawEntries.length : 0) - valid.length
   };
+}
+
+/* =========================================================
+   VOCABULARY BANK — EDIT / DELETE (owner-only). Mirrors the Language
+   Bank's single-category edit/delete pattern exactly (see
+   openLanguageBankEditForm/deleteLanguageBankEntry above), but "vocab"
+   isn't one of LANGUAGE_BANK_CATEGORIES — it has its own store
+   (VocabCache.deleteVocab) and its own dedicated functions here rather
+   than a config entry, which is also why renderRuleEntry()'s
+   edit/delete handlers special-case categoryKey==="vocab" instead of
+   routing through the Language Bank functions for it.
+========================================================= */
+function openVocabEditForm(item, entryEl){
+  const currentUse = (item.senses[0] && item.senses[0].use) || "";
+  const currentExample = (item.senses[0] && item.senses[0].examples && item.senses[0].examples[0]) || "";
+
+  entryEl.innerHTML = `
+    <div class="section-label">Editing this entry</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="vocabEditWord" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Meaning / rule &amp; usage</label>
+    <textarea id="vocabEditUse" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
+    <input type="text" id="vocabEditExample" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
+    <input type="text" id="vocabEditSyn" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
+    <input type="text" id="vocabEditAnt" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Tagalog equivalent (optional)</label>
+    <input type="text" id="vocabEditTagalog" autocomplete="off">
+    <button id="vocabEditSaveBtn" class="add-btn">Save changes</button>
+    <button id="vocabEditCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="vocabEditStatus" class="add-status"></div>
+  `;
+
+  document.getElementById("vocabEditWord").value = item.w;
+  document.getElementById("vocabEditUse").value = currentUse;
+  document.getElementById("vocabEditExample").value = currentExample;
+  document.getElementById("vocabEditSyn").value = (item.syn || []).join(", ");
+  document.getElementById("vocabEditAnt").value = (item.ant || []).join(", ");
+  document.getElementById("vocabEditTagalog").value = item.tagalog || "";
+
+  document.getElementById("vocabEditCancelBtn").addEventListener("click", ()=>{
+    renderRuleEntry(item, entryEl, "Vocabulary Bank", "vocab");
+  });
+  document.getElementById("vocabEditSaveBtn").addEventListener("click", ()=>{
+    saveVocabEdit(item, entryEl);
+  });
+}
+
+async function saveVocabEdit(originalItem, entryEl){
+  const statusEl = document.getElementById("vocabEditStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const newWord = document.getElementById("vocabEditWord").value.trim();
+  if(!newWord){
+    statusEl.textContent = "Word can't be empty.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const newUse = document.getElementById("vocabEditUse").value.trim();
+  const newExample = document.getElementById("vocabEditExample").value.trim();
+  const newSyn = document.getElementById("vocabEditSyn").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const newAnt = document.getElementById("vocabEditAnt").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const newTagalog = document.getElementById("vocabEditTagalog").value.trim();
+
+  const updatedEntry = {
+    w: newWord,
+    senses: newUse ? [{ use: newUse, examples: newExample ? [newExample] : [] }] : [],
+    syn: newSyn,
+    ant: newAnt,
+    mistake: originalItem.mistake || null,
+    tagalog: newTagalog || null,
+    phonetic: originalItem.phonetic || null,
+    source: "online"
+  };
+
+  // Remove the OLD entry first, same reasoning as the Language Bank's
+  // edit flow — makes the collision check below correctly ignore
+  // "colliding with itself" when the word text didn't actually change.
+  await deleteVocabEntry(originalItem.w, {skipSync:true});
+
+  const newKey = newWord.trim().toLowerCase();
+  if(wordIndexMap.get(newKey)){
+    addVocabEntry(originalItem, {persist:false});
+    statusEl.textContent = `"${newWord}" is already used by another entry — choose a different word.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const item = addVocabEntry(updatedEntry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+
+  activateTab("vocab");
+  item.action();
+}
+
+async function deleteVocabEntry(word, options){
+  const opts = options || {};
+  const key = word.trim().toLowerCase();
+
+  const idx = vocabData.findIndex(v=> v.w.trim().toLowerCase() === key);
+  if(idx === -1) return;
+  vocabData.splice(idx, 1);
+
+  // Also removes any Tagalog cross-index aliases for this same word —
+  // addVocabEntry() indexes the English word and every Tagalog
+  // equivalent under ONE shared action closure, so matching on that
+  // shared reference (rather than just the English key) catches both.
+  const targetItem = wordIndexMap.get(key);
+  const targetAction = targetItem && targetItem.action;
+  if(targetAction){
+    for(let i = searchIndex.length - 1; i >= 0; i--){
+      if(searchIndex[i].action === targetAction){
+        wordIndexMap.delete(searchIndex[i].label.toLowerCase());
+        searchIndex.splice(i, 1);
+      }
+    }
+  }
+  vocabLookup.delete(key);
+
+  const selectEl = document.getElementById("vocabSelect");
+  const optionEl = Array.from(selectEl.options).find(o=> o.value.trim().toLowerCase() === key);
+  if(optionEl) optionEl.remove();
+
+  await VocabCache.deleteVocab(word, {dbPromise: vocabDbPromise});
+
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
+}
+
+function renderVocabAfterDelete(){
+  const entryEl = document.getElementById("vocabEntry");
+  const selectEl = document.getElementById("vocabSelect");
+
+  if(vocabData.length === 0){
+    selectEl.value = "";
+    entryEl.innerHTML = `<div class="headword-row"><span class="headword" style="font-size:18px;">Nothing here yet</span></div><p class="note">Search for a word to add one.</p>`;
+    return;
+  }
+  const next = vocabData[0];
+  selectEl.value = next.w;
+  renderRuleEntry(next, entryEl, "Vocabulary Bank", "vocab");
 }
 
 // Restore anything cached from a previous session. Fully offline —
@@ -31360,6 +31548,7 @@ document.getElementById("ownerSetPinBtn").addEventListener("click", async ()=>{
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshVocabUI();
 });
 
 document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
@@ -31376,6 +31565,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshVocabUI();
 });
 
 document.getElementById("ownerUnlockPinInput").addEventListener("keydown", (e)=>{
@@ -31403,6 +31593,7 @@ document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshVocabUI();
 });
 
 document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
@@ -32113,6 +32304,8 @@ function listenToSync(code){
       refreshMistakeUI();
       applyRemoteLanguageBank(data.languageBank);
       applyRemoteDistinctions(data.distinctions);
+      applyRemoteVocab(data.vocab);
+      applyRemoteVerbs(data.verbs);
       return;
     }
     // Nothing saved under this code yet. If we're signed in as the
@@ -32130,6 +32323,8 @@ function listenToSync(code){
         entries: localEntries,
         languageBank: collectOnlineLanguageBankEntries(),
         distinctions: collectOnlineDistinctions(),
+        vocab: collectOnlineVocabEntries(),
+        verbs: collectOnlineVerbs(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
     }
@@ -32150,14 +32345,15 @@ function listenToSync(code){
 // throws, so every caller can `await` it and decide what "the shared
 // log didn't accept this change" means for its own UI/rollback.
 //
-// Always writes `entries`, `languageBank`, AND `distinctions` together,
-// even though most callers only just changed one of the three — a plain
-// Firestore .set() replaces the whole document, so writing only the
-// field that changed would silently wipe out the others. Reading the
-// current value of whichever fields didn't change
+// Always writes `entries`, `languageBank`, `distinctions`, `vocab`, AND
+// `verbs` together, even though most callers only just changed one of
+// the five — a plain Firestore .set() replaces the whole document, so
+// writing only the field that changed would silently wipe out the
+// others. Reading the current value of whichever fields didn't change
 // (loadPersonalCorrections() / collectOnlineLanguageBankEntries() /
-// collectOnlineDistinctions()) right before every write keeps this a
-// single safe entry point instead of several that can race.
+// collectOnlineDistinctions() / collectOnlineVocabEntries() /
+// collectOnlineVerbs()) right before every write keeps this a single
+// safe entry point instead of several that can race.
 function pushToSync(entries){
   if(!syncEnabled || !firestoreDb) return Promise.resolve({ok:true, skipped:true});
   const code = localStorage.getItem(SYNC_CODE_KEY);
@@ -32166,6 +32362,8 @@ function pushToSync(entries){
     entries: entries,
     languageBank: collectOnlineLanguageBankEntries(),
     distinctions: collectOnlineDistinctions(),
+    vocab: collectOnlineVocabEntries(),
+    verbs: collectOnlineVerbs(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
     console.warn("Sync push failed:", e);
@@ -32262,6 +32460,7 @@ async function signInAsOwner(email, password){
     refreshMistakeUI();
     refreshLanguageBankUI();
     refreshDistinctionsUI();
+    refreshVocabUI();
     const code = localStorage.getItem(SYNC_CODE_KEY);
     if(code) listenToSync(code);
   }catch(e){
@@ -32281,6 +32480,7 @@ async function signOutOwner(){
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshVocabUI();
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(code) listenToSync(code);
 }
@@ -32369,6 +32569,71 @@ document.getElementById("packImportInput").addEventListener("change", (e)=>{
    result for both is exactly the right behavior, not a bug). */
 const languageBankLookupCache = OnlineLookup.createMemoryCache();
 
+/* =========================================================
+   VOCABULARY SUGGESTIONS — after a Language Bank or Distinctions entry
+   is added, scan its own definition/example text for words that might
+   be worth adding to the Vocabulary Bank too (js/vocab-suggest.js does
+   the actual heuristic — stopwords out, already-known words out, short
+   words out, capped count). Owner-only, and NEVER auto-saved: each
+   suggestion is just a button the Owner can click, exactly like the
+   Save button on an online search result, except it stays right where
+   the Owner is working instead of navigating them away to the Vocab tab.
+========================================================= */
+function suggestVocabFromEntryText(entry){
+  const texts = [];
+  (entry.senses || []).forEach(s=>{
+    if(s.use) texts.push(s.use);
+    (s.examples || []).forEach(ex=> texts.push(ex));
+  });
+  return VocabSuggest.extractVocabCandidates(texts.join(" "), {
+    isKnown: w=> wordIndexMap.has(w)
+  });
+}
+
+function renderVocabSuggestionsHtml(candidates){
+  if(!isDeviceUnlocked() || !candidates || candidates.length === 0) return "";
+  const rowsHtml = candidates.map(w=> `
+    <div class="vocab-suggest-row" data-word="${w}">
+      <span>💡 Potential new vocabulary: <strong>${w}</strong></span>
+      <button class="add-btn secondary vocab-suggest-save-btn" data-word="${w}">Save to Vocabulary Bank</button>
+    </div>`).join("");
+  return `<div class="vocab-suggest-box">${rowsHtml}</div>`;
+}
+
+document.addEventListener("click", async (e)=>{
+  const btn = e.target.closest(".vocab-suggest-save-btn");
+  if(!btn) return;
+  if(!isDeviceUnlocked()) return; // defensive — this button only ever renders while unlocked
+  const word = btn.dataset.word;
+  const rowEl = btn.closest(".vocab-suggest-row");
+  btn.disabled = true;
+  btn.textContent = "Looking up…";
+
+  const key = word.trim().toLowerCase();
+  if(wordIndexMap.has(key)){
+    rowEl.innerHTML = `<span>✅ "${word}" is already in your Vocabulary Bank.</span>`;
+    return;
+  }
+
+  const result = await OnlineLookup.fetchOnlineDefinition(word, {
+    cache: languageBankLookupCache,
+    generateFallbackExamples: false
+  });
+  if(!result){
+    rowEl.innerHTML = `<span>Couldn't find "${word}" online — not saved.</span>`;
+    return;
+  }
+  // Deliberately doesn't offer the "looks like a verb" flag here — this
+  // save happens inline while the Owner is working in the Language Bank
+  // or Distinctions tab, not the Vocab tab, so surfacing a verb prompt
+  // in a status box off in another tab (via #verbFlagArea, only present
+  // on panel-vocab) would go unseen. That flag is offered only from the
+  // main Vocab search/save path — see saveOnlineVocabResult() below.
+  addVocabEntry(result, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+  rowEl.innerHTML = `<span>✅ "${word}" has been added to your Vocabulary Bank.</span>`;
+});
+
 // Shared "actually commit the entry" tail — used whether the entry came
 // from a successful online lookup, a manually-typed explanation, or the
 // no-notes skip path, so the persist/sync/status/navigate logic exists
@@ -32385,11 +32650,12 @@ async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote
   // Only actually reaches Firestore when sync is connected — otherwise
   // this resolves {ok:true, skipped:true} immediately, same as corrections.
   const pushResult = await pushToSync(loadPersonalCorrections());
+  const suggestionsHtml = renderVocabSuggestionsHtml(suggestVocabFromEntryText(entry));
   if(!pushResult.ok){
-    statusEl.textContent = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}`;
+    statusEl.innerHTML = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}` + suggestionsHtml;
     statusEl.className = "add-status error";
   } else {
-    statusEl.textContent = successNote;
+    statusEl.innerHTML = successNote + suggestionsHtml;
     statusEl.className = "add-status success";
   }
   navigateToEntry(item);
@@ -32690,6 +32956,23 @@ function refreshLanguageBankUI(){
   });
 }
 
+// Same reasoning as refreshLanguageBankUI()/refreshDistinctionsUI() —
+// re-renders whatever's currently on screen in the Vocab panel so its
+// Edit/Delete buttons (and the online-result Save button) appear/
+// disappear immediately on lock/unlock, with no need to navigate away
+// and back.
+function refreshVocabUI(){
+  const selectEl = document.getElementById("vocabSelect");
+  const entryEl = document.getElementById("vocabEntry");
+  if(pendingOnlineVocabResult){
+    renderRuleEntry(pendingOnlineVocabResult, entryEl, "Vocabulary Bank");
+    renderVocabSaveArea();
+    return;
+  }
+  const item = vocabData.find(x=> x.w === selectEl.value);
+  if(item) renderRuleEntry(item, entryEl, "Vocabulary Bank", "vocab");
+}
+
 LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   document.getElementById(config.btnId).addEventListener("click", ()=> addLanguageBankEntryFromInput(categoryKey));
@@ -32900,11 +33183,15 @@ async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, succes
   const item = addDistinctionEntry(entry, {persist:true});
 
   const pushResult = await pushToSync(loadPersonalCorrections());
+  const candidates = suggestVocabFromEntryText({
+    senses: (word1Result.senses || []).concat(word2Result.senses || [])
+  });
+  const suggestionsHtml = renderVocabSuggestionsHtml(candidates);
   if(!pushResult.ok){
-    statusEl.textContent = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}`;
+    statusEl.innerHTML = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}` + suggestionsHtml;
     statusEl.className = "add-status error";
   } else {
-    statusEl.textContent = successNote;
+    statusEl.innerHTML = successNote + suggestionsHtml;
     statusEl.className = "add-status success";
   }
   navigateToEntry(item);
@@ -33237,6 +33524,90 @@ function applyRemoteDistinctions(remote){
   });
 }
 
+// Only words the Owner actually saved (source:"online" — an online
+// lookup the Owner approved, or a manually-completed entry) travel
+// through sync — every client already ships the exact same hardcoded
+// built-in dictionary, and a word merely cached during someone's
+// browsing (never approved by the Owner) never reaches this array at
+// all now, since search no longer auto-persists (see
+// showOnlineVocabResult/saveOnlineVocabResult below).
+function collectOnlineVocabEntries(){
+  return vocabData.filter(e=> e.source === "online");
+}
+
+function applyRemoteVocab(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteKeys = new Set(remote.map(e=> e.w.trim().toLowerCase()));
+
+  remote.forEach(entry=> addVocabEntry(entry, {persist:true}));
+
+  const selectEl = document.getElementById("vocabSelect");
+  vocabData.slice().forEach(item=>{
+    if(item.source === "online" && !remoteKeys.has(item.w.trim().toLowerCase())){
+      const wasSelected = selectEl.value === item.w;
+      deleteVocabEntry(item.w, {skipSync:true});
+      if(wasSelected) renderVocabAfterDelete();
+    }
+  });
+}
+
+// Owner-added verbs (source:"online") only — every client ships the
+// same built-in regular/irregular lists already. `group` travels with
+// each entry so a remote client can tell Regular from Irregular apart
+// without guessing.
+function collectOnlineVerbs(){
+  const result = [];
+  ["regular", "irregular"].forEach(group=>{
+    verbData[group].filter(e=> e.source === "online").forEach(e=>{
+      result.push(Object.assign({}, e, {group: group}));
+    });
+  });
+  return result;
+}
+
+// Internal reconciliation helper only (no Delete button exists for
+// Verbs yet) — removes an owner-added verb's data, search-index
+// entries, and IndexedDB row so a deletion on another device is
+// mirrored here instead of the word lingering forever.
+function deleteVerbEntry(word, group){
+  const key = word.trim().toLowerCase();
+  const idx = verbData[group].findIndex(v=> v.w.trim().toLowerCase() === key);
+  if(idx === -1) return;
+  const removed = verbData[group][idx];
+  verbData[group].splice(idx, 1);
+
+  const targetItem = wordIndexMap.get(removed.w.trim().toLowerCase());
+  const targetAction = targetItem && targetItem.action;
+  if(targetAction){
+    for(let i = searchIndex.length - 1; i >= 0; i--){
+      if(searchIndex[i].action === targetAction){
+        wordIndexMap.delete(searchIndex[i].label.toLowerCase());
+        searchIndex.splice(i, 1);
+      }
+    }
+  }
+  if(currentVerbType === group) populateVerbSelect();
+  VocabCache.deleteCustomVerb(word, {dbPromise: vocabDbPromise});
+}
+
+function applyRemoteVerbs(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteKeys = new Set(remote.map(e=> (e.group==="irregular"?"irregular":"regular") + ":" + e.w.trim().toLowerCase()));
+
+  remote.forEach(entry=>{
+    const group = (entry.group === "irregular") ? "irregular" : "regular";
+    addVerbEntry(group, entry, {persist:true});
+  });
+
+  ["regular", "irregular"].forEach(group=>{
+    verbData[group].slice().forEach(item=>{
+      if(item.source === "online" && !remoteKeys.has(group + ":" + item.w.trim().toLowerCase())){
+        deleteVerbEntry(item.w, group);
+      }
+    });
+  });
+}
+
 document.getElementById("distinctionsAddBtn").addEventListener("click", addDistinctionFromInputs);
 document.getElementById("distinctionsAddInput1").addEventListener("keydown", (e)=>{
   if(e.key === "Enter") addDistinctionFromInputs();
@@ -33276,6 +33647,7 @@ document.getElementById("distinctionsManualCancelBtn").addEventListener("click",
     refreshMistakeUI();
     refreshLanguageBankUI();
     refreshDistinctionsUI();
+    refreshVocabUI();
     const statusEl = document.getElementById("syncStatus");
     statusEl.textContent = "Connected! Syncing as \"" + savedCode + "\".";
     statusEl.className = "add-status success";
@@ -33310,7 +33682,7 @@ document.addEventListener("click", (e)=>{
     if(entry){
       const openEntry = ()=>{
         document.getElementById("vocabSelect").value = entry.w;
-        renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank");
+        renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
         activateTab("vocab");
       };
       navigateToEntry({label: entry.w, cat: "Vocabulary Bank", action: openEntry});
@@ -33366,7 +33738,7 @@ renderRuleEntry(capitalData[0], document.getElementById("capitalEntry"), "Capita
 renderRuleEntry(orderData[0], document.getElementById("orderEntry"), "Word Order Pattern");
 renderRuleEntry(mistakeData[0], document.getElementById("mistakeEntry"), "Sentence Error");
 renderRuleEntry(qaData[0], document.getElementById("qaEntry"), "Question Starter");
-renderRuleEntry(vocabData[0], document.getElementById("vocabEntry"), "Vocabulary Bank");
+renderRuleEntry(vocabData[0], document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData[0], document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
 renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
@@ -33497,14 +33869,278 @@ function showNoMatches(){
   searchResultsEl.classList.add("show");
 }
 
+/* =========================================================
+   VOCABULARY BANK — ONLINE RESULT PREVIEW + OWNER-ONLY SAVE. A word
+   found online but not yet in the local Vocabulary Bank is displayed
+   using the exact same interface as a saved entry, with a status/
+   action area below the Previous/Next buttons: the Owner sees a "Save
+   to Vocabulary Bank" button, everyone else sees a read-only preview
+   note. Nothing here is ever persisted until the Owner explicitly
+   clicks Save — see pendingOnlineVocabResult (declared near
+   wordIndexMap above) for the not-yet-saved result currently on screen.
+========================================================= */
+function setVocabSaveAreaMessage(html, cls){
+  const areaEl = document.getElementById("vocabSaveArea");
+  areaEl.style.display = "block";
+  areaEl.innerHTML = html;
+  areaEl.className = "add-status" + (cls ? " " + cls : "");
+}
+
+function renderVocabSaveArea(){
+  const areaEl = document.getElementById("vocabSaveArea");
+  if(!pendingOnlineVocabResult){
+    areaEl.style.display = "none";
+    areaEl.innerHTML = "";
+    areaEl.className = "add-status";
+    return;
+  }
+  const word = pendingOnlineVocabResult.w;
+  if(isDeviceUnlocked()){
+    setVocabSaveAreaMessage(`
+      <p class="note" style="margin-bottom:8px;">🔎 Online result — "<strong>${word}</strong>" is not currently in your Vocabulary Bank.</p>
+      <button id="saveOnlineVocabBtn" class="add-btn">Save to Vocabulary Bank</button>
+    `);
+    document.getElementById("saveOnlineVocabBtn").addEventListener("click", saveOnlineVocabResult);
+  } else {
+    setVocabSaveAreaMessage(`<p class="note">🔎 Online preview — "<strong>${word}</strong>" isn't saved to the Vocabulary Bank yet. Ask the Owner to save it to make it permanent.</p>`);
+  }
+}
+
+// Displays an online lookup result using the normal Vocabulary Bank
+// entry interface (headword, definitions, examples, synonyms/antonyms,
+// Tagalog, Listen, Favorite — everything renderRuleEntry() already
+// draws), WITHOUT adding it to vocabData/wordIndexMap/searchIndex —
+// exactly like a saved entry to look at, but temporary until the Owner
+// explicitly saves it. Deliberately renders with no categoryKey (so
+// renderRuleEntry() never shows Edit/Delete for it — that only makes
+// sense once it's actually saved).
+function showOnlineVocabResult(result){
+  pendingOnlineVocabResult = result;
+  renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank");
+  activateTab("vocab");
+  renderVocabSaveArea();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+async function saveOnlineVocabResult(){
+  if(!isDeviceUnlocked()){
+    setVocabSaveAreaMessage(`<p class="note">This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.</p>`, "error");
+    return;
+  }
+  const result = pendingOnlineVocabResult;
+  if(!result) return;
+
+  const item = addVocabEntry(result, {persist:true});
+  const pushResult = await pushToSync(loadPersonalCorrections());
+
+  pendingOnlineVocabResult = null;
+  renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+
+  if(!pushResult.ok){
+    setVocabSaveAreaMessage(`<p class="note">✅ "${result.w}" has been added to your Vocabulary Bank. ${SyncAuth.friendlyWriteError(pushResult.error)}</p>`, "error");
+  } else {
+    setVocabSaveAreaMessage(`<p class="note">✅ "${result.w}" has been added to your Vocabulary Bank.</p>`, "success");
+  }
+
+  offerVerbFlagIfApplicable(item, result);
+}
+
+/* =========================================================
+   VERBS TAB INTEGRATION — a newly-saved Vocabulary Bank word that looks
+   like a verb (its online definition's part-of-speech prefix says so)
+   gets flagged with an Owner-only "Add it to Verbs?" prompt. Per the
+   Owner's explicit instruction, conjugations are NEVER guessed — an
+   incorrect irregular form (go -> "goed" instead of "went") would be
+   unacceptable in a grammar-teaching app — so the Owner must type all
+   five forms by hand and confirm before anything is added. Uses its own
+   #verbFlagArea (right below #vocabSaveArea on the Vocab panel) rather
+   than reusing vocabSaveArea, so the "saved to Vocabulary Bank" message
+   and the verb prompt can both stay visible at once.
+========================================================= */
+
+// dictionaryapi.dev/Wiktionary both embed part-of-speech as a
+// "(verb) "-style prefix on sense.use (see js/online-lookup.js) rather
+// than a separate field — this is the same signal renderRuleEntry()'s
+// tag text is drawn from, just detected here instead of displayed.
+function looksLikeVerb(result){
+  if(!result || !Array.isArray(result.senses)) return false;
+  return result.senses.some(s=> s.use && /^\(\s*verb\s*\)/i.test(s.use.trim()));
+}
+
+function isKnownVerb(word){
+  const key = word.trim().toLowerCase();
+  return verbData.regular.some(v=> v.w.trim().toLowerCase() === key) ||
+    verbData.irregular.some(v=> v.w.trim().toLowerCase() === key);
+}
+
+function offerVerbFlagIfApplicable(item, result){
+  if(!isDeviceUnlocked()) return;
+  if(!result || !looksLikeVerb(result)) return;
+  if(isKnownVerb(result.w)) return;
+  renderVerbFlagPrompt(result.w);
+}
+
+function hideVerbFlagArea(){
+  const areaEl = document.getElementById("verbFlagArea");
+  areaEl.style.display = "none";
+  areaEl.innerHTML = "";
+  areaEl.className = "add-status";
+}
+
+function renderVerbFlagPrompt(word){
+  const areaEl = document.getElementById("verbFlagArea");
+  areaEl.style.display = "block";
+  areaEl.className = "add-status";
+  areaEl.innerHTML = `
+    <p class="note" style="margin-bottom:8px;">This looks like a verb — add "<strong>${word}</strong>" to Verbs?</p>
+    <button id="verbFlagYesBtn" class="add-btn secondary">Add it to Verbs</button>
+    <button id="verbFlagNoBtn" class="add-btn secondary">Not now</button>
+  `;
+  document.getElementById("verbFlagYesBtn").addEventListener("click", ()=> renderVerbAddForm(word));
+  document.getElementById("verbFlagNoBtn").addEventListener("click", hideVerbFlagArea);
+}
+
+function renderVerbAddForm(word){
+  const areaEl = document.getElementById("verbFlagArea");
+  areaEl.style.display = "block";
+  areaEl.className = "add-status";
+  areaEl.innerHTML = `
+    <div class="section-label">Add "${word}" to Verbs</div>
+    <p class="note" style="margin-bottom:8px;">Type every form yourself — nothing is guessed automatically, so irregular verbs stay correct.</p>
+    <label class="note" style="display:block;margin-bottom:4px;">Verb type</label>
+    <div class="seg" id="verbFlagTypeSeg" style="margin-bottom:8px;">
+      <button class="active" data-val="regular">Regular</button>
+      <button data-val="irregular">Irregular</button>
+    </div>
+    <label class="note" style="display:block;margin-bottom:4px;">Base Form</label>
+    <input type="text" id="verbFormBase" autocomplete="off" value="${word}">
+    <label class="note" style="display:block;margin-bottom:4px;">3rd Person Singular (he/she/it)</label>
+    <input type="text" id="verbFormS" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Past Tense</label>
+    <input type="text" id="verbFormPast" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Past Participle</label>
+    <input type="text" id="verbFormPP" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Present Participle / -ing Form</label>
+    <input type="text" id="verbFormIng" autocomplete="off">
+    <button id="verbFlagSaveBtn" class="add-btn">Save to Verbs</button>
+    <button id="verbFlagCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="verbFlagStatus" class="add-status"></div>
+  `;
+  document.querySelectorAll("#verbFlagTypeSeg button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      document.querySelectorAll("#verbFlagTypeSeg button").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+  document.getElementById("verbFlagCancelBtn").addEventListener("click", hideVerbFlagArea);
+  document.getElementById("verbFlagSaveBtn").addEventListener("click", saveVerbFromFlagForm);
+}
+
+async function saveVerbFromFlagForm(){
+  const statusEl = document.getElementById("verbFlagStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const group = document.querySelector("#verbFlagTypeSeg button.active").dataset.val;
+  const base = document.getElementById("verbFormBase").value.trim();
+  const s = document.getElementById("verbFormS").value.trim();
+  const past = document.getElementById("verbFormPast").value.trim();
+  const pp = document.getElementById("verbFormPP").value.trim();
+  const ing = document.getElementById("verbFormIng").value.trim();
+
+  if(!base || !s || !past || !pp || !ing){
+    statusEl.textContent = "Please fill in all five forms.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownVerb(base)){
+    statusEl.textContent = `"${base}" is already in Verbs.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const entry = { w: base, s: s, ing: ing, past: past, pp: pp, obj: "", syn: [], ant: [], source: "online" };
+  addVerbEntry(group, entry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+  hideVerbFlagArea();
+  renderRuleEntry(pendingOnlineVocabResult || {w: base, senses: []}, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+  setVocabSaveAreaMessage(`<p class="note">✅ "${base}" has been added to your Vocabulary Bank and to Verbs (${group}).</p>`, "success");
+}
+
+// The single choke point for adding an owner-provided verb — mirrors
+// the original built-in verb search-indexing loop's closure pattern
+// exactly (re-finds `v` by word text at call time via
+// verbData[group].findIndex(...), never a captured index, since
+// populateVerbSelect() rebuilds <option> values from the CURRENT array
+// order every time), so an owner-added verb navigates identically to a
+// built-in one. Also the reverse-sync half of requirement #6: any verb
+// added here that isn't already in the Vocabulary Bank gets a matching
+// entry created there too, so the two stay consistent no matter which
+// tab the word was discovered from.
+function addVerbEntry(group, entry, options){
+  const opts = options || {};
+  if(isKnownVerb(entry.w)) return null;
+
+  // Reverse-sync (requirement #6, other direction): done BEFORE this
+  // verb gets its own wordIndexMap entry below, specifically so
+  // addVocabEntry()'s own dedup check (which also reads wordIndexMap)
+  // doesn't mistake the verb's about-to-be-created search entry for an
+  // existing Vocabulary Bank entry and skip creating a real one.
+  if(!vocabLookup.has(entry.w.trim().toLowerCase())){
+    addVocabEntry({
+      w: entry.w,
+      senses: [{ use: "(verb) See the Verbs tab for full conjugation.", examples: [] }],
+      syn: entry.syn || [], ant: entry.ant || [], mistake: null, tagalog: null, phonetic: null,
+      source: "online"
+    }, {persist: opts.persist});
+  }
+
+  verbData[group].push(entry);
+
+  const catLabel = "Verb (" + group + ")";
+  const openThisVerb = ()=>{
+    currentVerbType = group;
+    document.querySelectorAll("#verbTypeSeg button").forEach(b=>b.classList.toggle("active", b.dataset.val===group));
+    populateVerbSelect();
+    verbSelect.value = verbData[group].findIndex(x=>x.w===entry.w);
+    renderVerb();
+    activateTab("verbs");
+  };
+  const item = {label: entry.w, cat: catLabel, action: openThisVerb};
+  searchIndex.push(item);
+  wordIndexMap.set(entry.w.trim().toLowerCase(), item);
+  [entry.s, entry.ing, entry.past, entry.pp].forEach(form=>{
+    if(form && form !== entry.w){
+      const formItem = {label: form, cat: catLabel + " form", action: openThisVerb};
+      searchIndex.push(formItem);
+      if(!wordIndexMap.has(form.trim().toLowerCase())) wordIndexMap.set(form.trim().toLowerCase(), formItem);
+    }
+  });
+
+  if(opts.persist){
+    VocabCache.putCustomVerb({w: entry.w, group: group, s: entry.s, ing: entry.ing, past: entry.past, pp: entry.pp, obj: entry.obj || "", syn: entry.syn || [], ant: entry.ant || [], source: "online"}, {dbPromise: vocabDbPromise});
+  }
+
+  return item;
+}
+
+const customVerbsCacheRestorePromise = VocabCache.getAllCustomVerbs({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=>{
+    const group = (entry.group === "irregular") ? "irregular" : "regular";
+    addVerbEntry(group, entry, {persist:false});
+  });
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 // Online fallback — the third and last search tier, after the local
 // Vocabulary Bank and the IndexedDB cache (both already covered by the
 // wordIndexMap check in runSearchPipeline, since addVocabEntry() merges
 // cached words into it on load). `onlineLookupCache` is just an
 // in-memory de-dupe for repeat lookups within THIS page load, so typing
-// the same word twice doesn't double-fetch before it's been persisted;
-// the real persistence layer is IndexedDB via addVocabEntry(..., {persist:true})
-// below, once a result comes back.
+// the same word twice doesn't double-fetch. Never auto-persisted
+// anymore — see showOnlineVocabResult()/saveOnlineVocabResult() above;
+// the Owner decides whether it becomes a permanent entry.
 //
 // `shown` is whatever's already rendered in the dropdown (local
 // substring matches, fuzzy "did you mean" suggestions, or [] if
@@ -33540,12 +34176,23 @@ function tryOnlineLookup(q, shown){
       // shown in place — the online attempt just came up empty.
       return;
     }
-    // Adopt it into the Vocabulary Bank right away (same tab, same
-    // "Vocabulary Bank" tag, same dropdown, persisted to IndexedDB) so
-    // it's indistinguishable from a built-in word from this point on,
-    // this session and every one after.
-    const item = addVocabEntry(result, {persist:true});
-    renderSearchMatches(shown.concat([item]));
+    if(shown.length === 0){
+      // Nothing else matched locally — display the online result right
+      // away using the Vocabulary Bank's own interface, exactly like
+      // the "🔎 Online Result" preview, rather than leaving it as one
+      // more row to click in an otherwise-empty dropdown.
+      searchResultsEl.classList.remove("show");
+      showOnlineVocabResult(result);
+    } else {
+      // Local matches/suggestions are already on screen — add the
+      // online result as one more clickable row instead of yanking the
+      // user away from what's already shown.
+      renderSearchMatches(shown.concat([{
+        label: result.w,
+        cat: "Online result — not yet saved",
+        action: ()=> showOnlineVocabResult(result)
+      }]));
+    }
   });
 }
 
@@ -33686,7 +34333,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   saveLanguageBankManualEntry, skipLanguageBankManualEntry,
   cancelLanguageBankManualEntry, languageBankPendingManual,
   deleteLanguageBankEntry, openLanguageBankEditForm, saveLanguageBankEdit,
-  renderLanguageBankAfterDelete, refreshLanguageBankUI, renderRuleEntry,
+  renderLanguageBankAfterDelete, refreshLanguageBankUI, refreshVocabUI, renderRuleEntry,
   waitForInitialAuthState, speakText, makeListenButtonHtml, wireListenButton,
   makePhoneticHtml, renderVerb, renderPrep, renderFamily,
   distinctionsCacheRestorePromise, addDistinctionEntry, addDistinctionFromInputs,
@@ -33695,7 +34342,16 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   openDistinctionEditForm, saveDistinctionEdit, refreshDistinctionsUI,
   collectOnlineDistinctions, applyRemoteDistinctions,
   saveDistinctionsManualEntry, cancelDistinctionsManualEntry,
-  getDistinctionsPendingManual: ()=> distinctionsPendingManual
+  getDistinctionsPendingManual: ()=> distinctionsPendingManual,
+  openVocabEditForm, saveVocabEdit, deleteVocabEntry, renderVocabAfterDelete,
+  collectOnlineVocabEntries, applyRemoteVocab,
+  showOnlineVocabResult, saveOnlineVocabResult, setVocabSaveAreaMessage,
+  renderVocabSaveArea, getPendingOnlineVocabResult: ()=> pendingOnlineVocabResult,
+  suggestVocabFromEntryText, renderVocabSuggestionsHtml,
+  looksLikeVerb, isKnownVerb, offerVerbFlagIfApplicable,
+  renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
+  addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
+  customVerbsCacheRestorePromise
 };
 </script>
 <script>
