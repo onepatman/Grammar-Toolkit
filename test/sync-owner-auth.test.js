@@ -402,6 +402,9 @@ describe("a real owner sign-in unlocks admin controls on a device with NO local 
     document.getElementById("phrasalAddBtn").click();
     await wait(50);
 
+    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-save-btn").click();
+    await wait(50);
+
     expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(true);
   });
 

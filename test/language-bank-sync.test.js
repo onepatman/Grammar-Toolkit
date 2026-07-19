@@ -65,6 +65,9 @@ describe("the owner's Language Bank additions reach the shared Firestore doc", (
     document.getElementById("idiomsAddBtn").click();
     await wait(50);
 
+    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
+    await wait(50);
+
     const doc = firebase._docs.get("syncedLogs/lb-code-2");
     expect(doc.languageBank.idioms.some((e) => e.w === "burn the midnight oil")).toBe(true);
     expect(document.getElementById("idiomsAddStatus").textContent).toContain("Added");
@@ -117,6 +120,9 @@ describe("a non-owner's Language Bank additions are not pushed to the shared log
     const document = window.document;
     document.getElementById("idiomsAddInput").value = "burn the midnight oil";
     document.getElementById("idiomsAddBtn").click();
+    await wait(50);
+
+    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
     await wait(50);
 
     // Unlike a rejected correction-log write, this is NOT rolled back —

@@ -172,6 +172,9 @@ describe("phonetic spelling shown for an online-looked-up word", () => {
     document.getElementById("phrasalAddBtn").click();
     await wait(30);
 
+    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-save-btn").click();
+    await wait(30);
+
     expect(document.getElementById("phrasalEntry").querySelector(".phonetic").textContent).toBe("/rɪˈzɪliənt/");
   });
 

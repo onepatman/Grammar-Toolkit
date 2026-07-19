@@ -127,7 +127,7 @@ describe.each([
     expect(document.getElementById(statusId).textContent).toContain("Please enter");
   });
 
-  it("looks up online and adds the entry, populating from the result", async () => {
+  it("looks up online, previews the result, and only adds it once Save is clicked", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     stubFetch(window, sample);
@@ -136,12 +136,41 @@ describe.each([
     document.getElementById(btnId).click();
     await wait(30);
 
+    // Not saved yet — a preview with Save/Decline is shown first.
+    const statusEl = document.getElementById(statusId);
+    expect(statusEl.textContent).toContain("ready to be added");
+    expect(hooks[dataKey].some((p) => p.w === sample.w)).toBe(false);
+    const saveBtn = statusEl.querySelector(".lb-lookup-save-btn");
+    expect(saveBtn).toBeTruthy();
+    expect(statusEl.querySelector(".lb-lookup-decline-btn")).toBeTruthy();
+
+    saveBtn.click();
+    await wait(30);
+
     expect(document.getElementById(statusId).textContent).toContain("Added");
     expect(hooks[dataKey].some((p) => p.w === sample.w)).toBe(true);
     expect(hooks.wordIndexMap.get(sample.w.toLowerCase()).cat).toBe(tagLabel);
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
     expect(document.querySelector(`#langBankCategorySeg button[data-val="${key}"]`).classList.contains("active")).toBe(true);
     expect(document.getElementById(entryId).querySelector(".headword").textContent).toBe(sample.w);
+  });
+
+  it("Decline discards the previewed entry — nothing is saved", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubFetch(window, sample);
+
+    document.getElementById(inputId).value = sample.w;
+    document.getElementById(btnId).click();
+    await wait(30);
+
+    const statusEl = document.getElementById(statusId);
+    statusEl.querySelector(".lb-lookup-decline-btn").click();
+    await wait(10);
+
+    expect(document.getElementById(statusId).textContent).toContain("Not saved");
+    expect(hooks[dataKey].some((p) => p.w === sample.w)).toBe(false);
+    expect(hooks.wordIndexMap.has(sample.w.toLowerCase())).toBe(false);
   });
 
   it("does not create a duplicate and instead navigates to the existing built-in entry when it's already known", async () => {

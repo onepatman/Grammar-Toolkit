@@ -31,7 +31,7 @@ describe("Phrasal Words quick-add UI", () => {
     expect(document.getElementById("phrasalAddStatus").textContent).toContain("enter a phrasal verb");
   });
 
-  it("looks up online and adds the phrase, populating from the result", async () => {
+  it("looks up online, previews the result, and only adds it once Save is clicked", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     stubFetch(window, ONLINE_PHRASAL_RESULT);
@@ -40,12 +40,36 @@ describe("Phrasal Words quick-add UI", () => {
     document.getElementById("phrasalAddBtn").click();
     await new Promise((r) => setTimeout(r, 30));
 
+    // Not saved yet — shown as a preview with Save/Decline first.
+    const statusEl = document.getElementById("phrasalAddStatus");
+    expect(statusEl.textContent).toContain("ready to be added");
+    expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(false);
+
+    statusEl.querySelector(".lb-lookup-save-btn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
     expect(document.getElementById("phrasalAddStatus").textContent).toContain("Added");
     expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(true);
     expect(hooks.wordIndexMap.get("wind down").cat).toBe("Phrasal Verb");
     // Navigates straight to the new entry.
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
     expect(document.getElementById("phrasalEntry").querySelector(".headword").textContent).toBe("wind down");
+  });
+
+  it("Decline discards the previewed phrase — nothing is saved", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubFetch(window, ONLINE_PHRASAL_RESULT);
+
+    document.getElementById("phrasalAddInput").value = "wind down";
+    document.getElementById("phrasalAddBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+
+    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-decline-btn").click();
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(document.getElementById("phrasalAddStatus").textContent).toContain("Not saved");
+    expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(false);
   });
 
   it("clears the input field after a successful add", async () => {
@@ -88,6 +112,8 @@ describe("Phrasal Words quick-add UI", () => {
 
     document.getElementById("phrasalAddInput").value = "zonk out";
     document.getElementById("phrasalAddBtn").click();
+    await new Promise((r) => setTimeout(r, 30));
+    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-save-btn").click();
     await new Promise((r) => setTimeout(r, 30));
 
     const entryEl = document.getElementById("phrasalEntry");
@@ -138,6 +164,13 @@ describe("Phrasal Words quick-add UI", () => {
     const input = document.getElementById("phrasalAddInput");
     input.value = "wind down";
     input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter" }));
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Enter triggers the same lookup + preview as clicking the button —
+    // still requires an explicit Save before anything is persisted.
+    const statusEl = document.getElementById("phrasalAddStatus");
+    expect(statusEl.textContent).toContain("ready to be added");
+    statusEl.querySelector(".lb-lookup-save-btn").click();
     await new Promise((r) => setTimeout(r, 30));
 
     expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(true);

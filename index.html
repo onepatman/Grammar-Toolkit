@@ -922,13 +922,6 @@
         <button id="distinctionsManualCancelBtn" class="add-btn secondary">Cancel</button>
       </div>
     </div>
-
-    <div class="quick-add-box owner-only" id="distinctionsVocabCheckBox">
-      <div class="section-label">Check / Save a word to the Vocabulary Bank</div>
-      <p class="note" style="margin-bottom:8px;">Type any word to see whether it's already in the Vocabulary Bank, or save it as a new entry.</p>
-      <input type="text" id="distinctionsVocabCheckInput" placeholder="Type a word to check…" autocomplete="off">
-      <div id="distinctionsVocabCheckResult" class="add-status"></div>
-    </div>
   </section>
 
   <!-- ===== WORD FAMILY PANEL ===== -->
@@ -1228,13 +1221,6 @@
         </div>
       </div>
     </div>
-
-    <div class="quick-add-box owner-only" id="langbankVocabCheckBox">
-      <div class="section-label">Check / Save a word to the Vocabulary Bank</div>
-      <p class="note" style="margin-bottom:8px;">Type any word to see whether it's already in the Vocabulary Bank, or save it as a new entry — independent of whichever Language Bank category is showing above.</p>
-      <input type="text" id="langbankVocabCheckInput" placeholder="Type a word to check…" autocomplete="off">
-      <div id="langbankVocabCheckResult" class="add-status"></div>
-    </div>
   </section>
 
 </main>
@@ -1267,7 +1253,6 @@
 <script src="js/spaced-repetition.js"></script>
 <script src="js/owner-mode.js"></script>
 <script src="js/sync-auth.js"></script>
-<script src="js/vocab-suggest.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -31254,6 +31239,7 @@ function addVocabEntry(entry, options){
   const opts = options || {};
   const key = normalizeWordKey(entry.w);
   const existingItem = wordIndexMap.get(key);
+  let reuseItemAsCanonical = null;
 
   if(existingItem){
     // Already a built-in word, or already cached from an earlier
@@ -31278,7 +31264,13 @@ function addVocabEntry(entry, options){
         activateTab("vocab");
       }};
     }
-    return existingItem;
+    // Known elsewhere (e.g. a Distinction Word or an Idiom) but has no
+    // dedicated Vocabulary Bank record of its own yet — this is exactly
+    // what Save to Vocabulary Bank creates. Vocabulary Bank is the
+    // highest-priority category (see vocabCategoryPriority), so it also
+    // becomes this word's canonical Master Vocabulary Bank entry from
+    // here on, in place of whichever other category held that slot.
+    reuseItemAsCanonical = existingItem;
   }
 
   vocabData.push(entry);
@@ -31293,8 +31285,12 @@ function addVocabEntry(entry, options){
     renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
     activateTab("vocab");
   };
-  const item = {label: entry.w, cat: "Vocabulary Bank", categories: ["Vocabulary Bank"], action};
-  searchIndex.push(item);
+  const item = reuseItemAsCanonical || {label: entry.w, cat: "Vocabulary Bank", categories: ["Vocabulary Bank"], action};
+  if(reuseItemAsCanonical){
+    item.cat = "Vocabulary Bank";
+    item.action = action;
+  }
+  searchIndex.push({label: entry.w, cat: "Vocabulary Bank", action});
   wordIndexMap.set(key, item);
   vocabLookup.set(key, entry.w);
 
@@ -32856,201 +32852,87 @@ document.getElementById("packImportInput").addEventListener("change", (e)=>{
 const languageBankLookupCache = OnlineLookup.createMemoryCache();
 
 /* =========================================================
-   VOCABULARY SUGGESTIONS — after a Language Bank or Distinctions entry
-   is added, scan its own definition/example text for words that might
-   be worth adding to the Vocabulary Bank too (js/vocab-suggest.js does
-   the actual heuristic — stopwords out, already-known words out, short
-   words out, capped count). Owner-only, and NEVER auto-saved: each
-   suggestion is just a button the Owner can click, exactly like the
-   Save button on an online search result, except it stays right where
-   the Owner is working instead of navigating them away to the Vocab tab.
+   SAVE TO VOCABULARY BANK — a targeted check tied to Look Up & Add,
+   completely separate from it. After a Distinction Words pair or a
+   Language Bank entry is actually saved (never automatically — only
+   once the Owner clicks Save on the Look Up & Add preview below), the
+   exact word(s) the Owner intentionally typed — never words pulled out
+   of a definition or example sentence — are checked against the
+   Master Vocabulary Bank (wordIndexMap) and offered individually:
+   already known -> a plain "already available" notice, not known ->
+   its own "Save to Vocabulary Bank" button. Each candidate already
+   carries full sense/synonym/antonym data from its own lookup (a
+   Distinctions word1/word2, or the whole Language Bank entry itself),
+   so saving it to the Vocabulary Bank never needs a second online
+   lookup — it just reuses that same content.
 ========================================================= */
-function suggestVocabFromEntryText(entry){
-  const texts = [];
-  (entry.senses || []).forEach(s=>{
-    if(s.use) texts.push(s.use);
-    (s.examples || []).forEach(ex=> texts.push(ex));
-  });
-  return VocabSuggest.extractVocabCandidates(texts.join(" "), {
-    isKnown: w=> wordIndexMap.has(w)
-  });
-}
+const pendingVocabBankCandidates = new Map();
 
-function renderVocabSuggestionsHtml(candidates){
+function renderVocabBankCheckRows(candidates){
   if(!isDeviceUnlocked() || !candidates || candidates.length === 0) return "";
-  const rowsHtml = candidates.map(w=> `
-    <div class="vocab-suggest-row" data-word="${w}">
-      <span>💡 Potential new vocabulary: <strong>${w}</strong></span>
-      <button class="add-btn secondary vocab-suggest-save-btn" data-word="${w}">Save to Vocabulary Bank</button>
-    </div>`).join("");
+  const rowsHtml = candidates.map(({w, entry, alreadyKnown})=>{
+    const key = normalizeWordKey(w);
+    if(alreadyKnown){
+      return `<div class="vocab-suggest-row"><span>✓ "${w}" is already available in the Vocabulary Bank.</span></div>`;
+    }
+    pendingVocabBankCandidates.set(key, entry);
+    return `<div class="vocab-suggest-row" data-word="${w}">
+      <span>${w}</span>
+      <button class="add-btn secondary vocab-bank-check-save-btn" data-word="${w}">Save to Vocabulary Bank</button>
+    </div>`;
+  }).join("");
   return `<div class="vocab-suggest-box">${rowsHtml}</div>`;
 }
 
+// Whether a word already has its own dedicated Vocabulary Bank record
+// (vocabData) — checked against vocabData specifically, NOT the
+// wider wordIndexMap, since a Look Up & Add always indexes its own
+// entry into wordIndexMap under ITS category (Idiom, Distinction Word,
+// etc.) regardless of whether a standalone Vocabulary Bank entry also
+// exists. Using wordIndexMap here would make every candidate look
+// "already available" immediately after its own unrelated category add.
+function isKnownVocabBankWord(word){
+  const key = normalizeWordKey(word);
+  return vocabData.some(v => normalizeWordKey(v.w) === key);
+}
+
+function markKnownVocabCandidates(candidates){
+  return (candidates || []).map(c => ({...c, alreadyKnown: isKnownVocabBankWord(c.w)}));
+}
+
 document.addEventListener("click", async (e)=>{
-  const btn = e.target.closest(".vocab-suggest-save-btn");
+  const btn = e.target.closest(".vocab-bank-check-save-btn");
   if(!btn) return;
   if(!isDeviceUnlocked()) return; // defensive — this button only ever renders while unlocked
   const word = btn.dataset.word;
-  const rowEl = btn.closest(".vocab-suggest-row");
-  btn.disabled = true;
-  btn.textContent = "Looking up…";
-
   const key = normalizeWordKey(word);
-  if(wordIndexMap.has(key)){
-    rowEl.innerHTML = `<span>✅ "${word}" is already in your Vocabulary Bank.</span>`;
-    return;
-  }
+  const rowEl = btn.closest(".vocab-suggest-row");
+  const entry = pendingVocabBankCandidates.get(key);
 
-  const result = await OnlineLookup.fetchOnlineDefinition(word, {
-    cache: languageBankLookupCache,
-    generateFallbackExamples: false
-  });
-  if(!result){
-    rowEl.innerHTML = `<span>Couldn't find "${word}" online — not saved.</span>`;
+  if(isKnownVocabBankWord(word)){
+    // Saved from elsewhere (another device via sync, etc.) while this
+    // button sat waiting to be clicked.
+    rowEl.innerHTML = `<span>✓ "${word}" is already available in the Vocabulary Bank.</span>`;
     return;
   }
-  // Deliberately doesn't offer the "looks like a verb" flag here — this
-  // save happens inline while the Owner is working in the Language Bank
-  // or Distinctions tab, not the Vocab tab, so surfacing a verb prompt
-  // in a status box off in another tab (via #verbFlagArea, only present
-  // on panel-vocab) would go unseen. That flag is offered only from the
-  // main Vocab search/save path — see saveOnlineVocabResult() below.
-  addVocabEntry(result, {persist:true});
+  if(!entry) return; // defensive — shouldn't happen, this button only renders alongside a stored candidate
+
+  addVocabEntry({...entry, w: word}, {persist:true});
   await pushToSync(loadPersonalCorrections());
+  pendingVocabBankCandidates.delete(key);
   rowEl.innerHTML = `<span>✅ "${word}" has been added to your Vocabulary Bank.</span>`;
 });
 
-/* =========================================================
-   VOCABULARY CHECK / SAVE WIDGET — a manual, always-visible companion
-   to the auto-extracted suggestions above: type ANY word (not just one
-   the app noticed in an entry's own text) and it's checked against the
-   Master Vocabulary Bank (wordIndexMap) live as you type. Already
-   known -> a "View entry" link, no save option offered (nothing to add
-   — see Scenario A in the spec this implements). Not known -> a "Save
-   '<exact text>' to Vocabulary" button that looks the word up online,
-   falling back to a manual meaning/example box (same shape as every
-   other manual-completion flow in this file) if no source has it.
-   Whatever the online source returns, the word actually saved is
-   always the exact text the Owner typed — never a spelling/casing the
-   API happened to normalize it to. One shared setup function, mounted
-   once for the Language Bank tab and once for Distinctions Words, so
-   it's usable no matter which of those two tabs is open. */
-function renderVocabCheckResult(resultEl, html, cls){
-  resultEl.innerHTML = html;
-  resultEl.className = "add-status" + (cls ? " " + cls : "");
-}
-
-function setupVocabCheckWidget(inputId, resultId){
-  const input = document.getElementById(inputId);
-  const resultEl = document.getElementById(resultId);
-  let debounceTimer = null;
-
-  function showManualFallback(word){
-    renderVocabCheckResult(resultEl, `
-      <p class="note" style="margin-bottom:8px;">No online definition was found for "<strong>${word}</strong>". Add your own meaning so this entry isn't left unusable:</p>
-      <textarea class="vocab-check-manual-use" placeholder='Meaning / rule &amp; usage (e.g. "(adjective) Very unusual or remarkable.")' rows="2"></textarea>
-      <input type="text" class="vocab-check-manual-example" placeholder="Example sentence (optional)" autocomplete="off">
-      <button class="add-btn vocab-check-manual-save-btn" data-word="${word}" style="margin-top:8px;">Save with my notes</button>
-      <button class="add-btn secondary vocab-check-manual-cancel-btn">Cancel</button>
-    `);
-  }
-
-  function checkNow(){
-    const typed = input.value.trim();
-    if(!typed){
-      renderVocabCheckResult(resultEl, "");
-      return;
-    }
-    const key = normalizeWordKey(typed);
-    const existing = wordIndexMap.get(key);
-    if(existing){
-      renderVocabCheckResult(resultEl, `
-        <p class="note" style="margin-bottom:6px;">✅ "${typed}" is already available in the Vocabulary Bank.</p>
-        <button class="add-btn secondary vocab-check-view-btn">View entry</button>
-      `);
-      resultEl.querySelector(".vocab-check-view-btn").addEventListener("click", ()=> navigateToEntry(existing));
-    } else if(isDeviceUnlocked()){
-      renderVocabCheckResult(resultEl, `<button class="add-btn vocab-check-save-btn" data-word="${typed}">Save "${typed}" to Vocabulary</button>`);
-    } else {
-      renderVocabCheckResult(resultEl, "");
-    }
-  }
-
-  input.addEventListener("input", ()=>{
-    if(debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(checkNow, 300);
-  });
-
-  resultEl.addEventListener("click", async (e)=>{
-    const saveBtn = e.target.closest(".vocab-check-save-btn");
-    const manualSaveBtn = e.target.closest(".vocab-check-manual-save-btn");
-    const manualCancelBtn = e.target.closest(".vocab-check-manual-cancel-btn");
-
-    if(manualCancelBtn){
-      checkNow();
-      return;
-    }
-
-    if(manualSaveBtn){
-      if(!isDeviceUnlocked()) return;
-      const word = manualSaveBtn.dataset.word;
-      const useText = resultEl.querySelector(".vocab-check-manual-use").value.trim();
-      const exampleText = resultEl.querySelector(".vocab-check-manual-example").value.trim();
-      if(!useText){
-        manualSaveBtn.insertAdjacentHTML("afterend", '<div class="add-status error" style="margin-top:6px;">Please add a meaning before saving.</div>');
-        return;
-      }
-      addVocabEntry({
-        w: word,
-        senses: [{use: useText, examples: exampleText ? [exampleText] : []}],
-        syn: [], ant: [], mistake: null, tagalog: null, phonetic: null,
-        source: "online"
-      }, {persist:true});
-      await pushToSync(loadPersonalCorrections());
-      renderVocabCheckResult(resultEl, `<p class="note">✅ "${word}" has been added to your Vocabulary Bank.</p>`, "success");
-      input.value = "";
-      return;
-    }
-
-    if(saveBtn){
-      if(!isDeviceUnlocked()) return;
-      const word = saveBtn.dataset.word;
-      const key = normalizeWordKey(word);
-      if(wordIndexMap.has(key)){
-        // Saved from elsewhere (another device via sync, the other
-        // widget instance, etc.) while this button sat waiting to be
-        // clicked — re-check rather than risk a duplicate.
-        checkNow();
-        return;
-      }
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Looking up…";
-      const result = await OnlineLookup.fetchOnlineDefinition(word, {
-        cache: languageBankLookupCache,
-        generateFallbackExamples: false
-      });
-      if(!result){
-        showManualFallback(word);
-        return;
-      }
-      // Always save the EXACT word the Owner typed — never whatever
-      // spelling/casing the online source happened to normalize it to.
-      addVocabEntry({...result, w: word}, {persist:true});
-      await pushToSync(loadPersonalCorrections());
-      renderVocabCheckResult(resultEl, `<p class="note">✅ "${word}" has been added to your Vocabulary Bank.</p>`, "success");
-      input.value = "";
-    }
-  });
-}
-
-setupVocabCheckWidget("langbankVocabCheckInput", "langbankVocabCheckResult");
-setupVocabCheckWidget("distinctionsVocabCheckInput", "distinctionsVocabCheckResult");
-
 // Shared "actually commit the entry" tail — used whether the entry came
-// from a successful online lookup, a manually-typed explanation, or the
-// no-notes skip path, so the persist/sync/status/navigate logic exists
-// in exactly one place instead of 3 near-copies of it.
-async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote){
+// from a successful online lookup (after the Owner explicitly clicks
+// Save on the preview), a manually-typed explanation, or the no-notes
+// skip path, so the persist/sync/status/navigate logic exists in
+// exactly one place instead of 3 near-copies of it. `vocabCandidates`
+// is the Save-to-Vocabulary-Bank check for the exact word(s) the Owner
+// typed — see the block above; entirely optional/independent of
+// whether this Language Bank entry itself gets saved.
+async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote, vocabCandidates){
+  const checkedVocabCandidates = markKnownVocabCandidates(vocabCandidates);
   const item = addLanguageBankEntry(categoryKey, entry, {persist:true});
 
   // Unlike the correction log, a Language Bank entry that fails to
@@ -33062,7 +32944,7 @@ async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote
   // Only actually reaches Firestore when sync is connected — otherwise
   // this resolves {ok:true, skipped:true} immediately, same as corrections.
   const pushResult = await pushToSync(loadPersonalCorrections());
-  const suggestionsHtml = renderVocabSuggestionsHtml(suggestVocabFromEntryText(entry));
+  const suggestionsHtml = renderVocabBankCheckRows(checkedVocabCandidates);
   if(!pushResult.ok){
     statusEl.innerHTML = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}` + suggestionsHtml;
     statusEl.className = "add-status error";
@@ -33089,10 +32971,64 @@ function hideLanguageBankManualBox(categoryKey){
   if(config.manualExampleId) document.getElementById(config.manualExampleId).value = "";
 }
 
+// Look Up & Add's own confirm/decline gate — kept entirely separate
+// from Save-to-Vocabulary-Bank above. A successful online lookup is
+// never saved automatically: it's held here until the Owner explicitly
+// clicks Save (persisting the complete entry to this category) or
+// Decline (discarding it, nothing written anywhere).
+const languageBankPendingSave = {};
+
+function renderLanguageBankSavePreview(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const pending = languageBankPendingSave[categoryKey];
+  const statusEl = document.getElementById(config.statusId);
+  const entry = pending.entry;
+  const useText = (entry.senses[0] && entry.senses[0].use) || "";
+  statusEl.innerHTML = `
+    <p class="note" style="margin-bottom:6px;">This entry is ready to be added to your ${config.tagLabel} list:</p>
+    <div class="lookup-preview">
+      <strong>${entry.w}</strong>
+      ${useText ? `<p class="note" style="margin:4px 0 0;">${useText}</p>` : ""}
+    </div>
+    <button class="add-btn lb-lookup-save-btn" data-category="${categoryKey}" style="margin-top:8px;">Save</button>
+    <button class="add-btn secondary lb-lookup-decline-btn" data-category="${categoryKey}">Decline</button>
+  `;
+  statusEl.className = "add-status";
+}
+
+function hideLanguageBankSavePreview(categoryKey){
+  delete languageBankPendingSave[categoryKey];
+}
+
+document.addEventListener("click", async (e)=>{
+  const saveBtn = e.target.closest(".lb-lookup-save-btn");
+  const declineBtn = e.target.closest(".lb-lookup-decline-btn");
+  if(!saveBtn && !declineBtn) return;
+  const categoryKey = (saveBtn || declineBtn).dataset.category;
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const statusEl = document.getElementById(config.statusId);
+  const pending = languageBankPendingSave[categoryKey];
+  if(!pending) return;
+  hideLanguageBankSavePreview(categoryKey);
+
+  if(declineBtn){
+    statusEl.textContent = "Not saved.";
+    statusEl.className = "add-status";
+    return;
+  }
+
+  await finalizeLanguageBankAdd(
+    categoryKey, pending.entry, statusEl,
+    `Added "${pending.entry.w}" — now searchable and available offline.`,
+    [{w: pending.typedText, entry: pending.entry}]
+  );
+});
+
 async function addLanguageBankEntryFromInput(categoryKey){
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   const statusEl = document.getElementById(config.statusId);
   hideLanguageBankManualBox(categoryKey);
+  hideLanguageBankSavePreview(categoryKey);
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
@@ -33154,7 +33090,8 @@ async function addLanguageBankEntryFromInput(categoryKey){
   }
 
   input.value = "";
-  await finalizeLanguageBankAdd(categoryKey, result, statusEl, `Added "${result.w}" — now searchable and available offline.`);
+  languageBankPendingSave[categoryKey] = { entry: result, typedText: text };
+  renderLanguageBankSavePreview(categoryKey);
 }
 
 async function saveLanguageBankManualEntry(categoryKey){
@@ -33189,7 +33126,7 @@ async function saveLanguageBankManualEntry(categoryKey){
 
   document.getElementById(config.inputId).value = "";
   hideLanguageBankManualBox(categoryKey);
-  await finalizeLanguageBankAdd(categoryKey, entry, statusEl, `Added "${entry.w}" with your own notes — now searchable and available offline.`);
+  await finalizeLanguageBankAdd(categoryKey, entry, statusEl, `Added "${entry.w}" with your own notes — now searchable and available offline.`, [{w: entry.w, entry}]);
 }
 
 async function skipLanguageBankManualEntry(categoryKey){
@@ -33207,7 +33144,7 @@ async function skipLanguageBankManualEntry(categoryKey){
 
   document.getElementById(config.inputId).value = "";
   hideLanguageBankManualBox(categoryKey);
-  await finalizeLanguageBankAdd(categoryKey, entry, statusEl, `Added "${entry.w}" — no online definition was found for it, so it was saved with just the text you entered.`);
+  await finalizeLanguageBankAdd(categoryKey, entry, statusEl, `Added "${entry.w}" — no online definition was found for it, so it was saved with just the text you entered.`, [{w: entry.w, entry}]);
 }
 
 function cancelLanguageBankManualEntry(categoryKey){
@@ -33605,7 +33542,8 @@ function addDistinctionEntry(entry, options){
   return {label: entry.word1.w, cat: DISTINCTIONS_TAG_LABEL, action};
 }
 
-async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, successNote){
+async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, successNote, vocabCandidates){
+  const checkedVocabCandidates = markKnownVocabCandidates(vocabCandidates);
   const entry = {
     w: word1Result.w + " vs " + word2Result.w,
     word1: word1Result,
@@ -33615,10 +33553,7 @@ async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, succes
   const item = addDistinctionEntry(entry, {persist:true});
 
   const pushResult = await pushToSync(loadPersonalCorrections());
-  const candidates = suggestVocabFromEntryText({
-    senses: (word1Result.senses || []).concat(word2Result.senses || [])
-  });
-  const suggestionsHtml = renderVocabSuggestionsHtml(candidates);
+  const suggestionsHtml = renderVocabBankCheckRows(checkedVocabCandidates);
   if(!pushResult.ok){
     statusEl.innerHTML = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}` + suggestionsHtml;
     statusEl.className = "add-status error";
@@ -33629,6 +33564,57 @@ async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, succes
   navigateToEntry(item);
   return item;
 }
+
+// Look Up & Add's own confirm/decline gate — kept entirely separate
+// from Save-to-Vocabulary-Bank. A successful online lookup for both
+// words is never saved automatically: it's held here until the Owner
+// explicitly clicks Save (persisting the complete pair to Distinction
+// Words) or Decline (discarding it, nothing written anywhere).
+let distinctionsPendingSave = null;
+
+function renderDistinctionsSavePreview(){
+  const pending = distinctionsPendingSave;
+  const statusEl = document.getElementById("distinctionsAddStatus");
+  const use1 = (pending.result1.senses[0] && pending.result1.senses[0].use) || "";
+  const use2 = (pending.result2.senses[0] && pending.result2.senses[0].use) || "";
+  statusEl.innerHTML = `
+    <p class="note" style="margin-bottom:6px;">This entry is ready to be added to your Distinction Words:</p>
+    <div class="lookup-preview">
+      <strong>${pending.result1.w} vs ${pending.result2.w}</strong>
+      ${use1 ? `<p class="note" style="margin:4px 0 0;"><strong>${pending.result1.w}:</strong> ${use1}</p>` : ""}
+      ${use2 ? `<p class="note" style="margin:4px 0 0;"><strong>${pending.result2.w}:</strong> ${use2}</p>` : ""}
+    </div>
+    <button class="add-btn distinctions-lookup-save-btn" style="margin-top:8px;">Save</button>
+    <button class="add-btn secondary distinctions-lookup-decline-btn">Decline</button>
+  `;
+  statusEl.className = "add-status";
+}
+
+function hideDistinctionsSavePreview(){
+  distinctionsPendingSave = null;
+}
+
+document.addEventListener("click", async (e)=>{
+  const saveBtn = e.target.closest(".distinctions-lookup-save-btn");
+  const declineBtn = e.target.closest(".distinctions-lookup-decline-btn");
+  if(!saveBtn && !declineBtn) return;
+  const statusEl = document.getElementById("distinctionsAddStatus");
+  const pending = distinctionsPendingSave;
+  if(!pending) return;
+  hideDistinctionsSavePreview();
+
+  if(declineBtn){
+    statusEl.textContent = "Not saved.";
+    statusEl.className = "add-status";
+    return;
+  }
+
+  await finalizeDistinctionAdd(
+    pending.result1, pending.result2, statusEl,
+    `Added "${pending.result1.w} vs ${pending.result2.w}" — now searchable and available offline.`,
+    [{w: pending.result1.w, entry: pending.result1}, {w: pending.result2.w, entry: pending.result2}]
+  );
+});
 
 // Tracks the pair awaiting manual completion between "lookup failed for
 // one or both words" and the user clicking Save/Cancel — cleared
@@ -33660,6 +33646,7 @@ function hideDistinctionsManualBox(){
 async function addDistinctionFromInputs(){
   const statusEl = document.getElementById("distinctionsAddStatus");
   hideDistinctionsManualBox();
+  hideDistinctionsSavePreview();
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
@@ -33712,7 +33699,8 @@ async function addDistinctionFromInputs(){
 
   input1.value = "";
   input2.value = "";
-  await finalizeDistinctionAdd(result1, result2, statusEl, `Added "${result1.w} vs ${result2.w}" — now searchable and available offline.`);
+  distinctionsPendingSave = { result1, result2 };
+  renderDistinctionsSavePreview();
 }
 
 async function saveDistinctionsManualEntry(){
@@ -33755,7 +33743,11 @@ async function saveDistinctionsManualEntry(){
   document.getElementById("distinctionsAddInput1").value = "";
   document.getElementById("distinctionsAddInput2").value = "";
   hideDistinctionsManualBox();
-  await finalizeDistinctionAdd(result1, result2, statusEl, `Added "${result1.w} vs ${result2.w}" with your own notes where needed — now searchable and available offline.`);
+  await finalizeDistinctionAdd(
+    result1, result2, statusEl,
+    `Added "${result1.w} vs ${result2.w}" with your own notes where needed — now searchable and available offline.`,
+    [{w: result1.w, entry: result1}, {w: result2.w, entry: result2}]
+  );
 }
 
 function cancelDistinctionsManualEntry(){
@@ -34930,11 +34922,12 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   collectOnlineDistinctions, applyRemoteDistinctions,
   saveDistinctionsManualEntry, cancelDistinctionsManualEntry,
   getDistinctionsPendingManual: ()=> distinctionsPendingManual,
+  getDistinctionsPendingSave: ()=> distinctionsPendingSave,
   openVocabEditForm, saveVocabEdit, deleteVocabEntry, renderVocabAfterDelete,
   collectOnlineVocabEntries, applyRemoteVocab,
   showOnlineVocabResult, saveOnlineVocabResult, setVocabSaveAreaMessage,
   renderVocabSaveArea, getPendingOnlineVocabResult: ()=> pendingOnlineVocabResult,
-  suggestVocabFromEntryText, renderVocabSuggestionsHtml,
+  renderVocabBankCheckRows, getLanguageBankPendingSave: ()=> languageBankPendingSave,
   looksLikeVerb, isKnownVerb, offerVerbFlagIfApplicable,
   renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
   addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
