@@ -83,7 +83,7 @@ describe("rule-module datasets (rendered via renderRuleEntry)", () => {
     "articleData", "modalData", "capitalData", "orderData",
     "mistakeData", "qaData", "vocabData", "phrasalData",
     "idiomsData", "sentencesData", "patternsData", "technicalData",
-    "upgradeData", "prepVerbData"
+    "prepVerbData"
   ];
 
   it("all expected datasets are exposed by the app", () => {
@@ -93,6 +93,57 @@ describe("rule-module datasets (rendered via renderRuleEntry)", () => {
   });
 
   datasets.forEach((name) => checkRuleModuleDataset(name, hooks[name]));
+});
+
+// distinctionsData has its own shape — each entry is a PAIR of two
+// independent word1/word2 sub-entries (each itself the same
+// {w, senses, syn, ant, mistake, tagalog} shape as everything above),
+// grouped under a synthetic combined `w` ("affect vs effect") used only
+// as a lookup/store key, not a real headword.
+describe("distinctionsData (Distinctions Words — commonly confused word pairs)", () => {
+  const data = hooks.distinctionsData;
+
+  it("is exposed by the app as a non-empty array", () => {
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.length).toBeGreaterThan(0);
+  });
+
+  it("has no duplicate pairs (case-insensitive, order-insensitive)", () => {
+    const seen = new Map();
+    const dupes = [];
+    data.forEach((entry) => {
+      const a = entry.word1.w.trim().toLowerCase();
+      const b = entry.word2.w.trim().toLowerCase();
+      const key = [a, b].sort().join("|");
+      if (seen.has(key)) dupes.push(entry.w);
+      seen.set(key, true);
+    });
+    expect(dupes, `duplicate pairs: ${dupes.join(", ")}`).toEqual([]);
+  });
+
+  it("every entry has a combined label and two well-formed word sub-entries", () => {
+    data.forEach((entry, i) => {
+      expectNonEmptyString(entry.w, `distinctionsData[${i}].w`);
+      ["word1", "word2"].forEach((key) => {
+        const word = entry[key];
+        expect(word, `distinctionsData[${i}].${key}`).toBeTruthy();
+        expectNonEmptyString(word.w, `distinctionsData[${i}].${key}.w`);
+        expect(Array.isArray(word.senses), `distinctionsData[${i}].${key}.senses`).toBe(true);
+        word.senses.forEach((sense, j) => {
+          expectNonEmptyString(sense.use, `distinctionsData[${i}].${key}.senses[${j}].use`);
+          expect(Array.isArray(sense.examples), `distinctionsData[${i}].${key}.senses[${j}].examples`).toBe(true);
+        });
+      });
+    });
+  });
+
+  it("includes the requested example confusable pairs (Affect/Effect, Advice/Advise, Accept/Except, Compliment/Complement)", () => {
+    const labels = data.map((e) => [e.word1.w.toLowerCase(), e.word2.w.toLowerCase()].sort().join("|"));
+    expect(labels).toContain(["affect", "effect"].sort().join("|"));
+    expect(labels).toContain(["advice", "advise"].sort().join("|"));
+    expect(labels).toContain(["accept", "except"].sort().join("|"));
+    expect(labels).toContain(["complement", "compliment"].sort().join("|"));
+  });
 });
 
 describe("vocabData synonym/antonym coverage", () => {

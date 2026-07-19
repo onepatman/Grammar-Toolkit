@@ -18,6 +18,11 @@
                         + next-due timestamp) driving the Favorites tab's
                         "Study mode" — see js/spaced-repetition.js for the
                         scheduling math itself, kept out of this file.
+     - distinctionsEntries: Distinctions Words — commonly confused/misused
+                        word PAIRS (e.g. Affect vs Effect), each entry
+                        holding two independent word1/word2 sub-entries.
+                        Added via its own two-word quick-add, persisted
+                        the same way the Language Bank categories are.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -53,7 +58,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 6;
+  var DB_VERSION = 7;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -63,6 +68,7 @@
   var PATTERNS_STORE = "patternEntries";
   var TECHNICAL_STORE = "technicalEntries";
   var REVIEW_STORE = "reviewSchedule";
+  var DISTINCTIONS_STORE = "distinctionsEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -105,6 +111,9 @@
         }
         if (!db.objectStoreNames.contains(REVIEW_STORE)) {
           db.createObjectStore(REVIEW_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(DISTINCTIONS_STORE)) {
+          db.createObjectStore(DISTINCTIONS_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -279,6 +288,16 @@
   function getAllTechnical(options) { return getAllEntries(TECHNICAL_STORE, options); }
   function deleteTechnical(word, options) { return deleteEntry(TECHNICAL_STORE, word, options); }
 
+  /* ---------- Distinctions Words (commonly confused word pairs) ----------
+     Same generic { key, entry } shape as every other category — `entry.w`
+     is a synthetic combined label ("affect vs effect") used only as the
+     store key, while the real per-word content lives in entry.word1/word2. */
+
+  function getDistinction(word, options) { return getEntry(DISTINCTIONS_STORE, word, options); }
+  function putDistinction(entry, options) { return putEntry(DISTINCTIONS_STORE, entry, options); }
+  function getAllDistinctions(options) { return getAllEntries(DISTINCTIONS_STORE, options); }
+  function deleteDistinction(word, options) { return deleteEntry(DISTINCTIONS_STORE, word, options); }
+
   /* ---------- favorites ---------- */
 
   function addFavorite(word, meta, options) {
@@ -398,6 +417,7 @@
     PATTERNS_STORE: PATTERNS_STORE,
     TECHNICAL_STORE: TECHNICAL_STORE,
     REVIEW_STORE: REVIEW_STORE,
+    DISTINCTIONS_STORE: DISTINCTIONS_STORE,
     RECENT_LIMIT: RECENT_LIMIT,
     openDb: openDb,
     get: get,
@@ -427,6 +447,10 @@
     putTechnical: putTechnical,
     getAllTechnical: getAllTechnical,
     deleteTechnical: deleteTechnical,
+    getDistinction: getDistinction,
+    putDistinction: putDistinction,
+    getAllDistinctions: getAllDistinctions,
+    deleteDistinction: deleteDistinction,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,
