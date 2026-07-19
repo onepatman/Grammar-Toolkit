@@ -513,6 +513,18 @@
     font-weight:600; margin-bottom:4px;
   }
 
+  /* Separates Word 1 from Word 2 within one Distinctions Words card —
+     a light "vs" divider rather than a hard rule, since both halves
+     belong to the same entry. */
+  .distinction-divider{
+    display:flex; align-items:center; gap:10px; margin:20px 0;
+    color:var(--ink-soft); font-family:'IBM Plex Mono', monospace;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  }
+  .distinction-divider::before, .distinction-divider::after{
+    content:""; flex:1; border-top:1px dashed var(--rule);
+  }
+
   .quick-add-box{
     margin-top:16px; padding:14px 16px; background:var(--card);
     border:1.5px dashed var(--rule); border-radius:var(--radius);
@@ -639,7 +651,7 @@
     <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
-    <button class="thumb-tab" data-tab="upgrade">Upgrade<span class="n">UP</span></button>
+    <button class="thumb-tab" data-tab="distinctions">Distinctions Words<span class="n">DW</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
     <button class="thumb-tab" data-tab="preps">Preps<span class="n">P</span></button>
     <button class="thumb-tab" data-tab="articles">Articles<span class="n">A</span></button>
@@ -760,17 +772,42 @@
     </div>
   </section>
 
-  <!-- ===== BASIC → ADVANCED UPGRADE PANEL ===== -->
-  <section id="panel-upgrade" style="display:none;">
+  <!-- ===== DISTINCTIONS WORDS PANEL (commonly confused/misused word pairs) ===== -->
+  <section id="panel-distinctions" style="display:none;">
     <div class="controls">
-      <select id="upgradeSelect"></select>
-      <button class="nav-btn" data-target="upgradeSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="upgradeSelect" data-dir="next" aria-label="Next">›</button>
+      <select id="distinctionsSelect"></select>
+      <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹</button>
+      <button class="nav-btn" data-target="distinctionsSelect" data-dir="next" aria-label="Next">›</button>
     </div>
-    <div class="entry" id="upgradeEntry"></div>
+    <div class="entry" id="distinctionsEntry"></div>
     <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="upgradeSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="upgradeSelect" data-dir="next" aria-label="Next">Next ›</button>
+      <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+      <button class="nav-btn" data-target="distinctionsSelect" data-dir="next" aria-label="Next">Next ›</button>
+    </div>
+
+    <div class="quick-add-box owner-only" id="distinctionsAddBox">
+      <div class="section-label">Add a new Distinction Words pair</div>
+      <p class="note" style="margin-bottom:8px;">Type two commonly confused or easily misused words (e.g. "Affect" and "Effect") and we'll automatically look up the meaning, example sentences, synonyms, and antonyms for both from a reliable online dictionary. If a source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+      <input type="text" id="distinctionsAddInput1" placeholder="Word 1 (e.g. Affect)" autocomplete="off">
+      <input type="text" id="distinctionsAddInput2" placeholder="Word 2 (e.g. Effect)" autocomplete="off" style="margin-top:8px;">
+      <button id="distinctionsAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+      <div id="distinctionsAddStatus" class="add-status"></div>
+
+      <div class="manual-entry-box" id="distinctionsManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:8px;">Online lookup couldn't find a definition for one or both words. Add your own notes below for whichever word needs it, or Cancel.</p>
+        <div id="distinctionsManualWord1Box" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord1"></strong>":</p>
+          <textarea id="distinctionsManualUse1" placeholder='Meaning / definition (e.g. "(verb) To influence something.")' rows="2"></textarea>
+          <input type="text" id="distinctionsManualExample1" placeholder="Example sentence (optional)" autocomplete="off">
+        </div>
+        <div id="distinctionsManualWord2Box" style="display:none; margin-top:10px;">
+          <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord2"></strong>":</p>
+          <textarea id="distinctionsManualUse2" placeholder='Meaning / definition (e.g. "(noun) A result caused by something.")' rows="2"></textarea>
+          <input type="text" id="distinctionsManualExample2" placeholder="Example sentence (optional)" autocomplete="off">
+        </div>
+        <button id="distinctionsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save with my notes</button>
+        <button id="distinctionsManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
     </div>
   </section>
 
@@ -23172,1638 +23209,3515 @@ const vocabData = [
   }
 ];
 
-const upgradeData = [
-  {
-    "w": "Achieve → Attain",
-    "senses": [
-      {
-        "use": "<b>Achieve</b> means: To successfully complete or reach a goal.",
-        "examples": [
-          "Basic: We <b>achieved</b> the target ahead of schedule."
-        ]
-      },
-      {
-        "use": "<b>Attain</b> means: To successfully reach a goal, often after effort. This is the more formal, advanced way to express the same idea as '<b>achieve</b>.'",
-        "examples": [
-          "Advanced: We <b>attained</b> ISO certification this year."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "accomplish",
-      "reach"
-    ],
-    "ant": [
-      "fail"
-    ]
-  },
-  {
-    "w": "Adhere → Stick",
-    "senses": [
-      {
-        "use": "<b>Adhere</b> means: To stick to a surface, or to follow a rule closely.",
-        "examples": [
-          "Basic: The label won't <b>stick</b> to the pipe."
-        ]
-      },
-      {
-        "use": "<b>Stick</b> means: To attach firmly, or to keep following a rule. This is the more formal, advanced way to express the same idea as '<b>adhere</b>.'",
-        "examples": [
-          "Advanced: All contractors must <b>adhere to</b> the safety code."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "comply"
-    ],
-    "ant": [
-      "violate"
-    ]
-  },
-  {
-    "w": "Advocate → Support",
-    "senses": [
-      {
-        "use": "<b>Advocate</b> means: To publicly support a cause or idea.",
-        "examples": [
-          "Basic: I <b>support</b> your proposal."
-        ]
-      },
-      {
-        "use": "<b>Support</b> means: To help, agree with, or hold up something. This is the more formal, advanced way to express the same idea as '<b>advocate</b>.'",
-        "examples": [
-          "Advanced: She <b>advocates for</b> stricter fire codes."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "back",
-      "champion"
-    ],
-    "ant": [
-      "oppose"
-    ]
-  },
-  {
-    "w": "Allocate → Distribute",
-    "senses": [
-      {
-        "use": "<b>Allocate</b> means: To officially set aside a resource for a purpose.",
-        "examples": [
-          "Basic: We <b>distributed</b> the tools among the team."
-        ]
-      },
-      {
-        "use": "<b>Distribute</b> means: To give out or spread something among a group. This is the more formal, advanced way to express the same idea as '<b>allocate</b>.'",
-        "examples": [
-          "Advanced: The budget was <b>allocated</b> to three departments."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "assign"
-    ],
-    "ant": [
-      "withhold"
-    ]
-  },
-  {
-    "w": "Analyze → Examine",
-    "senses": [
-      {
-        "use": "<b>Analyze</b> means: To examine something in detail to understand it.",
-        "examples": [
-          "Basic: Let's <b>examine</b> the drawing again."
-        ]
-      },
-      {
-        "use": "<b>Examine</b> means: To look at something closely and carefully. This is the more formal, advanced way to express the same idea as '<b>analyze</b>.'",
-        "examples": [
-          "Advanced: We need to <b>analyze</b> the load data carefully."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "study",
-      "inspect"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Anticipate → Expect",
-    "senses": [
-      {
-        "use": "<b>Anticipate</b> means: To expect something before it happens.",
-        "examples": [
-          "Basic: I <b>expect</b> the delivery tomorrow."
-        ]
-      },
-      {
-        "use": "<b>Expect</b> means: To believe that something will happen. This is the more formal, advanced way to express the same idea as '<b>anticipate</b>.'",
-        "examples": [
-          "Advanced: We <b>anticipate</b> a delay due to weather."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "foresee"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Assess → Evaluate",
-    "senses": [
-      {
-        "use": "<b>Assess</b> means: To judge the value, risk, or condition of something.",
-        "examples": [
-          "Basic: Let's <b>evaluate</b> the two options."
-        ]
-      },
-      {
-        "use": "<b>Evaluate</b> means: To assess the value or quality of something. This is the more formal, advanced way to express the same idea as '<b>assess</b>.'",
-        "examples": [
-          "Advanced: The engineer will <b>assess</b> the structural risk."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "appraise"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Boost → Enhance",
-    "senses": [
-      {
-        "use": "<b>Boost</b> means: To increase or improve something.",
-        "examples": [
-          "Basic: This will <b>boost</b> efficiency."
-        ]
-      },
-      {
-        "use": "<b>Enhance</b> means: To improve the quality or value of something. This is the more formal, advanced way to express the same idea as '<b>boost</b>.'",
-        "examples": [
-          "Advanced: The upgrade will <b>enhance</b> system performance."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "improve",
-      "raise"
-    ],
-    "ant": [
-      "reduce"
-    ]
-  },
-  {
-    "w": "Check → Verify",
-    "senses": [
-      {
-        "use": "<b>Check</b> means: To examine something to confirm it's correct.",
-        "examples": [
-          "Basic: <b>Check</b> the reading again."
-        ]
-      },
-      {
-        "use": "<b>Verify</b> means: To confirm that something is true or accurate. This is the more formal, advanced way to express the same idea as '<b>check</b>.'",
-        "examples": [
-          "Advanced: Please <b>verify</b> the calculation before submission."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "confirm"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Clarify → Explain",
-    "senses": [
-      {
-        "use": "<b>Clarify</b> means: To make something clearer or easier to understand.",
-        "examples": [
-          "Basic: Can you <b>explain</b> this part?"
-        ]
-      },
-      {
-        "use": "<b>Explain</b> means: To make something clear by describing it. This is the more formal, advanced way to express the same idea as '<b>clarify</b>.'",
-        "examples": [
-          "Advanced: Let me <b>clarify</b> the scope of work."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "explain"
-    ],
-    "ant": [
-      "confuse"
-    ]
-  },
-  {
-    "w": "Collaborate → Cooperate",
-    "senses": [
-      {
-        "use": "<b>Collaborate</b> means: To work together with others on something.",
-        "examples": [
-          "Basic: We need to <b>cooperate</b> with the client."
-        ]
-      },
-      {
-        "use": "<b>Cooperate</b> means: To work together with someone toward a shared goal. This is the more formal, advanced way to express the same idea as '<b>collaborate</b>.'",
-        "examples": [
-          "Advanced: Both teams <b>collaborated</b> on the final design."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "team up"
-    ],
-    "ant": [
-      "compete"
-    ]
-  },
-  {
-    "w": "Compile → Gather",
-    "senses": [
-      {
-        "use": "<b>Compile</b> means: To gather and organize information into one place.",
-        "examples": [
-          "Basic: <b>Gather</b> all the receipts."
-        ]
-      },
-      {
-        "use": "<b>Gather</b> means: To collect things together. This is the more formal, advanced way to express the same idea as '<b>compile</b>.'",
-        "examples": [
-          "Advanced: We <b>compiled</b> the data into one report."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "assemble",
-      "collect"
-    ],
-    "ant": [
-      "scatter"
-    ]
-  },
-  {
-    "w": "Conclude → Determine",
-    "senses": [
-      {
-        "use": "<b>Conclude</b> means: To reach a final decision, often after review.",
-        "examples": [
-          "Basic: We <b>determined</b> the cause of the leak."
-        ]
-      },
-      {
-        "use": "<b>Determine</b> means: To find out or decide something with certainty. This is the more formal, advanced way to express the same idea as '<b>conclude</b>.'",
-        "examples": [
-          "Advanced: The report <b>concludes</b> that the design is safe."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "decide"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Convey → Communicate",
-    "senses": [
-      {
-        "use": "<b>Convey</b> means: To communicate a message, often formally.",
-        "examples": [
-          "Basic: <b>Communicate</b> the schedule to the team."
-        ]
-      },
-      {
-        "use": "<b>Communicate</b> means: To share information with someone. This is the more formal, advanced way to express the same idea as '<b>convey</b>.'",
-        "examples": [
-          "Advanced: The memo <b>conveys</b> the client's concerns clearly."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "express"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Critique → Review",
-    "senses": [
-      {
-        "use": "<b>Critique</b> means: To evaluate something in detail, pointing out strengths and weaknesses.",
-        "examples": [
-          "Basic: Please <b>review</b> my resume."
-        ]
-      },
-      {
-        "use": "<b>Review</b> means: To examine or assess something carefully. This is the more formal, advanced way to express the same idea as '<b>critique</b>.'",
-        "examples": [
-          "Advanced: The panel will <b>critique</b> the proposed design."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "assess"
-    ],
-    "ant": [
-      "praise"
-    ]
-  },
-  {
-    "w": "Deduce → Infer",
-    "senses": [
-      {
-        "use": "<b>Deduce</b> means: To reach a conclusion through reasoning.",
-        "examples": [
-          "Basic: I can <b>infer</b> the cause from the data."
-        ]
-      },
-      {
-        "use": "<b>Infer</b> means: To work out something based on evidence. This is the more formal, advanced way to express the same idea as '<b>deduce</b>.'",
-        "examples": [
-          "Advanced: We <b>deduced</b> that the valve was faulty."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "conclude"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Demonstrate → Show",
-    "senses": [
-      {
-        "use": "<b>Demonstrate</b> means: To show something clearly, often with proof.",
-        "examples": [
-          "Basic: <b>Show</b> me how it works."
-        ]
-      },
-      {
-        "use": "<b>Show</b> means: To make something visible or clear to others. This is the more formal, advanced way to express the same idea as '<b>demonstrate</b>.'",
-        "examples": [
-          "Advanced: The test results <b>demonstrate</b> the system's reliability."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "prove",
-      "display"
-    ],
-    "ant": [
-      "hide"
-    ]
-  },
-  {
-    "w": "Designate → Appoint",
-    "senses": [
-      {
-        "use": "<b>Designate</b> means: To officially assign a role or purpose to something.",
-        "examples": [
-          "Basic: We <b>appointed</b> him as team lead."
-        ]
-      },
-      {
-        "use": "<b>Appoint</b> means: To officially choose someone for a role. This is the more formal, advanced way to express the same idea as '<b>designate</b>.'",
-        "examples": [
-          "Advanced: This area is <b>designated</b> for storage only."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "assign",
-      "name"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Devise → Create",
-    "senses": [
-      {
-        "use": "<b>Devise</b> means: To carefully plan or invent something.",
-        "examples": [
-          "Basic: <b>Create</b> a backup plan."
-        ]
-      },
-      {
-        "use": "<b>Create</b> means: To make something new. This is the more formal, advanced way to express the same idea as '<b>devise</b>.'",
-        "examples": [
-          "Advanced: The team <b>devised</b> a new testing method."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "design",
-      "invent"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Emphasize → Highlight",
-    "senses": [
-      {
-        "use": "<b>Emphasize</b> means: To give special importance to something.",
-        "examples": [
-          "Basic: <b>Highlight</b> the important parts."
-        ]
-      },
-      {
-        "use": "<b>Highlight</b> means: To draw attention to something important. This is the more formal, advanced way to express the same idea as '<b>emphasize</b>.'",
-        "examples": [
-          "Advanced: The report <b>emphasizes</b> the need for maintenance."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "stress"
-    ],
-    "ant": [
-      "downplay"
-    ]
-  },
-  {
-    "w": "Enhance → Improve",
-    "senses": [
-      {
-        "use": "<b>Enhance</b> means: To improve the quality or value of something.",
-        "examples": [
-          "Basic: This will <b>improve</b> the flow rate."
-        ]
-      },
-      {
-        "use": "<b>Improve</b> means: To make something better. This is the more formal, advanced way to express the same idea as '<b>enhance</b>.'",
-        "examples": [
-          "Advanced: The redesign <b>enhances</b> overall efficiency."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "boost"
-    ],
-    "ant": [
-      "worsen"
-    ]
-  },
-  {
-    "w": "Establish → Set up",
-    "senses": [
-      {
-        "use": "<b>Establish</b> means: To set up or start something in a lasting way.",
-        "examples": [
-          "Basic: <b>Set up</b> the equipment first."
-        ]
-      },
-      {
-        "use": "<b>Set up</b> means: To arrange or establish something, ready for use. This is the more formal, advanced way to express the same idea as '<b>establish</b>.'",
-        "examples": [
-          "Advanced: We <b>established</b> a new maintenance schedule."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "found",
-      "create"
-    ],
-    "ant": [
-      "dismantle"
-    ]
-  },
-  {
-    "w": "Exceed → Surpass",
-    "senses": [
-      {
-        "use": "<b>Exceed</b> means: To go beyond a limit or expectation.",
-        "examples": [
-          "Basic: The results <b>surpassed</b> expectations."
-        ]
-      },
-      {
-        "use": "<b>Surpass</b> means: To do better than expected or go beyond a limit. This is the more formal, advanced way to express the same idea as '<b>exceed</b>.'",
-        "examples": [
-          "Advanced: The reading <b>exceeds</b> the safe limit."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "outdo"
-    ],
-    "ant": [
-      "fall short"
-    ]
-  },
-  {
-    "w": "Facilitate → Assist",
-    "senses": [
-      {
-        "use": "<b>Facilitate</b> means: To make a process easier.",
-        "examples": [
-          "Basic: Can you <b>assist</b> with the setup?"
-        ]
-      },
-      {
-        "use": "<b>Assist</b> means: To help someone with a task. This is the more formal, advanced way to express the same idea as '<b>facilitate</b>.'",
-        "examples": [
-          "Advanced: The software <b>facilitates</b> faster calculations."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "help",
-      "enable"
-    ],
-    "ant": [
-      "hinder"
-    ]
-  },
-  {
-    "w": "Formulate → Develop",
-    "senses": [
-      {
-        "use": "<b>Formulate</b> means: To carefully plan or express something.",
-        "examples": [
-          "Basic: We need to <b>develop</b> a plan."
-        ]
-      },
-      {
-        "use": "<b>Develop</b> means: To create or improve something over time. This is the more formal, advanced way to express the same idea as '<b>formulate</b>.'",
-        "examples": [
-          "Advanced: The team <b>formulated</b> a new design strategy."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "design",
-      "create"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Generate → Produce",
-    "senses": [
-      {
-        "use": "<b>Generate</b> means: To produce or create something, often energy or ideas.",
-        "examples": [
-          "Basic: The plant <b>produces</b> clean water."
-        ]
-      },
-      {
-        "use": "<b>Produce</b> means: To make or create something, often in quantity. This is the more formal, advanced way to express the same idea as '<b>generate</b>.'",
-        "examples": [
-          "Advanced: The generator <b>generates</b> backup power."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "create",
-      "make"
-    ],
-    "ant": [
-      "consume"
-    ]
-  },
-  {
-    "w": "Hypothesize → Theorize",
-    "senses": [
-      {
-        "use": "<b>Hypothesize</b> means: To propose an explanation before it's proven.",
-        "examples": [
-          "Basic: We <b>theorize</b> that the pump failed early."
-        ]
-      },
-      {
-        "use": "<b>Theorize</b> means: To form an idea or explanation without full proof yet. This is the more formal, advanced way to express the same idea as '<b>hypothesize</b>.'",
-        "examples": [
-          "Advanced: Engineers <b>hypothesized</b> that corrosion caused the leak."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "speculate"
-    ],
-    "ant": [
-      "confirm"
-    ]
-  },
-  {
-    "w": "Identify → Recognize",
-    "senses": [
-      {
-        "use": "<b>Identify</b> means: To recognize or pinpoint something specific.",
-        "examples": [
-          "Basic: <b>Recognize</b> the risk before starting."
-        ]
-      },
-      {
-        "use": "<b>Recognize</b> means: To identify or acknowledge something. This is the more formal, advanced way to express the same idea as '<b>identify</b>.'",
-        "examples": [
-          "Advanced: We <b>identified</b> the source of the noise."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "spot",
-      "detect"
-    ],
-    "ant": [
-      "overlook"
-    ]
-  },
-  {
-    "w": "Implement → Execute",
-    "senses": [
-      {
-        "use": "<b>Implement</b> means: To put a plan or system into action.",
-        "examples": [
-          "Basic: <b>Execute</b> the plan carefully."
-        ]
-      },
-      {
-        "use": "<b>Execute</b> means: To carry out a plan or task. This is the more formal, advanced way to express the same idea as '<b>implement</b>.'",
-        "examples": [
-          "Advanced: We will <b>implement</b> the new safety procedure next week."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "carry out",
-      "apply"
-    ],
-    "ant": [
-      "abandon"
-    ]
-  },
-  {
-    "w": "Incorporate → Include",
-    "senses": [
-      {
-        "use": "<b>Incorporate</b> means: To blend something into an existing whole.",
-        "examples": [
-          "Basic: <b>Include</b> this in the report."
-        ]
-      },
-      {
-        "use": "<b>Include</b> means: To make something part of a whole. This is the more formal, advanced way to express the same idea as '<b>incorporate</b>.'",
-        "examples": [
-          "Advanced: We <b>incorporated</b> the client's feedback into the design."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "integrate"
-    ],
-    "ant": [
-      "exclude"
-    ]
-  },
-  {
-    "w": "Indicate → Show",
-    "senses": [
-      {
-        "use": "<b>Indicate</b> means: To point out or show something.",
-        "examples": [
-          "Basic: The gauge <b>shows</b> low pressure."
-        ]
-      },
-      {
-        "use": "<b>Show</b> means: To make something visible or clear to others. This is the more formal, advanced way to express the same idea as '<b>indicate</b>.'",
-        "examples": [
-          "Advanced: The data <b>indicates</b> a slow leak."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "reveal",
-      "signal"
-    ],
-    "ant": [
-      "conceal"
-    ]
-  },
-  {
-    "w": "Influence → Affect",
-    "senses": [
-      {
-        "use": "<b>Influence</b> means: To have an effect on someone's decisions or on a situation.",
-        "examples": [
-          "Basic: Weather can <b>affect</b> the schedule."
-        ]
-      },
-      {
-        "use": "<b>Affect</b> means: To have an influence or effect on something. This is the more formal, advanced way to express the same idea as '<b>influence</b>.'",
-        "examples": [
-          "Advanced: Temperature <b>influences</b> the material's strength."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "impact"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Integrate → Combine",
-    "senses": [
-      {
-        "use": "<b>Integrate</b> means: To combine parts so they work as one system.",
-        "examples": [
-          "Basic: <b>Combine</b> the two systems."
-        ]
-      },
-      {
-        "use": "<b>Combine</b> means: To join two or more things together. This is the more formal, advanced way to express the same idea as '<b>integrate</b>.'",
-        "examples": [
-          "Advanced: We <b>integrated</b> the new sensor into the panel."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "merge",
-      "unify"
-    ],
-    "ant": [
-      "separate"
-    ]
-  },
-  {
-    "w": "Justify → Defend",
-    "senses": [
-      {
-        "use": "<b>Justify</b> means: To give good reasons for something.",
-        "examples": [
-          "Basic: He tried to <b>defend</b> his decision."
-        ]
-      },
-      {
-        "use": "<b>Defend</b> means: To support or justify a decision or position. This is the more formal, advanced way to express the same idea as '<b>justify</b>.'",
-        "examples": [
-          "Advanced: You need to <b>justify</b> the extra cost."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "explain"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Maintain → Preserve",
-    "senses": [
-      {
-        "use": "<b>Maintain</b> means: To keep something in good working condition.",
-        "examples": [
-          "Basic: <b>Preserve</b> the original design."
-        ]
-      },
-      {
-        "use": "<b>Preserve</b> means: To keep something in its original or good condition. This is the more formal, advanced way to express the same idea as '<b>maintain</b>.'",
-        "examples": [
-          "Advanced: Regular service helps <b>maintain</b> the equipment."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "sustain"
-    ],
-    "ant": [
-      "neglect"
-    ]
-  },
-  {
-    "w": "Modify → Change",
-    "senses": [
-      {
-        "use": "<b>Modify</b> means: To make a small change to something.",
-        "examples": [
-          "Basic: <b>Change</b> the pipe size."
-        ]
-      },
-      {
-        "use": "<b>Change</b> means: To make or become different. This is the more formal, advanced way to express the same idea as '<b>modify</b>.'",
-        "examples": [
-          "Advanced: We <b>modified</b> the layout after review."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "adjust",
-      "alter"
-    ],
-    "ant": [
-      "preserve"
-    ]
-  },
-  {
-    "w": "Negotiate → Discuss",
-    "senses": [
-      {
-        "use": "<b>Negotiate</b> means: To discuss something in order to reach an agreement.",
-        "examples": [
-          "Basic: Let's <b>discuss</b> the price."
-        ]
-      },
-      {
-        "use": "<b>Discuss</b> means: To talk about something with others. This is the more formal, advanced way to express the same idea as '<b>negotiate</b>.'",
-        "examples": [
-          "Advanced: We <b>negotiated</b> a better contract."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "bargain"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Obtain → Acquire",
-    "senses": [
-      {
-        "use": "<b>Obtain</b> means: To get or acquire something.",
-        "examples": [
-          "Basic: We need to <b>acquire</b> a new permit."
-        ]
-      },
-      {
-        "use": "<b>Acquire</b> means: To get or obtain something, often over time. This is the more formal, advanced way to express the same idea as '<b>obtain</b>.'",
-        "examples": [
-          "Advanced: He <b>obtained</b> his license last year."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "get",
-      "secure"
-    ],
-    "ant": [
-      "lose"
-    ]
-  },
-  {
-    "w": "Outline → Summarize",
-    "senses": [
-      {
-        "use": "<b>Outline</b> means: To summarize the main points of something.",
-        "examples": [
-          "Basic: <b>Summarize</b> the findings."
-        ]
-      },
-      {
-        "use": "<b>Summarize</b> means: To give a short overview of the main points. This is the more formal, advanced way to express the same idea as '<b>outline</b>.'",
-        "examples": [
-          "Advanced: The email <b>outlines</b> the next steps."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "sketch"
-    ],
-    "ant": [
-      "elaborate"
-    ]
-  },
-  {
-    "w": "Participate → Engage",
-    "senses": [
-      {
-        "use": "<b>Participate</b> means: To take part in an activity.",
-        "examples": [
-          "Basic: Please <b>engage</b> with the training."
-        ]
-      },
-      {
-        "use": "<b>Engage</b> means: To take part in, or to attract someone's interest. This is the more formal, advanced way to express the same idea as '<b>participate</b>.'",
-        "examples": [
-          "Advanced: Everyone must <b>participate in</b> the safety drill."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "join",
-      "take part"
-    ],
-    "ant": [
-      "withdraw"
-    ]
-  },
-  {
-    "w": "Perceive → Discern",
-    "senses": [
-      {
-        "use": "<b>Perceive</b> means: To become aware of something through observation.",
-        "examples": [
-          "Basic: I could <b>discern</b> a small crack."
-        ]
-      },
-      {
-        "use": "<b>Discern</b> means: To notice or recognize something, often subtle. This is the more formal, advanced way to express the same idea as '<b>perceive</b>.'",
-        "examples": [
-          "Advanced: Workers <b>perceived</b> the risk too late."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "notice"
-    ],
-    "ant": [
-      "miss"
-    ]
-  },
-  {
-    "w": "Persuade → Convince",
-    "senses": [
-      {
-        "use": "<b>Persuade</b> means: To convince someone to do or believe something.",
-        "examples": [
-          "Basic: Try to <b>convince</b> the client."
-        ]
-      },
-      {
-        "use": "<b>Convince</b> means: To make someone believe or agree to something. This is the more formal, advanced way to express the same idea as '<b>persuade</b>.'",
-        "examples": [
-          "Advanced: He <b>persuaded</b> them to approve the budget."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "influence"
-    ],
-    "ant": [
-      "dissuade"
-    ]
-  },
-  {
-    "w": "Predict → Forecast",
-    "senses": [
-      {
-        "use": "<b>Predict</b> means: To say what will happen before it does.",
-        "examples": [
-          "Basic: <b>Forecast</b> the demand for next month."
-        ]
-      },
-      {
-        "use": "<b>Forecast</b> means: To predict something, especially based on data or trends. This is the more formal, advanced way to express the same idea as '<b>predict</b>.'",
-        "examples": [
-          "Advanced: Engineers <b>predict</b> higher loads in summer."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "foresee"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Prioritize → Rank",
-    "senses": [
-      {
-        "use": "<b>Prioritize</b> means: To treat something as more important or urgent than other things.",
-        "examples": [
-          "Basic: <b>Rank</b> the tasks by urgency."
-        ]
-      },
-      {
-        "use": "<b>Rank</b> means: To arrange things in order of importance. This is the more formal, advanced way to express the same idea as '<b>prioritize</b>.'",
-        "examples": [
-          "Advanced: We <b>prioritized</b> safety issues first."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "order"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Propose → Suggest",
-    "senses": [
-      {
-        "use": "<b>Propose</b> means: To formally suggest a plan or idea.",
-        "examples": [
-          "Basic: I <b>suggest</b> we delay the test."
-        ]
-      },
-      {
-        "use": "<b>Suggest</b> means: To offer an idea for consideration. This is the more formal, advanced way to express the same idea as '<b>propose</b>.'",
-        "examples": [
-          "Advanced: He <b>proposed</b> a new layout."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "recommend"
-    ],
-    "ant": [
-      "withdraw"
-    ]
-  },
-  {
-    "w": "Rationalize → Justify",
-    "senses": [
-      {
-        "use": "<b>Rationalize</b> means: To find logical reasons for a decision, sometimes to justify it.",
-        "examples": [
-          "Basic: <b>Justify</b> your choice of pipe size."
-        ]
-      },
-      {
-        "use": "<b>Justify</b> means: To give good reasons for something. This is the more formal, advanced way to express the same idea as '<b>rationalize</b>.'",
-        "examples": [
-          "Advanced: He tried to <b>rationalize</b> the extra expense."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "explain"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Reinforce → Strengthen",
-    "senses": [
-      {
-        "use": "<b>Reinforce</b> means: To make something stronger.",
-        "examples": [
-          "Basic: <b>Strengthen</b> the support beam."
-        ]
-      },
-      {
-        "use": "<b>Strengthen</b> means: To make something stronger or more secure. This is the more formal, advanced way to express the same idea as '<b>reinforce</b>.'",
-        "examples": [
-          "Advanced: We <b>reinforced</b> the wall before installation."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "fortify"
-    ],
-    "ant": [
-      "weaken"
-    ]
-  },
-  {
-    "w": "Reiterate → Repeat",
-    "senses": [
-      {
-        "use": "<b>Reiterate</b> means: To say something again, usually for emphasis.",
-        "examples": [
-          "Basic: <b>Repeat</b> the instructions, please."
-        ]
-      },
-      {
-        "use": "<b>Repeat</b> means: To say or do something again. This is the more formal, advanced way to express the same idea as '<b>reiterate</b>.'",
-        "examples": [
-          "Advanced: Let me <b>reiterate</b> the safety rules."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "restate"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Use → Utilize",
-    "senses": [
-      {
-        "use": "<b>Use</b> means: To employ something for a particular purpose.",
-        "examples": [
-          "Basic: We <b>use</b> this tool for cutting pipes."
-        ]
-      },
-      {
-        "use": "<b>Utilize</b> means: To use something, especially in a way that makes the most of it. This is the more formal, advanced way to express the same idea as '<b>use</b>.'",
-        "examples": [
-          "Advanced: We <b>utilize</b> renewable energy sources where possible."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "employ",
-      "apply"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Get → Procure",
-    "senses": [
-      {
-        "use": "<b>Get</b> means: To obtain or receive something.",
-        "examples": [
-          "Basic: We need to <b>get</b> more fittings."
-        ]
-      },
-      {
-        "use": "<b>Procure</b> means: To obtain something, often through an official or formal process. This is the more formal, advanced way to express the same idea as '<b>get</b>.'",
-        "examples": [
-          "Advanced: The company <b>procures</b> materials from certified suppliers."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "acquire",
-      "source"
-    ],
-    "ant": [
-      "sell"
-    ]
-  },
-  {
-    "w": "Tell → Notify",
-    "senses": [
-      {
-        "use": "<b>Tell</b> means: To communicate information to someone.",
-        "examples": [
-          "Basic: <b>Tell</b> the client about the delay."
-        ]
-      },
-      {
-        "use": "<b>Notify</b> means: To formally inform someone of something. This is the more formal, advanced way to express the same idea as '<b>tell</b>.'",
-        "examples": [
-          "Advanced: <b>Notify</b> all stakeholders before the shutdown."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "inform",
-      "alert"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Speed up → Expedite",
-    "senses": [
-      {
-        "use": "<b>Speed up</b> means: To make something happen more quickly.",
-        "examples": [
-          "Basic: Let's <b>speed up</b> the approval process."
-        ]
-      },
-      {
-        "use": "<b>Expedite</b> means: To make a process happen faster, especially by removing delays. This is the more formal, advanced way to express the same idea as '<b>speed up</b>.'",
-        "examples": [
-          "Advanced: We asked the supplier to <b>expedite</b> the shipment."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "accelerate",
-      "hasten"
-    ],
-    "ant": [
-      "delay"
-    ]
-  },
-  {
-    "w": "Big → Substantial",
-    "senses": [
-      {
-        "use": "<b>Big</b> means: Large in size, amount, or importance.",
-        "examples": [
-          "Basic: That's a <b>big</b> change to the design."
-        ]
-      },
-      {
-        "use": "<b>Substantial</b> means: Large enough to be significant or considerable. This is the more formal, advanced way to express the same idea as '<b>big</b>.'",
-        "examples": [
-          "Advanced: The redesign resulted in <b>substantial</b> cost savings."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "considerable",
-      "significant"
-    ],
-    "ant": [
-      "minor"
-    ]
-  },
-  {
-    "w": "Small → Minimal",
-    "senses": [
-      {
-        "use": "<b>Small</b> means: Limited in size, amount, or degree.",
-        "examples": [
-          "Basic: There was a <b>small</b> delay."
-        ]
-      },
-      {
-        "use": "<b>Minimal</b> means: The smallest amount or degree possible. This is the more formal, advanced way to express the same idea as '<b>small</b>.'",
-        "examples": [
-          "Advanced: The change caused only <b>minimal</b> disruption."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "slight",
-      "negligible"
-    ],
-    "ant": [
-      "substantial"
-    ]
-  },
-  {
-    "w": "Old → Outdated",
-    "senses": [
-      {
-        "use": "<b>Old</b> means: Having existed for a long time; not new.",
-        "examples": [
-          "Basic: This is an <b>old</b> design."
-        ]
-      },
-      {
-        "use": "<b>Outdated</b> means: No longer current or useful; replaced by something newer. This is the more formal, advanced way to express the same idea as '<b>old</b>.'",
-        "examples": [
-          "Advanced: The <b>outdated</b> wiring no longer meets code."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "obsolete",
-      "dated"
-    ],
-    "ant": [
-      "current"
-    ]
-  },
-  {
-    "w": "New → Novel",
-    "senses": [
-      {
-        "use": "<b>New</b> means: Recently made, introduced, or discovered.",
-        "examples": [
-          "Basic: We tried a <b>new</b> method."
-        ]
-      },
-      {
-        "use": "<b>Novel</b> means: New and original, often introducing a fresh idea or approach. This is the more formal, advanced way to express the same idea as '<b>new</b>.'",
-        "examples": [
-          "Advanced: The team proposed a <b>novel</b> solution to the cooling problem."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "original",
-      "innovative"
-    ],
-    "ant": [
-      "conventional"
-    ]
-  },
-  {
-    "w": "Wrong → Erroneous",
-    "senses": [
-      {
-        "use": "<b>Wrong</b> means: Not correct or accurate.",
-        "examples": [
-          "Basic: That reading is <b>wrong</b>."
-        ]
-      },
-      {
-        "use": "<b>Erroneous</b> means: Containing an error; based on incorrect information. This is the more formal, advanced way to express the same idea as '<b>wrong</b>.'",
-        "examples": [
-          "Advanced: The report contained an <b>erroneous</b> calculation."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "incorrect",
-      "mistaken"
-    ],
-    "ant": [
-      "correct"
-    ]
-  },
-  {
-    "w": "Hard → Challenging",
-    "senses": [
-      {
-        "use": "<b>Hard</b> means: Requiring a lot of effort or skill to do.",
-        "examples": [
-          "Basic: This job is <b>hard</b>."
-        ]
-      },
-      {
-        "use": "<b>Challenging</b> means: Difficult in a way that tests your ability, often in a positive sense. This is the more formal, advanced way to express the same idea as '<b>hard</b>.'",
-        "examples": [
-          "Advanced: It was a <b>challenging</b> installation due to limited access."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "difficult",
-      "demanding"
-    ],
-    "ant": [
-      "easy"
-    ]
-  },
-  {
-    "w": "Easy → Straightforward",
-    "senses": [
-      {
-        "use": "<b>Easy</b> means: Able to be done without much effort.",
-        "examples": [
-          "Basic: The repair was <b>easy</b>."
-        ]
-      },
-      {
-        "use": "<b>Straightforward</b> means: Simple, clear, and without unnecessary complication. This is the more formal, advanced way to express the same idea as '<b>easy</b>.'",
-        "examples": [
-          "Advanced: The installation process is <b>straightforward</b> with the new kit."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "simple",
-      "uncomplicated"
-    ],
-    "ant": [
-      "complex"
-    ]
-  },
-  {
-    "w": "Fast → Rapid",
-    "senses": [
-      {
-        "use": "<b>Fast</b> means: Moving or happening quickly.",
-        "examples": [
-          "Basic: The pump works <b>fast</b>."
-        ]
-      },
-      {
-        "use": "<b>Rapid</b> means: Happening very quickly, especially over a short time. This is the more formal, advanced way to express the same idea as '<b>fast</b>.'",
-        "examples": [
-          "Advanced: The system responded to the <b>rapid</b> pressure change."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "quick",
-      "swift"
-    ],
-    "ant": [
-      "slow"
-    ]
-  },
-  {
-    "w": "Strong → Robust",
-    "senses": [
-      {
-        "use": "<b>Strong</b> means: Having great power, force, or durability.",
-        "examples": [
-          "Basic: This material is <b>strong</b>."
-        ]
-      },
-      {
-        "use": "<b>Robust</b> means: Strong and able to withstand difficult conditions without failing. This is the more formal, advanced way to express the same idea as '<b>strong</b>.'",
-        "examples": [
-          "Advanced: The design is <b>robust</b> enough for outdoor use."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "sturdy",
-      "durable"
-    ],
-    "ant": [
-      "fragile"
-    ]
-  },
-  {
-    "w": "Weak → Fragile",
-    "senses": [
-      {
-        "use": "<b>Weak</b> means: Lacking strength, power, or durability.",
-        "examples": [
-          "Basic: The old seal is <b>weak</b>."
-        ]
-      },
-      {
-        "use": "<b>Fragile</b> means: Easily broken or damaged; needing careful handling. This is the more formal, advanced way to express the same idea as '<b>weak</b>.'",
-        "examples": [
-          "Advanced: Handle the <b>fragile</b> components with extra care."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "delicate",
-      "brittle"
-    ],
-    "ant": [
-      "robust",
-      "strong"
-    ]
-  },
-  {
-    "w": "Clear → Evident",
-    "senses": [
-      {
-        "use": "<b>Clear</b> means: Easy to see, hear, or understand.",
-        "examples": [
-          "Basic: The problem is <b>clear</b> now."
-        ]
-      },
-      {
-        "use": "<b>Evident</b> means: Clearly seen or understood; obvious. This is the more formal, advanced way to express the same idea as '<b>clear</b>.'",
-        "examples": [
-          "Advanced: It became <b>evident</b> that the pump was undersized."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "obvious",
-      "apparent"
-    ],
-    "ant": [
-      "unclear"
-    ]
-  },
-  {
-    "w": "Stop → Halt",
-    "senses": [
-      {
-        "use": "<b>Stop</b> means: To bring movement or activity to an end.",
-        "examples": [
-          "Basic: <b>Stop</b> the machine now."
-        ]
-      },
-      {
-        "use": "<b>Halt</b> means: To stop, often suddenly or officially. This is the more formal, advanced way to express the same idea as '<b>stop</b>.'",
-        "examples": [
-          "Advanced: Work was <b>halted</b> due to the safety concern."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "cease",
-      "suspend"
-    ],
-    "ant": [
-      "continue"
-    ]
-  },
-  {
-    "w": "Help → Facilitate",
-    "senses": [
-      {
-        "use": "<b>Help</b> means: To make it easier for someone to do something.",
-        "examples": [
-          "Basic: Can you <b>help</b> with the setup?"
-        ]
-      },
-      {
-        "use": "<b>Facilitate</b> means: To make a process easier. This is the more formal, advanced way to express the same idea as '<b>help</b>.'",
-        "examples": [
-          "Advanced: The new software <b>facilitates</b> faster reporting."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "assist",
-      "enable"
-    ],
-    "ant": [
-      "hinder"
-    ]
-  },
-  {
-    "w": "Look at → Observe",
-    "senses": [
-      {
-        "use": "<b>Look at</b> means: To direct your eyes toward something.",
-        "examples": [
-          "Basic: <b>Look at</b> the pressure gauge."
-        ]
-      },
-      {
-        "use": "<b>Observe</b> means: To watch something carefully and attentively. This is the more formal, advanced way to express the same idea as '<b>look at</b>.'",
-        "examples": [
-          "Advanced: We <b>observed</b> the system for an hour before signing off."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "watch",
-      "examine"
-    ],
-    "ant": [
-      "ignore"
-    ]
-  },
-  {
-    "w": "Think → Contemplate",
-    "senses": [
-      {
-        "use": "<b>Think</b> means: To use your mind to consider or form an idea.",
-        "examples": [
-          "Basic: I need to <b>think</b> about this."
-        ]
-      },
-      {
-        "use": "<b>Contemplate</b> means: To think about something seriously and for a long time. This is the more formal, advanced way to express the same idea as '<b>think</b>.'",
-        "examples": [
-          "Advanced: We are <b>contemplating</b> a switch to a different supplier."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "consider",
-      "reflect"
-    ],
-    "ant": []
-  },
-  {
-    "w": "Plan → Strategize",
-    "senses": [
-      {
-        "use": "<b>Plan</b> means: To decide on and arrange the details of something in advance.",
-        "examples": [
-          "Basic: Let's <b>plan</b> the next phase."
-        ]
-      },
-      {
-        "use": "<b>Strategize</b> means: To carefully plan a course of action to achieve a specific goal. This is the more formal, advanced way to express the same idea as '<b>plan</b>.'",
-        "examples": [
-          "Advanced: The team <b>strategized</b> the rollout across all sites."
-        ]
-      }
-    ],
-    "mistake": null,
-    "syn": [
-      "organize",
-      "scheme"
-    ],
-    "ant": []
+/* =========================================================
+   DATA — DISTINCTIONS WORDS (commonly confused/misused word pairs,
+   e.g. Affect vs Effect, Advice vs Advise — plus the original
+   Basic-to-Advanced synonym pairs, migrated into the same per-word
+   shape: each entry has its own word1/word2, each carrying its own
+   independent {w, senses, syn, ant, mistake, tagalog, phonetic}.)
+========================================================= */
+const distinctionsData = [
+  {
+    "w": "Achieve vs Attain",
+    "word1": {
+      "w": "Achieve",
+      "senses": [
+        {
+          "use": "<b>Achieve</b> means: To successfully complete or reach a goal.",
+          "examples": [
+            "Basic: We <b>achieved</b> the target ahead of schedule."
+          ]
+        }
+      ],
+      "syn": [
+        "accomplish",
+        "reach"
+      ],
+      "ant": [
+        "fail"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Attain",
+      "senses": [
+        {
+          "use": "<b>Attain</b> means: To successfully reach a goal, often after effort. This is the more formal, advanced way to express the same idea as '<b>achieve</b>.'",
+          "examples": [
+            "Advanced: We <b>attained</b> ISO certification this year."
+          ]
+        }
+      ],
+      "syn": [
+        "accomplish",
+        "reach"
+      ],
+      "ant": [
+        "fail"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Adhere vs Stick",
+    "word1": {
+      "w": "Adhere",
+      "senses": [
+        {
+          "use": "<b>Adhere</b> means: To stick to a surface, or to follow a rule closely.",
+          "examples": [
+            "Basic: The label won't <b>stick</b> to the pipe."
+          ]
+        }
+      ],
+      "syn": [
+        "comply"
+      ],
+      "ant": [
+        "violate"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Stick",
+      "senses": [
+        {
+          "use": "<b>Stick</b> means: To attach firmly, or to keep following a rule. This is the more formal, advanced way to express the same idea as '<b>adhere</b>.'",
+          "examples": [
+            "Advanced: All contractors must <b>adhere to</b> the safety code."
+          ]
+        }
+      ],
+      "syn": [
+        "comply"
+      ],
+      "ant": [
+        "violate"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Advocate vs Support",
+    "word1": {
+      "w": "Advocate",
+      "senses": [
+        {
+          "use": "<b>Advocate</b> means: To publicly support a cause or idea.",
+          "examples": [
+            "Basic: I <b>support</b> your proposal."
+          ]
+        }
+      ],
+      "syn": [
+        "back",
+        "champion"
+      ],
+      "ant": [
+        "oppose"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Support",
+      "senses": [
+        {
+          "use": "<b>Support</b> means: To help, agree with, or hold up something. This is the more formal, advanced way to express the same idea as '<b>advocate</b>.'",
+          "examples": [
+            "Advanced: She <b>advocates for</b> stricter fire codes."
+          ]
+        }
+      ],
+      "syn": [
+        "back",
+        "champion"
+      ],
+      "ant": [
+        "oppose"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Allocate vs Distribute",
+    "word1": {
+      "w": "Allocate",
+      "senses": [
+        {
+          "use": "<b>Allocate</b> means: To officially set aside a resource for a purpose.",
+          "examples": [
+            "Basic: We <b>distributed</b> the tools among the team."
+          ]
+        }
+      ],
+      "syn": [
+        "assign"
+      ],
+      "ant": [
+        "withhold"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Distribute",
+      "senses": [
+        {
+          "use": "<b>Distribute</b> means: To give out or spread something among a group. This is the more formal, advanced way to express the same idea as '<b>allocate</b>.'",
+          "examples": [
+            "Advanced: The budget was <b>allocated</b> to three departments."
+          ]
+        }
+      ],
+      "syn": [
+        "assign"
+      ],
+      "ant": [
+        "withhold"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Analyze vs Examine",
+    "word1": {
+      "w": "Analyze",
+      "senses": [
+        {
+          "use": "<b>Analyze</b> means: To examine something in detail to understand it.",
+          "examples": [
+            "Basic: Let's <b>examine</b> the drawing again."
+          ]
+        }
+      ],
+      "syn": [
+        "study",
+        "inspect"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Examine",
+      "senses": [
+        {
+          "use": "<b>Examine</b> means: To look at something closely and carefully. This is the more formal, advanced way to express the same idea as '<b>analyze</b>.'",
+          "examples": [
+            "Advanced: We need to <b>analyze</b> the load data carefully."
+          ]
+        }
+      ],
+      "syn": [
+        "study",
+        "inspect"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Anticipate vs Expect",
+    "word1": {
+      "w": "Anticipate",
+      "senses": [
+        {
+          "use": "<b>Anticipate</b> means: To expect something before it happens.",
+          "examples": [
+            "Basic: I <b>expect</b> the delivery tomorrow."
+          ]
+        }
+      ],
+      "syn": [
+        "foresee"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Expect",
+      "senses": [
+        {
+          "use": "<b>Expect</b> means: To believe that something will happen. This is the more formal, advanced way to express the same idea as '<b>anticipate</b>.'",
+          "examples": [
+            "Advanced: We <b>anticipate</b> a delay due to weather."
+          ]
+        }
+      ],
+      "syn": [
+        "foresee"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Assess vs Evaluate",
+    "word1": {
+      "w": "Assess",
+      "senses": [
+        {
+          "use": "<b>Assess</b> means: To judge the value, risk, or condition of something.",
+          "examples": [
+            "Basic: Let's <b>evaluate</b> the two options."
+          ]
+        }
+      ],
+      "syn": [
+        "appraise"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Evaluate",
+      "senses": [
+        {
+          "use": "<b>Evaluate</b> means: To assess the value or quality of something. This is the more formal, advanced way to express the same idea as '<b>assess</b>.'",
+          "examples": [
+            "Advanced: The engineer will <b>assess</b> the structural risk."
+          ]
+        }
+      ],
+      "syn": [
+        "appraise"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Boost vs Enhance",
+    "word1": {
+      "w": "Boost",
+      "senses": [
+        {
+          "use": "<b>Boost</b> means: To increase or improve something.",
+          "examples": [
+            "Basic: This will <b>boost</b> efficiency."
+          ]
+        }
+      ],
+      "syn": [
+        "improve",
+        "raise"
+      ],
+      "ant": [
+        "reduce"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Enhance",
+      "senses": [
+        {
+          "use": "<b>Enhance</b> means: To improve the quality or value of something. This is the more formal, advanced way to express the same idea as '<b>boost</b>.'",
+          "examples": [
+            "Advanced: The upgrade will <b>enhance</b> system performance."
+          ]
+        }
+      ],
+      "syn": [
+        "improve",
+        "raise"
+      ],
+      "ant": [
+        "reduce"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Check vs Verify",
+    "word1": {
+      "w": "Check",
+      "senses": [
+        {
+          "use": "<b>Check</b> means: To examine something to confirm it's correct.",
+          "examples": [
+            "Basic: <b>Check</b> the reading again."
+          ]
+        }
+      ],
+      "syn": [
+        "confirm"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Verify",
+      "senses": [
+        {
+          "use": "<b>Verify</b> means: To confirm that something is true or accurate. This is the more formal, advanced way to express the same idea as '<b>check</b>.'",
+          "examples": [
+            "Advanced: Please <b>verify</b> the calculation before submission."
+          ]
+        }
+      ],
+      "syn": [
+        "confirm"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Clarify vs Explain",
+    "word1": {
+      "w": "Clarify",
+      "senses": [
+        {
+          "use": "<b>Clarify</b> means: To make something clearer or easier to understand.",
+          "examples": [
+            "Basic: Can you <b>explain</b> this part?"
+          ]
+        }
+      ],
+      "syn": [
+        "explain"
+      ],
+      "ant": [
+        "confuse"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Explain",
+      "senses": [
+        {
+          "use": "<b>Explain</b> means: To make something clear by describing it. This is the more formal, advanced way to express the same idea as '<b>clarify</b>.'",
+          "examples": [
+            "Advanced: Let me <b>clarify</b> the scope of work."
+          ]
+        }
+      ],
+      "syn": [
+        "explain"
+      ],
+      "ant": [
+        "confuse"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Collaborate vs Cooperate",
+    "word1": {
+      "w": "Collaborate",
+      "senses": [
+        {
+          "use": "<b>Collaborate</b> means: To work together with others on something.",
+          "examples": [
+            "Basic: We need to <b>cooperate</b> with the client."
+          ]
+        }
+      ],
+      "syn": [
+        "team up"
+      ],
+      "ant": [
+        "compete"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Cooperate",
+      "senses": [
+        {
+          "use": "<b>Cooperate</b> means: To work together with someone toward a shared goal. This is the more formal, advanced way to express the same idea as '<b>collaborate</b>.'",
+          "examples": [
+            "Advanced: Both teams <b>collaborated</b> on the final design."
+          ]
+        }
+      ],
+      "syn": [
+        "team up"
+      ],
+      "ant": [
+        "compete"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Compile vs Gather",
+    "word1": {
+      "w": "Compile",
+      "senses": [
+        {
+          "use": "<b>Compile</b> means: To gather and organize information into one place.",
+          "examples": [
+            "Basic: <b>Gather</b> all the receipts."
+          ]
+        }
+      ],
+      "syn": [
+        "assemble",
+        "collect"
+      ],
+      "ant": [
+        "scatter"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Gather",
+      "senses": [
+        {
+          "use": "<b>Gather</b> means: To collect things together. This is the more formal, advanced way to express the same idea as '<b>compile</b>.'",
+          "examples": [
+            "Advanced: We <b>compiled</b> the data into one report."
+          ]
+        }
+      ],
+      "syn": [
+        "assemble",
+        "collect"
+      ],
+      "ant": [
+        "scatter"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Conclude vs Determine",
+    "word1": {
+      "w": "Conclude",
+      "senses": [
+        {
+          "use": "<b>Conclude</b> means: To reach a final decision, often after review.",
+          "examples": [
+            "Basic: We <b>determined</b> the cause of the leak."
+          ]
+        }
+      ],
+      "syn": [
+        "decide"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Determine",
+      "senses": [
+        {
+          "use": "<b>Determine</b> means: To find out or decide something with certainty. This is the more formal, advanced way to express the same idea as '<b>conclude</b>.'",
+          "examples": [
+            "Advanced: The report <b>concludes</b> that the design is safe."
+          ]
+        }
+      ],
+      "syn": [
+        "decide"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Convey vs Communicate",
+    "word1": {
+      "w": "Convey",
+      "senses": [
+        {
+          "use": "<b>Convey</b> means: To communicate a message, often formally.",
+          "examples": [
+            "Basic: <b>Communicate</b> the schedule to the team."
+          ]
+        }
+      ],
+      "syn": [
+        "express"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Communicate",
+      "senses": [
+        {
+          "use": "<b>Communicate</b> means: To share information with someone. This is the more formal, advanced way to express the same idea as '<b>convey</b>.'",
+          "examples": [
+            "Advanced: The memo <b>conveys</b> the client's concerns clearly."
+          ]
+        }
+      ],
+      "syn": [
+        "express"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Critique vs Review",
+    "word1": {
+      "w": "Critique",
+      "senses": [
+        {
+          "use": "<b>Critique</b> means: To evaluate something in detail, pointing out strengths and weaknesses.",
+          "examples": [
+            "Basic: Please <b>review</b> my resume."
+          ]
+        }
+      ],
+      "syn": [
+        "assess"
+      ],
+      "ant": [
+        "praise"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Review",
+      "senses": [
+        {
+          "use": "<b>Review</b> means: To examine or assess something carefully. This is the more formal, advanced way to express the same idea as '<b>critique</b>.'",
+          "examples": [
+            "Advanced: The panel will <b>critique</b> the proposed design."
+          ]
+        }
+      ],
+      "syn": [
+        "assess"
+      ],
+      "ant": [
+        "praise"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Deduce vs Infer",
+    "word1": {
+      "w": "Deduce",
+      "senses": [
+        {
+          "use": "<b>Deduce</b> means: To reach a conclusion through reasoning.",
+          "examples": [
+            "Basic: I can <b>infer</b> the cause from the data."
+          ]
+        }
+      ],
+      "syn": [
+        "conclude"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Infer",
+      "senses": [
+        {
+          "use": "<b>Infer</b> means: To work out something based on evidence. This is the more formal, advanced way to express the same idea as '<b>deduce</b>.'",
+          "examples": [
+            "Advanced: We <b>deduced</b> that the valve was faulty."
+          ]
+        }
+      ],
+      "syn": [
+        "conclude"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Demonstrate vs Show",
+    "word1": {
+      "w": "Demonstrate",
+      "senses": [
+        {
+          "use": "<b>Demonstrate</b> means: To show something clearly, often with proof.",
+          "examples": [
+            "Basic: <b>Show</b> me how it works."
+          ]
+        }
+      ],
+      "syn": [
+        "prove",
+        "display"
+      ],
+      "ant": [
+        "hide"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Show",
+      "senses": [
+        {
+          "use": "<b>Show</b> means: To make something visible or clear to others. This is the more formal, advanced way to express the same idea as '<b>demonstrate</b>.'",
+          "examples": [
+            "Advanced: The test results <b>demonstrate</b> the system's reliability."
+          ]
+        }
+      ],
+      "syn": [
+        "prove",
+        "display"
+      ],
+      "ant": [
+        "hide"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Designate vs Appoint",
+    "word1": {
+      "w": "Designate",
+      "senses": [
+        {
+          "use": "<b>Designate</b> means: To officially assign a role or purpose to something.",
+          "examples": [
+            "Basic: We <b>appointed</b> him as team lead."
+          ]
+        }
+      ],
+      "syn": [
+        "assign",
+        "name"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Appoint",
+      "senses": [
+        {
+          "use": "<b>Appoint</b> means: To officially choose someone for a role. This is the more formal, advanced way to express the same idea as '<b>designate</b>.'",
+          "examples": [
+            "Advanced: This area is <b>designated</b> for storage only."
+          ]
+        }
+      ],
+      "syn": [
+        "assign",
+        "name"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Devise vs Create",
+    "word1": {
+      "w": "Devise",
+      "senses": [
+        {
+          "use": "<b>Devise</b> means: To carefully plan or invent something.",
+          "examples": [
+            "Basic: <b>Create</b> a backup plan."
+          ]
+        }
+      ],
+      "syn": [
+        "design",
+        "invent"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Create",
+      "senses": [
+        {
+          "use": "<b>Create</b> means: To make something new. This is the more formal, advanced way to express the same idea as '<b>devise</b>.'",
+          "examples": [
+            "Advanced: The team <b>devised</b> a new testing method."
+          ]
+        }
+      ],
+      "syn": [
+        "design",
+        "invent"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Emphasize vs Highlight",
+    "word1": {
+      "w": "Emphasize",
+      "senses": [
+        {
+          "use": "<b>Emphasize</b> means: To give special importance to something.",
+          "examples": [
+            "Basic: <b>Highlight</b> the important parts."
+          ]
+        }
+      ],
+      "syn": [
+        "stress"
+      ],
+      "ant": [
+        "downplay"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Highlight",
+      "senses": [
+        {
+          "use": "<b>Highlight</b> means: To draw attention to something important. This is the more formal, advanced way to express the same idea as '<b>emphasize</b>.'",
+          "examples": [
+            "Advanced: The report <b>emphasizes</b> the need for maintenance."
+          ]
+        }
+      ],
+      "syn": [
+        "stress"
+      ],
+      "ant": [
+        "downplay"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Enhance vs Improve",
+    "word1": {
+      "w": "Enhance",
+      "senses": [
+        {
+          "use": "<b>Enhance</b> means: To improve the quality or value of something.",
+          "examples": [
+            "Basic: This will <b>improve</b> the flow rate."
+          ]
+        }
+      ],
+      "syn": [
+        "boost"
+      ],
+      "ant": [
+        "worsen"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Improve",
+      "senses": [
+        {
+          "use": "<b>Improve</b> means: To make something better. This is the more formal, advanced way to express the same idea as '<b>enhance</b>.'",
+          "examples": [
+            "Advanced: The redesign <b>enhances</b> overall efficiency."
+          ]
+        }
+      ],
+      "syn": [
+        "boost"
+      ],
+      "ant": [
+        "worsen"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Establish vs Set up",
+    "word1": {
+      "w": "Establish",
+      "senses": [
+        {
+          "use": "<b>Establish</b> means: To set up or start something in a lasting way.",
+          "examples": [
+            "Basic: <b>Set up</b> the equipment first."
+          ]
+        }
+      ],
+      "syn": [
+        "found",
+        "create"
+      ],
+      "ant": [
+        "dismantle"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Set up",
+      "senses": [
+        {
+          "use": "<b>Set up</b> means: To arrange or establish something, ready for use. This is the more formal, advanced way to express the same idea as '<b>establish</b>.'",
+          "examples": [
+            "Advanced: We <b>established</b> a new maintenance schedule."
+          ]
+        }
+      ],
+      "syn": [
+        "found",
+        "create"
+      ],
+      "ant": [
+        "dismantle"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Exceed vs Surpass",
+    "word1": {
+      "w": "Exceed",
+      "senses": [
+        {
+          "use": "<b>Exceed</b> means: To go beyond a limit or expectation.",
+          "examples": [
+            "Basic: The results <b>surpassed</b> expectations."
+          ]
+        }
+      ],
+      "syn": [
+        "outdo"
+      ],
+      "ant": [
+        "fall short"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Surpass",
+      "senses": [
+        {
+          "use": "<b>Surpass</b> means: To do better than expected or go beyond a limit. This is the more formal, advanced way to express the same idea as '<b>exceed</b>.'",
+          "examples": [
+            "Advanced: The reading <b>exceeds</b> the safe limit."
+          ]
+        }
+      ],
+      "syn": [
+        "outdo"
+      ],
+      "ant": [
+        "fall short"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Facilitate vs Assist",
+    "word1": {
+      "w": "Facilitate",
+      "senses": [
+        {
+          "use": "<b>Facilitate</b> means: To make a process easier.",
+          "examples": [
+            "Basic: Can you <b>assist</b> with the setup?"
+          ]
+        }
+      ],
+      "syn": [
+        "help",
+        "enable"
+      ],
+      "ant": [
+        "hinder"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Assist",
+      "senses": [
+        {
+          "use": "<b>Assist</b> means: To help someone with a task. This is the more formal, advanced way to express the same idea as '<b>facilitate</b>.'",
+          "examples": [
+            "Advanced: The software <b>facilitates</b> faster calculations."
+          ]
+        }
+      ],
+      "syn": [
+        "help",
+        "enable"
+      ],
+      "ant": [
+        "hinder"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Formulate vs Develop",
+    "word1": {
+      "w": "Formulate",
+      "senses": [
+        {
+          "use": "<b>Formulate</b> means: To carefully plan or express something.",
+          "examples": [
+            "Basic: We need to <b>develop</b> a plan."
+          ]
+        }
+      ],
+      "syn": [
+        "design",
+        "create"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Develop",
+      "senses": [
+        {
+          "use": "<b>Develop</b> means: To create or improve something over time. This is the more formal, advanced way to express the same idea as '<b>formulate</b>.'",
+          "examples": [
+            "Advanced: The team <b>formulated</b> a new design strategy."
+          ]
+        }
+      ],
+      "syn": [
+        "design",
+        "create"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Generate vs Produce",
+    "word1": {
+      "w": "Generate",
+      "senses": [
+        {
+          "use": "<b>Generate</b> means: To produce or create something, often energy or ideas.",
+          "examples": [
+            "Basic: The plant <b>produces</b> clean water."
+          ]
+        }
+      ],
+      "syn": [
+        "create",
+        "make"
+      ],
+      "ant": [
+        "consume"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Produce",
+      "senses": [
+        {
+          "use": "<b>Produce</b> means: To make or create something, often in quantity. This is the more formal, advanced way to express the same idea as '<b>generate</b>.'",
+          "examples": [
+            "Advanced: The generator <b>generates</b> backup power."
+          ]
+        }
+      ],
+      "syn": [
+        "create",
+        "make"
+      ],
+      "ant": [
+        "consume"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Hypothesize vs Theorize",
+    "word1": {
+      "w": "Hypothesize",
+      "senses": [
+        {
+          "use": "<b>Hypothesize</b> means: To propose an explanation before it's proven.",
+          "examples": [
+            "Basic: We <b>theorize</b> that the pump failed early."
+          ]
+        }
+      ],
+      "syn": [
+        "speculate"
+      ],
+      "ant": [
+        "confirm"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Theorize",
+      "senses": [
+        {
+          "use": "<b>Theorize</b> means: To form an idea or explanation without full proof yet. This is the more formal, advanced way to express the same idea as '<b>hypothesize</b>.'",
+          "examples": [
+            "Advanced: Engineers <b>hypothesized</b> that corrosion caused the leak."
+          ]
+        }
+      ],
+      "syn": [
+        "speculate"
+      ],
+      "ant": [
+        "confirm"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Identify vs Recognize",
+    "word1": {
+      "w": "Identify",
+      "senses": [
+        {
+          "use": "<b>Identify</b> means: To recognize or pinpoint something specific.",
+          "examples": [
+            "Basic: <b>Recognize</b> the risk before starting."
+          ]
+        }
+      ],
+      "syn": [
+        "spot",
+        "detect"
+      ],
+      "ant": [
+        "overlook"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Recognize",
+      "senses": [
+        {
+          "use": "<b>Recognize</b> means: To identify or acknowledge something. This is the more formal, advanced way to express the same idea as '<b>identify</b>.'",
+          "examples": [
+            "Advanced: We <b>identified</b> the source of the noise."
+          ]
+        }
+      ],
+      "syn": [
+        "spot",
+        "detect"
+      ],
+      "ant": [
+        "overlook"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Implement vs Execute",
+    "word1": {
+      "w": "Implement",
+      "senses": [
+        {
+          "use": "<b>Implement</b> means: To put a plan or system into action.",
+          "examples": [
+            "Basic: <b>Execute</b> the plan carefully."
+          ]
+        }
+      ],
+      "syn": [
+        "carry out",
+        "apply"
+      ],
+      "ant": [
+        "abandon"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Execute",
+      "senses": [
+        {
+          "use": "<b>Execute</b> means: To carry out a plan or task. This is the more formal, advanced way to express the same idea as '<b>implement</b>.'",
+          "examples": [
+            "Advanced: We will <b>implement</b> the new safety procedure next week."
+          ]
+        }
+      ],
+      "syn": [
+        "carry out",
+        "apply"
+      ],
+      "ant": [
+        "abandon"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Incorporate vs Include",
+    "word1": {
+      "w": "Incorporate",
+      "senses": [
+        {
+          "use": "<b>Incorporate</b> means: To blend something into an existing whole.",
+          "examples": [
+            "Basic: <b>Include</b> this in the report."
+          ]
+        }
+      ],
+      "syn": [
+        "integrate"
+      ],
+      "ant": [
+        "exclude"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Include",
+      "senses": [
+        {
+          "use": "<b>Include</b> means: To make something part of a whole. This is the more formal, advanced way to express the same idea as '<b>incorporate</b>.'",
+          "examples": [
+            "Advanced: We <b>incorporated</b> the client's feedback into the design."
+          ]
+        }
+      ],
+      "syn": [
+        "integrate"
+      ],
+      "ant": [
+        "exclude"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Indicate vs Show",
+    "word1": {
+      "w": "Indicate",
+      "senses": [
+        {
+          "use": "<b>Indicate</b> means: To point out or show something.",
+          "examples": [
+            "Basic: The gauge <b>shows</b> low pressure."
+          ]
+        }
+      ],
+      "syn": [
+        "reveal",
+        "signal"
+      ],
+      "ant": [
+        "conceal"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Show",
+      "senses": [
+        {
+          "use": "<b>Show</b> means: To make something visible or clear to others. This is the more formal, advanced way to express the same idea as '<b>indicate</b>.'",
+          "examples": [
+            "Advanced: The data <b>indicates</b> a slow leak."
+          ]
+        }
+      ],
+      "syn": [
+        "reveal",
+        "signal"
+      ],
+      "ant": [
+        "conceal"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Influence vs Affect",
+    "word1": {
+      "w": "Influence",
+      "senses": [
+        {
+          "use": "<b>Influence</b> means: To have an effect on someone's decisions or on a situation.",
+          "examples": [
+            "Basic: Weather can <b>affect</b> the schedule."
+          ]
+        }
+      ],
+      "syn": [
+        "impact"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Affect",
+      "senses": [
+        {
+          "use": "<b>Affect</b> means: To have an influence or effect on something. This is the more formal, advanced way to express the same idea as '<b>influence</b>.'",
+          "examples": [
+            "Advanced: Temperature <b>influences</b> the material's strength."
+          ]
+        }
+      ],
+      "syn": [
+        "impact"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Integrate vs Combine",
+    "word1": {
+      "w": "Integrate",
+      "senses": [
+        {
+          "use": "<b>Integrate</b> means: To combine parts so they work as one system.",
+          "examples": [
+            "Basic: <b>Combine</b> the two systems."
+          ]
+        }
+      ],
+      "syn": [
+        "merge",
+        "unify"
+      ],
+      "ant": [
+        "separate"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Combine",
+      "senses": [
+        {
+          "use": "<b>Combine</b> means: To join two or more things together. This is the more formal, advanced way to express the same idea as '<b>integrate</b>.'",
+          "examples": [
+            "Advanced: We <b>integrated</b> the new sensor into the panel."
+          ]
+        }
+      ],
+      "syn": [
+        "merge",
+        "unify"
+      ],
+      "ant": [
+        "separate"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Justify vs Defend",
+    "word1": {
+      "w": "Justify",
+      "senses": [
+        {
+          "use": "<b>Justify</b> means: To give good reasons for something.",
+          "examples": [
+            "Basic: He tried to <b>defend</b> his decision."
+          ]
+        }
+      ],
+      "syn": [
+        "explain"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Defend",
+      "senses": [
+        {
+          "use": "<b>Defend</b> means: To support or justify a decision or position. This is the more formal, advanced way to express the same idea as '<b>justify</b>.'",
+          "examples": [
+            "Advanced: You need to <b>justify</b> the extra cost."
+          ]
+        }
+      ],
+      "syn": [
+        "explain"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Maintain vs Preserve",
+    "word1": {
+      "w": "Maintain",
+      "senses": [
+        {
+          "use": "<b>Maintain</b> means: To keep something in good working condition.",
+          "examples": [
+            "Basic: <b>Preserve</b> the original design."
+          ]
+        }
+      ],
+      "syn": [
+        "sustain"
+      ],
+      "ant": [
+        "neglect"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Preserve",
+      "senses": [
+        {
+          "use": "<b>Preserve</b> means: To keep something in its original or good condition. This is the more formal, advanced way to express the same idea as '<b>maintain</b>.'",
+          "examples": [
+            "Advanced: Regular service helps <b>maintain</b> the equipment."
+          ]
+        }
+      ],
+      "syn": [
+        "sustain"
+      ],
+      "ant": [
+        "neglect"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Modify vs Change",
+    "word1": {
+      "w": "Modify",
+      "senses": [
+        {
+          "use": "<b>Modify</b> means: To make a small change to something.",
+          "examples": [
+            "Basic: <b>Change</b> the pipe size."
+          ]
+        }
+      ],
+      "syn": [
+        "adjust",
+        "alter"
+      ],
+      "ant": [
+        "preserve"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Change",
+      "senses": [
+        {
+          "use": "<b>Change</b> means: To make or become different. This is the more formal, advanced way to express the same idea as '<b>modify</b>.'",
+          "examples": [
+            "Advanced: We <b>modified</b> the layout after review."
+          ]
+        }
+      ],
+      "syn": [
+        "adjust",
+        "alter"
+      ],
+      "ant": [
+        "preserve"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Negotiate vs Discuss",
+    "word1": {
+      "w": "Negotiate",
+      "senses": [
+        {
+          "use": "<b>Negotiate</b> means: To discuss something in order to reach an agreement.",
+          "examples": [
+            "Basic: Let's <b>discuss</b> the price."
+          ]
+        }
+      ],
+      "syn": [
+        "bargain"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Discuss",
+      "senses": [
+        {
+          "use": "<b>Discuss</b> means: To talk about something with others. This is the more formal, advanced way to express the same idea as '<b>negotiate</b>.'",
+          "examples": [
+            "Advanced: We <b>negotiated</b> a better contract."
+          ]
+        }
+      ],
+      "syn": [
+        "bargain"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Obtain vs Acquire",
+    "word1": {
+      "w": "Obtain",
+      "senses": [
+        {
+          "use": "<b>Obtain</b> means: To get or acquire something.",
+          "examples": [
+            "Basic: We need to <b>acquire</b> a new permit."
+          ]
+        }
+      ],
+      "syn": [
+        "get",
+        "secure"
+      ],
+      "ant": [
+        "lose"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Acquire",
+      "senses": [
+        {
+          "use": "<b>Acquire</b> means: To get or obtain something, often over time. This is the more formal, advanced way to express the same idea as '<b>obtain</b>.'",
+          "examples": [
+            "Advanced: He <b>obtained</b> his license last year."
+          ]
+        }
+      ],
+      "syn": [
+        "get",
+        "secure"
+      ],
+      "ant": [
+        "lose"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Outline vs Summarize",
+    "word1": {
+      "w": "Outline",
+      "senses": [
+        {
+          "use": "<b>Outline</b> means: To summarize the main points of something.",
+          "examples": [
+            "Basic: <b>Summarize</b> the findings."
+          ]
+        }
+      ],
+      "syn": [
+        "sketch"
+      ],
+      "ant": [
+        "elaborate"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Summarize",
+      "senses": [
+        {
+          "use": "<b>Summarize</b> means: To give a short overview of the main points. This is the more formal, advanced way to express the same idea as '<b>outline</b>.'",
+          "examples": [
+            "Advanced: The email <b>outlines</b> the next steps."
+          ]
+        }
+      ],
+      "syn": [
+        "sketch"
+      ],
+      "ant": [
+        "elaborate"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Participate vs Engage",
+    "word1": {
+      "w": "Participate",
+      "senses": [
+        {
+          "use": "<b>Participate</b> means: To take part in an activity.",
+          "examples": [
+            "Basic: Please <b>engage</b> with the training."
+          ]
+        }
+      ],
+      "syn": [
+        "join",
+        "take part"
+      ],
+      "ant": [
+        "withdraw"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Engage",
+      "senses": [
+        {
+          "use": "<b>Engage</b> means: To take part in, or to attract someone's interest. This is the more formal, advanced way to express the same idea as '<b>participate</b>.'",
+          "examples": [
+            "Advanced: Everyone must <b>participate in</b> the safety drill."
+          ]
+        }
+      ],
+      "syn": [
+        "join",
+        "take part"
+      ],
+      "ant": [
+        "withdraw"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Perceive vs Discern",
+    "word1": {
+      "w": "Perceive",
+      "senses": [
+        {
+          "use": "<b>Perceive</b> means: To become aware of something through observation.",
+          "examples": [
+            "Basic: I could <b>discern</b> a small crack."
+          ]
+        }
+      ],
+      "syn": [
+        "notice"
+      ],
+      "ant": [
+        "miss"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Discern",
+      "senses": [
+        {
+          "use": "<b>Discern</b> means: To notice or recognize something, often subtle. This is the more formal, advanced way to express the same idea as '<b>perceive</b>.'",
+          "examples": [
+            "Advanced: Workers <b>perceived</b> the risk too late."
+          ]
+        }
+      ],
+      "syn": [
+        "notice"
+      ],
+      "ant": [
+        "miss"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Persuade vs Convince",
+    "word1": {
+      "w": "Persuade",
+      "senses": [
+        {
+          "use": "<b>Persuade</b> means: To convince someone to do or believe something.",
+          "examples": [
+            "Basic: Try to <b>convince</b> the client."
+          ]
+        }
+      ],
+      "syn": [
+        "influence"
+      ],
+      "ant": [
+        "dissuade"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Convince",
+      "senses": [
+        {
+          "use": "<b>Convince</b> means: To make someone believe or agree to something. This is the more formal, advanced way to express the same idea as '<b>persuade</b>.'",
+          "examples": [
+            "Advanced: He <b>persuaded</b> them to approve the budget."
+          ]
+        }
+      ],
+      "syn": [
+        "influence"
+      ],
+      "ant": [
+        "dissuade"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Predict vs Forecast",
+    "word1": {
+      "w": "Predict",
+      "senses": [
+        {
+          "use": "<b>Predict</b> means: To say what will happen before it does.",
+          "examples": [
+            "Basic: <b>Forecast</b> the demand for next month."
+          ]
+        }
+      ],
+      "syn": [
+        "foresee"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Forecast",
+      "senses": [
+        {
+          "use": "<b>Forecast</b> means: To predict something, especially based on data or trends. This is the more formal, advanced way to express the same idea as '<b>predict</b>.'",
+          "examples": [
+            "Advanced: Engineers <b>predict</b> higher loads in summer."
+          ]
+        }
+      ],
+      "syn": [
+        "foresee"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Prioritize vs Rank",
+    "word1": {
+      "w": "Prioritize",
+      "senses": [
+        {
+          "use": "<b>Prioritize</b> means: To treat something as more important or urgent than other things.",
+          "examples": [
+            "Basic: <b>Rank</b> the tasks by urgency."
+          ]
+        }
+      ],
+      "syn": [
+        "order"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Rank",
+      "senses": [
+        {
+          "use": "<b>Rank</b> means: To arrange things in order of importance. This is the more formal, advanced way to express the same idea as '<b>prioritize</b>.'",
+          "examples": [
+            "Advanced: We <b>prioritized</b> safety issues first."
+          ]
+        }
+      ],
+      "syn": [
+        "order"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Propose vs Suggest",
+    "word1": {
+      "w": "Propose",
+      "senses": [
+        {
+          "use": "<b>Propose</b> means: To formally suggest a plan or idea.",
+          "examples": [
+            "Basic: I <b>suggest</b> we delay the test."
+          ]
+        }
+      ],
+      "syn": [
+        "recommend"
+      ],
+      "ant": [
+        "withdraw"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Suggest",
+      "senses": [
+        {
+          "use": "<b>Suggest</b> means: To offer an idea for consideration. This is the more formal, advanced way to express the same idea as '<b>propose</b>.'",
+          "examples": [
+            "Advanced: He <b>proposed</b> a new layout."
+          ]
+        }
+      ],
+      "syn": [
+        "recommend"
+      ],
+      "ant": [
+        "withdraw"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Rationalize vs Justify",
+    "word1": {
+      "w": "Rationalize",
+      "senses": [
+        {
+          "use": "<b>Rationalize</b> means: To find logical reasons for a decision, sometimes to justify it.",
+          "examples": [
+            "Basic: <b>Justify</b> your choice of pipe size."
+          ]
+        }
+      ],
+      "syn": [
+        "explain"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Justify",
+      "senses": [
+        {
+          "use": "<b>Justify</b> means: To give good reasons for something. This is the more formal, advanced way to express the same idea as '<b>rationalize</b>.'",
+          "examples": [
+            "Advanced: He tried to <b>rationalize</b> the extra expense."
+          ]
+        }
+      ],
+      "syn": [
+        "explain"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Reinforce vs Strengthen",
+    "word1": {
+      "w": "Reinforce",
+      "senses": [
+        {
+          "use": "<b>Reinforce</b> means: To make something stronger.",
+          "examples": [
+            "Basic: <b>Strengthen</b> the support beam."
+          ]
+        }
+      ],
+      "syn": [
+        "fortify"
+      ],
+      "ant": [
+        "weaken"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Strengthen",
+      "senses": [
+        {
+          "use": "<b>Strengthen</b> means: To make something stronger or more secure. This is the more formal, advanced way to express the same idea as '<b>reinforce</b>.'",
+          "examples": [
+            "Advanced: We <b>reinforced</b> the wall before installation."
+          ]
+        }
+      ],
+      "syn": [
+        "fortify"
+      ],
+      "ant": [
+        "weaken"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Reiterate vs Repeat",
+    "word1": {
+      "w": "Reiterate",
+      "senses": [
+        {
+          "use": "<b>Reiterate</b> means: To say something again, usually for emphasis.",
+          "examples": [
+            "Basic: <b>Repeat</b> the instructions, please."
+          ]
+        }
+      ],
+      "syn": [
+        "restate"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Repeat",
+      "senses": [
+        {
+          "use": "<b>Repeat</b> means: To say or do something again. This is the more formal, advanced way to express the same idea as '<b>reiterate</b>.'",
+          "examples": [
+            "Advanced: Let me <b>reiterate</b> the safety rules."
+          ]
+        }
+      ],
+      "syn": [
+        "restate"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Use vs Utilize",
+    "word1": {
+      "w": "Use",
+      "senses": [
+        {
+          "use": "<b>Use</b> means: To employ something for a particular purpose.",
+          "examples": [
+            "Basic: We <b>use</b> this tool for cutting pipes."
+          ]
+        }
+      ],
+      "syn": [
+        "employ",
+        "apply"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Utilize",
+      "senses": [
+        {
+          "use": "<b>Utilize</b> means: To use something, especially in a way that makes the most of it. This is the more formal, advanced way to express the same idea as '<b>use</b>.'",
+          "examples": [
+            "Advanced: We <b>utilize</b> renewable energy sources where possible."
+          ]
+        }
+      ],
+      "syn": [
+        "employ",
+        "apply"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Get vs Procure",
+    "word1": {
+      "w": "Get",
+      "senses": [
+        {
+          "use": "<b>Get</b> means: To obtain or receive something.",
+          "examples": [
+            "Basic: We need to <b>get</b> more fittings."
+          ]
+        }
+      ],
+      "syn": [
+        "acquire",
+        "source"
+      ],
+      "ant": [
+        "sell"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Procure",
+      "senses": [
+        {
+          "use": "<b>Procure</b> means: To obtain something, often through an official or formal process. This is the more formal, advanced way to express the same idea as '<b>get</b>.'",
+          "examples": [
+            "Advanced: The company <b>procures</b> materials from certified suppliers."
+          ]
+        }
+      ],
+      "syn": [
+        "acquire",
+        "source"
+      ],
+      "ant": [
+        "sell"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Tell vs Notify",
+    "word1": {
+      "w": "Tell",
+      "senses": [
+        {
+          "use": "<b>Tell</b> means: To communicate information to someone.",
+          "examples": [
+            "Basic: <b>Tell</b> the client about the delay."
+          ]
+        }
+      ],
+      "syn": [
+        "inform",
+        "alert"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Notify",
+      "senses": [
+        {
+          "use": "<b>Notify</b> means: To formally inform someone of something. This is the more formal, advanced way to express the same idea as '<b>tell</b>.'",
+          "examples": [
+            "Advanced: <b>Notify</b> all stakeholders before the shutdown."
+          ]
+        }
+      ],
+      "syn": [
+        "inform",
+        "alert"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Speed up vs Expedite",
+    "word1": {
+      "w": "Speed up",
+      "senses": [
+        {
+          "use": "<b>Speed up</b> means: To make something happen more quickly.",
+          "examples": [
+            "Basic: Let's <b>speed up</b> the approval process."
+          ]
+        }
+      ],
+      "syn": [
+        "accelerate",
+        "hasten"
+      ],
+      "ant": [
+        "delay"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Expedite",
+      "senses": [
+        {
+          "use": "<b>Expedite</b> means: To make a process happen faster, especially by removing delays. This is the more formal, advanced way to express the same idea as '<b>speed up</b>.'",
+          "examples": [
+            "Advanced: We asked the supplier to <b>expedite</b> the shipment."
+          ]
+        }
+      ],
+      "syn": [
+        "accelerate",
+        "hasten"
+      ],
+      "ant": [
+        "delay"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Big vs Substantial",
+    "word1": {
+      "w": "Big",
+      "senses": [
+        {
+          "use": "<b>Big</b> means: Large in size, amount, or importance.",
+          "examples": [
+            "Basic: That's a <b>big</b> change to the design."
+          ]
+        }
+      ],
+      "syn": [
+        "considerable",
+        "significant"
+      ],
+      "ant": [
+        "minor"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Substantial",
+      "senses": [
+        {
+          "use": "<b>Substantial</b> means: Large enough to be significant or considerable. This is the more formal, advanced way to express the same idea as '<b>big</b>.'",
+          "examples": [
+            "Advanced: The redesign resulted in <b>substantial</b> cost savings."
+          ]
+        }
+      ],
+      "syn": [
+        "considerable",
+        "significant"
+      ],
+      "ant": [
+        "minor"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Small vs Minimal",
+    "word1": {
+      "w": "Small",
+      "senses": [
+        {
+          "use": "<b>Small</b> means: Limited in size, amount, or degree.",
+          "examples": [
+            "Basic: There was a <b>small</b> delay."
+          ]
+        }
+      ],
+      "syn": [
+        "slight",
+        "negligible"
+      ],
+      "ant": [
+        "substantial"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Minimal",
+      "senses": [
+        {
+          "use": "<b>Minimal</b> means: The smallest amount or degree possible. This is the more formal, advanced way to express the same idea as '<b>small</b>.'",
+          "examples": [
+            "Advanced: The change caused only <b>minimal</b> disruption."
+          ]
+        }
+      ],
+      "syn": [
+        "slight",
+        "negligible"
+      ],
+      "ant": [
+        "substantial"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Old vs Outdated",
+    "word1": {
+      "w": "Old",
+      "senses": [
+        {
+          "use": "<b>Old</b> means: Having existed for a long time; not new.",
+          "examples": [
+            "Basic: This is an <b>old</b> design."
+          ]
+        }
+      ],
+      "syn": [
+        "obsolete",
+        "dated"
+      ],
+      "ant": [
+        "current"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Outdated",
+      "senses": [
+        {
+          "use": "<b>Outdated</b> means: No longer current or useful; replaced by something newer. This is the more formal, advanced way to express the same idea as '<b>old</b>.'",
+          "examples": [
+            "Advanced: The <b>outdated</b> wiring no longer meets code."
+          ]
+        }
+      ],
+      "syn": [
+        "obsolete",
+        "dated"
+      ],
+      "ant": [
+        "current"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "New vs Novel",
+    "word1": {
+      "w": "New",
+      "senses": [
+        {
+          "use": "<b>New</b> means: Recently made, introduced, or discovered.",
+          "examples": [
+            "Basic: We tried a <b>new</b> method."
+          ]
+        }
+      ],
+      "syn": [
+        "original",
+        "innovative"
+      ],
+      "ant": [
+        "conventional"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Novel",
+      "senses": [
+        {
+          "use": "<b>Novel</b> means: New and original, often introducing a fresh idea or approach. This is the more formal, advanced way to express the same idea as '<b>new</b>.'",
+          "examples": [
+            "Advanced: The team proposed a <b>novel</b> solution to the cooling problem."
+          ]
+        }
+      ],
+      "syn": [
+        "original",
+        "innovative"
+      ],
+      "ant": [
+        "conventional"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Wrong vs Erroneous",
+    "word1": {
+      "w": "Wrong",
+      "senses": [
+        {
+          "use": "<b>Wrong</b> means: Not correct or accurate.",
+          "examples": [
+            "Basic: That reading is <b>wrong</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "incorrect",
+        "mistaken"
+      ],
+      "ant": [
+        "correct"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Erroneous",
+      "senses": [
+        {
+          "use": "<b>Erroneous</b> means: Containing an error; based on incorrect information. This is the more formal, advanced way to express the same idea as '<b>wrong</b>.'",
+          "examples": [
+            "Advanced: The report contained an <b>erroneous</b> calculation."
+          ]
+        }
+      ],
+      "syn": [
+        "incorrect",
+        "mistaken"
+      ],
+      "ant": [
+        "correct"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Hard vs Challenging",
+    "word1": {
+      "w": "Hard",
+      "senses": [
+        {
+          "use": "<b>Hard</b> means: Requiring a lot of effort or skill to do.",
+          "examples": [
+            "Basic: This job is <b>hard</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "difficult",
+        "demanding"
+      ],
+      "ant": [
+        "easy"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Challenging",
+      "senses": [
+        {
+          "use": "<b>Challenging</b> means: Difficult in a way that tests your ability, often in a positive sense. This is the more formal, advanced way to express the same idea as '<b>hard</b>.'",
+          "examples": [
+            "Advanced: It was a <b>challenging</b> installation due to limited access."
+          ]
+        }
+      ],
+      "syn": [
+        "difficult",
+        "demanding"
+      ],
+      "ant": [
+        "easy"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Easy vs Straightforward",
+    "word1": {
+      "w": "Easy",
+      "senses": [
+        {
+          "use": "<b>Easy</b> means: Able to be done without much effort.",
+          "examples": [
+            "Basic: The repair was <b>easy</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "simple",
+        "uncomplicated"
+      ],
+      "ant": [
+        "complex"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Straightforward",
+      "senses": [
+        {
+          "use": "<b>Straightforward</b> means: Simple, clear, and without unnecessary complication. This is the more formal, advanced way to express the same idea as '<b>easy</b>.'",
+          "examples": [
+            "Advanced: The installation process is <b>straightforward</b> with the new kit."
+          ]
+        }
+      ],
+      "syn": [
+        "simple",
+        "uncomplicated"
+      ],
+      "ant": [
+        "complex"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Fast vs Rapid",
+    "word1": {
+      "w": "Fast",
+      "senses": [
+        {
+          "use": "<b>Fast</b> means: Moving or happening quickly.",
+          "examples": [
+            "Basic: The pump works <b>fast</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "quick",
+        "swift"
+      ],
+      "ant": [
+        "slow"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Rapid",
+      "senses": [
+        {
+          "use": "<b>Rapid</b> means: Happening very quickly, especially over a short time. This is the more formal, advanced way to express the same idea as '<b>fast</b>.'",
+          "examples": [
+            "Advanced: The system responded to the <b>rapid</b> pressure change."
+          ]
+        }
+      ],
+      "syn": [
+        "quick",
+        "swift"
+      ],
+      "ant": [
+        "slow"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Strong vs Robust",
+    "word1": {
+      "w": "Strong",
+      "senses": [
+        {
+          "use": "<b>Strong</b> means: Having great power, force, or durability.",
+          "examples": [
+            "Basic: This material is <b>strong</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "sturdy",
+        "durable"
+      ],
+      "ant": [
+        "fragile"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Robust",
+      "senses": [
+        {
+          "use": "<b>Robust</b> means: Strong and able to withstand difficult conditions without failing. This is the more formal, advanced way to express the same idea as '<b>strong</b>.'",
+          "examples": [
+            "Advanced: The design is <b>robust</b> enough for outdoor use."
+          ]
+        }
+      ],
+      "syn": [
+        "sturdy",
+        "durable"
+      ],
+      "ant": [
+        "fragile"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Weak vs Fragile",
+    "word1": {
+      "w": "Weak",
+      "senses": [
+        {
+          "use": "<b>Weak</b> means: Lacking strength, power, or durability.",
+          "examples": [
+            "Basic: The old seal is <b>weak</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "delicate",
+        "brittle"
+      ],
+      "ant": [
+        "robust",
+        "strong"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Fragile",
+      "senses": [
+        {
+          "use": "<b>Fragile</b> means: Easily broken or damaged; needing careful handling. This is the more formal, advanced way to express the same idea as '<b>weak</b>.'",
+          "examples": [
+            "Advanced: Handle the <b>fragile</b> components with extra care."
+          ]
+        }
+      ],
+      "syn": [
+        "delicate",
+        "brittle"
+      ],
+      "ant": [
+        "robust",
+        "strong"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Clear vs Evident",
+    "word1": {
+      "w": "Clear",
+      "senses": [
+        {
+          "use": "<b>Clear</b> means: Easy to see, hear, or understand.",
+          "examples": [
+            "Basic: The problem is <b>clear</b> now."
+          ]
+        }
+      ],
+      "syn": [
+        "obvious",
+        "apparent"
+      ],
+      "ant": [
+        "unclear"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Evident",
+      "senses": [
+        {
+          "use": "<b>Evident</b> means: Clearly seen or understood; obvious. This is the more formal, advanced way to express the same idea as '<b>clear</b>.'",
+          "examples": [
+            "Advanced: It became <b>evident</b> that the pump was undersized."
+          ]
+        }
+      ],
+      "syn": [
+        "obvious",
+        "apparent"
+      ],
+      "ant": [
+        "unclear"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Stop vs Halt",
+    "word1": {
+      "w": "Stop",
+      "senses": [
+        {
+          "use": "<b>Stop</b> means: To bring movement or activity to an end.",
+          "examples": [
+            "Basic: <b>Stop</b> the machine now."
+          ]
+        }
+      ],
+      "syn": [
+        "cease",
+        "suspend"
+      ],
+      "ant": [
+        "continue"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Halt",
+      "senses": [
+        {
+          "use": "<b>Halt</b> means: To stop, often suddenly or officially. This is the more formal, advanced way to express the same idea as '<b>stop</b>.'",
+          "examples": [
+            "Advanced: Work was <b>halted</b> due to the safety concern."
+          ]
+        }
+      ],
+      "syn": [
+        "cease",
+        "suspend"
+      ],
+      "ant": [
+        "continue"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Help vs Facilitate",
+    "word1": {
+      "w": "Help",
+      "senses": [
+        {
+          "use": "<b>Help</b> means: To make it easier for someone to do something.",
+          "examples": [
+            "Basic: Can you <b>help</b> with the setup?"
+          ]
+        }
+      ],
+      "syn": [
+        "assist",
+        "enable"
+      ],
+      "ant": [
+        "hinder"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Facilitate",
+      "senses": [
+        {
+          "use": "<b>Facilitate</b> means: To make a process easier. This is the more formal, advanced way to express the same idea as '<b>help</b>.'",
+          "examples": [
+            "Advanced: The new software <b>facilitates</b> faster reporting."
+          ]
+        }
+      ],
+      "syn": [
+        "assist",
+        "enable"
+      ],
+      "ant": [
+        "hinder"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Look at vs Observe",
+    "word1": {
+      "w": "Look at",
+      "senses": [
+        {
+          "use": "<b>Look at</b> means: To direct your eyes toward something.",
+          "examples": [
+            "Basic: <b>Look at</b> the pressure gauge."
+          ]
+        }
+      ],
+      "syn": [
+        "watch",
+        "examine"
+      ],
+      "ant": [
+        "ignore"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Observe",
+      "senses": [
+        {
+          "use": "<b>Observe</b> means: To watch something carefully and attentively. This is the more formal, advanced way to express the same idea as '<b>look at</b>.'",
+          "examples": [
+            "Advanced: We <b>observed</b> the system for an hour before signing off."
+          ]
+        }
+      ],
+      "syn": [
+        "watch",
+        "examine"
+      ],
+      "ant": [
+        "ignore"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Think vs Contemplate",
+    "word1": {
+      "w": "Think",
+      "senses": [
+        {
+          "use": "<b>Think</b> means: To use your mind to consider or form an idea.",
+          "examples": [
+            "Basic: I need to <b>think</b> about this."
+          ]
+        }
+      ],
+      "syn": [
+        "consider",
+        "reflect"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Contemplate",
+      "senses": [
+        {
+          "use": "<b>Contemplate</b> means: To think about something seriously and for a long time. This is the more formal, advanced way to express the same idea as '<b>think</b>.'",
+          "examples": [
+            "Advanced: We are <b>contemplating</b> a switch to a different supplier."
+          ]
+        }
+      ],
+      "syn": [
+        "consider",
+        "reflect"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Plan vs Strategize",
+    "word1": {
+      "w": "Plan",
+      "senses": [
+        {
+          "use": "<b>Plan</b> means: To decide on and arrange the details of something in advance.",
+          "examples": [
+            "Basic: Let's <b>plan</b> the next phase."
+          ]
+        }
+      ],
+      "syn": [
+        "organize",
+        "scheme"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Strategize",
+      "senses": [
+        {
+          "use": "<b>Strategize</b> means: To carefully plan a course of action to achieve a specific goal. This is the more formal, advanced way to express the same idea as '<b>plan</b>.'",
+          "examples": [
+            "Advanced: The team <b>strategized</b> the rollout across all sites."
+          ]
+        }
+      ],
+      "syn": [
+        "organize",
+        "scheme"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Affect vs Effect",
+    "word1": {
+      "w": "Affect",
+      "senses": [
+        {
+          "use": "<b>Affect</b> (verb): To influence or produce a change in something.",
+          "examples": [
+            "The delay will <b>affect</b> the whole schedule."
+          ]
+        }
+      ],
+      "syn": [
+        "influence",
+        "impact"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Effect",
+      "senses": [
+        {
+          "use": "<b>Effect</b> (noun): A result or outcome caused by something.",
+          "examples": [
+            "The <b>effect</b> of the delay was a week-long slip."
+          ]
+        }
+      ],
+      "syn": [
+        "result",
+        "outcome"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Advice vs Advise",
+    "word1": {
+      "w": "Advice",
+      "senses": [
+        {
+          "use": "<b>Advice</b> (noun): A recommendation or suggestion about what to do.",
+          "examples": [
+            "She gave good <b>advice</b> about the project timeline."
+          ]
+        }
+      ],
+      "syn": [
+        "recommendation",
+        "suggestion"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Advise",
+      "senses": [
+        {
+          "use": "<b>Advise</b> (verb): To give a recommendation or suggestion.",
+          "examples": [
+            "I <b>advise</b> you to double-check the calculations."
+          ]
+        }
+      ],
+      "syn": [
+        "recommend",
+        "counsel"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Accept vs Except",
+    "word1": {
+      "w": "Accept",
+      "senses": [
+        {
+          "use": "<b>Accept</b> (verb): To agree to receive or take something offered.",
+          "examples": [
+            "He <b>accepted</b> the job offer."
+          ]
+        }
+      ],
+      "syn": [
+        "agree to",
+        "receive"
+      ],
+      "ant": [
+        "refuse",
+        "reject"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Except",
+      "senses": [
+        {
+          "use": "<b>Except</b> (preposition/conjunction): Excluding; not including.",
+          "examples": [
+            "Everyone attended the meeting <b>except</b> John."
+          ]
+        }
+      ],
+      "syn": [
+        "excluding",
+        "other than"
+      ],
+      "ant": [
+        "including"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Compliment vs Complement",
+    "word1": {
+      "w": "Compliment",
+      "senses": [
+        {
+          "use": "<b>Compliment</b> (noun/verb): An expression of praise or admiration.",
+          "examples": [
+            "She <b>complimented</b> his design work."
+          ]
+        }
+      ],
+      "syn": [
+        "praise",
+        "commend"
+      ],
+      "ant": [
+        "insult",
+        "criticize"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Complement",
+      "senses": [
+        {
+          "use": "<b>Complement</b> (noun/verb): Something that completes or goes well with something else.",
+          "examples": [
+            "The new pump <b>complements</b> the existing system."
+          ]
+        }
+      ],
+      "syn": [
+        "complete",
+        "supplement"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Principal vs Principle",
+    "word1": {
+      "w": "Principal",
+      "senses": [
+        {
+          "use": "<b>Principal</b> (adjective/noun): Main or most important; a person who is the head of an organization.",
+          "examples": [
+            "The <b>principal</b> reason for the delay was a material shortage."
+          ]
+        }
+      ],
+      "syn": [
+        "main",
+        "chief"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Principle",
+      "senses": [
+        {
+          "use": "<b>Principle</b> (noun): A fundamental rule, law, or belief.",
+          "examples": [
+            "The design follows sound engineering <b>principles</b>."
+          ]
+        }
+      ],
+      "syn": [
+        "rule",
+        "standard"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Stationary vs Stationery",
+    "word1": {
+      "w": "Stationary",
+      "senses": [
+        {
+          "use": "<b>Stationary</b> (adjective): Not moving; fixed in one place.",
+          "examples": [
+            "The <b>stationary</b> pump requires a solid foundation."
+          ]
+        }
+      ],
+      "syn": [
+        "fixed",
+        "motionless"
+      ],
+      "ant": [
+        "moving",
+        "mobile"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Stationery",
+      "senses": [
+        {
+          "use": "<b>Stationery</b> (noun): Writing materials and paper products.",
+          "examples": [
+            "Order more <b>stationery</b> for the office."
+          ]
+        }
+      ],
+      "syn": [
+        "paper supplies"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Loose vs Lose",
+    "word1": {
+      "w": "Loose",
+      "senses": [
+        {
+          "use": "<b>Loose</b> (adjective): Not firmly fixed in place; not tight.",
+          "examples": [
+            "Check for any <b>loose</b> bolts on the frame."
+          ]
+        }
+      ],
+      "syn": [
+        "slack",
+        "unsecured"
+      ],
+      "ant": [
+        "tight",
+        "secure"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Lose",
+      "senses": [
+        {
+          "use": "<b>Lose</b> (verb): To no longer have something; to be defeated or fail to keep.",
+          "examples": [
+            "Don't <b>lose</b> the calibration data."
+          ]
+        }
+      ],
+      "syn": [
+        "misplace",
+        "forfeit"
+      ],
+      "ant": [
+        "find",
+        "keep"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
+  },
+  {
+    "w": "Farther vs Further",
+    "word1": {
+      "w": "Farther",
+      "senses": [
+        {
+          "use": "<b>Farther</b> (adjective/adverb): A greater physical distance.",
+          "examples": [
+            "The site is <b>farther</b> from the road than expected."
+          ]
+        }
+      ],
+      "syn": [
+        "more distant"
+      ],
+      "ant": [
+        "nearer"
+      ],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "word2": {
+      "w": "Further",
+      "senses": [
+        {
+          "use": "<b>Further</b> (adjective/adverb): To a greater degree or extent; additional (often figurative, not physical distance).",
+          "examples": [
+            "We need <b>further</b> testing before approval."
+          ]
+        }
+      ],
+      "syn": [
+        "additional",
+        "more"
+      ],
+      "ant": [],
+      "mistake": null,
+      "tagalog": null,
+      "phonetic": null,
+      "source": "seed"
+    },
+    "source": "seed"
   }
 ];
+
+// Declared immediately after distinctionsData (rather than down with the
+// rest of the Distinctions Words feature code) because the built-in
+// search-indexing pass runs much earlier in the script than that code —
+// a `const` referenced before its own declaration line throws, even
+// though the function using it is safely hoisted.
+const DISTINCTIONS_TAG_LABEL = "Distinction Word";
 
 /* =========================================================
    DATA — PHRASAL VERBS (deduplicated from your reference sheets)
@@ -28466,7 +30380,7 @@ setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression",
 setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence", "sentences");
 setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern", "patterns");
 setupRuleModule(technicalData, "technicalSelect", "technicalEntry", "Technical Term", "technical");
-setupRuleModule(upgradeData, "upgradeSelect", "upgradeEntry", "Basic → Advanced");
+setupDistinctionsModule();
 
 /* =========================================================
    RENDER — WORD FAMILY
@@ -29030,7 +30944,7 @@ indexLanguageBankCategory(idiomsData, "Idiom / Expression", "idioms", "idiomsSel
 indexLanguageBankCategory(sentencesData, "Useful Sentence", "sentences", "sentencesSelect", "sentencesEntry", "Useful Sentence");
 indexLanguageBankCategory(patternsData, "Sentence Pattern", "patterns", "patternsSelect", "patternsEntry", "Sentence Pattern");
 indexLanguageBankCategory(technicalData, "Technical Term", "technical", "technicalSelect", "technicalEntry", "Technical Term");
-indexRuleModule(upgradeData, "Basic → Advanced", "upgradeSelect", "upgradeEntry", "Basic → Advanced", "upgrade");
+indexDistinctionsData(distinctionsData);
 wordFamilyData.forEach(item=>{
   searchIndex.push({label:item.verb, cat:"Word family", action:()=>{
     document.getElementById("familySelect").value = item.verb;
@@ -29062,8 +30976,8 @@ searchIndex.forEach(item=>{
 });
 
 /* Populate the unified Vocabulary Bank lookup. Every entry in vocabData
-   is now a single word (the Basic→Advanced pairs live in Upgrade instead),
-   so this is a direct one-to-one mapping. */
+   is now a single word (confusable/near-synonym word pairs live in
+   Distinctions Words instead), so this is a direct one-to-one mapping. */
 vocabData.forEach(item=>{
   vocabLookup.set(item.w.trim().toLowerCase(), item.w);
 });
@@ -29323,6 +31237,9 @@ const patternsCacheRestorePromise = VocabCache.getAllPatterns({dbPromise: vocabD
 const technicalCacheRestorePromise = VocabCache.getAllTechnical({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addTechnicalEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addDistinctionEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 /* Prev/Next buttons.
    - The small pair beside each dropdown follows the user's SEARCH
@@ -29442,6 +31359,7 @@ document.getElementById("ownerSetPinBtn").addEventListener("click", async ()=>{
   updateOwnerModeUI();
   refreshMistakeUI();
   refreshLanguageBankUI();
+  refreshDistinctionsUI();
 });
 
 document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
@@ -29457,6 +31375,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   updateOwnerModeUI();
   refreshMistakeUI();
   refreshLanguageBankUI();
+  refreshDistinctionsUI();
 });
 
 document.getElementById("ownerUnlockPinInput").addEventListener("keydown", (e)=>{
@@ -29483,6 +31402,7 @@ document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   updateOwnerModeUI();
   refreshMistakeUI();
   refreshLanguageBankUI();
+  refreshDistinctionsUI();
 });
 
 document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
@@ -29771,7 +31691,6 @@ function getFavoriteRuleEntrySources(){
     { cat: "Word Order Pattern", data: orderData },
     { cat: "Sentence Error", data: mistakeData },
     { cat: "Question Starter", data: qaData },
-    { cat: "Basic → Advanced", data: upgradeData },
     { cat: "Verb + Preposition", data: prepVerbData },
     { cat: "Preposition", data: prepData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
@@ -29804,6 +31723,27 @@ function resolveFavoriteEntryData(fav){
           examples: [item.exNoun, item.exAdj].filter(Boolean)
         }],
         syn: [], ant: [], mistake: null, tagalog: null
+      };
+    }
+  } else if(catLower === "distinction word"){
+    // A Distinctions Words favorite is favorited per-WORD (word1 or
+    // word2 individually), not per-pair — find whichever pair contains
+    // this exact word and return just that word's own content.
+    const pair = distinctionsData.find(e=>
+      e.word1.w.trim().toLowerCase() === key || e.word2.w.trim().toLowerCase() === key
+    );
+    const word = pair && (pair.word1.w.trim().toLowerCase() === key ? pair.word1 : pair.word2);
+    if(word){
+      return {
+        word: word.w,
+        meanings: (word.senses || []).map(sense=> ({
+          use: stripHtmlTags(sense.use),
+          examples: (sense.examples || []).map(ex=> stripHtmlTags(ex))
+        })),
+        syn: word.syn || [],
+        ant: word.ant || [],
+        mistake: word.mistake ? stripHtmlTags(word.mistake) : null,
+        tagalog: word.tagalog || null
       };
     }
   } else {
@@ -30172,6 +32112,7 @@ function listenToSync(code){
       rebuildCorrectionLog();
       refreshMistakeUI();
       applyRemoteLanguageBank(data.languageBank);
+      applyRemoteDistinctions(data.distinctions);
       return;
     }
     // Nothing saved under this code yet. If we're signed in as the
@@ -30188,6 +32129,7 @@ function listenToSync(code){
       docRef.set({
         entries: localEntries,
         languageBank: collectOnlineLanguageBankEntries(),
+        distinctions: collectOnlineDistinctions(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
     }
@@ -30208,13 +32150,14 @@ function listenToSync(code){
 // throws, so every caller can `await` it and decide what "the shared
 // log didn't accept this change" means for its own UI/rollback.
 //
-// Always writes BOTH `entries` and `languageBank` together, even though
-// most callers only just changed one of the two — a plain Firestore
-// .set() replaces the whole document, so writing only the field that
-// changed would silently wipe out the other one. Reading the current
-// value of whichever field didn't change (loadPersonalCorrections() /
-// collectOnlineLanguageBankEntries()) right before every write keeps
-// this a single safe entry point instead of two that can race.
+// Always writes `entries`, `languageBank`, AND `distinctions` together,
+// even though most callers only just changed one of the three — a plain
+// Firestore .set() replaces the whole document, so writing only the
+// field that changed would silently wipe out the others. Reading the
+// current value of whichever fields didn't change
+// (loadPersonalCorrections() / collectOnlineLanguageBankEntries() /
+// collectOnlineDistinctions()) right before every write keeps this a
+// single safe entry point instead of several that can race.
 function pushToSync(entries){
   if(!syncEnabled || !firestoreDb) return Promise.resolve({ok:true, skipped:true});
   const code = localStorage.getItem(SYNC_CODE_KEY);
@@ -30222,6 +32165,7 @@ function pushToSync(entries){
   return firestoreDb.collection("syncedLogs").doc(code).set({
     entries: entries,
     languageBank: collectOnlineLanguageBankEntries(),
+    distinctions: collectOnlineDistinctions(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
     console.warn("Sync push failed:", e);
@@ -30317,6 +32261,7 @@ async function signInAsOwner(email, password){
     updateOwnerModeUI();
     refreshMistakeUI();
     refreshLanguageBankUI();
+    refreshDistinctionsUI();
     const code = localStorage.getItem(SYNC_CODE_KEY);
     if(code) listenToSync(code);
   }catch(e){
@@ -30335,6 +32280,7 @@ async function signOutOwner(){
   updateOwnerModeUI();
   refreshMistakeUI();
   refreshLanguageBankUI();
+  refreshDistinctionsUI();
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(code) listenToSync(code);
 }
@@ -30757,6 +32703,551 @@ LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   }
 });
 
+/* =========================================================
+   DISTINCTIONS WORDS — commonly confused/misused word pairs (e.g.
+   Affect vs Effect). Each entry holds two independent words (word1,
+   word2), each with its own definition, examples, synonyms, and
+   antonyms — rendered as two headword blocks in one card, using the
+   same visual language as every other entry type (.headword-row,
+   .headword, .tag.ghost, .section-label, .word-chips) so it stays
+   consistent with the rest of the app, while clearly separating
+   "Word 1" from "Word 2". Add/Edit/Delete/Look-up-&-add mirror the
+   Language Bank's owner-gated, Firestore-synced pattern exactly —
+   see LANGUAGE_BANK_CONFIG and its surrounding functions above for
+   the single-word original this is adapted from.
+========================================================= */
+
+function renderDistinctionWordBlock(word){
+  const sensesHtml = (word.senses || []).map((s,i)=>{
+    return `
+    <div class="sense"><span class="num">${i+1}</span><div class="body">
+      <div class="use">${s.use}</div>
+      ${(s.examples||[]).map(ex=>`<div class="ex">${ex}</div>`).join("")}
+    </div></div>`;
+  }).join("");
+  const mistakeHtml = word.mistake ? `
+    <div class="callout">
+      <div class="lbl">Common mistake</div>
+      <p>${word.mistake}</p>
+    </div>` : "";
+  const hasWords = (word.syn && word.syn.length) || (word.ant && word.ant.length);
+  const wordsHtml = hasWords ? `
+    <div class="section-label">Synonyms &amp; antonyms</div>
+    <div class="word-chips">${makeWordChips(word.syn,"synonym")}</div>
+    <div class="word-chips">${makeWordChips(word.ant,"antonym")}</div>
+  ` : "";
+  const tagalogHtml = word.tagalog ? `
+    <div class="section-label">Tagalog equivalent</div>
+    <div class="tagalog-box">${word.tagalog}</div>
+  ` : "";
+  const ruleUsageHtml = (word.senses && word.senses.length) ? `
+    <div class="section-label">Definition &amp; usage</div>
+    ${sensesHtml}
+  ` : "";
+
+  return `
+    <div class="headword-row">
+      <span class="headword" style="font-size:22px;">${word.w}</span>
+      ${makePhoneticHtml(word.phonetic)}
+      <span class="tag ghost">${DISTINCTIONS_TAG_LABEL}</span>
+      ${makeListenButtonHtml()}
+      ${makeFavToggleHtml(word.w, DISTINCTIONS_TAG_LABEL)}
+    </div>
+    ${ruleUsageHtml}
+    ${mistakeHtml}
+    ${tagalogHtml}
+    ${wordsHtml}
+  `;
+}
+
+function renderDistinctionEntry(entry, entryEl){
+  const canManage = !!(entry.source === "online" && isDeviceUnlocked());
+  const entryActionsHtml = canManage ? `
+    <div class="entry-actions">
+      <button class="lb-edit-btn">✎ Edit</button>
+      <button class="lb-delete-btn">🗑 Delete</button>
+    </div>` : "";
+
+  entryEl.innerHTML = `
+    ${renderDistinctionWordBlock(entry.word1)}
+    <div class="distinction-divider"><span>vs</span></div>
+    ${renderDistinctionWordBlock(entry.word2)}
+    ${entryActionsHtml}
+  `;
+
+  // Two independent Listen buttons (one per word) — wired directly by
+  // position rather than via wireListenButton(), which only knows how
+  // to wire a single ".listen-btn" per container.
+  const listenBtns = entryEl.querySelectorAll(".listen-btn");
+  if(listenBtns[0]) listenBtns[0].addEventListener("click", ()=> speakText(entry.word1.w));
+  if(listenBtns[1]) listenBtns[1].addEventListener("click", ()=> speakText(entry.word2.w));
+
+  if(canManage){
+    entryEl.querySelector(".lb-edit-btn").addEventListener("click", ()=>{
+      openDistinctionEditForm(entry, entryEl);
+    });
+    entryEl.querySelector(".lb-delete-btn").addEventListener("click", async ()=>{
+      const confirmed = window.confirm
+        ? window.confirm(`Delete "${entry.word1.w} vs ${entry.word2.w}" from your Distinctions Words? This can't be undone.`)
+        : true;
+      if(!confirmed) return;
+      await deleteDistinctionEntry(entry.w);
+      renderDistinctionsAfterDelete();
+    });
+  }
+}
+
+function setupDistinctionsModule(){
+  const sel = document.getElementById("distinctionsSelect");
+  const entry = document.getElementById("distinctionsEntry");
+  distinctionsData.forEach(item=>{
+    const opt = document.createElement("option");
+    opt.value = item.w;
+    opt.textContent = item.word1.w + " vs " + item.word2.w;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener("change", ()=>{
+    const item = distinctionsData.find(x=> x.w === sel.value);
+    if(item) renderDistinctionEntry(item, entry);
+  });
+}
+
+// Indexes the two words of every built-in pair independently, so typing
+// either "affect" OR "effect" finds this same entry — but only claims
+// the global word index for a spelling that isn't already claimed by
+// something else (e.g. "accept" as a Vocabulary Bank word), since
+// wordIndexMap holds one target per key and must never be silently
+// overwritten. The Distinctions entry itself is still always fully
+// browsable via its own dropdown regardless.
+function indexDistinctionsData(data){
+  data.forEach(item=>{
+    const action = ()=>{
+      document.getElementById("distinctionsSelect").value = item.w;
+      renderDistinctionEntry(item, document.getElementById("distinctionsEntry"));
+      activateTab("distinctions");
+    };
+    const key1 = item.word1.w.trim().toLowerCase();
+    const key2 = item.word2.w.trim().toLowerCase();
+    if(!searchIndex.some(it=> it.label.toLowerCase() === key1)){
+      searchIndex.push({label: item.word1.w, cat: DISTINCTIONS_TAG_LABEL, action});
+    }
+    if(!searchIndex.some(it=> it.label.toLowerCase() === key2)){
+      searchIndex.push({label: item.word2.w, cat: DISTINCTIONS_TAG_LABEL, action});
+    }
+  });
+}
+
+function findExistingDistinctionPair(word1Text, word2Text){
+  const k1 = word1Text.trim().toLowerCase();
+  const k2 = word2Text.trim().toLowerCase();
+  return distinctionsData.find(e=>{
+    const a = e.word1.w.trim().toLowerCase();
+    const b = e.word2.w.trim().toLowerCase();
+    return (a===k1 && b===k2) || (a===k2 && b===k1);
+  });
+}
+
+function addDistinctionEntry(entry, options){
+  const opts = options || {};
+  const key1 = entry.word1.w.trim().toLowerCase();
+  const key2 = entry.word2.w.trim().toLowerCase();
+
+  const existingPair = findExistingDistinctionPair(entry.word1.w, entry.word2.w);
+  if(existingPair){
+    return {label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
+      document.getElementById("distinctionsSelect").value = existingPair.w;
+      renderDistinctionEntry(existingPair, document.getElementById("distinctionsEntry"));
+      activateTab("distinctions");
+    }};
+  }
+
+  distinctionsData.push(entry);
+
+  const opt = document.createElement("option");
+  opt.value = entry.w;
+  opt.textContent = entry.word1.w + " vs " + entry.word2.w;
+  document.getElementById("distinctionsSelect").appendChild(opt);
+
+  const action = ()=>{
+    document.getElementById("distinctionsSelect").value = entry.w;
+    renderDistinctionEntry(entry, document.getElementById("distinctionsEntry"));
+    activateTab("distinctions");
+  };
+
+  if(!wordIndexMap.has(key1)){
+    const item1 = {label: entry.word1.w, cat: DISTINCTIONS_TAG_LABEL, action};
+    searchIndex.push(item1);
+    wordIndexMap.set(key1, item1);
+  }
+  if(!wordIndexMap.has(key2)){
+    const item2 = {label: entry.word2.w, cat: DISTINCTIONS_TAG_LABEL, action};
+    searchIndex.push(item2);
+    wordIndexMap.set(key2, item2);
+  }
+
+  if(opts.persist) VocabCache.putDistinction(entry, {dbPromise: vocabDbPromise});
+
+  return {label: entry.word1.w, cat: DISTINCTIONS_TAG_LABEL, action};
+}
+
+async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, successNote){
+  const entry = {
+    w: word1Result.w + " vs " + word2Result.w,
+    word1: word1Result,
+    word2: word2Result,
+    source: "online"
+  };
+  const item = addDistinctionEntry(entry, {persist:true});
+
+  const pushResult = await pushToSync(loadPersonalCorrections());
+  if(!pushResult.ok){
+    statusEl.textContent = `${successNote} ${SyncAuth.friendlyWriteError(pushResult.error)}`;
+    statusEl.className = "add-status error";
+  } else {
+    statusEl.textContent = successNote;
+    statusEl.className = "add-status success";
+  }
+  navigateToEntry(item);
+  return item;
+}
+
+// Tracks the pair awaiting manual completion between "lookup failed for
+// one or both words" and the user clicking Save/Cancel — cleared
+// whenever the manual box is hidden.
+let distinctionsPendingManual = null;
+
+function showDistinctionsManualBox(text1, text2, needManual1, needManual2, result1, result2){
+  distinctionsPendingManual = { text1, text2, result1, result2 };
+  const box1 = document.getElementById("distinctionsManualWord1Box");
+  const box2 = document.getElementById("distinctionsManualWord2Box");
+  box1.style.display = needManual1 ? "" : "none";
+  box2.style.display = needManual2 ? "" : "none";
+  if(needManual1) document.getElementById("distinctionsManualWord1").textContent = text1;
+  if(needManual2) document.getElementById("distinctionsManualWord2").textContent = text2;
+  document.getElementById("distinctionsManualBox").style.display = "block";
+}
+
+function hideDistinctionsManualBox(){
+  distinctionsPendingManual = null;
+  document.getElementById("distinctionsManualBox").style.display = "none";
+  document.getElementById("distinctionsManualWord1Box").style.display = "none";
+  document.getElementById("distinctionsManualWord2Box").style.display = "none";
+  document.getElementById("distinctionsManualUse1").value = "";
+  document.getElementById("distinctionsManualExample1").value = "";
+  document.getElementById("distinctionsManualUse2").value = "";
+  document.getElementById("distinctionsManualExample2").value = "";
+}
+
+async function addDistinctionFromInputs(){
+  const statusEl = document.getElementById("distinctionsAddStatus");
+  hideDistinctionsManualBox();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const input1 = document.getElementById("distinctionsAddInput1");
+  const input2 = document.getElementById("distinctionsAddInput2");
+  const addBtn = document.getElementById("distinctionsAddBtn");
+  const text1 = input1.value.trim();
+  const text2 = input2.value.trim();
+
+  if(!text1 || !text2){
+    statusEl.textContent = "Please enter both Word 1 and Word 2 first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const existingPair = findExistingDistinctionPair(text1, text2);
+  if(existingPair){
+    statusEl.textContent = `"${text1} vs ${text2}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    navigateToEntry({label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
+      document.getElementById("distinctionsSelect").value = existingPair.w;
+      renderDistinctionEntry(existingPair, document.getElementById("distinctionsEntry"));
+      activateTab("distinctions");
+    }});
+    return;
+  }
+
+  addBtn.disabled = true;
+  statusEl.textContent = "Looking up both words online…";
+  statusEl.className = "add-status";
+
+  const [result1, result2] = await Promise.all([
+    OnlineLookup.fetchOnlineDefinition(text1, { cache: languageBankLookupCache, generateFallbackExamples: false }),
+    OnlineLookup.fetchOnlineDefinition(text2, { cache: languageBankLookupCache, generateFallbackExamples: false })
+  ]);
+
+  addBtn.disabled = false;
+
+  if(!result1 || !result2){
+    const missing = [];
+    if(!result1) missing.push(text1);
+    if(!result2) missing.push(text2);
+    statusEl.textContent = `Couldn't find ${missing.map(w=>`"${w}"`).join(" and ")} online. Add your own explanation below, or cancel.`;
+    statusEl.className = "add-status";
+    showDistinctionsManualBox(text1, text2, !result1, !result2, result1, result2);
+    return;
+  }
+
+  input1.value = "";
+  input2.value = "";
+  await finalizeDistinctionAdd(result1, result2, statusEl, `Added "${result1.w} vs ${result2.w}" — now searchable and available offline.`);
+}
+
+async function saveDistinctionsManualEntry(){
+  const statusEl = document.getElementById("distinctionsAddStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const pending = distinctionsPendingManual;
+  if(!pending) return;
+
+  const box1Visible = document.getElementById("distinctionsManualWord1Box").style.display !== "none";
+  const box2Visible = document.getElementById("distinctionsManualWord2Box").style.display !== "none";
+
+  let result1 = pending.result1;
+  let result2 = pending.result2;
+
+  if(box1Visible){
+    const useText = document.getElementById("distinctionsManualUse1").value.trim();
+    if(!useText){
+      statusEl.textContent = `Please enter a meaning for "${pending.text1}", or Cancel.`;
+      statusEl.className = "add-status error";
+      return;
+    }
+    const exampleText = document.getElementById("distinctionsManualExample1").value.trim();
+    result1 = { w: pending.text1, senses: [{use: useText, examples: exampleText ? [exampleText] : []}], syn: [], ant: [], mistake: null, tagalog: null, phonetic: null, source: "online" };
+  }
+  if(box2Visible){
+    const useText = document.getElementById("distinctionsManualUse2").value.trim();
+    if(!useText){
+      statusEl.textContent = `Please enter a meaning for "${pending.text2}", or Cancel.`;
+      statusEl.className = "add-status error";
+      return;
+    }
+    const exampleText = document.getElementById("distinctionsManualExample2").value.trim();
+    result2 = { w: pending.text2, senses: [{use: useText, examples: exampleText ? [exampleText] : []}], syn: [], ant: [], mistake: null, tagalog: null, phonetic: null, source: "online" };
+  }
+
+  document.getElementById("distinctionsAddInput1").value = "";
+  document.getElementById("distinctionsAddInput2").value = "";
+  hideDistinctionsManualBox();
+  await finalizeDistinctionAdd(result1, result2, statusEl, `Added "${result1.w} vs ${result2.w}" with your own notes where needed — now searchable and available offline.`);
+}
+
+function cancelDistinctionsManualEntry(){
+  hideDistinctionsManualBox();
+  const statusEl = document.getElementById("distinctionsAddStatus");
+  statusEl.textContent = "Cancelled — nothing was added.";
+  statusEl.className = "add-status";
+}
+
+function openDistinctionEditForm(entry, entryEl){
+  const w1 = entry.word1, w2 = entry.word2;
+  const use1 = (w1.senses[0] && w1.senses[0].use) || "";
+  const example1 = (w1.senses[0] && w1.senses[0].examples && w1.senses[0].examples[0]) || "";
+  const use2 = (w2.senses[0] && w2.senses[0].use) || "";
+  const example2 = (w2.senses[0] && w2.senses[0].examples && w2.senses[0].examples[0]) || "";
+
+  entryEl.innerHTML = `
+    <div class="section-label">Editing this Distinction Words entry</div>
+
+    <div class="section-label">Word 1</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="distEditWord1" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Meaning / definition</label>
+    <textarea id="distEditUse1" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
+    <input type="text" id="distEditExample1" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
+    <input type="text" id="distEditSyn1" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
+    <input type="text" id="distEditAnt1" autocomplete="off">
+
+    <div class="section-label">Word 2</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="distEditWord2" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Meaning / definition</label>
+    <textarea id="distEditUse2" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
+    <input type="text" id="distEditExample2" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
+    <input type="text" id="distEditSyn2" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
+    <input type="text" id="distEditAnt2" autocomplete="off">
+
+    <button id="distEditSaveBtn" class="add-btn">Save changes</button>
+    <button id="distEditCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="distEditStatus" class="add-status"></div>
+  `;
+
+  document.getElementById("distEditWord1").value = w1.w;
+  document.getElementById("distEditUse1").value = use1;
+  document.getElementById("distEditExample1").value = example1;
+  document.getElementById("distEditSyn1").value = (w1.syn || []).join(", ");
+  document.getElementById("distEditAnt1").value = (w1.ant || []).join(", ");
+
+  document.getElementById("distEditWord2").value = w2.w;
+  document.getElementById("distEditUse2").value = use2;
+  document.getElementById("distEditExample2").value = example2;
+  document.getElementById("distEditSyn2").value = (w2.syn || []).join(", ");
+  document.getElementById("distEditAnt2").value = (w2.ant || []).join(", ");
+
+  document.getElementById("distEditCancelBtn").addEventListener("click", ()=>{
+    renderDistinctionEntry(entry, entryEl);
+  });
+  document.getElementById("distEditSaveBtn").addEventListener("click", ()=>{
+    saveDistinctionEdit(entry, entryEl);
+  });
+}
+
+async function saveDistinctionEdit(originalEntry, entryEl){
+  const statusEl = document.getElementById("distEditStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const newWord1 = document.getElementById("distEditWord1").value.trim();
+  const newWord2 = document.getElementById("distEditWord2").value.trim();
+  if(!newWord1 || !newWord2){
+    statusEl.textContent = "Both Word 1 and Word 2 are required.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const use1 = document.getElementById("distEditUse1").value.trim();
+  const example1 = document.getElementById("distEditExample1").value.trim();
+  const syn1 = document.getElementById("distEditSyn1").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const ant1 = document.getElementById("distEditAnt1").value.split(",").map(s=>s.trim()).filter(Boolean);
+
+  const use2 = document.getElementById("distEditUse2").value.trim();
+  const example2 = document.getElementById("distEditExample2").value.trim();
+  const syn2 = document.getElementById("distEditSyn2").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const ant2 = document.getElementById("distEditAnt2").value.split(",").map(s=>s.trim()).filter(Boolean);
+
+  const updatedEntry = {
+    w: newWord1 + " vs " + newWord2,
+    word1: { w: newWord1, senses: use1 ? [{use: use1, examples: example1 ? [example1] : []}] : [], syn: syn1, ant: ant1, mistake: originalEntry.word1.mistake || null, tagalog: originalEntry.word1.tagalog || null, phonetic: originalEntry.word1.phonetic || null, source: "online" },
+    word2: { w: newWord2, senses: use2 ? [{use: use2, examples: example2 ? [example2] : []}] : [], syn: syn2, ant: ant2, mistake: originalEntry.word2.mistake || null, tagalog: originalEntry.word2.tagalog || null, phonetic: originalEntry.word2.phonetic || null, source: "online" },
+    source: "online"
+  };
+
+  // Remove the OLD entry first — this also makes the collision check
+  // below correctly ignore "colliding with itself" when only content
+  // (not the words) changed, since by the time the check runs, the
+  // original no longer occupies that key.
+  await deleteDistinctionEntry(originalEntry.w, {skipSync:true});
+
+  const collision = findExistingDistinctionPair(newWord1, newWord2);
+  if(collision){
+    // Genuinely a different, still-existing pair — put the original
+    // back exactly as it was rather than losing it, then refuse.
+    addDistinctionEntry(originalEntry, {persist:false});
+    statusEl.textContent = `"${newWord1} vs ${newWord2}" is already used by another entry — choose different words.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const item = addDistinctionEntry(updatedEntry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+
+  activateTab("distinctions");
+  item.action();
+}
+
+async function deleteDistinctionEntry(word, options){
+  const opts = options || {};
+  const key = word.trim().toLowerCase();
+
+  const idx = distinctionsData.findIndex(v=> v.w.trim().toLowerCase() === key);
+  if(idx === -1) return;
+  const entry = distinctionsData[idx];
+  distinctionsData.splice(idx, 1);
+
+  [entry.word1.w, entry.word2.w].forEach(w=>{
+    const k = w.trim().toLowerCase();
+    const existing = wordIndexMap.get(k);
+    // Only remove this word from the global index if IT (not some
+    // other category's entry that happened to share the spelling)
+    // actually owns that key — never rip out another category's live
+    // search target.
+    if(existing && existing.cat === DISTINCTIONS_TAG_LABEL){
+      wordIndexMap.delete(k);
+      const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === k && i.cat === DISTINCTIONS_TAG_LABEL);
+      if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
+    }
+  });
+
+  const selectEl = document.getElementById("distinctionsSelect");
+  const optionEl = Array.from(selectEl.options).find(o=> o.value.trim().toLowerCase() === key);
+  if(optionEl) optionEl.remove();
+
+  await VocabCache.deleteDistinction(word, {dbPromise: vocabDbPromise});
+
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
+}
+
+function renderDistinctionsAfterDelete(){
+  const entryEl = document.getElementById("distinctionsEntry");
+  const selectEl = document.getElementById("distinctionsSelect");
+
+  if(distinctionsData.length === 0){
+    selectEl.value = "";
+    entryEl.innerHTML = `<div class="headword-row"><span class="headword" style="font-size:18px;">Nothing here yet</span></div><p class="note">Add one using the box below.</p>`;
+    return;
+  }
+  const next = distinctionsData[0];
+  selectEl.value = next.w;
+  renderDistinctionEntry(next, entryEl);
+}
+
+function refreshDistinctionsUI(){
+  const selectEl = document.getElementById("distinctionsSelect");
+  const entryEl = document.getElementById("distinctionsEntry");
+  const item = distinctionsData.find(x=> x.w === selectEl.value);
+  if(item) renderDistinctionEntry(item, entryEl);
+}
+
+// Only entries actually typed in by the owner (source:"online") travel
+// through sync — every client already ships the exact same hardcoded
+// built-in seed pairs, same as the Language Bank categories.
+function collectOnlineDistinctions(){
+  return distinctionsData.filter(e=> e.source === "online");
+}
+
+function applyRemoteDistinctions(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteKeys = new Set(remote.map(e=> e.w.trim().toLowerCase()));
+
+  remote.forEach(entry=> addDistinctionEntry(entry, {persist:true}));
+
+  const selectEl = document.getElementById("distinctionsSelect");
+  distinctionsData.slice().forEach(item=>{
+    if(item.source === "online" && !remoteKeys.has(item.w.trim().toLowerCase())){
+      const wasSelected = selectEl.value === item.w;
+      deleteDistinctionEntry(item.w, {skipSync:true});
+      if(wasSelected) renderDistinctionsAfterDelete();
+    }
+  });
+}
+
+document.getElementById("distinctionsAddBtn").addEventListener("click", addDistinctionFromInputs);
+document.getElementById("distinctionsAddInput1").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addDistinctionFromInputs();
+});
+document.getElementById("distinctionsAddInput2").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addDistinctionFromInputs();
+});
+document.getElementById("distinctionsManualSaveBtn").addEventListener("click", saveDistinctionsManualEntry);
+document.getElementById("distinctionsManualCancelBtn").addEventListener("click", cancelDistinctionsManualEntry);
+
+
 // Auto-reconnect if this device was already connected before. Waits for
 // Firebase's initial auth state (see waitForInitialAuthState) before
 // deciding whether to fall back to an anonymous sign-in — reading
@@ -30784,6 +33275,7 @@ LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
     updateOwnerModeUI();
     refreshMistakeUI();
     refreshLanguageBankUI();
+    refreshDistinctionsUI();
     const statusEl = document.getElementById("syncStatus");
     statusEl.textContent = "Connected! Syncing as \"" + savedCode + "\".";
     statusEl.className = "add-status success";
@@ -30880,7 +33372,7 @@ renderRuleEntry(idiomsData[0], document.getElementById("idiomsEntry"), "Idiom / 
 renderRuleEntry(sentencesData[0], document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
 renderRuleEntry(patternsData[0], document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
 renderRuleEntry(technicalData[0], document.getElementById("technicalEntry"), "Technical Term", "technical");
-renderRuleEntry(upgradeData[0], document.getElementById("upgradeEntry"), "Basic → Advanced");
+renderDistinctionEntry(distinctionsData[0], document.getElementById("distinctionsEntry"));
 renderFamily(wordFamilyData[0]);
 
 const globalSearchInput = document.getElementById("globalSearch");
@@ -31163,7 +33655,7 @@ document.addEventListener("click", (e)=>{
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, vocabData, upgradeData,
+  orderData, prepVerbData, mistakeData, qaData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
@@ -31196,7 +33688,14 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   deleteLanguageBankEntry, openLanguageBankEditForm, saveLanguageBankEdit,
   renderLanguageBankAfterDelete, refreshLanguageBankUI, renderRuleEntry,
   waitForInitialAuthState, speakText, makeListenButtonHtml, wireListenButton,
-  makePhoneticHtml, renderVerb, renderPrep, renderFamily
+  makePhoneticHtml, renderVerb, renderPrep, renderFamily,
+  distinctionsCacheRestorePromise, addDistinctionEntry, addDistinctionFromInputs,
+  renderDistinctionEntry, setupDistinctionsModule, indexDistinctionsData,
+  findExistingDistinctionPair, deleteDistinctionEntry, renderDistinctionsAfterDelete,
+  openDistinctionEditForm, saveDistinctionEdit, refreshDistinctionsUI,
+  collectOnlineDistinctions, applyRemoteDistinctions,
+  saveDistinctionsManualEntry, cancelDistinctionsManualEntry,
+  getDistinctionsPendingManual: ()=> distinctionsPendingManual
 };
 </script>
 <script>
