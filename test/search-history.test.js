@@ -1,9 +1,21 @@
-// Integration tests for the two separate Previous/Next navigation
-// systems: the small buttons beside each dropdown (search history, like
-// a browser's Back/Forward) and the "‹ Previous" / "Next ›" buttons at
-// the bottom of each panel (always that panel's own list order). Loads
-// the real index.html in jsdom and dispatches real DOM clicks so the
-// actual event wiring is exercised.
+// Integration tests for the two INDEPENDENT Previous/Next navigation
+// systems, deliberately kept apart per the app's design:
+//   - The small "‹ / ›" buttons BESIDE each dropdown follow the CONTEXT
+//     stack (searchHistory) — a browser-style Back/Forward through every
+//     entry the user has actually landed on: search results, online-
+//     lookup previews, synonym/antonym/related-word chips, favorites,
+//     Study Mode, etc.
+//   - The "‹ Previous" / "Next ›" buttons at the BOTTOM of each panel
+//     follow the TYPED-SEARCH stack (typedSearchHistory) — a separate
+//     Back/Forward through ONLY the words the user explicitly searched
+//     for via the global search box (typed a query and clicked a
+//     result, or picked a recently-viewed suggestion). A synonym/
+//     antonym/related-word chip hop never touches this stack, so it
+//     stays a clean Word A -> B -> C sequence exactly matching what was
+//     actually searched — see navigateToEntry()'s `isExplicitSearch`
+//     flag in index.html.
+// Loads the real index.html in jsdom and dispatches real DOM clicks so
+// the actual event wiring is exercised.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -24,7 +36,7 @@ function activeTab() {
   return document.querySelector(".thumb-tab.active").dataset.tab;
 }
 
-describe("top nav-btn (beside each dropdown) follows search history", () => {
+describe("top nav-btn (beside each dropdown) follows the context stack", () => {
   it("steps back through three distinct searches across different tabs, then forward again", () => {
     searchAndClick("abandon", "Vocabulary Bank");
     expect(activeTab()).toBe("vocab");
@@ -74,20 +86,88 @@ describe("top nav-btn (beside each dropdown) follows search history", () => {
   });
 });
 
-describe("bottom nav-btn always uses that panel's own list order, unaffected by search history", () => {
-  it("cycles the Vocabulary Bank dropdown in its default order regardless of prior searches", () => {
-    searchAndClick("abandon", "Vocabulary Bank");
-    const before = document.getElementById("vocabEntry").querySelector(".headword").textContent;
-    expect(before).toBe("abandon");
+describe("bottom nav-btn follows the typed-search stack once an explicit search has happened", () => {
+  it("replays Word A -> B -> C exactly as searched, independent of the context stack", async () => {
+    const { window: freshWindow } = await loadApp();
+    const freshDocument = freshWindow.document;
+    function search(word, catHint) {
+      const input = freshDocument.getElementById("globalSearch");
+      input.value = word;
+      input.dispatchEvent(new freshWindow.Event("input"));
+      const items = Array.from(freshDocument.querySelectorAll("#searchResults .search-result-item"));
+      const item = catHint ? items.find((el) => el.textContent.includes(catHint)) : items[0];
+      item.click();
+    }
+    const headword = () => freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent;
 
-    document.querySelector("#panel-vocab .bottom-nav .nav-btn[data-dir='next']").click();
-    const after = document.getElementById("vocabEntry").querySelector(".headword").textContent;
-    expect(after).toBe("about"); // the next word alphabetically in vocabData, not a history entry
+    search("abandon", "Vocabulary Bank");
+    search("above", "Vocabulary Bank");
+    search("accept", "Vocabulary Bank");
+    expect(headword()).toBe("accept");
+
+    const prevBtn = () => freshDocument.querySelector("#panel-vocab .bottom-nav .nav-btn[data-dir='prev']");
+    const nextBtn = () => freshDocument.querySelector("#panel-vocab .bottom-nav .nav-btn[data-dir='next']");
+
+    prevBtn().click();
+    expect(headword()).toBe("above");
+    prevBtn().click();
+    expect(headword()).toBe("abandon");
+    // No wraparound at the oldest entry.
+    prevBtn().click();
+    expect(headword()).toBe("abandon");
+
+    nextBtn().click();
+    expect(headword()).toBe("above");
+    nextBtn().click();
+    expect(headword()).toBe("accept");
+    // No wraparound at the newest entry.
+    nextBtn().click();
+    expect(headword()).toBe("accept");
+  });
+
+  it("falls back to the panel's own list order before any explicit search has happened", async () => {
+    const { window: freshWindow } = await loadApp();
+    const freshDocument = freshWindow.document;
+    const before = freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent;
+    freshDocument.querySelector("#panel-vocab .bottom-nav .nav-btn[data-dir='next']").click();
+    const after = freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent;
+    expect(before).toBe("abandon");
+    expect(after).toBe("about");
+  });
+
+  it("a synonym/antonym chip hop is NOT recorded in the typed-search stack, so bottom nav ignores it", async () => {
+    const { window: freshWindow, hooks } = await loadApp();
+    const freshDocument = freshWindow.document;
+    function search(word, catHint) {
+      const input = freshDocument.getElementById("globalSearch");
+      input.value = word;
+      input.dispatchEvent(new freshWindow.Event("input"));
+      const items = Array.from(freshDocument.querySelectorAll("#searchResults .search-result-item"));
+      const item = catHint ? items.find((el) => el.textContent.includes(catHint)) : items[0];
+      item.click();
+    }
+
+    search("abandon", "Vocabulary Bank");
+    const typedLengthAfterSearch = hooks.getTypedSearchHistory().length;
+    expect(typedLengthAfterSearch).toBe(1);
+
+    freshDocument.querySelector('.thumb-tab[data-tab="langbank"]').click();
+    const chip = Array.from(freshDocument.querySelectorAll("#phrasalEntry .word-chips .clickable"))
+      .find((el) => el.dataset.word === "proceed");
+    expect(chip).toBeTruthy();
+    chip.click();
+    expect(freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("proceed");
+
+    // The chip hop updated the context stack, but NOT the typed-search
+    // stack — bottom nav still only knows about "abandon".
+    expect(hooks.getTypedSearchHistory().length).toBe(typedLengthAfterSearch);
+    freshDocument.querySelector("#panel-vocab .bottom-nav .nav-btn[data-dir='prev']").click();
+    expect(freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
   });
 });
 
-describe("top nav-btn falls back to list order before any search has happened", () => {
-  it("behaves exactly like the bottom nav-btn on a fresh page with no search history", async () => {
+describe("top nav-btn falls back to list order before any navigation has happened", () => {
+  it("behaves exactly like the bottom nav-btn on a fresh page with no history", async () => {
     const { window: freshWindow } = await loadApp();
     const freshDocument = freshWindow.document;
     const before = freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent;
@@ -186,5 +266,47 @@ describe("top nav-btn supports context-aware back navigation across chip clicks"
     freshDocument.querySelector("#panel-vocab .controls .nav-btn[data-dir='prev']").click();
     // Going back is a pointer move, not a new push — length unchanged.
     expect(hooks.getSearchHistory().length).toBe(historyAfterOneHop);
+  });
+
+  // Regression coverage for the reported bug: getCurrentlyDisplayedItem()
+  // had no branch for panel-distinctions (added after this context-stack
+  // mechanism was originally built), so it silently fell through to
+  // wordIndexMap.get(key) — which can resolve to the WRONG entry when the
+  // same word exists in more than one category — corrupting the origin
+  // captured for the very first hop away from a Distinctions Words entry.
+  it("remembers the exact Distinctions Words pair the user came from, even when the word also exists elsewhere", async () => {
+    const { window: freshWindow, hooks } = await loadApp();
+    const freshDocument = freshWindow.document;
+
+    // Reach the built-in "Achieve vs Attain" pair (the default first entry)
+    // by plain tab browsing only — never via search or the add form, so
+    // nothing has been pushed to searchHistory yet, same as the Language
+    // Bank test above.
+    freshDocument.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    expect(freshDocument.querySelector(".thumb-tab.active").dataset.tab).toBe("distinctions");
+    expect(freshDocument.getElementById("distinctionsSelect").value).toBe("Achieve vs Attain");
+
+    // "comply" is one of this pair's synonym chips, and it's ALSO an
+    // ordinary local Vocabulary Bank word — exactly the ambiguous-word
+    // case that used to resolve to the wrong entry via a bare
+    // wordIndexMap.get() fallback.
+    const chip = Array.from(freshDocument.querySelectorAll("#distinctionsEntry .word-chips .clickable"))
+      .find((el) => el.dataset.word === "accomplish");
+    expect(chip).toBeTruthy();
+    chip.click();
+
+    expect(freshDocument.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent.toLowerCase()).toBe("accomplish");
+
+    freshDocument.querySelector("#panel-vocab .controls .nav-btn[data-dir='prev']").click();
+
+    expect(freshDocument.querySelector(".thumb-tab.active").dataset.tab).toBe("distinctions");
+    expect(freshDocument.getElementById("distinctionsSelect").value).toBe("Achieve vs Attain");
+    expect(hooks.getSearchHistory().length).toBe(2); // ["Achieve vs Attain", "comply"]
+
+    // And Next returns forward to "comply" on Vocab again.
+    freshDocument.querySelector("#panel-distinctions .controls .nav-btn[data-dir='next']").click();
+    expect(freshDocument.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(freshDocument.getElementById("vocabEntry").querySelector(".headword").textContent.toLowerCase()).toBe("accomplish");
   });
 });
