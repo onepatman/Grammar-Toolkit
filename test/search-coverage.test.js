@@ -3,8 +3,7 @@
 // word happened to contain it as a substring (e.g. "express" contains
 // "press"), so the pipeline stopped at local results and never checked
 // online. Now the exact word is still looked up online in the
-// background whenever there's no exact local match, and the result is
-// appended to whatever local matches were already shown.
+// background whenever there's no exact local match.
 //
 // Also covers the "Intelligent Vocabulary Bank Expansion" rework: an
 // online result is shown as a temporary, NOT-YET-SAVED preview via the
@@ -12,6 +11,14 @@
 // vocabData/wordIndexMap/IndexedDB just from being searched. Only the
 // authenticated Owner can turn it into a permanent entry, via the
 // explicit "Save to Vocabulary Bank" button below Previous/Next.
+//
+// As of the navigation-fix round, the app ALWAYS jumps straight to that
+// preview the moment the online lookup resolves — regardless of whether
+// some OTHER local word also happened to substring/fuzzy-match the
+// query — instead of sometimes only appending it as one more row the
+// user had to notice and click. That inconsistency (auto-shown when
+// nothing local matched, buried in a list otherwise) was exactly why
+// the Save notification so often seemed to just not appear.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -31,9 +38,9 @@ function stubPressLookup(window) {
 }
 
 // "zibblewock" has no local substring match at all (unlike "press",
-// which substring-matches "express"), so runSearchPipeline takes the
-// shown.length===0 branch and shows the online preview directly instead
-// of appending it to a list of local matches.
+// which substring-matches "express") — used for the tests below that
+// don't care about that distinction, since both cases now navigate to
+// the online preview identically.
 function stubZibblewockLookup(window) {
   window.OnlineLookup.fetchOnlineDefinition = async (word) => {
     if (word !== "zibblewock") return null;
@@ -46,7 +53,7 @@ function stubZibblewockLookup(window) {
 }
 
 describe("online lookup runs even when a partial local match exists", () => {
-  it("augments local substring matches with a NOT-YET-SAVED online result for the exact typed word", async () => {
+  it("jumps straight to the online preview for the exact typed word, even though a local substring match ('express') was already shown", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
 
@@ -63,12 +70,12 @@ describe("online lookup runs even when a partial local match exists", () => {
 
     await wait(600); // past the 350ms debounce + the mocked fetch resolving
 
-    const resultsText = document.getElementById("searchResults").textContent;
-    expect(resultsText).toContain("express");
-    expect(resultsText).toContain("press");
-    // Labeled distinctly from a real local match, and NOT silently
-    // absorbed into the Vocabulary Bank just by being searched.
-    expect(resultsText).toContain("Online result");
+    // Once the online lookup resolves, the app navigates straight to the
+    // Vocab tab preview for "press" itself — it doesn't just add one more
+    // row to the "express" results list for the user to notice and click.
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("press");
+    expect(document.getElementById("vocabSaveArea").textContent).toContain("is not currently in your Vocabulary Bank");
     expect(hooks.wordIndexMap.has("press")).toBe(false);
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "press")).toBe(false);
   });

@@ -31429,29 +31429,51 @@ const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise
   entries.forEach(entry=> addDistinctionEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
-/* Prev/Next buttons.
-   - The small pair beside each dropdown follows the user's SEARCH
-     history instead (like a browser's Back/Forward), once any search
-     has happened — see searchHistory below. Until then, it falls back
-     to the same local list-order cycling as the bottom pair.
-   - The "‹ Previous" / "Next ›" pair at the bottom of each panel always
-     cycles that panel's own dropdown in its default order (unchanged
-     list-order behavior) — belongs to browsing the list itself, not to
-     search. */
+/* Prev/Next buttons — two independent systems, deliberately kept apart:
+   - The small "‹ / ›" pair beside each dropdown follows the CONTEXT
+     stack (searchHistory) — a browser-style Back/Forward through every
+     entry the user has actually landed on (search results, online-
+     lookup previews, synonym/antonym/related-word chips, favorites,
+     Study Mode, etc), once any such navigation has happened. Until
+     then, it falls back to the same local list-order cycling as the
+     bottom pair.
+   - The "‹ Previous" / "Next ›" pair at the bottom of each panel
+     follows the TYPED-SEARCH stack (typedSearchHistory) — a separate
+     Back/Forward through ONLY the words the user explicitly searched
+     for (typed into the global search box, or picked from recently-
+     viewed), once any such search has happened. A chip hop never
+     touches this stack, so it stays a clean Word A -> B -> C sequence.
+     Falls back to the panel's own list-order cycling when no explicit
+     search has happened yet, same as the top pair. */
 document.addEventListener("click", (e)=>{
   const btn = e.target.closest(".nav-btn");
   if(!btn) return;
 
-  const isTopNav = !btn.closest(".bottom-nav");
-  if(isTopNav && searchHistory.length > 0){
-    if(btn.dataset.dir === "prev"){
-      if(searchHistoryIndex <= 0) return;
-      searchHistoryIndex--;
+  const isBottomNav = !!btn.closest(".bottom-nav");
+  const historyStack = isBottomNav ? typedSearchHistory : searchHistory;
+
+  if(historyStack.length > 0){
+    // At the oldest/newest entry, the index itself doesn't move any
+    // further (no wraparound) — but the entry AT that boundary still
+    // gets re-displayed rather than silently doing nothing, so a stack
+    // that's drifted out of sync with what's currently on screen (e.g.
+    // the OTHER pair's stack moved the view away in between) still
+    // lands back on the one edge it does know about.
+    if(isBottomNav){
+      if(btn.dataset.dir === "prev"){
+        if(typedSearchHistoryIndex > 0) typedSearchHistoryIndex--;
+      } else {
+        if(typedSearchHistoryIndex < typedSearchHistory.length - 1) typedSearchHistoryIndex++;
+      }
+      typedSearchHistory[typedSearchHistoryIndex].action();
     } else {
-      if(searchHistoryIndex >= searchHistory.length - 1) return;
-      searchHistoryIndex++;
+      if(btn.dataset.dir === "prev"){
+        if(searchHistoryIndex > 0) searchHistoryIndex--;
+      } else {
+        if(searchHistoryIndex < searchHistory.length - 1) searchHistoryIndex++;
+      }
+      searchHistory[searchHistoryIndex].action();
     }
-    searchHistory[searchHistoryIndex].action();
     window.scrollTo({top:0, behavior:"smooth"});
     return;
   }
@@ -33685,7 +33707,7 @@ document.addEventListener("click", (e)=>{
         renderRuleEntry(entry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
         activateTab("vocab");
       };
-      navigateToEntry({label: entry.w, cat: "Vocabulary Bank", action: openEntry});
+      navigateToEntry({label: entry.w, cat: "Vocabulary Bank", action: openEntry}, {isExplicitSearch:false});
     }
     return;
   }
@@ -33750,10 +33772,13 @@ renderFamily(wordFamilyData[0]);
 const globalSearchInput = document.getElementById("globalSearch");
 const searchResultsEl = document.getElementById("searchResults");
 
-// Search history for the bottom "‹ Previous" / "Next ›" buttons — a
-// browser-style back/forward stack of the entries the user has actually
-// searched for (local or online), separate from each panel's own
-// dropdown order. See the .bottom-nav click handler above.
+// Context stack for the small "‹ / ›" buttons BESIDE each dropdown — a
+// browser-style back/forward stack of every entry the user has landed
+// on via navigateToEntry() (a synonym/antonym/related-word chip, a
+// search result, an online-lookup preview, a favorite, Study Mode,
+// etc). This is the "how did I get to what's on screen right now, and
+// where do I go if I hit Back" stack — see the .nav-btn click handler
+// below (isBottomNav === false branch).
 const searchHistory = [];
 let searchHistoryIndex = -1;
 
@@ -33776,6 +33801,29 @@ function pushSearchHistory(entry){
   searchHistoryIndex = searchHistory.length - 1;
 }
 
+// Separate back/forward stack for the "‹ Previous" / "Next ›" buttons at
+// the BOTTOM of each panel — unlike the context stack above, this only
+// ever records words reached through an EXPLICIT search (the user
+// actually typed into the global search box, or clicked a recently-
+// viewed suggestion there) — never a synonym/antonym chip hop. So
+// searching Word A, then B, then C gives this stack exactly [A, B, C],
+// letting Previous/Next replay that sequence like a browser's history,
+// regardless of any chip-driven detours the context stack above also
+// recorded in between. See navigateToEntry()'s `isExplicitSearch` flag.
+const typedSearchHistory = [];
+let typedSearchHistoryIndex = -1;
+
+function pushTypedSearchHistory(entry){
+  if(!entry) return;
+  if(typedSearchHistoryIndex < typedSearchHistory.length - 1){
+    typedSearchHistory.length = typedSearchHistoryIndex + 1;
+  }
+  const top = typedSearchHistory[typedSearchHistory.length - 1];
+  if(top && top.label === entry.label && top.cat === entry.cat) return;
+  typedSearchHistory.push(entry);
+  typedSearchHistoryIndex = typedSearchHistory.length - 1;
+}
+
 // Figures out which entry is currently on screen, so navigating to a
 // related word (a synonym chip, a search result, etc.) can record where
 // the user was BEFORE jumping away — not just where they land. Without
@@ -33788,6 +33836,32 @@ function getCurrentlyDisplayedItem(){
     if(sec.style.display !== "none"){ visibleSection = sec; break; }
   }
   if(!visibleSection) return null;
+
+  // Distinctions Words is a special case: indexDistinctionsData()
+  // deliberately does NOT add a word to searchIndex under "Distinction
+  // Word" when that exact spelling is already claimed by some other
+  // category (so it never clobbers wordIndexMap — see the comment on
+  // indexDistinctionsData() itself). That means the generic headword ->
+  // searchIndex/wordIndexMap lookup below can never find such a pair,
+  // and falls through to whatever OTHER category happens to own that
+  // spelling instead — silently returning the wrong origin. The select
+  // dropdown's value is the pair's own unique key ("Achieve vs Attain"),
+  // completely unambiguous, so resolve straight from distinctionsData
+  // instead of going anywhere near the word index for this one panel.
+  if(visibleSection.id === "panel-distinctions"){
+    const pairKey = document.getElementById("distinctionsSelect").value;
+    const pair = distinctionsData.find(x=> x.w === pairKey);
+    if(!pair) return null;
+    return {
+      label: pair.word1.w,
+      cat: DISTINCTIONS_TAG_LABEL,
+      action: ()=>{
+        document.getElementById("distinctionsSelect").value = pair.w;
+        renderDistinctionEntry(pair, document.getElementById("distinctionsEntry"));
+        activateTab("distinctions");
+      }
+    };
+  }
 
   // wordIndexMap only keeps the LAST-indexed entry for a given label, so
   // a word that exists in more than one place under different meanings
@@ -33832,23 +33906,34 @@ function getCurrentlyDisplayedItem(){
 // Shared navigation entry point for every "jump to a related word" action
 // (synonym/antonym chips, search results, favorites, quick-add reveals,
 // Study Mode, etc). Records the entry the user is leaving (if any) before
-// recording the destination, so the top Previous/Next pair can always
-// browser-Back to exactly where the user came from — even the very first
-// time they navigate this way. The bottom "‹ Previous / Next ›" pair and
-// Study Mode's own controls are untouched by this and keep cycling their
-// panel's dropdown in list order, as before.
-function navigateToEntry(item){
+// recording the destination, so the top "‹ / ›" pair beside the dropdown
+// can always browser-Back to exactly where the user came from — even the
+// very first time they navigate this way.
+//
+// Pass {isExplicitSearch:true} ONLY when this jump is the direct result
+// of the user typing into the global search box (or clicking a recently-
+// viewed suggestion there) — that ALSO feeds the separate bottom-of-panel
+// "‹ Previous / Next ›" stack (typedSearchHistory), which exists purely
+// to replay Word A -> B -> C the way the user actually searched them,
+// deliberately excluding synonym/antonym/related-word chip hops. Every
+// other caller (chips, favorites, quick-add reveals, Study Mode) omits
+// it, so those jumps only ever affect the top pair's context stack.
+function navigateToEntry(item, options){
   if(!item) return;
+  const opts = options || {};
   const origin = getCurrentlyDisplayedItem();
   if(origin && (origin.label !== item.label || origin.cat !== item.cat)){
     pushSearchHistory(origin);
   }
   pushSearchHistory(item);
+  if(opts.isExplicitSearch) pushTypedSearchHistory(item);
   item.action();
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-function renderSearchMatches(matches){
+function renderSearchMatches(matches, options){
+  const opts = options || {};
+  const isExplicitSearch = opts.isExplicitSearch !== false;
   searchResultsEl.innerHTML = matches.map((m,i)=>`
     <div class="search-result-item" data-idx="${i}">
       <span class="label">${m.label}</span>
@@ -33857,7 +33942,7 @@ function renderSearchMatches(matches){
   searchResultsEl.classList.add("show");
   searchResultsEl.querySelectorAll(".search-result-item").forEach((el, i)=>{
     el.addEventListener("click", ()=>{
-      navigateToEntry(matches[i]);
+      navigateToEntry(matches[i], {isExplicitSearch});
       searchResultsEl.classList.remove("show");
       globalSearchInput.value = "";
     });
@@ -34154,7 +34239,19 @@ let onlineLookupToken = 0;
 let onlineLookupTimer = null;
 let onlineLookupController = null;
 
-function tryOnlineLookup(q, shown){
+// Once the exact searched word resolves online, ALWAYS jump straight to
+// its Vocabulary Bank preview (activating the tab, rendering it, showing
+// the Save notification below Previous/Next) — regardless of whether
+// some OTHER local word also happened to substring-match or fuzzy-match
+// the query. Earlier this only auto-displayed when nothing local matched
+// at all, and otherwise buried the online result as one more clickable
+// row the user had to notice and click themselves — which is exactly
+// why the "This word is not currently in your Vocabulary Bank" prompt
+// so often seemed to never show up. `isExplicitSearch` threads through
+// so this jump is tracked by the right stack — see navigateToEntry().
+function tryOnlineLookup(q, shown, options){
+  const opts = options || {};
+  const isExplicitSearch = opts.isExplicitSearch !== false;
   const myToken = onlineLookupToken;
   if(onlineLookupController) onlineLookupController.abort();
   onlineLookupController = (typeof AbortController !== "undefined") ? new AbortController() : null;
@@ -34176,31 +34273,25 @@ function tryOnlineLookup(q, shown){
       // shown in place — the online attempt just came up empty.
       return;
     }
-    if(shown.length === 0){
-      // Nothing else matched locally — display the online result right
-      // away using the Vocabulary Bank's own interface, exactly like
-      // the "🔎 Online Result" preview, rather than leaving it as one
-      // more row to click in an otherwise-empty dropdown.
-      searchResultsEl.classList.remove("show");
-      showOnlineVocabResult(result);
-    } else {
-      // Local matches/suggestions are already on screen — add the
-      // online result as one more clickable row instead of yanking the
-      // user away from what's already shown.
-      renderSearchMatches(shown.concat([{
-        label: result.w,
-        cat: "Online result — not yet saved",
-        action: ()=> showOnlineVocabResult(result)
-      }]));
-    }
+    searchResultsEl.classList.remove("show");
+    navigateToEntry({
+      label: result.w,
+      cat: "Vocabulary Bank",
+      action: ()=> showOnlineVocabResult(result)
+    }, {isExplicitSearch});
   });
 }
 
 // The full search pipeline for a (already trimmed/lowercased) query:
 // exact/substring match -> fuzzy "did you mean" -> online lookup ->
-// "No matches". Shared by the search box's input handler and by
-// searchAndNavigate() (used when a synonym/antonym chip is clicked).
-function runSearchPipeline(q){
+// "No matches". Shared by the search box's input handler (a genuine
+// typed search — isExplicitSearch defaults true) and by
+// searchAndNavigate() (a synonym/antonym chip's fallback when the word
+// isn't already known locally — explicitly passes isExplicitSearch:false
+// so a chip hop never gets mistaken for something the user searched for).
+function runSearchPipeline(q, options){
+  const opts = options || {};
+  const isExplicitSearch = opts.isExplicitSearch !== false;
   onlineLookupToken++;
   if(onlineLookupTimer) clearTimeout(onlineLookupTimer);
   if(onlineLookupController) onlineLookupController.abort();
@@ -34216,7 +34307,7 @@ function runSearchPipeline(q){
   let shown = [];
 
   if(matches.length > 0){
-    renderSearchMatches(matches);
+    renderSearchMatches(matches, {isExplicitSearch});
     shown = matches;
   } else {
     // No exact/substring match — look for close spellings among
@@ -34228,7 +34319,7 @@ function runSearchPipeline(q){
     });
     if(suggestions.length > 0){
       shown = suggestions.map(s=>({label:s.label, cat:"Did you mean? — "+s.cat, action:s.action}));
-      renderSearchMatches(shown);
+      renderSearchMatches(shown, {isExplicitSearch});
     } else {
       showNoMatches();
     }
@@ -34242,7 +34333,7 @@ function runSearchPipeline(q){
     const myToken = onlineLookupToken;
     onlineLookupTimer = setTimeout(()=>{
       if(myToken !== onlineLookupToken) return;
-      tryOnlineLookup(q, shown);
+      tryOnlineLookup(q, shown, {isExplicitSearch});
     }, 350);
   }
 }
@@ -34255,11 +34346,11 @@ function searchAndNavigate(word){
   const key = word.trim().toLowerCase();
   const exact = wordIndexMap.get(key);
   if(exact){
-    navigateToEntry(exact);
+    navigateToEntry(exact, {isExplicitSearch:false});
     return;
   }
   globalSearchInput.value = word;
-  runSearchPipeline(key);
+  runSearchPipeline(key, {isExplicitSearch:false});
   globalSearchInput.scrollIntoView({behavior:"smooth", block:"center"});
 }
 
@@ -34319,6 +34410,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   pushSearchHistory, updateOwnerModeUI,
   getCurrentlyDisplayedItem, navigateToEntry, activateTab,
   getSearchHistory: ()=> searchHistory, getSearchHistoryIndex: ()=> searchHistoryIndex,
+  getTypedSearchHistory: ()=> typedSearchHistory, getTypedSearchHistoryIndex: ()=> typedSearchHistoryIndex,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
   resolveFavoriteEntryData, buildFavoritesPdfData, buildFavoritesStudySheet,
