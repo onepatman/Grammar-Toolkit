@@ -52,7 +52,7 @@ describe("favorite toggle on an entry", () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
 
-    hooks.runSearchPipeline("under");
+    hooks.runSearchPipeline("between");
     Array.from(document.querySelectorAll("#searchResults .search-result-item"))
       .find((el) => el.textContent.includes("Preposition"))
       .click();

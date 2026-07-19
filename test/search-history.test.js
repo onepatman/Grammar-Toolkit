@@ -41,16 +41,16 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     search(window, "abandon", "Vocabulary Bank");
     expect(activeTab(document)).toBe("vocab");
 
-    search(window, "under", "Preposition");
+    search(window, "between", "Preposition");
     expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("under");
+    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
 
     search(window, "worked");
     expect(activeTab(document)).toBe("verbs");
 
     document.querySelector("#panel-verbs .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("under");
+    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
 
     document.querySelector("#panel-preps .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
@@ -58,14 +58,14 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
 
     document.querySelector("#panel-vocab .controls .nav-btn[data-dir='next']").click();
     expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("under");
+    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
   });
 
   it("does not go past the oldest or newest entry (no wraparound)", async () => {
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
-    search(window, "under", "Preposition");
+    search(window, "between", "Preposition");
 
     document.querySelector("#panel-preps .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
