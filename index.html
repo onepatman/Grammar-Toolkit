@@ -122,13 +122,14 @@
   .update-banner.show{ display:block; }
   @keyframes slideDown{ from{ transform:translateY(-100%); } to{ transform:translateY(0); } }
 
-  /* Header */
+  /* Header — centered, balanced left/right, logo aligned with the title */
   .masthead{
     background:var(--brand-deep);
     color:#F2F6F4;
     padding:22px 18px 18px;
     position:relative;
     overflow:hidden;
+    text-align:center;
   }
   .masthead::after{
     content:"";
@@ -139,18 +140,30 @@
   .masthead .eyebrow{
     font-family:'IBM Plex Mono', monospace;
     font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-    color:#B9D6D4; margin-bottom:6px;
+    color:#B9D6D4; margin-bottom:10px;
+  }
+  .masthead-brand{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:8px;
+  }
+  .masthead-logo{
+    flex:none;
+    width:42px; height:42px;
+    object-fit:contain;
   }
   .masthead h1{
     font-family:'Source Serif 4', serif;
     font-weight:800;
     font-size:38px;
     letter-spacing:-.01em;
-    margin:0 0 8px;
+    margin:0;
     line-height:1.1;
   }
   .masthead p{
-    margin:0; font-size:13.5px; color:#CFE3E1; max-width:46ch; line-height:1.5;
+    margin:0 auto; font-size:13.5px; color:#CFE3E1; max-width:46ch; line-height:1.5;
   }
 
   /* Sticky wrapper for search + tabs */
@@ -212,9 +225,15 @@
   .search-result-item .label{ font-weight:600; color:var(--teal-deep); }
   .search-empty{ padding:12px 13px; font-size:13px; color:var(--ink-soft); font-style:italic; }
 
-  /* Thumb-index tab strip */
+  /* Thumb-index tab strip — centered when every tab fits the available
+     width; on narrower screens the tabs overflow their natural width and
+     "justify-content:center" degrades to safe/start alignment (per the
+     CSS Box Alignment spec) so the strip stays horizontally scrollable
+     and every tab stays reachable instead of the leading ones being
+     clipped off-screen. */
   .thumb-tabs{
     display:flex;
+    justify-content:safe center;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
@@ -639,15 +658,91 @@
     .headword{ font-size:25px; }
     .thumb-tab{ font-size:10.5px; padding:11px 3px 9px; }
     .masthead h1{ font-size:29px; }
+    .masthead-logo{ width:34px; height:34px; }
+  }
+
+  /* Opening/splash screen — brief branded moment on launch, purely
+     cosmetic (no network requests beyond the icon already needed for
+     the header/favicon, which the browser loads once and reuses here).
+     A JS-set "splash-hide" class fades it out once the app is ready;
+     see the small inline script right after the markup below. */
+  .splash-screen{
+    position:fixed; inset:0; z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--brand-deep);
+    transition:opacity .45s ease, visibility 0s linear .45s;
+  }
+  .splash-screen.splash-hide{
+    opacity:0; visibility:hidden; pointer-events:none;
+  }
+  .splash-content{
+    display:flex; flex-direction:column; align-items:center; gap:9px;
+    animation:splashIn .6s ease both;
+  }
+  .splash-logo{
+    width:88px; height:88px; object-fit:contain;
+    filter:drop-shadow(0 4px 14px rgba(0,0,0,.28));
+  }
+  .splash-brand{
+    font-family:'Source Serif 4', serif; font-weight:800; font-size:27px;
+    color:#F2F6F4; letter-spacing:.01em; margin-top:4px;
+  }
+  .splash-title{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.18em;
+    text-transform:uppercase; color:#B9D6D4;
+  }
+  @keyframes splashIn{
+    from{ opacity:0; transform:translateY(8px) scale(.97); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .splash-content{ animation:none; }
+    .splash-screen{ transition:opacity .01s linear; }
   }
 </style>
 </head>
 <body>
 
+<div id="splashScreen" class="splash-screen" role="presentation" aria-hidden="true">
+  <div class="splash-content">
+    <img src="icon-192.png" alt="" class="splash-logo" width="88" height="88">
+    <div class="splash-brand">Blueprintminds</div>
+    <div class="splash-title">Engineering Dictionary</div>
+  </div>
+</div>
+<script>
+(function(){
+  var splash = document.getElementById("splashScreen");
+  if(!splash) return;
+  var MIN_DISPLAY_MS = 550;
+  var MAX_WAIT_MS = 2500; // safety net if "load" is held up by a slow external resource (e.g. web font)
+  var start = Date.now();
+  var hidden = false;
+  function hideSplash(){
+    if(hidden) return;
+    hidden = true;
+    var wait = Math.max(0, MIN_DISPLAY_MS - (Date.now() - start));
+    setTimeout(function(){
+      splash.classList.add("splash-hide");
+      setTimeout(function(){ splash.remove(); }, 500);
+    }, wait);
+  }
+  if(document.readyState === "complete"){
+    hideSplash();
+  } else {
+    window.addEventListener("load", hideSplash);
+  }
+  setTimeout(hideSplash, MAX_WAIT_MS);
+})();
+</script>
+
 <div id="updateBanner" class="update-banner"></div>
 <div class="masthead">
   <div class="eyebrow">Field Reference No. 001 — Engineering English Database</div>
-  <h1>Ultimate Engineering Dictionary</h1>
+  <div class="masthead-brand">
+    <img src="icon-192.png" alt="Blueprintminds logo" class="masthead-logo" width="42" height="42">
+    <h1>Ultimate Engineering Dictionary</h1>
+  </div>
   <p>Every word, rule, and phrase an engineer needs — searchable, bilingual, and built to last.</p>
 </div>
 
