@@ -654,11 +654,18 @@
     margin-top:6px; font-weight:600; letter-spacing:.03em; color:var(--teal-deep);
   }
 
+  /* On phone-width screens the logo crowds a title that's already
+     wrapping onto 2-3 lines, so it's dropped entirely and only the
+     centered title remains — the logo stays for desktop/laptop, where
+     there's room for [Logo] Title side by side. */
+  @media (max-width:600px){
+    .masthead-logo{ display:none; }
+  }
+
   @media (max-width:400px){
     .headword{ font-size:25px; }
     .thumb-tab{ font-size:10.5px; padding:11px 3px 9px; }
     .masthead h1{ font-size:29px; }
-    .masthead-logo{ width:34px; height:34px; }
   }
 
   /* Opening/splash screen — brief branded moment on launch, purely
@@ -31283,6 +31290,7 @@ function openVocabEditForm(item, entryEl){
   document.getElementById("vocabEditSaveBtn").addEventListener("click", ()=>{
     saveVocabEdit(item, entryEl);
   });
+  bindEnterToClick(["vocabEditWord", "vocabEditExample", "vocabEditSyn", "vocabEditAnt", "vocabEditTagalog"], "vocabEditSaveBtn");
 }
 
 async function saveVocabEdit(originalItem, entryEl){
@@ -31727,12 +31735,32 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   refreshVocabUI();
 });
 
-document.getElementById("ownerUnlockPinInput").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") document.getElementById("ownerUnlockBtn").click();
-});
-document.getElementById("ownerNewPinInput").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") document.getElementById("ownerSetPinBtn").click();
-});
+// Enter-to-submit — lets a single-line input (Add/Search/Sign-in/Connect/
+// Edit forms) behave like pressing its neighboring action button, the
+// same way a native <form> submits. Deliberately opt-in per input/button
+// pair rather than a page-wide keydown listener, so it can never reach
+// the Previous/Next/Back/Forward nav-btn controls, which must only ever
+// respond to an explicit click. Skipped while an IME composition is in
+// progress, so Enter-to-confirm-a-character (Japanese/Chinese/Korean
+// input) doesn't also submit the form. Never bound to a <textarea> —
+// Enter there should keep inserting a newline, not submit.
+function bindEnterToClick(inputIds, btnId){
+  const btn = document.getElementById(btnId);
+  if(!btn) return;
+  (Array.isArray(inputIds) ? inputIds : [inputIds]).forEach(inputId=>{
+    const input = document.getElementById(inputId);
+    if(!input) return;
+    input.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter" && !e.isComposing){
+        e.preventDefault();
+        btn.click();
+      }
+    });
+  });
+}
+
+bindEnterToClick("ownerUnlockPinInput", "ownerUnlockBtn");
+bindEnterToClick("ownerNewPinInput", "ownerSetPinBtn");
 
 document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   OwnerMode.lockOwnerMode();
@@ -31856,6 +31884,7 @@ document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
   document.getElementById("qaAddStatus").textContent = "Edit cancelled.";
   document.getElementById("qaAddStatus").className = "add-status";
 });
+bindEnterToClick(["qaWrongInput", "qaRightInput", "qaWhyInput"], "qaAddBtn");
 
 document.addEventListener("click", async (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
@@ -32654,6 +32683,7 @@ document.getElementById("syncSignInBtn").addEventListener("click", ()=>{
   document.getElementById("syncOwnerPasswordInput").value = "";
   signInAsOwner(email, password);
 });
+bindEnterToClick(["syncOwnerEmailInput", "syncOwnerPasswordInput"], "syncSignInBtn");
 
 document.getElementById("syncSignOutBtn").addEventListener("click", ()=>{
   signOutOwner();
@@ -32671,6 +32701,7 @@ updateSyncAuthUI();
 document.getElementById("syncConnectBtn").addEventListener("click", ()=>{
   connectSync(document.getElementById("syncCodeInput").value);
 });
+bindEnterToClick("syncCodeInput", "syncConnectBtn");
 
 document.getElementById("packImportInput").addEventListener("change", (e)=>{
   const file = e.target.files && e.target.files[0];
@@ -33045,6 +33076,7 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
   document.getElementById("lbEditSaveBtn").addEventListener("click", ()=>{
     saveLanguageBankEdit(categoryKey, item, entryEl);
   });
+  bindEnterToClick(["lbEditWord", "lbEditExample", "lbEditSyn", "lbEditAnt"], "lbEditSaveBtn");
 }
 
 async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
@@ -33138,6 +33170,7 @@ LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   document.getElementById(config.inputId).addEventListener("keydown", (e)=>{
     if(e.key === "Enter") addLanguageBankEntryFromInput(categoryKey);
   });
+  if(config.manualExampleId) bindEnterToClick(config.manualExampleId, config.manualSaveBtnId);
   document.getElementById(config.manualSaveBtnId).addEventListener("click", ()=> saveLanguageBankManualEntry(categoryKey));
   document.getElementById(config.manualCancelBtnId).addEventListener("click", ()=> cancelLanguageBankManualEntry(categoryKey));
   if(config.manualSkipBtnId){
@@ -33549,6 +33582,10 @@ function openDistinctionEditForm(entry, entryEl){
   document.getElementById("distEditSaveBtn").addEventListener("click", ()=>{
     saveDistinctionEdit(entry, entryEl);
   });
+  bindEnterToClick([
+    "distEditWord1", "distEditExample1", "distEditSyn1", "distEditAnt1",
+    "distEditWord2", "distEditExample2", "distEditSyn2", "distEditAnt2"
+  ], "distEditSaveBtn");
 }
 
 async function saveDistinctionEdit(originalEntry, entryEl){
@@ -33776,6 +33813,7 @@ document.getElementById("distinctionsAddInput2").addEventListener("keydown", (e)
 });
 document.getElementById("distinctionsManualSaveBtn").addEventListener("click", saveDistinctionsManualEntry);
 document.getElementById("distinctionsManualCancelBtn").addEventListener("click", cancelDistinctionsManualEntry);
+bindEnterToClick(["distinctionsManualExample1", "distinctionsManualExample2"], "distinctionsManualSaveBtn");
 
 
 // Auto-reconnect if this device was already connected before. Waits for
@@ -34303,6 +34341,7 @@ function renderVerbAddForm(word){
   });
   document.getElementById("verbFlagCancelBtn").addEventListener("click", hideVerbFlagArea);
   document.getElementById("verbFlagSaveBtn").addEventListener("click", saveVerbFromFlagForm);
+  bindEnterToClick(["verbFormBase", "verbFormS", "verbFormPast", "verbFormPP", "verbFormIng"], "verbFlagSaveBtn");
 }
 
 async function saveVerbFromFlagForm(){
@@ -34532,6 +34571,15 @@ function searchAndNavigate(word){
 
 globalSearchInput.addEventListener("input", (e)=>{
   runSearchPipeline(e.target.value.trim().toLowerCase());
+});
+
+// Enter jumps straight to the top result, same as clicking it — there's
+// no separate "Search" button here since results already appear live
+// as you type, so Enter's natural role is "go to the best match".
+globalSearchInput.addEventListener("keydown", (e)=>{
+  if(e.key !== "Enter" || e.isComposing) return;
+  const first = searchResultsEl.querySelector(".search-result-item");
+  if(first) first.click();
 });
 
 // Focusing the empty search box shows recently-viewed words as quick

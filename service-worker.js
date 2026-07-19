@@ -6,12 +6,14 @@
 // treats it as a new script (triggers install -> activate, which
 // purges every OTHER cache bucket below) instead of silently reusing
 // whatever's already registered.
-const CACHE_NAME = "mepf-grammar-toolkit-v9";
+const CACHE_NAME = "mepf-grammar-toolkit-v10";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
+  "./icon-192-maskable.png",
+  "./icon-512-maskable.png",
   "./js/correction-log.js",
   "./js/online-lookup.js",
   "./js/fuzzy-search.js",
