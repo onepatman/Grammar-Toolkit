@@ -23557,6 +23557,24 @@ const vocabData = [
   }
 ];
 
+// The two source labels renderRuleEntry() displays in place of the
+// literal "Vocabulary Bank" tagLabel: VOCAB_BANK_TAG_LABEL for a
+// genuine local record, ONLINE_SEARCH_TAG_LABEL for a result fetched
+// live from the online dictionary and not yet saved. Display-only —
+// renderRuleEntry() swaps these in for the on-screen `.tag.ghost` text
+// alone. The literal "Vocabulary Bank" string itself must keep flowing
+// unchanged everywhere else it's used as a stable identifier: the
+// internal `cat`/`categories` fields in wordIndexMap/searchIndex
+// (indexing, priority, navigation-history matching), and — easy to
+// miss — the SAME tagLabel argument passed to makeFavToggleHtml(),
+// which stamps it onto every favorite as `fav.cat`, later matched
+// verbatim by resolveFavoriteEntryData()/getFavoriteRuleEntrySources()
+// to resolve Favorites, Practice Mode, and PDF/study-sheet content.
+// Changing what's passed as tagLabel itself (rather than swapping the
+// display text inside renderRuleEntry) silently breaks all three.
+const VOCAB_BANK_TAG_LABEL = "📚 Vocabulary Bank";
+const ONLINE_SEARCH_TAG_LABEL = "🌐 Online Search";
+
 /* =========================================================
    DATA — DISTINCTIONS WORDS (commonly confused/misused word pairs,
    e.g. Affect vs Effect, Advice vs Advise — plus the original
@@ -30628,6 +30646,15 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     pendingOnlineVocabResult = null;
     renderVocabSaveArea();
   }
+  // The on-screen source tag distinguishes a genuine Vocabulary Bank
+  // record (📚) from a not-yet-saved online lookup preview (🌐) —
+  // display-only, swapped in here rather than changed at the call
+  // site, so every OTHER identity the plain "Vocabulary Bank" tagLabel
+  // carries (makeFavToggleHtml's stored favorite category, Edit/Delete
+  // confirmation text) keeps working unchanged. See VOCAB_BANK_TAG_LABEL.
+  const displayTagLabel = tagLabel === "Vocabulary Bank"
+    ? (item === pendingOnlineVocabResult ? ONLINE_SEARCH_TAG_LABEL : VOCAB_BANK_TAG_LABEL)
+    : tagLabel;
   const sensesHtml = item.senses.map((s,i)=>{
     const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
       <div class="personal-actions">
@@ -30679,7 +30706,7 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.w}</span>
       ${makePhoneticHtml(item.phonetic)}
-      <span class="tag ghost">${tagLabel}</span>
+      <span class="tag ghost">${displayTagLabel}</span>
       ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
@@ -35718,6 +35745,17 @@ function runSearchPipeline(q){
   const candidates = Array.from(wordIndexMap.values()).filter(item=>item.label.toLowerCase().includes(q));
   const matches = rankSearchMatches(candidates, q).slice(0, 25);
   const hasExactLocalMatch = wordIndexMap.has(q);
+  // Even when something local already matched, the exact word the user
+  // typed still isn't defined anywhere locally unless hasExactLocalMatch
+  // is true — so it's still worth checking online, in the background,
+  // after a short pause so we don't fire a request on every keystroke.
+  const willTryOnline = !hasExactLocalMatch && q.length >= 2;
+  // navigator.onLine === false is a reliable "definitely offline" signal
+  // — when it's set, we already know the upcoming online attempt will
+  // resolve to nothing, so there's no point claiming we're "Searching
+  // online…" first; showNoMatches() below already picks the correct
+  // offline-specific message immediately instead.
+  const isOnline = typeof navigator === "undefined" || navigator.onLine !== false;
   let shown = [];
 
   if(matches.length > 0){
@@ -35734,16 +35772,19 @@ function runSearchPipeline(q){
     if(suggestions.length > 0){
       shown = suggestions.map(s=>({label:s.label, cat:"Did you mean? — "+s.cat, action:s.action}));
       renderSearchMatches(shown);
+    } else if(willTryOnline && isOnline){
+      // Nothing local at all, but an online lookup is about to run for
+      // this exact query — say so instead of flashing a false "No
+      // matches" that makes it look like the search already gave up
+      // before the online attempt even started.
+      searchResultsEl.innerHTML = '<div class="search-empty">Searching online…</div>';
+      searchResultsEl.classList.add("show");
     } else {
       showNoMatches();
     }
   }
 
-  // Even when something local already matched, the exact word the user
-  // typed still isn't defined anywhere locally unless hasExactLocalMatch
-  // is true — so it's still worth checking online, in the background,
-  // after a short pause so we don't fire a request on every keystroke.
-  if(!hasExactLocalMatch && q.length >= 2){
+  if(willTryOnline){
     const myToken = onlineLookupToken;
     onlineLookupTimer = setTimeout(()=>{
       if(myToken !== onlineLookupToken) return;
