@@ -54,8 +54,14 @@ describe("runSearchPipeline — bilingual + fuzzy suggestions", () => {
     expect(searchResultsText()).toContain("abandon");
   });
 
-  it("falls back to 'No matches' for a query with nothing close locally and no network", () => {
+  it("falls back to 'No matches' for a query with nothing close locally and no network", async () => {
     hooks.runSearchPipeline("qzxjkvw");
+    // Immediately: no false-negative "No matches" flash — the online
+    // lookup is about to run, so that's what the message says.
+    expect(searchResultsText()).toContain("Searching online…");
+    // Once the debounced online attempt actually resolves (this test
+    // environment has no real fetch/network), it settles on "No matches".
+    await new Promise((resolve) => setTimeout(resolve, 400));
     expect(searchResultsText()).toContain("No matches");
   });
 });

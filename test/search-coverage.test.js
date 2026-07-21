@@ -154,4 +154,127 @@ describe("online lookup runs even when a partial local match exists", () => {
 
     expect(document.getElementById("vocabSaveArea").style.display).toBe("none");
   });
+
+  it("does not attempt an online lookup when the word is already known via a DIFFERENT category (e.g. a Preposition), and shows that category's own tag, not Vocabulary Bank or Online Search", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    let called = false;
+    window.OnlineLookup.fetchOnlineDefinition = async () => { called = true; return null; };
+
+    // "between" is a built-in Preposition, not a Vocabulary Bank word.
+    expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "between")).toBe(false);
+    hooks.runSearchPipeline("between");
+    await wait(600);
+
+    expect(called).toBe(false);
+    const match = document.querySelector("#searchResults .search-result-item");
+    expect(match.querySelector(".label").textContent.toLowerCase()).toBe("between");
+    expect(match.querySelector(".cat").textContent).toBe("Preposition");
+    match.click();
+    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
+  });
+});
+
+describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Search", () => {
+  it("an unsaved online result is tagged '🌐 Online Search', never 'Vocabulary Bank'", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubZibblewockLookup(window);
+
+    hooks.runSearchPipeline("zibblewock");
+    await wait(600);
+
+    const tagText = document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent;
+    expect(tagText).toBe("🌐 Online Search");
+    expect(tagText).not.toContain("Vocabulary Bank");
+  });
+
+  it("once saved, the tag switches to '📚 Vocabulary Bank' and the Save button disappears", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubZibblewockLookup(window);
+
+    hooks.runSearchPipeline("zibblewock");
+    await wait(600);
+    document.getElementById("saveOnlineVocabBtn").click();
+    await wait(50);
+
+    const tagText = document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent;
+    expect(tagText).toBe("📚 Vocabulary Bank");
+    expect(document.getElementById("saveOnlineVocabBtn")).toBeNull();
+    expect(document.getElementById("vocabSaveArea").textContent).toContain("has been added to your Vocabulary Bank");
+  });
+
+  it("searching the same word again after saving shows the Vocabulary Bank result and no Save button", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubZibblewockLookup(window);
+
+    hooks.runSearchPipeline("zibblewock");
+    await wait(600);
+    document.getElementById("saveOnlineVocabBtn").click();
+    await wait(50);
+
+    let fetchCalledAgain = false;
+    window.OnlineLookup.fetchOnlineDefinition = async () => { fetchCalledAgain = true; return null; };
+    hooks.runSearchPipeline("zibblewock");
+    await wait(600);
+
+    // Now a known local word — no online lookup, shown as a plain
+    // clickable local match (like any other search result).
+    expect(fetchCalledAgain).toBe(false);
+    const match = document.querySelector("#searchResults .search-result-item");
+    expect(match.querySelector(".label").textContent.toLowerCase()).toBe("zibblewock");
+    expect(match.querySelector(".cat").textContent).toBe("Vocabulary Bank");
+
+    match.click();
+    expect(document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent).toBe("📚 Vocabulary Bank");
+    expect(document.getElementById("saveOnlineVocabBtn")).toBeNull();
+    expect(document.getElementById("vocabSaveArea").style.display).toBe("none");
+  });
+
+  it("every genuine local Vocabulary Bank entry (built-in or owner-saved) is tagged '📚 Vocabulary Bank'", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    hooks.runSearchPipeline("abandon"); // a built-in Vocabulary Bank word
+    document.querySelector("#searchResults .search-result-item").click();
+
+    const tagText = document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent;
+    expect(tagText).toBe("📚 Vocabulary Bank");
+    // The favorite-toggle/edit-delete identity underneath is unaffected —
+    // still the plain "Vocabulary Bank" string, not the decorated one.
+    expect(document.getElementById("vocabEntry").querySelector(".fav-toggle")).not.toBeNull();
+  });
+});
+
+describe("no premature 'No matches' before an online lookup has actually run", () => {
+  it("shows 'Searching online…' immediately for a brand-new word, not a false 'No matches'", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    stubZibblewockLookup(window);
+
+    hooks.runSearchPipeline("zibblewock");
+    // Synchronously, right after typing — before the debounce/fetch even
+    // runs — the message must not claim the search already failed.
+    const immediateText = document.getElementById("searchResults").textContent;
+    expect(immediateText).not.toContain("No matches");
+    expect(immediateText).toContain("Searching online…");
+
+    await wait(600);
+    // And it resolves to the real online result shortly after.
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("zibblewock");
+  });
+
+  it("shows the offline-specific message immediately (never 'Searching online…') when navigator.onLine is false", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    Object.defineProperty(window.navigator, "onLine", { value: false, configurable: true });
+
+    hooks.runSearchPipeline("zibblewock2");
+    const text = document.getElementById("searchResults").textContent;
+    expect(text).toContain("No matches in your offline Vocabulary Bank");
+    expect(text).not.toContain("Searching online…");
+  });
 });
