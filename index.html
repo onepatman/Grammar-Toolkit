@@ -325,6 +325,13 @@
   }
   select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
 
+  .sort-controls{ align-items:center; }
+  .sort-controls .sort-label{
+    flex:0 0 auto; display:flex; align-items:center;
+    font-family:'IBM Plex Sans', sans-serif; font-size:12.5px; font-weight:600; color:var(--ink-soft);
+  }
+  .sort-controls select{ flex:1; min-width:200px; }
+
   .nav-btn{
     flex:none;
     width:38px; height:38px;
@@ -416,6 +423,143 @@
   }
   .favorites-empty{
     font-size:13.5px; color:var(--ink-soft); padding:20px 4px; text-align:center;
+  }
+
+  /* ---------- Practice tab ---------- */
+  .practice-source-picker{
+    display:flex; flex-wrap:wrap; gap:10px;
+  }
+  .practice-source-picker label{
+    display:flex; align-items:center; gap:6px;
+    padding:8px 14px; border:1.5px solid var(--rule); border-radius:999px;
+    font-size:13px; font-weight:500; color:var(--ink); cursor:pointer;
+    background:var(--card);
+  }
+  .practice-source-picker input{ accent-color:var(--teal-deep); cursor:pointer; }
+
+  .practice-mode-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px;
+  }
+  .practice-mode-btn{
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:18px 10px; border:1.5px solid var(--rule); border-radius:14px;
+    background:var(--card); cursor:pointer; font-size:24px;
+    transition:all .15s ease;
+  }
+  .practice-mode-btn span{
+    font-family:'IBM Plex Sans', sans-serif; font-size:12.5px; font-weight:600; color:var(--ink);
+  }
+  .practice-mode-btn:hover{ border-color:var(--gold); }
+  .practice-mode-btn:active{ transform:scale(.97); }
+
+  .practice-history-list{ display:flex; flex-direction:column; gap:6px; }
+  .practice-history-row{
+    display:flex; justify-content:space-between; gap:10px;
+    padding:8px 12px; border:1px solid var(--rule); border-radius:8px;
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink-soft);
+  }
+  .practice-history-empty{ font-size:13px; color:var(--ink-soft); padding:8px 2px; }
+
+  .practice-progress{ margin-bottom:16px; }
+  .practice-progress-text{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600;
+    color:var(--teal-deep); margin-bottom:6px;
+  }
+  .practice-progress-bar{
+    height:8px; border-radius:999px; background:var(--tab-off); overflow:hidden;
+  }
+  .practice-progress-fill{
+    height:100%; background:var(--gold); border-radius:999px; transition:width .2s ease;
+  }
+
+  .practice-card{
+    background:var(--card); border:1.5px solid var(--rule); border-radius:16px;
+    padding:24px 20px; text-align:center;
+  }
+  .practice-card .practice-front{
+    font-family:'IBM Plex Mono', monospace; font-size:22px; font-weight:700;
+    letter-spacing:.5px; color:var(--ink); text-transform:uppercase;
+  }
+  .practice-card .practice-back{ margin-top:16px; text-align:left; }
+  .practice-card .practice-back h4{
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-soft);
+    margin:10px 0 3px;
+  }
+  .practice-flip-actions{
+    display:flex; justify-content:center; gap:10px; margin-top:18px; flex-wrap:wrap;
+  }
+
+  .practice-question-text{
+    font-size:16px; font-weight:600; color:var(--ink); margin-bottom:16px; line-height:1.5;
+  }
+  .practice-choices{ display:flex; flex-direction:column; gap:10px; }
+  .practice-choice-btn{
+    display:flex; gap:10px; align-items:flex-start; text-align:left;
+    padding:12px 14px; border:1.5px solid var(--rule); border-radius:10px;
+    background:var(--card); cursor:pointer; font-size:14px; color:var(--ink);
+    width:100%;
+  }
+  .practice-choice-btn .practice-choice-letter{
+    font-weight:700; color:var(--teal-deep); flex:0 0 auto;
+  }
+  .practice-choice-btn:active{ transform:scale(.99); }
+  .practice-choice-btn.correct{ border-color:var(--mint-border); background:var(--mint-bg); }
+  .practice-choice-btn.incorrect{ border-color:var(--brick-border); background:var(--brick-bg); }
+  .practice-choice-btn:disabled{ cursor:default; opacity:.9; }
+
+  .practice-spelling-input{
+    width:100%; padding:12px 14px; border:1.5px solid var(--rule); border-radius:10px;
+    font-family:'IBM Plex Mono', monospace; font-size:15px; color:var(--ink);
+    background:var(--card); margin-bottom:12px;
+  }
+  .practice-feedback{
+    margin-top:10px; padding:10px 12px; border-radius:10px; font-size:14px;
+  }
+  .practice-feedback.correct{ background:var(--mint-bg); color:var(--mint); border:1px solid var(--mint-border); }
+  .practice-feedback.incorrect{ background:var(--brick-bg); color:var(--brick); border:1px solid var(--brick-border); }
+
+  .practice-tf-actions{ display:flex; gap:12px; }
+  .practice-tf-btn{
+    flex:1; padding:16px; border-radius:12px; border:1.5px solid var(--rule);
+    background:var(--card); font-size:15px; font-weight:700; cursor:pointer; color:var(--ink);
+  }
+  .practice-tf-btn:active{ transform:scale(.98); }
+
+  .practice-matching-columns{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+  }
+  .practice-match-item{
+    padding:12px 10px; border:1.5px solid var(--rule); border-radius:10px;
+    background:var(--card); cursor:pointer; font-size:13px; color:var(--ink);
+    min-height:44px; display:flex; align-items:center;
+    word-break:break-word;
+  }
+  .practice-match-item.selected{ border-color:var(--gold); background:var(--warn-bg); }
+  .practice-match-item.matched{ border-color:var(--mint-border); background:var(--mint-bg); opacity:.7; cursor:default; }
+  .practice-match-item.wrong{ border-color:var(--brick-border); background:var(--brick-bg); }
+
+  .practice-results-summary{
+    text-align:center; padding:24px 16px; background:var(--card);
+    border:1.5px solid var(--rule); border-radius:16px; margin-bottom:16px;
+  }
+  .practice-results-summary h2{ font-size:20px; margin-bottom:10px; }
+  .practice-results-score{ font-size:32px; font-weight:800; color:var(--teal-deep); }
+  .practice-results-rating{ font-size:16px; font-weight:700; margin-top:6px; }
+  .practice-results-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:16px; }
+
+  .practice-review-row{
+    padding:12px 14px; border:1.5px solid var(--rule); border-radius:10px; margin-bottom:8px;
+  }
+  .practice-review-row.correct{ border-left:4px solid var(--mint); }
+  .practice-review-row.incorrect{ border-left:4px solid var(--brick); }
+  .practice-review-row .practice-review-q{ font-weight:600; margin-bottom:4px; }
+  .practice-review-row .practice-review-your{ font-size:13px; color:var(--ink-soft); }
+  .practice-review-row .practice-review-correct{ font-size:13px; color:var(--mint); margin-top:2px; }
+
+  @media (max-width:420px){
+    .practice-matching-columns{ gap:8px; }
+    .practice-match-item{ font-size:12px; padding:10px 8px; }
+    .practice-mode-grid{ grid-template-columns:repeat(2, 1fr); }
   }
 
   /* Study mode (flashcard browser through Favorites) — the "card"
@@ -761,6 +905,7 @@
   </div>
   <div class="thumb-tabs">
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
+    <button class="thumb-tab" data-tab="practice">Practice<span class="n">📝</span></button>
     <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
@@ -887,6 +1032,16 @@
 
   <!-- ===== DISTINCTIONS WORDS PANEL (commonly confused/misused word pairs) ===== -->
   <section id="panel-distinctions" style="display:none;">
+    <div class="controls sort-controls">
+      <label for="distinctionsSortSelect" class="sort-label">Sort by:</label>
+      <select id="distinctionsSortSelect">
+        <option value="az">A–Z</option>
+        <option value="modified-desc">Recently Modified</option>
+        <option value="modified-asc">Date Modified — Oldest First</option>
+        <option value="added-desc">Recently Added</option>
+        <option value="added-asc">Date Added — Oldest First</option>
+      </select>
+    </div>
     <div class="controls">
       <select id="distinctionsSelect"></select>
       <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹</button>
@@ -1049,6 +1204,44 @@
     <div id="favoritesList" class="favorites-list"></div>
   </section>
 
+  <!-- ===== PRACTICE PANEL ===== -->
+  <section id="panel-practice" style="display:none;">
+    <div id="practiceHome">
+      <p class="note" style="margin-bottom:10px;">Test yourself with 15 random questions built from your own saved content — Flashcards, Multiple Choice, Spelling, True/False, or Matching.</p>
+
+      <div class="section-label">Practice from</div>
+      <div class="practice-source-picker" id="practiceSourcePicker">
+        <label><input type="radio" name="practiceSource" value="favorites" checked> My Favorites</label>
+        <label><input type="radio" name="practiceSource" value="vocab"> Vocabulary Bank</label>
+        <label><input type="radio" name="practiceSource" value="all"> All Available Content</label>
+      </div>
+
+      <div class="section-label" style="margin-top:16px;">Choose a practice mode</div>
+      <div class="practice-mode-grid" id="practiceModeGrid">
+        <button class="practice-mode-btn" data-mode="flashcards">🃏<span>Flashcards</span></button>
+        <button class="practice-mode-btn" data-mode="mcq">📝<span>Multiple Choice</span></button>
+        <button class="practice-mode-btn" data-mode="spelling">✍️<span>Spelling</span></button>
+        <button class="practice-mode-btn" data-mode="truefalse">✅<span>True / False</span></button>
+        <button class="practice-mode-btn" data-mode="matching">🔗<span>Matching</span></button>
+      </div>
+      <div id="practiceHomeStatus" class="add-status"></div>
+
+      <div class="section-label" style="margin-top:16px;">Recent practice history</div>
+      <div id="practiceHistoryList" class="practice-history-list"></div>
+    </div>
+
+    <div id="practiceSession" style="display:none;">
+      <div class="practice-progress">
+        <div class="practice-progress-text" id="practiceProgressText"></div>
+        <div class="practice-progress-bar"><div class="practice-progress-fill" id="practiceProgressFill"></div></div>
+      </div>
+      <div id="practiceQuestionArea"></div>
+      <button class="add-btn secondary" id="practiceExitBtn" style="margin-top:14px;">Exit to Practice Modes</button>
+    </div>
+
+    <div id="practiceResultsView" style="display:none;"></div>
+  </section>
+
   <!-- ===== VOCABULARY UPGRADE PANEL ===== -->
   <section id="panel-vocab">
     <div class="controls">
@@ -1075,6 +1268,16 @@
         <button data-val="patterns">Sentence Patterns</button>
         <button data-val="technical">Technical Terms</button>
       </div>
+    </div>
+    <div class="controls sort-controls">
+      <label for="langBankSortSelect" class="sort-label">Sort by:</label>
+      <select id="langBankSortSelect">
+        <option value="az">A–Z</option>
+        <option value="modified-desc">Recently Modified</option>
+        <option value="modified-asc">Date Modified — Oldest First</option>
+        <option value="added-desc">Recently Added</option>
+        <option value="added-asc">Date Added — Oldest First</option>
+      </select>
     </div>
 
     <div class="langbank-category" id="langbank-phrasal">
@@ -30772,6 +30975,555 @@ document.getElementById("studyNextBtn").addEventListener("click", ()=> goToStudy
 document.getElementById("studyExitBtn").addEventListener("click", endStudyMode);
 
 /* =========================================================
+   PRACTICE TAB — Flashcards / Multiple Choice / Spelling /
+   True-False / Matching, each a randomized 15-item session built
+   from the user's own saved content (My Favorites by default, or
+   Vocabulary Bank / All Available Content). Reuses
+   resolveFavoriteEntryData() — the exact same normalizer the
+   Favorites PDF export already relies on — so every favoritable
+   category (Vocab, Verbs, Language Bank, Distinctions, Family,
+   Prepositions, grammar rules...) is a valid practice source with
+   zero new per-category code, and nothing here can ever fabricate
+   a definition: a candidate with no real meaning is simply skipped.
+   Non-repetition across sessions is tracked in IndexedDB
+   (VocabCache.recordPracticeUsage/getAllPracticeUsage) so a fresh
+   session favors whatever hasn't been asked recently instead of
+   the same handful of words every time; a pool smaller than 15
+   reuses the least-recently-used candidates rather than failing.
+========================================================= */
+const PRACTICE_SESSION_SIZE = 15;
+const PRACTICE_RATINGS = [
+  { min: 14, label: "Excellent 🌟" },
+  { min: 12, label: "Very Good 👍" },
+  { min: 10, label: "Good" },
+  { min: 8, label: "Fair" },
+  { min: 0, label: "Needs Improvement 📚" }
+];
+const PRACTICE_MODE_LABELS = {
+  flashcards: "Flashcards", mcq: "Multiple Choice", spelling: "Spelling",
+  truefalse: "True / False", matching: "Matching"
+};
+
+function ratePracticeScore(correct){
+  const found = PRACTICE_RATINGS.find(r=> correct >= r.min);
+  return found ? found.label : PRACTICE_RATINGS[PRACTICE_RATINGS.length - 1].label;
+}
+
+function shufflePractice(arr){
+  const a = arr.slice();
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function getPracticeSourcePool(source){
+  if(source === "vocab"){
+    return Promise.resolve(vocabData.map(v=> ({ word: v.w, cat: "Vocabulary Bank" })));
+  }
+  if(source === "all"){
+    return Promise.resolve(Array.from(wordIndexMap.values()).map(item=> ({ word: item.label, cat: item.cat })));
+  }
+  return VocabCache.getAllFavorites({ dbPromise: vocabDbPromise });
+}
+
+function buildPracticeCandidates(source){
+  return getPracticeSourcePool(source).then(pool=>{
+    const seen = new Set();
+    const candidates = [];
+    pool.forEach(fav=>{
+      const key = normalizeWordKey(fav.word);
+      if(!key || seen.has(key)) return;
+      seen.add(key);
+      const data = resolveFavoriteEntryData(fav);
+      const use = data.meanings[0] && data.meanings[0].use;
+      if(!use) return; // no usable definition — never fabricated, just skipped
+      candidates.push({ key, word: data.word, use, examples: data.meanings[0].examples || [], syn: data.syn || [], ant: data.ant || [] });
+    });
+    return candidates;
+  });
+}
+
+function buildPracticeSession(source){
+  return Promise.all([
+    buildPracticeCandidates(source),
+    VocabCache.getAllPracticeUsage({ dbPromise: vocabDbPromise })
+  ]).then(([candidates, usageRows])=>{
+    if(candidates.length === 0) return { session: [], pool: [] };
+    const usageByKey = new Map(usageRows.map(r=> [r.key, r.lastUsedAt]));
+    // Shuffle first, THEN stable-sort by last-used — ties (including
+    // every never-used word, which has no usage record at all) keep
+    // their shuffled relative order, so the "oldest/never used" group
+    // is still randomized instead of always leading with the same word.
+    const prioritized = shufflePractice(candidates)
+      .sort((a, b)=> (usageByKey.get(a.key) || 0) - (usageByKey.get(b.key) || 0));
+    let session = prioritized.slice(0, PRACTICE_SESSION_SIZE);
+    while(session.length < PRACTICE_SESSION_SIZE && prioritized.length > 0){
+      session = session.concat(prioritized.slice(0, PRACTICE_SESSION_SIZE - session.length));
+    }
+    return { session, pool: candidates };
+  });
+}
+
+function recordPracticeSessionUsage(session){
+  Array.from(new Set(session.map(c=> c.word))).forEach(w=>
+    VocabCache.recordPracticeUsage(w, { dbPromise: vocabDbPromise })
+  );
+}
+
+/* ---------- per-mode question builders ---------- */
+
+function buildFlashcardItems(session){
+  return session.map(c=> ({ key: c.key, word: c.word, use: c.use, examples: c.examples, syn: c.syn, ant: c.ant }));
+}
+
+function buildMcqItems(session, pool){
+  return session.map(correct=>{
+    const distractorPool = pool.filter(c=> c.key !== correct.key && c.use !== correct.use);
+    const distractors = shufflePractice(distractorPool).slice(0, 3).map(c=> c.use);
+    const choices = shufflePractice([correct.use].concat(distractors));
+    return { key: correct.key, word: correct.word, question: `What is the meaning of "${correct.word}"?`, choices, correctAnswer: correct.use };
+  });
+}
+
+function buildSpellingItems(session){
+  return session.map(c=> ({ key: c.key, word: c.word, prompt: c.use }));
+}
+
+function buildTrueFalseItems(session, pool){
+  return session.map(c=>{
+    const others = pool.filter(p=> p.key !== c.key && p.use !== c.use);
+    const isTrue = Math.random() < 0.5 || others.length === 0;
+    const statementUse = isTrue ? c.use : others[Math.floor(Math.random() * others.length)].use;
+    return { key: c.key, word: c.word, statement: `"${c.word}" means: ${statementUse}`, answer: isTrue };
+  });
+}
+
+function buildMatchingBatches(session){
+  const BATCH_SIZE = 6; // touch-friendly on a phone screen — 15 at once would be unreadably cramped
+  const batches = [];
+  for(let i = 0; i < session.length; i += BATCH_SIZE){
+    batches.push(session.slice(i, i + BATCH_SIZE).map(c=> ({ key: c.key, word: c.word, use: c.use })));
+  }
+  return batches;
+}
+
+/* ---------- session controller ---------- */
+
+let practiceState = null;
+let practiceMatchSelection = null;
+
+function setPracticeHomeStatus(msg, cls){
+  const el = document.getElementById("practiceHomeStatus");
+  if(!el) return;
+  el.textContent = msg || "";
+  el.className = "add-status" + (cls ? " " + cls : "");
+}
+
+function getSelectedPracticeSource(){
+  const checked = document.querySelector('input[name="practiceSource"]:checked');
+  return checked ? checked.value : "favorites";
+}
+
+function startPractice(mode){
+  setPracticeHomeStatus("");
+  const source = getSelectedPracticeSource();
+  return buildPracticeSession(source).then(({ session, pool })=>{
+    if(session.length === 0){
+      setPracticeHomeStatus("Nothing to practice yet from this source — save some words first.", "error");
+      return;
+    }
+    recordPracticeSessionUsage(session);
+    practiceMatchSelection = null;
+    practiceState = { mode, source, pool, index: 0, results: [] };
+
+    if(mode === "flashcards") practiceState.items = buildFlashcardItems(session);
+    else if(mode === "mcq") practiceState.items = buildMcqItems(session, pool);
+    else if(mode === "spelling") practiceState.items = buildSpellingItems(session);
+    else if(mode === "truefalse") practiceState.items = buildTrueFalseItems(session, pool);
+    else if(mode === "matching"){
+      practiceState.batches = buildMatchingBatches(session);
+      practiceState.batchIndex = 0;
+      practiceState.matchedCount = 0;
+      practiceState.totalPairs = session.length;
+    }
+
+    document.getElementById("practiceHome").style.display = "none";
+    document.getElementById("practiceResultsView").style.display = "none";
+    document.getElementById("practiceSession").style.display = "block";
+    renderPracticeQuestion();
+  });
+}
+
+function updatePracticeProgress(current, total){
+  document.getElementById("practiceProgressText").textContent = `Question ${current} of ${total}`;
+  document.getElementById("practiceProgressFill").style.width = Math.round(((current - 1) / total) * 100) + "%";
+}
+
+function renderPracticeQuestion(){
+  const state = practiceState;
+  if(state.mode === "matching"){ renderMatchingBatch(); return; }
+
+  const total = state.items.length;
+  updatePracticeProgress(state.index + 1, total);
+  const item = state.items[state.index];
+  const area = document.getElementById("practiceQuestionArea");
+
+  if(state.mode === "flashcards") area.innerHTML = renderFlashcardHtml(item);
+  else if(state.mode === "mcq") area.innerHTML = renderMcqHtml(item);
+  else if(state.mode === "spelling") area.innerHTML = renderSpellingHtml(item);
+  else if(state.mode === "truefalse") area.innerHTML = renderTrueFalseHtml(item);
+}
+
+function nextQuestionButtonHtml(){
+  const isLast = practiceState.index === practiceState.items.length - 1;
+  return `<button class="add-btn practice-next-question-btn" style="margin-top:10px;">${isLast ? "Finish" : "Next Question →"}</button>`;
+}
+
+/* ---------- Flashcards ---------- */
+
+function renderFlashcardHtml(item){
+  return `
+    <div class="practice-card" data-key="${item.key}">
+      <div class="practice-front">${item.word}</div>
+      <div class="practice-back" id="practiceFlashBack" style="display:none;">
+        <h4>Definition</h4><p>${item.use}</p>
+        ${item.examples.length ? `<h4>Example</h4><p>${item.examples[0]}</p>` : ""}
+        ${item.syn.length ? `<h4>Synonyms</h4><p>${item.syn.join(", ")}</p>` : ""}
+        ${item.ant.length ? `<h4>Antonyms</h4><p>${item.ant.join(", ")}</p>` : ""}
+      </div>
+    </div>
+    <div class="practice-flip-actions">
+      <button class="add-btn secondary practice-flash-prev-btn">← Previous</button>
+      <button class="add-btn practice-flash-flip-btn">Show Answer</button>
+      <button class="add-btn secondary practice-flash-next-btn">Next →</button>
+    </div>
+  `;
+}
+
+document.addEventListener("click", (e)=>{
+  if(!practiceState || practiceState.mode !== "flashcards") return;
+  if(e.target.closest(".practice-flash-flip-btn")){
+    const back = document.getElementById("practiceFlashBack");
+    if(back) back.style.display = back.style.display === "none" ? "block" : "none";
+    return;
+  }
+  if(e.target.closest(".practice-flash-prev-btn")){
+    if(practiceState.index > 0){ practiceState.index--; renderPracticeQuestion(); }
+    return;
+  }
+  if(e.target.closest(".practice-flash-next-btn")){
+    if(practiceState.index < practiceState.items.length - 1){ practiceState.index++; renderPracticeQuestion(); }
+    else finishPracticeSession();
+  }
+});
+
+/* ---------- Multiple Choice ---------- */
+
+function renderMcqHtml(item){
+  const letters = ["A", "B", "C", "D"];
+  return `
+    <div class="practice-question-text">${item.question}</div>
+    <div class="practice-choices" id="practiceMcqChoices">
+      ${item.choices.map((c, i)=> `<button class="practice-choice-btn" data-choice="${i}">
+        <span class="practice-choice-letter">${letters[i] || ""}.</span><span>${c}</span>
+      </button>`).join("")}
+    </div>
+    <div id="practiceMcqNextArea"></div>
+  `;
+}
+
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".practice-choice-btn");
+  if(!btn || !practiceState || practiceState.mode !== "mcq" || btn.disabled) return;
+  const item = practiceState.items[practiceState.index];
+  const chosenIndex = Number(btn.dataset.choice);
+  const chosenText = item.choices[chosenIndex];
+  const correct = chosenText === item.correctAnswer;
+  document.querySelectorAll("#practiceMcqChoices .practice-choice-btn").forEach(b=>{
+    b.disabled = true;
+    const bIndex = Number(b.dataset.choice);
+    if(item.choices[bIndex] === item.correctAnswer) b.classList.add("correct");
+    else if(bIndex === chosenIndex) b.classList.add("incorrect");
+  });
+  practiceState.results.push({ correct, word: item.word, question: item.question, userAnswer: chosenText, correctAnswer: item.correctAnswer });
+  const nextArea = document.getElementById("practiceMcqNextArea");
+  if(nextArea) nextArea.innerHTML = nextQuestionButtonHtml();
+});
+
+/* ---------- Spelling ---------- */
+
+function renderSpellingHtml(item){
+  return `
+    <div class="practice-question-text">Definition:<br>${item.prompt}</div>
+    <input type="text" class="practice-spelling-input" id="practiceSpellingInput" placeholder="Type the word..." autocomplete="off">
+    <button class="add-btn" id="practiceSpellingSubmitBtn">Submit</button>
+    <div id="practiceSpellingFeedback"></div>
+  `;
+}
+
+function submitSpellingAnswer(){
+  if(!practiceState || practiceState.mode !== "spelling") return;
+  const input = document.getElementById("practiceSpellingInput");
+  if(!input || input.disabled) return;
+  const item = practiceState.items[practiceState.index];
+  const typed = input.value.trim();
+  const correct = typed.toLowerCase() === item.word.trim().toLowerCase();
+  input.disabled = true;
+  const submitBtn = document.getElementById("practiceSpellingSubmitBtn");
+  if(submitBtn) submitBtn.disabled = true;
+  const feedback = document.getElementById("practiceSpellingFeedback");
+  if(feedback){
+    feedback.innerHTML = correct
+      ? `<div class="practice-feedback correct">✅ Correct!</div>`
+      : `<div class="practice-feedback incorrect">❌ Incorrect<br>Correct spelling: ${item.word}</div>`;
+  }
+  practiceState.results.push({ correct, word: item.word, question: `Spell the word for: "${item.prompt}"`, userAnswer: typed || "(blank)", correctAnswer: item.word });
+  document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
+}
+
+document.addEventListener("click", (e)=>{
+  if(e.target.closest("#practiceSpellingSubmitBtn")) submitSpellingAnswer();
+});
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter" && e.target && e.target.id === "practiceSpellingInput") submitSpellingAnswer();
+});
+
+/* ---------- True / False ---------- */
+
+function renderTrueFalseHtml(item){
+  return `
+    <div class="practice-question-text">${item.statement}</div>
+    <div class="practice-tf-actions">
+      <button class="practice-tf-btn" data-answer="true">TRUE</button>
+      <button class="practice-tf-btn" data-answer="false">FALSE</button>
+    </div>
+    <div id="practiceTfFeedback"></div>
+  `;
+}
+
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".practice-tf-btn");
+  if(!btn || !practiceState || practiceState.mode !== "truefalse" || btn.disabled) return;
+  const item = practiceState.items[practiceState.index];
+  const userBool = btn.dataset.answer === "true";
+  const correct = userBool === item.answer;
+  document.querySelectorAll(".practice-tf-btn").forEach(b=> b.disabled = true);
+  const feedback = document.getElementById("practiceTfFeedback");
+  if(feedback){
+    feedback.innerHTML = correct
+      ? `<div class="practice-feedback correct">✅ Correct</div>`
+      : `<div class="practice-feedback incorrect">❌ Incorrect<br>Correct answer: ${item.answer ? "TRUE" : "FALSE"}</div>`;
+  }
+  practiceState.results.push({ correct, word: item.word, question: item.statement, userAnswer: userBool ? "TRUE" : "FALSE", correctAnswer: item.answer ? "TRUE" : "FALSE" });
+  document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
+});
+
+/* ---------- shared "Next Question" advance (MCQ/Spelling/True-False) ---------- */
+
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".practice-next-question-btn");
+  if(!btn || !practiceState || practiceState.mode === "matching" || practiceState.mode === "flashcards") return;
+  practiceState.index++;
+  if(practiceState.index >= practiceState.items.length) finishPracticeSession();
+  else renderPracticeQuestion();
+});
+
+/* ---------- Matching ---------- */
+
+function renderMatchingBatch(){
+  const state = practiceState;
+  const batch = state.batches[state.batchIndex];
+  updatePracticeProgress(Math.min(state.matchedCount + 1, state.totalPairs), state.totalPairs);
+
+  state.currentWords = shufflePractice(batch.map(b=> ({ key: b.key, text: b.word })));
+  state.currentDefs = shufflePractice(batch.map(b=> ({ key: b.key, text: b.use })));
+  state.currentMatched = new Set();
+  practiceMatchSelection = null;
+
+  document.getElementById("practiceQuestionArea").innerHTML = `
+    <p class="note" style="margin-bottom:10px;">Tap a word, then tap its matching definition.</p>
+    <div class="practice-matching-columns">
+      <div id="practiceMatchWords">
+        ${state.currentWords.map(w=> `<div class="practice-match-item" data-side="word" data-key="${w.key}">${w.text}</div>`).join("")}
+      </div>
+      <div id="practiceMatchDefs">
+        ${state.currentDefs.map(d=> `<div class="practice-match-item" data-side="def" data-key="${d.key}">${d.text}</div>`).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function scoreMatchingPairOnce(pairKey, wasCorrect, wordText){
+  const state = practiceState;
+  if(state.currentAttempted.has(pairKey)) return;
+  state.currentAttempted.add(pairKey);
+  state.results.push({ correct: wasCorrect, word: wordText, question: `Match "${wordText}"`, userAnswer: wasCorrect ? wordText : "(mismatched)", correctAnswer: wordText });
+  state.matchedCount++;
+}
+
+function advanceMatchingBatch(){
+  const state = practiceState;
+  state.batchIndex++;
+  if(state.batchIndex >= state.batches.length) finishPracticeSession();
+  else renderMatchingBatch();
+}
+
+document.addEventListener("click", (e)=>{
+  const item = e.target.closest(".practice-match-item");
+  if(!item || !practiceState || practiceState.mode !== "matching") return;
+  if(item.classList.contains("matched")) return;
+  const state = practiceState;
+  if(!state.currentAttempted) state.currentAttempted = new Set();
+  const side = item.dataset.side;
+  const key = item.dataset.key;
+
+  if(!practiceMatchSelection){
+    document.querySelectorAll(".practice-match-item.selected").forEach(el=> el.classList.remove("selected"));
+    item.classList.add("selected");
+    practiceMatchSelection = { side, key, el: item };
+    return;
+  }
+  if(practiceMatchSelection.side === side){
+    practiceMatchSelection.el.classList.remove("selected");
+    item.classList.add("selected");
+    practiceMatchSelection = { side, key, el: item };
+    return;
+  }
+
+  const first = practiceMatchSelection;
+  practiceMatchSelection = null;
+  first.el.classList.remove("selected");
+
+  if(first.key === key){
+    first.el.classList.add("matched");
+    item.classList.add("matched");
+    state.currentMatched.add(key);
+    scoreMatchingPairOnce(key, true, first.side === "word" ? first.el.textContent : item.textContent);
+    updatePracticeProgress(Math.min(state.matchedCount + 1, state.totalPairs), state.totalPairs);
+    if(state.currentMatched.size === state.batches[state.batchIndex].length){
+      setTimeout(()=> advanceMatchingBatch(), 350);
+    }
+  } else {
+    scoreMatchingPairOnce(first.key, false, first.el.textContent);
+    scoreMatchingPairOnce(key, false, item.textContent);
+    updatePracticeProgress(Math.min(state.matchedCount + 1, state.totalPairs), state.totalPairs);
+    first.el.classList.add("wrong");
+    item.classList.add("wrong");
+    setTimeout(()=>{ first.el.classList.remove("wrong"); item.classList.remove("wrong"); }, 450);
+  }
+});
+
+/* ---------- results + history ---------- */
+
+function finishPracticeSession(){
+  const state = practiceState;
+  document.getElementById("practiceSession").style.display = "none";
+
+  if(state.mode === "flashcards"){
+    renderFlashcardsSummary();
+    return;
+  }
+
+  const correct = state.results.filter(r=> r.correct).length;
+  const total = state.results.length;
+  const percentage = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const rating = ratePracticeScore(correct);
+
+  VocabCache.addPracticeHistory({
+    mode: state.mode, source: state.source, completedAt: Date.now(),
+    correct, total, percentage, rating
+  }, { dbPromise: vocabDbPromise });
+
+  renderPracticeResults(correct, total, percentage, rating);
+}
+
+function renderFlashcardsSummary(){
+  const state = practiceState;
+  const view = document.getElementById("practiceResultsView");
+  view.innerHTML = `
+    <div class="practice-results-summary">
+      <h2>🎉 Practice Complete!</h2>
+      <p>You reviewed ${state.items.length} flashcards.</p>
+      <div class="practice-results-actions">
+        <button class="add-btn practice-again-btn" data-mode="flashcards">🔄 Try Another Practice</button>
+        <button class="add-btn secondary practice-back-btn">🏠 Back to Practice Modes</button>
+      </div>
+    </div>
+  `;
+  view.style.display = "block";
+}
+
+function renderPracticeResults(correct, total, percentage, rating){
+  const state = practiceState;
+  const view = document.getElementById("practiceResultsView");
+  const incorrect = total - correct;
+  const reviewHtml = state.results.map(r=> `
+    <div class="practice-review-row ${r.correct ? "correct" : "incorrect"}">
+      <div class="practice-review-q">${r.question}</div>
+      <div class="practice-review-your">Your answer: ${r.userAnswer} ${r.correct ? "✅" : "❌"}</div>
+      ${!r.correct ? `<div class="practice-review-correct">Correct answer: ${r.correctAnswer} ✅</div>` : ""}
+    </div>
+  `).join("");
+
+  view.innerHTML = `
+    <div class="practice-results-summary">
+      <h2>🎉 Practice Complete!</h2>
+      <div class="practice-results-score">${correct} / ${total}</div>
+      <div>${percentage}%</div>
+      <div class="practice-results-rating">${rating}</div>
+      <p class="note" style="margin-top:8px;">✅ ${correct} correct &nbsp;·&nbsp; ❌ ${incorrect} incorrect &nbsp;·&nbsp; ${total} total</p>
+      <div class="practice-results-actions">
+        <button class="add-btn practice-again-btn" data-mode="${state.mode}">🔄 Try Another Practice</button>
+        <button class="add-btn secondary practice-back-btn">🏠 Back to Practice Modes</button>
+      </div>
+    </div>
+    <div id="practiceReviewList">${reviewHtml}</div>
+  `;
+  view.style.display = "block";
+}
+
+function renderPracticeHistoryList(){
+  const container = document.getElementById("practiceHistoryList");
+  if(!container) return;
+  VocabCache.getAllPracticeHistory({ dbPromise: vocabDbPromise }).then(rows=>{
+    if(rows.length === 0){
+      container.innerHTML = '<div class="practice-history-empty">No practice sessions yet — pick a mode above to get started.</div>';
+      return;
+    }
+    container.innerHTML = rows.slice(0, 10).map(r=>{
+      const label = PRACTICE_MODE_LABELS[r.mode] || r.mode;
+      return `<div class="practice-history-row"><span>${label}</span><span>${r.correct}/${r.total} — ${r.percentage}%</span></div>`;
+    }).join("");
+  });
+}
+
+function renderPracticeHome(){
+  document.getElementById("practiceHome").style.display = "block";
+  document.getElementById("practiceSession").style.display = "none";
+  document.getElementById("practiceResultsView").style.display = "none";
+  setPracticeHomeStatus("");
+  renderPracticeHistoryList();
+}
+
+document.getElementById("practiceModeGrid").addEventListener("click", (e)=>{
+  const btn = e.target.closest(".practice-mode-btn");
+  if(btn) startPractice(btn.dataset.mode);
+});
+
+document.getElementById("practiceExitBtn").addEventListener("click", ()=>{
+  practiceState = null;
+  renderPracticeHome();
+});
+
+document.addEventListener("click", (e)=>{
+  if(e.target.closest(".practice-back-btn")){ practiceState = null; renderPracticeHome(); return; }
+  const againBtn = e.target.closest(".practice-again-btn");
+  if(againBtn) startPractice(againBtn.dataset.mode);
+});
+
+/* =========================================================
    RENDER — VERBS
 ========================================================= */
 let currentVerbType = "regular";
@@ -31041,6 +31793,7 @@ function activateTab(name){
   document.querySelectorAll("main > section").forEach(sec=>sec.style.display = "none");
   document.getElementById("panel-" + name).style.display = "block";
   if(name === "favorites") renderFavoritesTab();
+  if(name === "practice") renderPracticeHome();
 }
 document.querySelectorAll(".thumb-tab").forEach(tab=>{
   tab.addEventListener("click",()=>{
@@ -31575,6 +32328,80 @@ const LANGUAGE_BANK_CONFIG = {
     manualSaveBtnId: "technicalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "technicalManualCancelBtn"
   }
 };
+
+/* =========================================================
+   SORT BY — Language Bank (all 5 categories share one
+   preference) and Distinctions Words (its own, independent
+   preference). Applied PURELY by reordering the already-
+   populated <select>'s existing <option> DOM nodes — the
+   underlying data array (config.data / distinctionsData), each
+   entry's content, and IndexedDB/Firestore storage order are
+   never touched, so nothing here can duplicate or lose an entry.
+   Prev/Next at the bottom of each panel cycles through <option>s
+   in DOM order (see the .nav-btn click handler further down), so
+   re-sorting here naturally changes what "next" means too —
+   that's the intended effect of a sort feature, not a regression.
+========================================================= */
+const LANGBANK_SORT_KEY = "mepf_toolkit_langbank_sort";
+const DISTINCTIONS_SORT_KEY = "mepf_toolkit_distinctions_sort";
+const DEFAULT_SORT = "az";
+
+function compareForSort(a, b, sortKey){
+  if(sortKey === "modified-desc") return (b.modifiedAt||0) - (a.modifiedAt||0);
+  if(sortKey === "modified-asc") return (a.modifiedAt||0) - (b.modifiedAt||0);
+  if(sortKey === "added-desc") return (b.addedAt||0) - (a.addedAt||0);
+  if(sortKey === "added-asc") return (a.addedAt||0) - (b.addedAt||0);
+  // "az" and any unrecognized value both fall back to the original
+  // default ordering, so a locked-out/older browser or a corrupted
+  // localStorage value never leaves the list in a broken state.
+  return a.w.localeCompare(b.w, undefined, {sensitivity:"base"});
+}
+
+function reorderSelectBySort(selectEl, data, sortKey){
+  if(!selectEl) return;
+  const sorted = data.slice().sort((a, b)=> compareForSort(a, b, sortKey));
+  const optionsByValue = new Map(Array.from(selectEl.options).map(o=> [o.value, o]));
+  const prevValue = selectEl.value;
+  const frag = document.createDocumentFragment();
+  sorted.forEach(item=>{
+    const opt = optionsByValue.get(item.w);
+    if(opt) frag.appendChild(opt); // moves the existing node, never clones it
+  });
+  selectEl.appendChild(frag);
+  if(prevValue) selectEl.value = prevValue;
+}
+
+function getLangBankSortPref(){ return localStorage.getItem(LANGBANK_SORT_KEY) || DEFAULT_SORT; }
+function getDistinctionsSortPref(){ return localStorage.getItem(DISTINCTIONS_SORT_KEY) || DEFAULT_SORT; }
+
+function applyLanguageBankSort(){
+  const sortKey = getLangBankSortPref();
+  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+    const config = LANGUAGE_BANK_CONFIG[categoryKey];
+    reorderSelectBySort(document.getElementById(config.selectId), config.data, sortKey);
+  });
+}
+
+function applyDistinctionsSort(){
+  reorderSelectBySort(document.getElementById("distinctionsSelect"), distinctionsData, getDistinctionsSortPref());
+}
+
+const langBankSortSelect = document.getElementById("langBankSortSelect");
+langBankSortSelect.value = getLangBankSortPref();
+langBankSortSelect.addEventListener("change", ()=>{
+  localStorage.setItem(LANGBANK_SORT_KEY, langBankSortSelect.value);
+  applyLanguageBankSort();
+});
+
+const distinctionsSortSelect = document.getElementById("distinctionsSortSelect");
+distinctionsSortSelect.value = getDistinctionsSortPref();
+distinctionsSortSelect.addEventListener("change", ()=>{
+  localStorage.setItem(DISTINCTIONS_SORT_KEY, distinctionsSortSelect.value);
+  applyDistinctionsSort();
+});
+
+applyLanguageBankSort();
+applyDistinctionsSort();
 
 // Tracks the phrase awaiting manual completion per category, between
 // "lookup failed, manual box shown" and "user clicked Save/Skip/Cancel"
@@ -32564,6 +33391,7 @@ function applyRemoteLanguageBank(remote){
       }
     });
   });
+  applyLanguageBankSort();
 }
 
 // The single place that reconciles local personal corrections (and, as
@@ -32933,7 +33761,10 @@ document.addEventListener("click", async (e)=>{
 // whether this Language Bank entry itself gets saved.
 async function finalizeLanguageBankAdd(categoryKey, entry, statusEl, successNote, vocabCandidates){
   const checkedVocabCandidates = markKnownVocabCandidates(vocabCandidates);
+  entry.addedAt = Date.now();
+  entry.modifiedAt = entry.addedAt;
   const item = addLanguageBankEntry(categoryKey, entry, {persist:true});
+  applyLanguageBankSort();
 
   // Unlike the correction log, a Language Bank entry that fails to
   // reach the shared doc is NOT rolled back locally — there's no
@@ -33279,7 +34110,9 @@ async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
     ant: newAnt,
     mistake: originalItem.mistake || null,
     tagalog: originalItem.tagalog || null,
-    source: "online"
+    source: "online",
+    addedAt: originalItem.addedAt || Date.now(),
+    modifiedAt: Date.now()
   };
 
   // Remove the OLD entry first — this also makes the collision check
@@ -33300,6 +34133,7 @@ async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
 
   const item = addLanguageBankEntry(newCategoryKey, updatedEntry, {persist:true});
   await pushToSync(loadPersonalCorrections());
+  applyLanguageBankSort();
 
   activateTab("langbank");
   activateLangBankCategory(newCategoryKey);
@@ -33548,9 +34382,12 @@ async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, succes
     w: word1Result.w + " vs " + word2Result.w,
     word1: word1Result,
     word2: word2Result,
-    source: "online"
+    source: "online",
+    addedAt: Date.now(),
+    modifiedAt: Date.now()
   };
   const item = addDistinctionEntry(entry, {persist:true});
+  applyDistinctionsSort();
 
   const pushResult = await pushToSync(loadPersonalCorrections());
   const suggestionsHtml = renderVocabBankCheckRows(checkedVocabCandidates);
@@ -33850,7 +34687,9 @@ async function saveDistinctionEdit(originalEntry, entryEl){
     w: newWord1 + " vs " + newWord2,
     word1: { w: newWord1, senses: use1 ? [{use: use1, examples: example1 ? [example1] : []}] : [], syn: syn1, ant: ant1, mistake: originalEntry.word1.mistake || null, tagalog: originalEntry.word1.tagalog || null, phonetic: originalEntry.word1.phonetic || null, source: "online" },
     word2: { w: newWord2, senses: use2 ? [{use: use2, examples: example2 ? [example2] : []}] : [], syn: syn2, ant: ant2, mistake: originalEntry.word2.mistake || null, tagalog: originalEntry.word2.tagalog || null, phonetic: originalEntry.word2.phonetic || null, source: "online" },
-    source: "online"
+    source: "online",
+    addedAt: originalEntry.addedAt || Date.now(),
+    modifiedAt: Date.now()
   };
 
   // Remove the OLD entry first — this also makes the collision check
@@ -33871,6 +34710,7 @@ async function saveDistinctionEdit(originalEntry, entryEl){
 
   const item = addDistinctionEntry(updatedEntry, {persist:true});
   await pushToSync(loadPersonalCorrections());
+  applyDistinctionsSort();
 
   activateTab("distinctions");
   item.action();
@@ -33950,6 +34790,7 @@ function applyRemoteDistinctions(remote){
       if(wasSelected) renderDistinctionsAfterDelete();
     }
   });
+  applyDistinctionsSort();
 }
 
 // Only words the Owner actually saved (source:"online" — an online
@@ -34894,6 +35735,13 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
   addLanguageBankEntry, activateLangBankCategory,
+  applyLanguageBankSort, applyDistinctionsSort,
+  getLangBankSortPref, getDistinctionsSortPref,
+  compareForSort, reorderSelectBySort,
+  startPractice, buildPracticeCandidates, buildPracticeSession, recordPracticeSessionUsage,
+  buildFlashcardItems, buildMcqItems, buildSpellingItems, buildTrueFalseItems, buildMatchingBatches,
+  ratePracticeScore, finishPracticeSession, renderPracticeHome, renderPracticeHistoryList,
+  getSelectedPracticeSource, getPracticeState: ()=> practiceState,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
   pushSearchHistory, updateOwnerModeUI,
   getCurrentlyDisplayedItem, navigateToEntry, activateTab,

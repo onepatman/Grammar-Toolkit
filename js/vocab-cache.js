@@ -58,7 +58,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 8;
+  var DB_VERSION = 9;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -70,6 +70,8 @@
   var REVIEW_STORE = "reviewSchedule";
   var DISTINCTIONS_STORE = "distinctionsEntries";
   var CUSTOM_VERBS_STORE = "customVerbs";
+  var PRACTICE_USAGE_STORE = "practiceUsage";
+  var PRACTICE_HISTORY_STORE = "practiceHistory";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -118,6 +120,12 @@
         }
         if (!db.objectStoreNames.contains(CUSTOM_VERBS_STORE)) {
           db.createObjectStore(CUSTOM_VERBS_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(PRACTICE_USAGE_STORE)) {
+          db.createObjectStore(PRACTICE_USAGE_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
+          db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -372,6 +380,53 @@
     return storeDelete(REVIEW_STORE, normalizeKey(word), options);
   }
 
+  /* ---------- practice usage (Practice tab non-repetition) ----------
+     One record per word ever asked in a Practice session, across every
+     mode (Flashcards/MCQ/Spelling/True-False/Matching all share this —
+     the point is "don't ask about the same word again right away", not
+     "don't repeat this exact MCQ phrasing"). Session-building sorts
+     candidates by lastUsedAt ascending (never-asked words, which have
+     no record at all, sort first), so each new session favors whatever
+     hasn't been seen recently instead of the same handful every time. */
+
+  function recordPracticeUsage(word, options) {
+    var key = normalizeKey(word);
+    if (!key) return Promise.resolve(false);
+    return storePut(PRACTICE_USAGE_STORE, { key: key, word: word, lastUsedAt: Date.now() }, options);
+  }
+
+  function getAllPracticeUsage(options) {
+    return storeGetAll(PRACTICE_USAGE_STORE, options);
+  }
+
+  /* ---------- practice history (session results) ----------
+     One record per completed Practice session — local-only, same as
+     reviewSchedule/spaced-repetition above, since this is per-device
+     personal learning progress rather than shared Owner-curated
+     content, so it doesn't participate in the Firestore sync that
+     covers vocab/languageBank/distinctions/verbs/entries. */
+
+  function addPracticeHistory(record, options) {
+    if (!record) return Promise.resolve(false);
+    var key = String(record.completedAt || Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
+    return storePut(PRACTICE_HISTORY_STORE, {
+      key: key,
+      mode: record.mode,
+      source: record.source,
+      completedAt: record.completedAt || Date.now(),
+      correct: record.correct,
+      total: record.total,
+      percentage: record.percentage,
+      rating: record.rating
+    }, options);
+  }
+
+  function getAllPracticeHistory(options) {
+    return storeGetAll(PRACTICE_HISTORY_STORE, options).then(function (rows) {
+      return rows.sort(function (a, b) { return b.completedAt - a.completedAt; });
+    });
+  }
+
   /* ---------- recently viewed ---------- */
 
   function recordRecentlyViewed(word, cat, options) {
@@ -487,6 +542,10 @@
     putReviewSchedule: putReviewSchedule,
     getAllReviewSchedule: getAllReviewSchedule,
     deleteReviewSchedule: deleteReviewSchedule,
+    recordPracticeUsage: recordPracticeUsage,
+    getAllPracticeUsage: getAllPracticeUsage,
+    addPracticeHistory: addPracticeHistory,
+    getAllPracticeHistory: getAllPracticeHistory,
     recordRecentlyViewed: recordRecentlyViewed,
     getRecentlyViewed: getRecentlyViewed
   };
