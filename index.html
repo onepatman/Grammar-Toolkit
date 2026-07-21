@@ -1244,9 +1244,6 @@
 
   <!-- ===== VOCABULARY UPGRADE PANEL ===== -->
   <section id="panel-vocab">
-    <div class="controls">
-      <input type="text" id="vocabFilterInput" placeholder="Search Vocabulary…" autocomplete="off">
-    </div>
     <div class="controls sort-controls">
       <label for="vocabSortSelect" class="sort-label">Sort by:</label>
       <select id="vocabSortSelect">
@@ -1269,18 +1266,6 @@
     </div>
     <div id="vocabSaveArea" class="add-status" style="display:none;"></div>
     <div id="verbFlagArea" class="add-status" style="display:none;"></div>
-
-    <div class="controls owner-only" id="vocabAddToggleRow">
-      <button id="vocabAddToggleBtn" class="add-btn">+ Add Vocabulary Word</button>
-    </div>
-    <div class="quick-add-box" id="vocabAddBox" style="display:none;">
-      <div class="section-label">Add Vocabulary Word</div>
-      <p class="note" style="margin-bottom:8px;">Type a vocabulary word (e.g. "apprehension") and we'll automatically look up its part of speech, definition, example sentences, synonyms, and antonyms from a reliable online dictionary. If it's already in your Vocabulary Bank, we'll tell you instead of creating a duplicate.</p>
-      <input type="text" id="vocabAddInput" placeholder="Vocabulary word (e.g. apprehension)" autocomplete="off">
-      <button id="vocabAddBtn" class="add-btn">Look up &amp; add</button>
-      <button id="vocabAddCancelBtn" class="add-btn secondary">Cancel</button>
-      <div id="vocabAddStatus" class="add-status"></div>
-    </div>
   </section>
 
   <!-- ===== PHRASAL VERBS PANEL ===== -->
@@ -32298,164 +32283,6 @@ const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 /* =========================================================
-   VOCABULARY BANK — "+ Add Vocabulary Word" (owner-only). Mirrors the
-   Language Bank's addLanguageBankEntryFromInput / Save-Decline pattern
-   1:1 (see below), but persists through the Vocab tab's own
-   addVocabEntry()/vocabData rather than a LANGUAGE_BANK_CONFIG entry —
-   this is a dedicated, always-available entry point for exactly the
-   same "type a word, look it up, dedupe, Save or Decline" workflow
-   that Save to Vocabulary Bank already reaches from Language Bank/
-   Distinctions, so every path into the Vocabulary Bank goes through
-   the one canonical addVocabEntry() function.
-========================================================= */
-const vocabAddLookupCache = OnlineLookup.createMemoryCache();
-let vocabAddPendingSave = null; // {entry, typedText}
-
-function openVocabAddBox(){
-  document.getElementById("vocabAddBox").style.display = "";
-  document.getElementById("vocabAddInput").focus();
-}
-
-function closeVocabAddBox(){
-  document.getElementById("vocabAddBox").style.display = "none";
-  document.getElementById("vocabAddInput").value = "";
-  const statusEl = document.getElementById("vocabAddStatus");
-  statusEl.textContent = "";
-  statusEl.className = "add-status";
-  vocabAddPendingSave = null;
-}
-
-document.getElementById("vocabAddToggleBtn").addEventListener("click", ()=>{
-  const box = document.getElementById("vocabAddBox");
-  if(box.style.display === "none") openVocabAddBox();
-  else closeVocabAddBox();
-});
-document.getElementById("vocabAddCancelBtn").addEventListener("click", closeVocabAddBox);
-
-function existingVocabNavItem(existingEntry){
-  return {label: existingEntry.w, cat: "Vocabulary Bank", action: ()=>{
-    document.getElementById("vocabSelect").value = existingEntry.w;
-    renderRuleEntry(existingEntry, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
-    activateTab("vocab");
-  }};
-}
-
-function renderVocabAddSavePreview(){
-  const statusEl = document.getElementById("vocabAddStatus");
-  const entry = vocabAddPendingSave.entry;
-  const useText = (entry.senses[0] && entry.senses[0].use) || "";
-  statusEl.innerHTML = `
-    <p class="note" style="margin-bottom:6px;">This word is ready to be added to your Vocabulary Bank:</p>
-    <div class="lookup-preview">
-      <strong>${entry.w}</strong>
-      ${useText ? `<p class="note" style="margin:4px 0 0;">${useText}</p>` : ""}
-    </div>
-    <button class="add-btn vocab-add-save-btn" style="margin-top:8px;">Save</button>
-    <button class="add-btn secondary vocab-add-decline-btn">Decline</button>
-  `;
-  statusEl.className = "add-status";
-}
-
-async function addVocabWordFromInput(){
-  const statusEl = document.getElementById("vocabAddStatus");
-  vocabAddPendingSave = null;
-  if(!isDeviceUnlocked()){
-    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
-    statusEl.className = "add-status error";
-    return;
-  }
-  const input = document.getElementById("vocabAddInput");
-  const addBtn = document.getElementById("vocabAddBtn");
-  const text = input.value.trim();
-  if(!text){
-    statusEl.textContent = "Please enter a vocabulary word first.";
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  // The exact duplicate check the spec calls for: case-insensitive,
-  // whitespace-normalized, checked against the Master Vocabulary Bank's
-  // own Vocabulary Bank records — never silently creates a duplicate.
-  const key = normalizeWordKey(text);
-  const existingEntry = vocabData.find(v=> normalizeWordKey(v.w) === key);
-  if(existingEntry){
-    statusEl.textContent = `✓ "${existingEntry.w}" is already available in the Vocabulary Bank.`;
-    statusEl.className = "add-status success";
-    navigateToEntry(existingVocabNavItem(existingEntry));
-    return;
-  }
-
-  addBtn.disabled = true;
-  statusEl.textContent = "Looking it up online…";
-  statusEl.className = "add-status";
-
-  const result = await OnlineLookup.fetchOnlineDefinition(text, {
-    cache: vocabAddLookupCache,
-    generateFallbackExamples: false
-  });
-
-  addBtn.disabled = false;
-
-  if(!result){
-    statusEl.textContent = `Couldn't find "${text}" online — check the spelling and try again.`;
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  input.value = "";
-  vocabAddPendingSave = {entry: result, typedText: text};
-  renderVocabAddSavePreview();
-}
-
-document.getElementById("vocabAddBtn").addEventListener("click", addVocabWordFromInput);
-bindEnterToClick(["vocabAddInput"], "vocabAddBtn");
-
-document.addEventListener("click", async (e)=>{
-  const saveBtn = e.target.closest(".vocab-add-save-btn");
-  const declineBtn = e.target.closest(".vocab-add-decline-btn");
-  if(!saveBtn && !declineBtn) return;
-  const statusEl = document.getElementById("vocabAddStatus");
-  const pending = vocabAddPendingSave;
-  if(!pending) return;
-  vocabAddPendingSave = null;
-
-  if(declineBtn){
-    statusEl.textContent = "Not saved.";
-    statusEl.className = "add-status";
-    return;
-  }
-
-  // Re-check for a collision that may have appeared while this preview
-  // sat waiting (e.g. the same word arrived from another device via
-  // sync in the meantime) — never create a duplicate.
-  const key = normalizeWordKey(pending.entry.w);
-  const collidingEntry = vocabData.find(v=> normalizeWordKey(v.w) === key);
-  if(collidingEntry){
-    statusEl.textContent = `✓ "${collidingEntry.w}" is already available in the Vocabulary Bank.`;
-    statusEl.className = "add-status success";
-    navigateToEntry(existingVocabNavItem(collidingEntry));
-    return;
-  }
-
-  const entry = pending.entry;
-  entry.addedAt = Date.now();
-  entry.modifiedAt = entry.addedAt;
-  const item = addVocabEntry(entry, {persist:true});
-  applyVocabListView();
-  const pushResult = await pushToSync(loadPersonalCorrections());
-
-  if(!pushResult.ok){
-    statusEl.innerHTML = `✅ "${entry.w}" has been added to your Vocabulary Bank. ${SyncAuth.friendlyWriteError(pushResult.error)}`;
-    statusEl.className = "add-status error";
-  } else {
-    statusEl.innerHTML = `✅ "${entry.w}" has been added to your Vocabulary Bank.`;
-    statusEl.className = "add-status success";
-  }
-  navigateToEntry(item);
-  offerVerbFlagIfApplicable(item, entry);
-});
-
-/* =========================================================
    LANGUAGE BANK — one tab, four categories (Phrasal Verbs, Idioms &
    Expressions, Useful Sentences, Sentence Patterns) sharing the same
    "manually trigger, automatically populate" idea as addVocabEntry()
@@ -32626,35 +32453,22 @@ applyLanguageBankSort();
 applyDistinctionsSort();
 
 /* =========================================================
-   SORT BY + SEARCH — Vocabulary Bank. Same non-destructive philosophy
-   as the Sort By block above (DOM-only, never touches vocabData or its
-   storage order), extended with a live text filter since the
-   Vocabulary Bank is far larger (built-ins + everything ever saved)
-   than a Language Bank category or Distinctions Words. Filtering and
-   sorting are applied together by fully rebuilding #vocabSelect's
-   option list from vocabData every time either changes — cheap even at
-   this scale (a single sort + a handful of hundred DOM node creations),
-   and simplest to reason about correctly alongside Add/Edit/Delete.
+   SORT BY — Vocabulary Bank. Same non-destructive philosophy as the
+   Sort By block above (DOM-only, never touches vocabData or its
+   storage order): fully rebuilds #vocabSelect's option list from
+   vocabData in the chosen order every time the preference changes.
 ========================================================= */
 const VOCAB_SORT_KEY = "mepf_toolkit_vocab_sort";
 
 function getVocabSortPref(){ return localStorage.getItem(VOCAB_SORT_KEY) || DEFAULT_SORT; }
 
-function getVocabFilterQuery(){
-  const el = document.getElementById("vocabFilterInput");
-  return el ? el.value.trim().toLowerCase() : "";
-}
-
-// Rebuilds #vocabSelect from vocabData, honoring the current search
-// filter and sort preference. Never mutates vocabData itself — Prev/
-// Next naturally narrows/reorders along with it, exactly like the
-// Language Bank/Distinctions Sort By above.
+// Rebuilds #vocabSelect from vocabData in the current sort order. Never
+// mutates vocabData itself — Prev/Next naturally reorders along with
+// it, exactly like the Language Bank/Distinctions Sort By above.
 function applyVocabListView(){
   const selectEl = document.getElementById("vocabSelect");
   if(!selectEl) return;
-  const q = getVocabFilterQuery();
-  const filtered = q ? vocabData.filter(v=> v.w.toLowerCase().includes(q)) : vocabData;
-  const sorted = filtered.slice().sort((a,b)=> compareForSort(a,b,getVocabSortPref()));
+  const sorted = vocabData.slice().sort((a,b)=> compareForSort(a,b,getVocabSortPref()));
   const prevValue = selectEl.value;
   selectEl.innerHTML = "";
   sorted.forEach(item=>{
@@ -32672,8 +32486,6 @@ vocabSortSelect.addEventListener("change", ()=>{
   localStorage.setItem(VOCAB_SORT_KEY, vocabSortSelect.value);
   applyVocabListView();
 });
-
-document.getElementById("vocabFilterInput").addEventListener("input", ()=> applyVocabListView());
 
 applyVocabListView();
 
@@ -32869,7 +32681,6 @@ function updateOwnerModeUI(){
   const unlocked = isDeviceUnlocked();
 
   ownerOnlyBoxes.forEach(box=> box.style.display = unlocked ? "" : "none");
-  if(!unlocked) closeVocabAddBox();
 
   if(unlocked){
     statusEl.textContent = OwnerMode.isOwnerModeUnlocked()
@@ -36059,9 +35870,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   showOnlineVocabResult, saveOnlineVocabResult, setVocabSaveAreaMessage,
   renderVocabSaveArea, getPendingOnlineVocabResult: ()=> pendingOnlineVocabResult,
   renderVocabBankCheckRows, getLanguageBankPendingSave: ()=> languageBankPendingSave,
-  openVocabAddBox, closeVocabAddBox, addVocabWordFromInput, renderVocabAddSavePreview,
-  getVocabAddPendingSave: ()=> vocabAddPendingSave, isKnownVocabBankWord,
-  applyVocabListView, getVocabSortPref, getVocabFilterQuery,
+  isKnownVocabBankWord,
+  applyVocabListView, getVocabSortPref,
   looksLikeVerb, isKnownVerb, offerVerbFlagIfApplicable,
   renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
   addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
