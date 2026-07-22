@@ -675,6 +675,32 @@
     border-radius:6px; padding:9px 13px; font-size:14px; color:var(--warn-text);
     font-weight:600; margin-bottom:4px;
   }
+  .tagalog-box.muted{
+    background:transparent; border-style:dashed; font-weight:400; font-style:italic;
+    color:var(--ink-soft);
+  }
+
+  /* Vocabulary tab's per-part-of-speech Definition groups — a light
+     heading above each POS's own set of numbered senses, and a small
+     inline Filipino/Tagalog line under a sense that has its own
+     (richer-than-entry-level) translation. */
+  .pos-group{ margin-bottom:6px; }
+  .pos-group + .pos-group{ margin-top:14px; }
+  .pos-heading{
+    font-family:'Source Serif 4', serif; font-weight:700; font-size:13.5px;
+    text-transform:uppercase; letter-spacing:.04em; color:var(--gold-deep);
+    margin-bottom:6px;
+  }
+  .sense-tagalog{
+    font-size:13px; color:var(--warn-text); background:var(--warn-bg);
+    border-left:2px solid var(--gold-deep); border-radius:4px;
+    padding:4px 8px; margin:4px 0; display:inline-block;
+  }
+  .sense-tagalog .lbl{ font-weight:700; }
+  .sense-tagalog.muted{
+    background:transparent; border-left-color:var(--rule); color:var(--ink-soft);
+    font-style:italic; font-weight:400;
+  }
 
   /* Separates Word 1 from Word 2 within one Distinctions Words card —
      a light "vs" divider rather than a hard rule, since both halves
@@ -1461,6 +1487,7 @@
 
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
+<script src="js/tagalog-lookup.js"></script>
 <script src="js/fuzzy-search.js"></script>
 <script src="js/vocab-cache.js"></script>
 <script src="js/spaced-repetition.js"></script>
@@ -30628,6 +30655,43 @@ const wordFamilyData = [
   }
 ];
 
+// Splits a Vocabulary Bank sense's `use` text into {pos, rest} by
+// parsing a leading "(part of speech) " marker — the exact plain-text
+// prefix shape OnlineLookup's normalizers already produce (see
+// normalizeDictionaryResponse/normalizeWiktionaryResponse in
+// js/online-lookup.js). Built-in vocabData entries were never authored
+// with this prefix at all, so those senses simply come back with
+// pos:null — nothing is invented for data that was never POS-labeled.
+function parseSensePos(useText){
+  const match = /^\(\s*([a-z][a-z\s/]*?)\s*\)\s*/i.exec(useText || "");
+  if(!match) return {pos: null, rest: useText};
+  return {pos: match[1].trim().toLowerCase(), rest: useText.slice(match[0].length)};
+}
+
+// Groups a Vocabulary Bank item's senses by their detected part of
+// speech, preserving first-appearance order. A word with only one
+// detected POS (or none at all — every built-in entry) ends up as a
+// single group, which renders identically to the old flat "one
+// definition list" layout; a word whose senses span multiple parts of
+// speech (typically an online-lookup result) gets a heading per group,
+// exactly matching "Definition by Part of Speech, only where applicable."
+function groupSensesByPos(senses){
+  const groups = [];
+  const byPos = new Map();
+  senses.forEach(s=>{
+    const {pos, rest} = parseSensePos(s.use);
+    const key = pos || "";
+    let group = byPos.get(key);
+    if(!group){
+      group = {pos, senses: []};
+      byPos.set(key, group);
+      groups.push(group);
+    }
+    group.senses.push(Object.assign({}, s, {rest}));
+  });
+  return groups;
+}
+
 /* =========================================================
    GENERIC RENDER — for rule-based modules (Articles, Modals, Capitalization, Word Order)
 ========================================================= */
@@ -30655,19 +30719,50 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   const displayTagLabel = tagLabel === "Vocabulary Bank"
     ? (item === pendingOnlineVocabResult ? ONLINE_SEARCH_TAG_LABEL : VOCAB_BANK_TAG_LABEL)
     : tagLabel;
-  const sensesHtml = item.senses.map((s,i)=>{
-    const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
-      <div class="personal-actions">
-        <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
-        <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
-      </div>` : "";
-    return `
-    <div class="sense"><span class="num">${i+1}</span><div class="body">
-      <div class="use">${s.use}</div>
-      ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
-      ${actionsHtml}
-    </div></div>`;
-  }).join("");
+  // Only the Vocabulary tab groups its definitions by part of speech
+  // and shows a Filipino/Tagalog line — every other rule module
+  // (Language Bank, Distinctions, Articles, etc.) keeps its exact
+  // original "Rule & usage" flat rendering, untouched.
+  const isVocabEntry = tagLabel === "Vocabulary Bank";
+  const sensesHtml = isVocabEntry
+    ? groupSensesByPos(item.senses).map(group=>{
+        const posHeadingHtml = group.pos ? `<div class="pos-heading">${group.pos.toUpperCase()}</div>` : "";
+        const groupSensesHtml = group.senses.map((s,i)=>{
+          const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
+            <div class="personal-actions">
+              <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
+              <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
+            </div>` : "";
+          // A Filipino equivalent stamped directly on THIS meaning
+          // (richer than the entry's one flat `tagalog` string, which
+          // is shown separately below regardless) — only ever shown
+          // when actually present, never inferred.
+          const senseTagalogHtml = s.tagalog
+            ? `<div class="sense-tagalog"><span class="lbl">Filipino/Tagalog:</span> ${s.tagalog}</div>`
+            : "";
+          return `
+          <div class="sense"><span class="num">${i+1}</span><div class="body">
+            <div class="use">${s.rest}</div>
+            ${senseTagalogHtml}
+            ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
+            ${actionsHtml}
+          </div></div>`;
+        }).join("");
+        return `<div class="pos-group">${posHeadingHtml}${groupSensesHtml}</div>`;
+      }).join("")
+    : item.senses.map((s,i)=>{
+        const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
+          <div class="personal-actions">
+            <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
+            <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
+          </div>` : "";
+        return `
+        <div class="sense"><span class="num">${i+1}</span><div class="body">
+          <div class="use">${s.use}</div>
+          ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
+          ${actionsHtml}
+        </div></div>`;
+      }).join("");
   const mistakeHtml = item.mistake ? `
     <div class="callout">
       <div class="lbl">Common mistake</div>
@@ -30679,16 +30774,32 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     <div class="word-chips">${makeWordChips(item.syn,"synonym")}</div>
     <div class="word-chips">${makeWordChips(item.ant,"antonym")}</div>
   ` : "";
-  const tagalogHtml = item.tagalog ? `
+  // Vocabulary entries: an explicit "no reliable translation" note
+  // (set transiently by ensureVocabTagalogTranslation — never
+  // persisted) is shown in place of a fabricated guess whenever a live
+  // lookup was actually attempted and came back empty. Every other rule
+  // module keeps its original tagalogHtml exactly as before.
+  const tagalogHtml = isVocabEntry
+    ? (item.tagalog
+        ? `
+    <div class="section-label">Filipino/Tagalog equivalent</div>
+    <div class="tagalog-box">${item.tagalog}</div>
+  `
+        : (item.__tagalogNotFound ? `
+    <div class="section-label">Filipino/Tagalog equivalent</div>
+    <div class="tagalog-box muted">No direct Filipino equivalent found.</div>
+  ` : ""))
+    : (item.tagalog ? `
     <div class="section-label">Tagalog equivalent</div>
     <div class="tagalog-box">${item.tagalog}</div>
-  ` : "";
+  ` : "");
   // A Language Bank entry added with no online match at all (a Useful
   // Sentence/Sentence Pattern that isn't a dictionary headword) has no
-  // senses — showing an empty "Rule & usage" heading over nothing would
-  // look broken, so it's only shown when there's actually content under it.
+  // senses — showing an empty "Rule & usage"/"Definition" heading over
+  // nothing would look broken, so it's only shown when there's
+  // actually content under it.
   const ruleUsageHtml = item.senses.length ? `
-    <div class="section-label">Rule &amp; usage</div>
+    <div class="section-label">${isVocabEntry ? "Definition" : "Rule &amp; usage"}</div>
     ${sensesHtml}
   ` : "";
   // Only entries the owner actually added (source:"online" — a lookup
@@ -30745,6 +30856,13 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
       }
     });
   }
+
+  // Force an online Filipino/Tagalog lookup for any vocabulary word
+  // (saved or a not-yet-saved online preview) displayed with no
+  // translation at all yet — whether it's a brand-new online result or
+  // an older local record that never got one. Never re-fetches for a
+  // word that already has a translation (see ensureVocabTagalogTranslation).
+  if(isVocabEntry) ensureVocabTagalogTranslation(item, entryEl, tagLabel, categoryKey);
 }
 
 // Keeps every panel dropdown alphabetically sorted (case-insensitive).
@@ -32107,6 +32225,56 @@ function addVocabEntry(entry, options){
   if(opts.persist) VocabCache.put(entry, {dbPromise: vocabDbPromise});
 
   return item;
+}
+
+// A same-session cache for Tagalog lookups, mirroring onlineLookupCache's
+// role for the English dictionary — avoids re-fetching the same word's
+// translation repeatedly within one page load.
+const tagalogLookupCache = TagalogLookup.createMemoryCache();
+
+// Forces an online Filipino/Tagalog lookup for a vocabulary word with no
+// translation at all yet — called from renderRuleEntry() for both a
+// genuinely saved local entry AND a not-yet-saved online preview, right
+// after it's displayed. Never re-fetches a word that already has a
+// translation or was already tried and came up empty this session, and
+// never overwrites an existing (possibly owner-verified) translation.
+// On success the translation is shown immediately and, for a real local
+// record, persisted so it's available offline afterward; on failure the
+// entry is marked (in memory only, never persisted as a permanent
+// "unknown") so the UI can say so explicitly instead of inventing one.
+async function ensureVocabTagalogTranslation(item, entryEl, tagLabel, categoryKey){
+  if(item.tagalog || item.__tagalogNotFound || item.__tagalogLookupInFlight) return;
+  item.__tagalogLookupInFlight = true;
+  let result;
+  try{
+    result = await TagalogLookup.fetchTagalogTranslation(item.w, {cache: tagalogLookupCache});
+  } finally {
+    item.__tagalogLookupInFlight = false;
+  }
+  if(item.tagalog) return; // an Edit/sync pull already resolved this while the lookup was in flight
+
+  if(result && result.text){
+    item.tagalog = result.text;
+    // Only a genuinely saved local record (already present in
+    // vocabData, not just an unsaved online preview) gets persisted —
+    // saving the preview itself already carries whatever `item.tagalog`
+    // ends up holding at Save time, via the normal Save to Vocabulary
+    // Bank path, with no separate persistence needed here.
+    if(vocabData.indexOf(item) !== -1){
+      VocabCache.put(item, {dbPromise: vocabDbPromise});
+      pushToSync(loadPersonalCorrections());
+    }
+  } else {
+    item.__tagalogNotFound = true;
+  }
+
+  // Re-render in place only if this exact word is still what's on
+  // screen — a lookup finishing after the user navigated elsewhere must
+  // never stomp whatever they're looking at now.
+  const headwordEl = entryEl.isConnected ? entryEl.querySelector(".headword") : null;
+  if(headwordEl && headwordEl.textContent === item.w){
+    renderRuleEntry(item, entryEl, tagLabel, categoryKey);
+  }
 }
 
 // Downloadable offline dictionary pack — a batch of entries (from a
@@ -35673,6 +35841,51 @@ let onlineLookupController = null;
 // row the user had to notice and click themselves — which is exactly
 // why the "This word is not currently in your Vocabulary Bank" prompt
 // so often seemed to never show up.
+// Last-resort fallback once a query matches no English dictionary
+// source either: try it as a Filipino/Tagalog word instead. A local
+// word already covers "search in Tagalog" for anything with an
+// indexed `tagalog` field (see the bilingual indexing block above);
+// this is the ONLINE equivalent for a Tagalog word that isn't in that
+// index yet — translate it to English, then run the exact same English
+// lookup pipeline on the translated word so the full entry (senses,
+// synonyms, examples) still comes from a real dictionary, never just a
+// bare translated word with nothing else known about it.
+function tryTagalogToEnglishFallback(q, myToken, shown){
+  return TagalogLookup.fetchEnglishTranslation(q, {cache: tagalogLookupCache}).then((translated)=>{
+    if(myToken !== onlineLookupToken) return;
+    if(!translated || !translated.candidates || !translated.candidates.length){
+      if(shown.length === 0) showNoMatches();
+      return;
+    }
+    const englishWord = translated.candidates[0];
+    // Already known locally under its English spelling? Navigate
+    // straight there — no need for a second network round trip.
+    const localMatch = wordIndexMap.get(normalizeWordKey(englishWord));
+    if(localMatch){
+      searchResultsEl.classList.remove("show");
+      navigateToEntry(localMatch);
+      return;
+    }
+    return OnlineLookup.fetchOnlineDefinition(englishWord, {cache: onlineLookupCache}).then((result)=>{
+      if(myToken !== onlineLookupToken) return;
+      if(!result){
+        if(shown.length === 0) showNoMatches();
+        return;
+      }
+      // The user searched in Tagalog — make sure the entry they land on
+      // carries that Tagalog word as its translation, even though the
+      // dictionary lookup itself only ever returns English content.
+      if(!result.tagalog) result.tagalog = q;
+      searchResultsEl.classList.remove("show");
+      navigateToEntry({
+        label: result.w,
+        cat: "Vocabulary Bank",
+        action: ()=> showOnlineVocabResult(result)
+      });
+    });
+  });
+}
+
 function tryOnlineLookup(q, shown){
   const myToken = onlineLookupToken;
   if(onlineLookupController) onlineLookupController.abort();
@@ -35690,10 +35903,9 @@ function tryOnlineLookup(q, shown){
     // Stale response (user kept typing, or cleared the box) — drop it.
     if(myToken !== onlineLookupToken) return;
     if(!result){
-      if(shown.length === 0) showNoMatches();
-      // Otherwise leave whatever local matches/suggestions were already
-      // shown in place — the online attempt just came up empty.
-      return;
+      // Not a recognized English word — try it as Filipino/Tagalog
+      // before giving up entirely.
+      return tryTagalogToEnglishFallback(q, myToken, shown);
     }
     searchResultsEl.classList.remove("show");
     navigateToEntry({
@@ -35913,6 +36125,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   renderVocabBankCheckRows, getLanguageBankPendingSave: ()=> languageBankPendingSave,
   isKnownVocabBankWord,
   applyVocabListView, getVocabSortPref,
+  parseSensePos, groupSensesByPos, ensureVocabTagalogTranslation,
+  tryTagalogToEnglishFallback, tagalogLookupCache,
   looksLikeVerb, isKnownVerb, offerVerbFlagIfApplicable,
   renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
   addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
