@@ -34138,6 +34138,53 @@ document.addEventListener("click", async (e)=>{
   );
 });
 
+// A slightly stricter normalization than normalizeWordKey(), used ONLY
+// for "is this the same Language Bank / Distinctions entry" duplicate
+// checks. On top of case/whitespace normalization, it also drops a
+// trailing run of sentence-ending punctuation (., !, or ?), since a full
+// sentence retyped with or without its closing period is still the same
+// sentence to a user — exactly the gap that let "Let me double-check
+// and confirm." (the stored entry) go undetected against a retype of
+// "let me double-check and confirm" (no closing period). Deliberately
+// NOT folded into normalizeWordKey() itself, which is also the key
+// scheme for the app-wide wordIndexMap/search index — changing that
+// everywhere would risk silently merging unrelated entries elsewhere in
+// the app that happen to share a spelling but differ by trailing
+// punctuation.
+function normalizeForDuplicateCheck(text){
+  return normalizeWordKey(text).replace(/[.!?]+$/, "");
+}
+
+// Shared duplicate check for a Language Bank category — normalizes case,
+// leading/trailing spaces, repeated internal whitespace, and a trailing
+// sentence-ending mark before comparing, so "Let me double-check and
+// confirm.", "let me double-check and confirm", and "  Let me
+// double-check   and confirm.  " are all recognized as the same entry.
+// Prefers THIS category's own entry over the Master Vocabulary Bank's
+// generic canonical pointer, which may resolve to a different
+// category's same-spelled record (e.g. a plain Vocabulary Bank word
+// that happens to share a spelling with a phrasal verb) — the owner
+// typed this into the Phrasal Verb box, so "already in the database"
+// should mean and navigate to the phrasal verb entry specifically.
+// Called twice per add attempt: once against the raw typed text (before
+// the online lookup runs), and again against the online lookup's own
+// returned word/phrase (after it resolves) — the two can differ, since
+// a dictionary/Wiktionary match doesn't always echo the query back
+// verbatim, and only the second check reflects what would actually be
+// saved.
+function findLanguageBankDuplicate(config, categoryKey, text){
+  const key = normalizeForDuplicateCheck(text);
+  const existingOwnEntry = config.data.find(v=>normalizeForDuplicateCheck(v.w)===key);
+  return existingOwnEntry
+    ? {label: existingOwnEntry.w, cat: config.tagLabel, action: ()=>{
+        document.getElementById(config.selectId).value = existingOwnEntry.w;
+        renderRuleEntry(existingOwnEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
+        activateTab("langbank");
+        activateLangBankCategory(categoryKey);
+      }}
+    : wordIndexMap.get(normalizeWordKey(text));
+}
+
 async function addLanguageBankEntryFromInput(categoryKey){
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   const statusEl = document.getElementById(config.statusId);
@@ -34158,22 +34205,7 @@ async function addLanguageBankEntryFromInput(categoryKey){
     return;
   }
 
-  const key = normalizeWordKey(text);
-  // Prefer THIS category's own entry over the Master Vocabulary Bank's
-  // generic canonical pointer, which may resolve to a different
-  // category's same-spelled record (e.g. a plain Vocabulary Bank word
-  // that happens to share a spelling with a phrasal verb) — the owner
-  // typed this into the Phrasal Verb box, so "already in the database"
-  // should mean and navigate to the phrasal verb entry specifically.
-  const existingOwnEntry = config.data.find(v=>normalizeWordKey(v.w)===key);
-  const existing = existingOwnEntry
-    ? {label: existingOwnEntry.w, cat: config.tagLabel, action: ()=>{
-        document.getElementById(config.selectId).value = existingOwnEntry.w;
-        renderRuleEntry(existingOwnEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
-        activateTab("langbank");
-        activateLangBankCategory(categoryKey);
-      }}
-    : wordIndexMap.get(key);
+  const existing = findLanguageBankDuplicate(config, categoryKey, text);
   if(existing){
     statusEl.textContent = `"${text}" is already in the database — opening it.`;
     statusEl.className = "add-status";
@@ -34200,6 +34232,22 @@ async function addLanguageBankEntryFromInput(categoryKey){
     statusEl.textContent = `Couldn't find "${text}" online. Add your own explanation below, or cancel.`;
     statusEl.className = "add-status";
     showLanguageBankManualBox(categoryKey, text);
+    return;
+  }
+
+  // The online source's own returned word/phrase (result.w) can differ
+  // from what was typed — a Wiktionary search-based match especially
+  // doesn't always echo the query back verbatim — so the entry that
+  // would actually be SAVED must be checked again here, not just the
+  // raw typed text above. This is what catches the case where the same
+  // sentence/phrase, re-typed, resolves online to a spelling that
+  // already matches an existing entry.
+  const existingAfterLookup = findLanguageBankDuplicate(config, categoryKey, result.w);
+  if(existingAfterLookup){
+    statusEl.textContent = `⚠️ "${result.w}" is already available in your ${config.tagLabel} list.`;
+    statusEl.className = "add-status";
+    input.value = "";
+    navigateToEntry(existingAfterLookup);
     return;
   }
 
@@ -34603,11 +34651,11 @@ function indexDistinctionsData(data){
 }
 
 function findExistingDistinctionPair(word1Text, word2Text){
-  const k1 = normalizeWordKey(word1Text);
-  const k2 = normalizeWordKey(word2Text);
+  const k1 = normalizeForDuplicateCheck(word1Text);
+  const k2 = normalizeForDuplicateCheck(word2Text);
   return distinctionsData.find(e=>{
-    const a = normalizeWordKey(e.word1.w);
-    const b = normalizeWordKey(e.word2.w);
+    const a = normalizeForDuplicateCheck(e.word1.w);
+    const b = normalizeForDuplicateCheck(e.word2.w);
     return (a===k1 && b===k2) || (a===k2 && b===k1);
   });
 }
@@ -34814,6 +34862,25 @@ async function addDistinctionFromInputs(){
     statusEl.textContent = `Couldn't find ${missing.map(w=>`"${w}"`).join(" and ")} online. Add your own explanation below, or cancel.`;
     statusEl.className = "add-status";
     showDistinctionsManualBox(text1, text2, !result1, !result2, result1, result2);
+    return;
+  }
+
+  // The online source's own returned word/phrase for either side
+  // (result1.w / result2.w) can differ from what was typed — a
+  // Wiktionary search-based match especially doesn't always echo the
+  // query back verbatim — so the pair that would actually be SAVED must
+  // be checked again here, not just the raw typed text above.
+  const existingPairAfterLookup = findExistingDistinctionPair(result1.w, result2.w);
+  if(existingPairAfterLookup){
+    statusEl.textContent = `⚠️ "${result1.w} vs ${result2.w}" is already available in your Distinction Words.`;
+    statusEl.className = "add-status";
+    input1.value = "";
+    input2.value = "";
+    navigateToEntry({label: existingPairAfterLookup.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
+      document.getElementById("distinctionsSelect").value = existingPairAfterLookup.w;
+      renderDistinctionEntry(existingPairAfterLookup, document.getElementById("distinctionsEntry"));
+      activateTab("distinctions");
+    }});
     return;
   }
 
@@ -36103,7 +36170,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
   getCurrentFirebaseUser, collectOnlineLanguageBankEntries,
-  applyRemoteLanguageBank, addLanguageBankEntryFromInput,
+  applyRemoteLanguageBank, addLanguageBankEntryFromInput, findLanguageBankDuplicate,
   saveLanguageBankManualEntry, skipLanguageBankManualEntry,
   cancelLanguageBankManualEntry, languageBankPendingManual,
   deleteLanguageBankEntry, openLanguageBankEditForm, saveLanguageBankEdit,
