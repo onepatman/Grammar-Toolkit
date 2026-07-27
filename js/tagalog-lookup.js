@@ -35,6 +35,15 @@
   // translation is exactly the "inventing one" behavior this module
   // must avoid.
   var MIN_MATCH_QUALITY = 0.5;
+  // Above MIN_MATCH_QUALITY but below this, a translation is real enough
+  // to show (it passed the hard cutoff) but not solid enough to present
+  // with full confidence — this is exactly the gap where a real-word
+  // mistranslation like "juggle" -> "Salamangka" ("magic") could slip
+  // through un-flagged: MyMemory returned a genuine, non-empty Filipino
+  // word, just not necessarily the RIGHT one. Callers can use this to
+  // show an "unverified translation" note instead of presenting every
+  // passing match identically.
+  var HIGH_CONFIDENCE_MATCH_QUALITY = 0.75;
   var MAX_ALTERNATES = 4;
 
   function buildRequestUrl(text, langpair) {
@@ -93,6 +102,31 @@
     return dedupeCaseInsensitive(out).slice(0, MAX_ALTERNATES);
   }
 
+  // The highest match-quality score among the candidates that actually
+  // passed the MIN_MATCH_QUALITY filter (same inclusion rules as
+  // extractCandidates), or 0 if nothing qualified. Kept as a separate
+  // function (rather than folded into extractCandidates, which only
+  // returns translation strings) so existing callers of extractCandidates
+  // are unaffected.
+  function extractMatchConfidence(json, query) {
+    var best = 0;
+    if (json && json.responseData && json.responseData.translatedText) {
+      var topScore = typeof json.responseData.match === "number" ? json.responseData.match : 1;
+      if (topScore >= MIN_MATCH_QUALITY && !isEchoOfQuery(json.responseData.translatedText, query)) {
+        best = Math.max(best, topScore);
+      }
+    }
+    if (Array.isArray(json && json.matches)) {
+      json.matches.forEach(function (m) {
+        var score = typeof m.match === "number" ? m.match : parseFloat(m.match);
+        if (!(score >= MIN_MATCH_QUALITY)) return;
+        if (isEchoOfQuery(m.translation, query)) return;
+        best = Math.max(best, score);
+      });
+    }
+    return best;
+  }
+
   // langpair is "en|tl" (English -> Filipino, the common case) or
   // "tl|en" (Filipino -> English, used for the reverse-search fallback
   // when a typed query doesn't match anything in English at all).
@@ -131,7 +165,13 @@
 
         var candidates = extractCandidates(json, trimmed);
         if (candidates.length === 0) return null;
-        return { text: candidates.join("; "), candidates: candidates };
+        var confidence = extractMatchConfidence(json, trimmed);
+        return {
+          text: candidates.join("; "),
+          candidates: candidates,
+          confidence: confidence,
+          lowConfidence: confidence < HIGH_CONFIDENCE_MATCH_QUALITY
+        };
       })
       .catch(function () {
         // Offline, aborted, CORS failure, malformed JSON, etc. — all
@@ -178,8 +218,10 @@
   return {
     TRANSLATE_API_BASE: TRANSLATE_API_BASE,
     MIN_MATCH_QUALITY: MIN_MATCH_QUALITY,
+    HIGH_CONFIDENCE_MATCH_QUALITY: HIGH_CONFIDENCE_MATCH_QUALITY,
     buildRequestUrl: buildRequestUrl,
     extractCandidates: extractCandidates,
+    extractMatchConfidence: extractMatchConfidence,
     fetchTagalogTranslation: fetchTagalogTranslation,
     fetchEnglishTranslation: fetchEnglishTranslation,
     createMemoryCache: createMemoryCache

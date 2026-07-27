@@ -179,13 +179,22 @@ describe("auditAll — end-to-end run against the real vocabData", () => {
     expect(flagged.source).toBe("flagged_by_heuristic_audit");
   });
 
-  it("real known-issue entries from the manual review are flagged", () => {
+  it("known real issues found by the full corpus review have since been corrected in vocabData, and no longer flag", () => {
+    // discern/simple/move were confirmed real issues (example mismatch,
+    // untranslated field, and a different-headword collision respectively)
+    // during this session's audit, and were corrected directly in
+    // vocabData — this is a regression check that the fix actually took.
     const report = auditAll();
     const byWord = Object.fromEntries(report.results.map((r) => [r.w, r]));
-    expect(byWord["discern"].flagCount).toBeGreaterThan(0);
-    expect(byWord["simple"].flagCount).toBeGreaterThan(0);
+    expect(byWord["discern"].flagCount).toBe(0);
+    expect(byWord["simple"].flagCount).toBe(0);
+    expect(byWord["move"].flags.some((f) => f.type === "example_may_demonstrate_different_headword")).toBe(false);
+  });
+
+  it("a bundled-sense definition the reviewer judged already adequate is left unflagged for correction, but the heuristic (a structural proxy, not a judgment call) still surfaces it for optional human review", () => {
+    const report = auditAll();
+    const byWord = Object.fromEntries(report.results.map((r) => [r.w, r]));
     expect(byWord["accelerate"].flags.some((f) => f.type === "bundled_sense_underdemonstrated")).toBe(true);
-    expect(byWord["move"].flags.some((f) => f.type === "example_may_demonstrate_different_headword")).toBe(true);
   });
 
   it("known limitation: 'close' bundles two senses into one example-covered slot, but has 2 examples on the SAME sense — the fewer-than-2-examples proxy can't catch this, documenting why the bundled-sense check is a proxy, not proof", () => {
