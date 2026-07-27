@@ -680,11 +680,20 @@
     color:var(--ink-soft);
   }
 
-  /* Shown above a live online-lookup result (definition or Filipino
-     translation) that hasn't gone through this app's human/LLM accuracy
-     review — distinct from the confidently-styled tagalog-box/callout,
-     since the point here is to flag uncertainty, not present a fact. */
-  .unverified-note{
+  /* A plain, non-alarming attribution line under a live online-lookup
+     result's headword — "this came from an online dictionary" is a
+     source fact, not a warning, so it's styled as quiet metadata, not
+     inside a colored box. */
+  .source-line{
+    font-size:12px; color:var(--ink-soft); margin:-2px 0 10px;
+  }
+
+  /* Reserved for an ACTUAL accuracy concern (an ambiguous/low-confidence
+     match, not merely "this came from online") — distinct from the
+     confidently-styled tagalog-box/callout, since the point here is to
+     flag genuine uncertainty about a specific result, not to blanket-
+     disclaim anything non-local. */
+  .caution-note{
     margin-bottom:10px; padding:8px 12px; border-radius:6px; font-size:12.5px;
     background:var(--warn-bg); border:1px solid var(--warn-border);
     border-left:3px solid var(--gold-deep); color:var(--warn-text);
@@ -28642,7 +28651,7 @@ const vocabData = [
 // Changing what's passed as tagLabel itself (rather than swapping the
 // display text inside renderRuleEntry) silently breaks all three.
 const VOCAB_BANK_TAG_LABEL = "📚 Vocabulary Bank";
-const ONLINE_SEARCH_TAG_LABEL = "🌐 Online Search";
+const ONLINE_SEARCH_TAG_LABEL = "🌐 Online Dictionary";
 
 /* =========================================================
    DATA — DISTINCTIONS WORDS (commonly confused/misused word pairs,
@@ -35826,9 +35835,11 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   // ensureVocabTagalogTranslation) gets an extra caution line instead
   // of being shown identically to a confident one; this is exactly the
   // kind of case a real-word mistranslation like "juggle" -> "Salamangka"
-  // could otherwise hide in.
+  // could otherwise hide in. This is a genuine accuracy signal (a weak
+  // match), not a blanket "online = unverified" judgment — an ordinary
+  // solid translation gets no note at all.
   const tagalogLowConfidenceHtml = (isVocabEntry && item.tagalog && item.__tagalogLowConfidence)
-    ? `<div class="unverified-note">⚠️ This Filipino translation came from an automatic live lookup with only moderate confidence — please double-check it.</div>`
+    ? `<div class="caution-note">This Filipino translation is a possible match, not a confirmed one — please double-check it.</div>`
     : "";
   const tagalogHtml = isVocabEntry
     ? (item.tagalog
@@ -35845,16 +35856,23 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     <div class="section-label">Tagalog equivalent</div>
     <div class="tagalog-box">${item.tagalog}</div>
   ` : "");
-  // A definition sourced from a live online lookup (dictionaryapi.dev /
-  // Wiktionary) hasn't gone through this app's accuracy review the way
-  // every built-in Vocabulary Bank entry now has (see
-  // scripts/verification-metadata-schema.md) — shown as an explicit
-  // caution rather than silently presenting it with the same confidence
-  // as reviewed content. A weak Wiktionary SEARCH-tier match (see
-  // js/online-lookup.js's SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD) gets an
-  // extra line, since that tier has no exact-title guarantee at all.
-  const unverifiedHtml = (isVocabEntry && item.verified && item.verified.status !== "semantically_reviewed")
-    ? `<div class="unverified-note">⚠️ Unverified — this definition came from a live online lookup and hasn't been reviewed for accuracy.${item.matchConfidence === "low" ? " It was also matched via a broad search rather than an exact dictionary entry, so it may not even be for the right word — verify before relying on it." : ""}</div>`
+  // A plain, neutral attribution line for a definition sourced from a
+  // live online lookup — "online" is a SOURCE, not an accuracy verdict,
+  // so this is never styled as a warning. Absent for built-in
+  // Vocabulary Bank entries (they have no sourceName) since those are
+  // already identified by the 📚 tag above.
+  const sourceLineHtml = (isVocabEntry && item.sourceName)
+    ? `<div class="source-line">Source: ${item.sourceName}</div>`
+    : "";
+  // The ONE case that genuinely warrants a caution: a Wiktionary
+  // SEARCH-tier match (see js/online-lookup.js's
+  // SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD) has no exact-title guarantee
+  // at all — the search engine's top hit could be a loosely-related
+  // page rather than the queried word's own entry. This is an actual
+  // ambiguity concern, not a routine "came from online" disclaimer, so
+  // it's the only thing that still gets a caution box.
+  const matchConfidenceHtml = (isVocabEntry && item.matchConfidence === "low")
+    ? `<div class="caution-note">🔎 Possible ambiguous match — this came from a broader dictionary search rather than an exact entry for "${item.w}," so it may not be a perfect fit. Please confirm it's the definition you're looking for.</div>`
     : "";
   // A Language Bank entry added with no online match at all (a Useful
   // Sentence/Sentence Pattern that isn't a dictionary headword) has no
@@ -35884,8 +35902,9 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
       ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
+    ${sourceLineHtml}
     ${entryActionsHtml}
-    ${unverifiedHtml}
+    ${matchConfidenceHtml}
     ${ruleUsageHtml}
     ${mistakeHtml}
     ${tagalogHtml}
@@ -40704,14 +40723,17 @@ function renderVocabSaveArea(){
     return;
   }
   const word = pendingOnlineVocabResult.w;
+  // Neutral, factual framing — "retrieved from an online dictionary" is
+  // a source fact, not a reliability caveat, so this never implies the
+  // definition itself is incomplete or unreliable.
   if(isDeviceUnlocked()){
     setVocabSaveAreaMessage(`
-      <p class="note" style="margin-bottom:8px;">🔎 Online result — "<strong>${word}</strong>" is not currently in your Vocabulary Bank.</p>
+      <p class="note" style="margin-bottom:8px;">🌐 This definition for "<strong>${word}</strong>" was retrieved from an online dictionary and is not yet saved to your Vocabulary Bank.</p>
       <button id="saveOnlineVocabBtn" class="add-btn">Save to Vocabulary Bank</button>
     `);
     document.getElementById("saveOnlineVocabBtn").addEventListener("click", saveOnlineVocabResult);
   } else {
-    setVocabSaveAreaMessage(`<p class="note">🔎 Online preview — "<strong>${word}</strong>" isn't saved to the Vocabulary Bank yet. Ask the Owner to save it to make it permanent.</p>`);
+    setVocabSaveAreaMessage(`<p class="note">🌐 This definition for "<strong>${word}</strong>" was retrieved from an online dictionary and is not yet saved to the Vocabulary Bank. Ask the Owner to save it to make it permanent.</p>`);
   }
 }
 
