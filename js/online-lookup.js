@@ -116,15 +116,24 @@
   // explicit uncertainty note instead of presenting it as settled fact.
   var SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD = 0.5;
 
-  // Every online-sourced entry (any of the three tiers) is honestly
-  // marked as not human-verified — mirrors the `verified` field now
-  // present on every built-in vocabData entry (see
-  // scripts/verification-metadata-schema.md), so the UI can distinguish
-  // "reviewed built-in content" from "live lookup, unreviewed" instead
-  // of rendering both identically. `heuristicFlags` carries any
-  // machine-detected confidence concerns (e.g. a weak search-tier title
-  // match) for display.
-  function buildUnverifiedMeta(heuristicFlags) {
+  // Real, honest source names for the two APIs this module actually
+  // calls — never a recognizable dictionary brand (Oxford, Cambridge,
+  // Merriam-Webster) this app doesn't use and has no license or data
+  // relationship with. This is separate from whether the word is saved
+  // to the user's Vocabulary Bank: "online" is where the definition
+  // came from, not a verdict on its accuracy.
+  var SOURCE_FREE_DICTIONARY_API = "Free Dictionary API";
+  var SOURCE_WIKTIONARY = "Wiktionary";
+
+  // Every online-sourced entry (any of the three tiers) carries provenance
+  // metadata — mirrors the `verified` field now present on every built-in
+  // vocabData entry (see scripts/verification-metadata-schema.md) purely
+  // for internal tracking/audit purposes. This is NOT meant to drive a
+  // blanket "unverified" warning in the UI for an ordinary successful
+  // lookup — `heuristicFlags` only carries an ACTUAL machine-detected
+  // confidence concern (e.g. a weak search-tier title match), which is
+  // the one case the UI does still call out.
+  function buildReviewMeta(heuristicFlags) {
     return {
       status: "needs_review",
       checkedAgainst: null,
@@ -259,7 +268,8 @@
       mistake: null,
       tagalog: null,
       source: "online",
-      verified: buildUnverifiedMeta()
+      sourceName: SOURCE_FREE_DICTIONARY_API,
+      verified: buildReviewMeta()
     };
   }
 
@@ -310,7 +320,8 @@
       mistake: null,
       tagalog: null,
       source: "online",
-      verified: buildUnverifiedMeta()
+      sourceName: SOURCE_WIKTIONARY,
+      verified: buildReviewMeta()
     };
   }
 
@@ -398,7 +409,7 @@
           return fetchAndNormalize(buildWiktionaryUrl(title), normalizeWiktionaryResponse)
             .then(function (result) {
               if (result && similarity < SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD) {
-                result.verified = buildUnverifiedMeta(["low_confidence_title_match"]);
+                result.verified = buildReviewMeta(["low_confidence_title_match"]);
                 result.matchConfidence = "low";
               }
               return result;
@@ -443,6 +454,8 @@
     fetchOnlineDefinition: fetchOnlineDefinition,
     computeTitleSimilarity: computeTitleSimilarity,
     SEARCH_MATCH_REJECT_THRESHOLD: SEARCH_MATCH_REJECT_THRESHOLD,
-    SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD: SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD
+    SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD: SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD,
+    SOURCE_FREE_DICTIONARY_API: SOURCE_FREE_DICTIONARY_API,
+    SOURCE_WIKTIONARY: SOURCE_WIKTIONARY
   };
 });

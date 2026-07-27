@@ -75,7 +75,7 @@ describe("online lookup runs even when a partial local match exists", () => {
     // row to the "express" results list for the user to notice and click.
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
     expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("press");
-    expect(document.getElementById("vocabSaveArea").textContent).toContain("is not currently in your Vocabulary Bank");
+    expect(document.getElementById("vocabSaveArea").textContent).toContain("retrieved from an online dictionary and is not yet saved to your Vocabulary Bank");
     expect(hooks.wordIndexMap.has("press")).toBe(false);
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "press")).toBe(false);
   });
@@ -116,7 +116,7 @@ describe("online lookup runs even when a partial local match exists", () => {
     hooks.runSearchPipeline("zibblewock"); // no local match at all -> shown.length === 0 path
     await wait(600);
 
-    expect(document.getElementById("vocabSaveArea").textContent).toContain("Online preview");
+    expect(document.getElementById("vocabSaveArea").textContent).toContain("retrieved from an online dictionary");
     expect(document.getElementById("saveOnlineVocabBtn")).toBeNull();
     expect(hooks.wordIndexMap.has("zibblewock")).toBe(false);
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "zibblewock")).toBe(false);
@@ -175,8 +175,8 @@ describe("online lookup runs even when a partial local match exists", () => {
   });
 });
 
-describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Search", () => {
-  it("an unsaved online result is tagged '🌐 Online Search', never 'Vocabulary Bank'", async () => {
+describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Dictionary", () => {
+  it("an unsaved online result is tagged '🌐 Online Dictionary', never 'Vocabulary Bank'", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     stubZibblewockLookup(window);
@@ -185,7 +185,7 @@ describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Search", () =
     await wait(600);
 
     const tagText = document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent;
-    expect(tagText).toBe("🌐 Online Search");
+    expect(tagText).toBe("🌐 Online Dictionary");
     expect(tagText).not.toContain("Vocabulary Bank");
   });
 

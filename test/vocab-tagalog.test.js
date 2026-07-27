@@ -261,32 +261,48 @@ describe("Tagalog-to-English reverse search fallback", () => {
   });
 });
 
-describe("Unverified-content safeguards for live online-lookup results", () => {
-  it("shows an unverified-lookup caution for a not-yet-reviewed online entry (verified.status !== semantically_reviewed)", async () => {
+describe("Source transparency for live online-lookup results (online is a source, not an accuracy verdict)", () => {
+  it("shows a neutral 'Source: ...' line for an ordinary online result, with NO caution/warning box at all", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     window.TagalogLookup.fetchTagalogTranslation = async () => null;
     const item = {
       ...FLAT_ENTRY,
-      w: "unverified-test",
+      w: "sourced-test",
+      sourceName: "Free Dictionary API",
       verified: { status: "needs_review", checkedAgainst: null, lastAuditedAt: null, heuristicFlags: [] }
     };
     hooks.addVocabEntry(item, { persist: false });
 
     hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 
-    const note = document.getElementById("vocabEntry").querySelector(".unverified-note");
-    expect(note).toBeTruthy();
-    expect(note.textContent).toContain("Unverified");
+    const entryEl = document.getElementById("vocabEntry");
+    expect(entryEl.querySelector(".source-line").textContent).toBe("Source: Free Dictionary API");
+    expect(entryEl.querySelector(".caution-note")).toBeNull();
   });
 
-  it("says the match itself may be for the wrong word when matchConfidence is 'low' (weak search-tier hit)", async () => {
+  it("shows the actual source name for a Wiktionary-sourced result, not a fabricated brand like Oxford or Merriam-Webster", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.TagalogLookup.fetchTagalogTranslation = async () => null;
+    const item = { ...FLAT_ENTRY, w: "wiktionary-sourced-test", sourceName: "Wiktionary" };
+    hooks.addVocabEntry(item, { persist: false });
+
+    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+
+    const text = document.getElementById("vocabEntry").querySelector(".source-line").textContent;
+    expect(text).toBe("Source: Wiktionary");
+    expect(text).not.toMatch(/Oxford|Cambridge|Merriam/i);
+  });
+
+  it("shows a genuine ambiguity caution only when matchConfidence is 'low' (a weak Wiktionary SEARCH-tier hit)", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     window.TagalogLookup.fetchTagalogTranslation = async () => null;
     const item = {
       ...FLAT_ENTRY,
-      w: "unverified-low-match-test",
+      w: "ambiguous-match-test",
+      sourceName: "Wiktionary",
       matchConfidence: "low",
       verified: { status: "needs_review", checkedAgainst: null, lastAuditedAt: null, heuristicFlags: ["low_confidence_title_match"] }
     };
@@ -294,34 +310,33 @@ describe("Unverified-content safeguards for live online-lookup results", () => {
 
     hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 
-    const note = document.getElementById("vocabEntry").querySelector(".unverified-note");
-    expect(note.textContent).toContain("may not even be for the right word");
+    const note = document.getElementById("vocabEntry").querySelector(".caution-note");
+    expect(note).toBeTruthy();
+    expect(note.textContent).toContain("ambiguous match");
+    expect(note.textContent).not.toContain("Unverified");
   });
 
-  it("shows no unverified note for a semantically-reviewed built-in entry", async () => {
+  it("shows no source line for a built-in Vocabulary Bank entry (it has no sourceName — it's identified by the 📚 tag instead)", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    const item = {
-      ...FLAT_ENTRY,
-      w: "reviewed-test",
-      verified: { status: "semantically_reviewed", checkedAgainst: "llm_review", lastAuditedAt: "2026-07-27", heuristicFlags: [] }
-    };
-    hooks.addVocabEntry(item, { persist: false });
+    const builtIn = hooks.vocabData[0];
 
-    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+    hooks.renderRuleEntry(builtIn, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 
-    expect(document.getElementById("vocabEntry").querySelector(".unverified-note")).toBeNull();
+    expect(document.getElementById("vocabEntry").querySelector(".source-line")).toBeNull();
+    expect(document.getElementById("vocabEntry").querySelector(".caution-note")).toBeNull();
   });
 
-  it("shows no unverified note for an entry with no verified field at all (a non-vocab rule module, or legacy data)", async () => {
+  it("shows no source line or caution for a non-vocab rule module (Distinctions), which has neither field", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    const item = { w: "no-verified-field-test", senses: [{ use: "A test entry.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null };
+    const item = { w: "no-source-field-test", senses: [{ use: "A test entry.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null };
 
     const scratch = document.createElement("div");
     hooks.renderRuleEntry(item, scratch, "Distinctions", "distinctions");
 
-    expect(scratch.querySelector(".unverified-note")).toBeNull();
+    expect(scratch.querySelector(".source-line")).toBeNull();
+    expect(scratch.querySelector(".caution-note")).toBeNull();
   });
 
   it("flags a low-confidence Filipino translation with a caution note, distinct from a confident one", async () => {
@@ -336,9 +351,9 @@ describe("Unverified-content safeguards for live online-lookup results", () => {
     hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
     await wait(30);
 
-    const note = document.getElementById("vocabEntry").querySelector(".unverified-note");
+    const note = document.getElementById("vocabEntry").querySelector(".caution-note");
     expect(note).toBeTruthy();
-    expect(note.textContent).toContain("moderate confidence");
+    expect(note.textContent).toContain("possible match, not a confirmed one");
   });
 
   it("shows no low-confidence note for a high-confidence Filipino translation", async () => {
@@ -353,6 +368,6 @@ describe("Unverified-content safeguards for live online-lookup results", () => {
     hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
     await wait(30);
 
-    expect(document.getElementById("vocabEntry").querySelector(".unverified-note")).toBeNull();
+    expect(document.getElementById("vocabEntry").querySelector(".caution-note")).toBeNull();
   });
 });

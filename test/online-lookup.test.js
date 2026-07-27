@@ -46,7 +46,7 @@ describe("normalizeDictionaryResponse", () => {
     expect(result.ant).toEqual(["fragile"]);
   });
 
-  it("marks every result as not human-verified (needs_review), distinct from a reviewed built-in entry", () => {
+  it("carries internal review-tracking metadata (needs_review), distinct from a reviewed built-in entry — for audit purposes only, not a UI warning trigger", () => {
     const result = OnlineLookup.normalizeDictionaryResponse(SAMPLE_API_RESPONSE, "resilient");
     expect(result.verified).toEqual({
       status: "needs_review",
@@ -54,6 +54,12 @@ describe("normalizeDictionaryResponse", () => {
       lastAuditedAt: null,
       heuristicFlags: []
     });
+  });
+
+  it("labels the result with its real source name — the Free Dictionary API, never a fabricated brand like Oxford or Merriam-Webster", () => {
+    const result = OnlineLookup.normalizeDictionaryResponse(SAMPLE_API_RESPONSE, "resilient");
+    expect(result.sourceName).toBe(OnlineLookup.SOURCE_FREE_DICTIONARY_API);
+    expect(result.sourceName).toBe("Free Dictionary API");
   });
 
   it("captures the phonetic spelling when the API provides one", () => {
@@ -440,10 +446,17 @@ describe("normalizeWiktionaryResponse", () => {
     expect(OnlineLookup.normalizeWiktionaryResponse({ en: [{ definitions: [] }] }, "x")).toBeNull();
   });
 
-  it("also marks the result as not human-verified (needs_review)", () => {
+  it("also carries internal review-tracking metadata (needs_review)", () => {
     const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
     const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
     expect(result.verified.status).toBe("needs_review");
+  });
+
+  it("labels the result as sourced from Wiktionary", () => {
+    const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
+    expect(result.sourceName).toBe(OnlineLookup.SOURCE_WIKTIONARY);
+    expect(result.sourceName).toBe("Wiktionary");
   });
 
   it("leaves examples empty when generateFallbackExamples is false and Wiktionary provides none", () => {
