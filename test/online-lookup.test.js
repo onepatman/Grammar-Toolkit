@@ -46,6 +46,16 @@ describe("normalizeDictionaryResponse", () => {
     expect(result.ant).toEqual(["fragile"]);
   });
 
+  it("marks every result as not human-verified (needs_review), distinct from a reviewed built-in entry", () => {
+    const result = OnlineLookup.normalizeDictionaryResponse(SAMPLE_API_RESPONSE, "resilient");
+    expect(result.verified).toEqual({
+      status: "needs_review",
+      checkedAgainst: null,
+      lastAuditedAt: null,
+      heuristicFlags: []
+    });
+  });
+
   it("captures the phonetic spelling when the API provides one", () => {
     const response = [{ ...SAMPLE_API_RESPONSE[0], phonetic: "/rɪˈzɪliənt/" }];
     const result = OnlineLookup.normalizeDictionaryResponse(response, "resilient");
@@ -333,6 +343,58 @@ describe("extractWiktionarySearchTitle", () => {
   });
 });
 
+describe("computeTitleSimilarity", () => {
+  it("returns 1 for an identical (case-insensitive) match", () => {
+    expect(OnlineLookup.computeTitleSimilarity("Juggle", "juggle")).toBe(1);
+  });
+
+  it("returns a moderate score for a genuine idiom whose canonical title is worded differently", () => {
+    const score = OnlineLookup.computeTitleSimilarity("slip someone's mind", "it slipped my mind");
+    expect(score).toBeGreaterThan(OnlineLookup.SEARCH_MATCH_REJECT_THRESHOLD);
+    expect(score).toBeLessThan(OnlineLookup.SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD);
+  });
+
+  it("returns 0 for two words that share no meaningful overlap", () => {
+    // The class of bug this guards against: a search fallback that
+    // silently attaches an unrelated word's page (e.g. "magic trick")
+    // to a query it doesn't actually match (e.g. "juggle").
+    expect(OnlineLookup.computeTitleSimilarity("juggle", "magic trick")).toBe(0);
+  });
+
+  it("returns 0 when either string is empty", () => {
+    expect(OnlineLookup.computeTitleSimilarity("", "juggle")).toBe(0);
+    expect(OnlineLookup.computeTitleSimilarity("juggle", "")).toBe(0);
+  });
+});
+
+describe("fetchOnlineDefinition — Wiktionary search-tier confidence guard", () => {
+  it("discards a search hit whose title is essentially unrelated to the query, instead of showing it as a match", async () => {
+    const searchResponse = { query: { search: [{ title: "completely unrelated topic" }] } };
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildWiktionarySearchUrl("zzzqueryword")) return jsonResponse(searchResponse);
+      return jsonResponse([], false);
+    });
+    const result = await OnlineLookup.fetchOnlineDefinition("zzzqueryword", { fetchImpl, isOnline: () => true });
+    expect(result).toBeNull();
+  });
+
+  it("flags a plausible-but-not-exact search match as low confidence instead of presenting it as settled fact", async () => {
+    const searchResponse = { query: { search: [{ title: "slip someone's mind" }] } };
+    const definitionResponse = {
+      en: [{ partOfSpeech: "Verb", definitions: [{ definition: "To be forgotten.", examples: ["It slipped my mind."] }] }]
+    };
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildWiktionarySearchUrl("it slipped my mind")) return jsonResponse(searchResponse);
+      if (url === OnlineLookup.buildWiktionaryUrl("slip someone's mind")) return jsonResponse(definitionResponse);
+      return jsonResponse([], false);
+    });
+    const result = await OnlineLookup.fetchOnlineDefinition("it slipped my mind", { fetchImpl, isOnline: () => true });
+    expect(result).not.toBeNull();
+    expect(result.matchConfidence).toBe("low");
+    expect(result.verified.heuristicFlags).toContain("low_confidence_title_match");
+  });
+});
+
 describe("extractPhonetic", () => {
   it("prefers the top-level phonetic field", () => {
     const json = [{ phonetic: "/ˈwɜːd/", phonetics: [{ text: "/ˈother/" }] }];
@@ -376,6 +438,12 @@ describe("normalizeWiktionaryResponse", () => {
     expect(OnlineLookup.normalizeWiktionaryResponse({ en: [] }, "x")).toBeNull();
     expect(OnlineLookup.normalizeWiktionaryResponse(null, "x")).toBeNull();
     expect(OnlineLookup.normalizeWiktionaryResponse({ en: [{ definitions: [] }] }, "x")).toBeNull();
+  });
+
+  it("also marks the result as not human-verified (needs_review)", () => {
+    const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
+    expect(result.verified.status).toBe("needs_review");
   });
 
   it("leaves examples empty when generateFallbackExamples is false and Wiktionary provides none", () => {

@@ -70,6 +70,69 @@
     return results[0].title || null;
   }
 
+  // The Wiktionary SEARCH fallback (searchWiktionaryThenFetch, below) has
+  // no relevance guarantee at all — it's a plain text search, and its top
+  // hit for an obscure or misspelled query can be a completely unrelated
+  // page (this is the same class of bug that let "juggle" resolve to a
+  // translation for "magic": a lookup silently returning a confident-
+  // looking result for the wrong word). A Sørensen–Dice bigram
+  // coefficient over the two strings gives a cheap, dependency-free 0..1
+  // similarity score without needing a real Levenshtein implementation —
+  // good enough to separate "genuinely the same headword/idiom, just
+  // reworded" from "the search engine grabbed something vaguely related
+  // and we should not trust it."
+  function computeTitleSimilarity(a, b) {
+    var sa = String(a || "").toLowerCase().trim();
+    var sb = String(b || "").toLowerCase().trim();
+    if (!sa || !sb) return 0;
+    if (sa === sb) return 1;
+    var ba = bigramsOf(sa), bb = bigramsOf(sb);
+    if (ba.length === 0 || bb.length === 0) return 0;
+    var bbCounts = Object.create(null);
+    bb.forEach(function (bg) { bbCounts[bg] = (bbCounts[bg] || 0) + 1; });
+    var matches = 0;
+    ba.forEach(function (bg) {
+      if (bbCounts[bg] > 0) { matches++; bbCounts[bg]--; }
+    });
+    return (2 * matches) / (ba.length + bb.length);
+  }
+
+  function bigramsOf(s) {
+    var out = [];
+    for (var i = 0; i < s.length - 1; i++) out.push(s.substring(i, i + 2));
+    return out;
+  }
+
+  // Below this similarity, the search hit is closer to noise than to a
+  // genuine match for the query — discarded entirely (treated as "no
+  // result from this source") rather than shown as if it were reliable.
+  var SEARCH_MATCH_REJECT_THRESHOLD = 0.15;
+  // Between the reject threshold and this one, the hit is plausible
+  // (many genuine idiom/phrase matches score in this range, since the
+  // canonical Wiktionary title is often worded quite differently from
+  // the literal query — "It slipped my mind." vs "slip someone's mind")
+  // but not confident enough to present as equivalent to an exact-title
+  // match. Flagged via verified.heuristicFlags so the UI can show an
+  // explicit uncertainty note instead of presenting it as settled fact.
+  var SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD = 0.5;
+
+  // Every online-sourced entry (any of the three tiers) is honestly
+  // marked as not human-verified — mirrors the `verified` field now
+  // present on every built-in vocabData entry (see
+  // scripts/verification-metadata-schema.md), so the UI can distinguish
+  // "reviewed built-in content" from "live lookup, unreviewed" instead
+  // of rendering both identically. `heuristicFlags` carries any
+  // machine-detected confidence concerns (e.g. a weak search-tier title
+  // match) for display.
+  function buildUnverifiedMeta(heuristicFlags) {
+    return {
+      status: "needs_review",
+      checkedAgainst: null,
+      lastAuditedAt: null,
+      heuristicFlags: heuristicFlags || []
+    };
+  }
+
   // Query text is normalized ONLY for building lookup/search URLs — the
   // entry actually saved always keeps the literal text the user typed
   // (normalizeDictionaryResponse/normalizeWiktionaryResponse are always
@@ -195,7 +258,8 @@
       ant: dedupe(ant).slice(0, 8),
       mistake: null,
       tagalog: null,
-      source: "online"
+      source: "online",
+      verified: buildUnverifiedMeta()
     };
   }
 
@@ -245,7 +309,8 @@
       ant: [],
       mistake: null,
       tagalog: null,
-      source: "online"
+      source: "online",
+      verified: buildUnverifiedMeta()
     };
   }
 
@@ -328,7 +393,16 @@
         .then(function (json) {
           var title = extractWiktionarySearchTitle(json);
           if (!title || title.toLowerCase() === queryText.toLowerCase()) return null; // already tried this exact title above
-          return fetchAndNormalize(buildWiktionaryUrl(title), normalizeWiktionaryResponse);
+          var similarity = computeTitleSimilarity(title, queryText);
+          if (similarity < SEARCH_MATCH_REJECT_THRESHOLD) return null; // too unrelated to trust at all
+          return fetchAndNormalize(buildWiktionaryUrl(title), normalizeWiktionaryResponse)
+            .then(function (result) {
+              if (result && similarity < SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD) {
+                result.verified = buildUnverifiedMeta(["low_confidence_title_match"]);
+                result.matchConfidence = "low";
+              }
+              return result;
+            });
         })
         .catch(function () { return null; });
     }
@@ -366,6 +440,9 @@
     normalizeWiktionaryResponse: normalizeWiktionaryResponse,
     generateFallbackExample: generateFallbackExample,
     createMemoryCache: createMemoryCache,
-    fetchOnlineDefinition: fetchOnlineDefinition
+    fetchOnlineDefinition: fetchOnlineDefinition,
+    computeTitleSimilarity: computeTitleSimilarity,
+    SEARCH_MATCH_REJECT_THRESHOLD: SEARCH_MATCH_REJECT_THRESHOLD,
+    SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD: SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD
   };
 });

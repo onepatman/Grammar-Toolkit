@@ -260,3 +260,99 @@ describe("Tagalog-to-English reverse search fallback", () => {
     expect(document.getElementById("searchResults").textContent).toContain("No matches");
   });
 });
+
+describe("Unverified-content safeguards for live online-lookup results", () => {
+  it("shows an unverified-lookup caution for a not-yet-reviewed online entry (verified.status !== semantically_reviewed)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.TagalogLookup.fetchTagalogTranslation = async () => null;
+    const item = {
+      ...FLAT_ENTRY,
+      w: "unverified-test",
+      verified: { status: "needs_review", checkedAgainst: null, lastAuditedAt: null, heuristicFlags: [] }
+    };
+    hooks.addVocabEntry(item, { persist: false });
+
+    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+
+    const note = document.getElementById("vocabEntry").querySelector(".unverified-note");
+    expect(note).toBeTruthy();
+    expect(note.textContent).toContain("Unverified");
+  });
+
+  it("says the match itself may be for the wrong word when matchConfidence is 'low' (weak search-tier hit)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.TagalogLookup.fetchTagalogTranslation = async () => null;
+    const item = {
+      ...FLAT_ENTRY,
+      w: "unverified-low-match-test",
+      matchConfidence: "low",
+      verified: { status: "needs_review", checkedAgainst: null, lastAuditedAt: null, heuristicFlags: ["low_confidence_title_match"] }
+    };
+    hooks.addVocabEntry(item, { persist: false });
+
+    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+
+    const note = document.getElementById("vocabEntry").querySelector(".unverified-note");
+    expect(note.textContent).toContain("may not even be for the right word");
+  });
+
+  it("shows no unverified note for a semantically-reviewed built-in entry", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const item = {
+      ...FLAT_ENTRY,
+      w: "reviewed-test",
+      verified: { status: "semantically_reviewed", checkedAgainst: "llm_review", lastAuditedAt: "2026-07-27", heuristicFlags: [] }
+    };
+    hooks.addVocabEntry(item, { persist: false });
+
+    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+
+    expect(document.getElementById("vocabEntry").querySelector(".unverified-note")).toBeNull();
+  });
+
+  it("shows no unverified note for an entry with no verified field at all (a non-vocab rule module, or legacy data)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const item = { w: "no-verified-field-test", senses: [{ use: "A test entry.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null };
+
+    const scratch = document.createElement("div");
+    hooks.renderRuleEntry(item, scratch, "Distinctions", "distinctions");
+
+    expect(scratch.querySelector(".unverified-note")).toBeNull();
+  });
+
+  it("flags a low-confidence Filipino translation with a caution note, distinct from a confident one", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.TagalogLookup.fetchTagalogTranslation = async () => ({
+      text: "malabo", candidates: ["malabo"], confidence: 0.6, lowConfidence: true
+    });
+    const item = { ...PRESS_POS_ENTRY, w: "press-lowconf" };
+    hooks.addVocabEntry(item, { persist: false });
+
+    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+    await wait(30);
+
+    const note = document.getElementById("vocabEntry").querySelector(".unverified-note");
+    expect(note).toBeTruthy();
+    expect(note.textContent).toContain("moderate confidence");
+  });
+
+  it("shows no low-confidence note for a high-confidence Filipino translation", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.TagalogLookup.fetchTagalogTranslation = async () => ({
+      text: "pindutin", candidates: ["pindutin"], confidence: 0.9, lowConfidence: false
+    });
+    const item = { ...PRESS_POS_ENTRY, w: "press-highconf" };
+    hooks.addVocabEntry(item, { persist: false });
+
+    hooks.renderRuleEntry(item, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+    await wait(30);
+
+    expect(document.getElementById("vocabEntry").querySelector(".unverified-note")).toBeNull();
+  });
+});

@@ -41,6 +41,25 @@ describe("extractCandidates", () => {
   });
 });
 
+describe("extractMatchConfidence", () => {
+  it("returns the highest score among candidates that actually passed the quality filter", () => {
+    expect(TagalogLookup.extractMatchConfidence(PRESS_RESPONSE, "press")).toBe(0.85);
+  });
+
+  it("ignores the low-quality/echoed candidates that extractCandidates also excludes", () => {
+    const echoResponse = {
+      responseData: { translatedText: "press", match: 1 },
+      matches: [{ translation: "press", match: "1" }, { translation: "pindutin", match: "0.6" }]
+    };
+    expect(TagalogLookup.extractMatchConfidence(echoResponse, "press")).toBe(0.6);
+  });
+
+  it("returns 0 for a malformed/empty response", () => {
+    expect(TagalogLookup.extractMatchConfidence(null, "press")).toBe(0);
+    expect(TagalogLookup.extractMatchConfidence({}, "press")).toBe(0);
+  });
+});
+
 describe("fetchTagalogTranslation (English -> Filipino)", () => {
   it("returns joined candidates and the raw candidate list on a reliable match", async () => {
     const fetchImpl = vi.fn(() => jsonResponse(PRESS_RESPONSE));
@@ -49,7 +68,12 @@ describe("fetchTagalogTranslation (English -> Filipino)", () => {
       expect.stringContaining("langpair=en%7Ctl"),
       expect.any(Object)
     );
-    expect(result).toEqual({ text: "pindutin; idiin", candidates: ["pindutin", "idiin"] });
+    expect(result).toEqual({
+      text: "pindutin; idiin",
+      candidates: ["pindutin", "idiin"],
+      confidence: 0.85,
+      lowConfidence: false
+    });
   });
 
   it("never attempts a request while offline", async () => {
@@ -76,6 +100,27 @@ describe("fetchTagalogTranslation (English -> Filipino)", () => {
     const result = await TagalogLookup.fetchTagalogTranslation("   ", { fetchImpl, isOnline: () => true });
     expect(result).toBeNull();
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("flags lowConfidence:true for a translation that passed the hard cutoff but isn't a solid match", async () => {
+    // This is the gap a real-word mistranslation (like "juggle" ->
+    // "Salamangka") could hide in: MyMemory returned genuine, non-empty
+    // Filipino text, just not confidently enough to trust outright.
+    const shakyResponse = {
+      responseData: { translatedText: "malabo", match: 0.6 },
+      matches: [{ translation: "malabo", match: "0.6" }]
+    };
+    const fetchImpl = vi.fn(() => jsonResponse(shakyResponse));
+    const result = await TagalogLookup.fetchTagalogTranslation("vague", { fetchImpl, isOnline: () => true });
+    expect(result.confidence).toBe(0.6);
+    expect(result.lowConfidence).toBe(true);
+  });
+
+  it("flags lowConfidence:false for a solidly high-quality match", async () => {
+    const fetchImpl = vi.fn(() => jsonResponse(PRESS_RESPONSE));
+    const result = await TagalogLookup.fetchTagalogTranslation("press", { fetchImpl, isOnline: () => true });
+    expect(result.confidence).toBe(0.85);
+    expect(result.lowConfidence).toBe(false);
   });
 
   it("treats a low-confidence-only match as no reliable translation, never inventing one", async () => {
