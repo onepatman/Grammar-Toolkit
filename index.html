@@ -1395,7 +1395,7 @@
       <div class="seg" id="langBankCategorySeg">
         <button class="active" data-val="phrasal">Phrasal Verbs</button>
         <button data-val="idioms">Idioms &amp; Expressions</button>
-        <button data-val="sentences">Useful Sentences</button>
+        <button data-val="sentences">Word Chunks</button>
         <button data-val="patterns">Sentence Patterns</button>
         <button data-val="technical">Technical Terms</button>
       </div>
@@ -1482,9 +1482,9 @@
       </div>
 
       <div class="quick-add-box owner-only" id="sentencesAddBox">
-        <div class="section-label">Add a useful sentence</div>
-        <p class="note" style="margin-bottom:8px;">Type a useful sentence (e.g. "Could you please clarify what you mean?") and we'll try to find an explanation online for when/how it's used. Useful sentences don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save the sentence as-is.</p>
-        <input type="text" id="sentencesAddInput" placeholder='A useful sentence (e.g. "Could you pass the salt?")' autocomplete="off">
+        <div class="section-label">Add a word chunk</div>
+        <p class="note" style="margin-bottom:8px;">Type a useful word chunk — a short group of words that go together (e.g. "get back to you", "as soon as possible") — and we'll try to find an explanation online for when/how it's used. Word chunks don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save the chunk as-is.</p>
+        <input type="text" id="sentencesAddInput" placeholder='A word chunk (e.g. "touch base")' autocomplete="off">
         <button id="sentencesAddBtn" class="add-btn">+ Look up &amp; add</button>
         <div id="sentencesAddStatus" class="add-status"></div>
 
@@ -34565,15 +34565,23 @@ const idiomsData = [
 ];
 
 /* =========================================================
-   DATA — LANGUAGE BANK: USEFUL SENTENCES
+   DATA — LANGUAGE BANK: WORD CHUNKS
+
+   Short, recurring multi-word groups (collocations, discourse markers,
+   fixed expressions — "get back to you", "as soon as possible") rather
+   than full sentences. Each entry's example sentence still shows the
+   chunk used in a complete, natural sentence, same as every other
+   Language Bank category.
 ========================================================= */
 const sentencesData = [
   {
-    "w": "Could you please clarify what you mean?",
+    "w": "clarify what you mean",
     "senses": [
       {
-        "use": "A polite way to ask someone to explain something more clearly, without sounding rude — useful in meetings or when reading instructions.",
-        "examples": []
+        "use": "To ask someone to explain their meaning more clearly and precisely.",
+        "examples": [
+          "Could you please clarify what you mean?"
+        ]
       }
     ],
     "mistake": null,
@@ -34581,11 +34589,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I'll get back to you on that.",
+    "w": "get back to you",
     "senses": [
       {
-        "use": "Used when you can't answer immediately and need time to check something before replying.",
-        "examples": []
+        "use": "To reply or respond to someone later, often after checking something first.",
+        "examples": [
+          "I'll get back to you on that."
+        ]
       }
     ],
     "mistake": null,
@@ -34593,11 +34603,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Would it be possible to reschedule the meeting?",
+    "w": "would it be possible to",
     "senses": [
       {
-        "use": "A polite, professional way to request changing a meeting time, softer than \"Can we move the meeting?\"",
-        "examples": []
+        "use": "A polite way to ask for something, softer and more formal than a direct request.",
+        "examples": [
+          "Would it be possible to reschedule the meeting?"
+        ]
       }
     ],
     "mistake": null,
@@ -34605,11 +34617,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I appreciate your patience.",
+    "w": "appreciate your patience",
     "senses": [
       {
         "use": "A polite phrase used to thank someone for waiting, often after a delay.",
-        "examples": []
+        "examples": [
+          "I appreciate your patience."
+        ]
       }
     ],
     "mistake": null,
@@ -34617,11 +34631,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Let me double-check and confirm.",
+    "w": "double-check and confirm",
     "senses": [
       {
-        "use": "Used to tell someone you'll verify information before giving a final answer.",
-        "examples": []
+        "use": "To verify something carefully before treating it as final or correct.",
+        "examples": [
+          "Let me double-check and confirm."
+        ]
       }
     ],
     "mistake": null,
@@ -34629,11 +34645,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Sorry for the inconvenience.",
+    "w": "sorry for the inconvenience",
     "senses": [
       {
-        "use": "A standard apology for a problem or delay that affected someone, common in customer service and workplace emails.",
-        "examples": []
+        "use": "A polite apology used when something has caused someone trouble or delay.",
+        "examples": [
+          "Sorry for the inconvenience."
+        ]
       }
     ],
     "mistake": null,
@@ -34641,11 +34659,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Could you walk me through the process?",
+    "w": "walk me through",
     "senses": [
       {
-        "use": "Asks someone to explain a procedure step by step — useful when learning a new task or system.",
-        "examples": []
+        "use": "To ask someone to explain a process step by step.",
+        "examples": [
+          "Could you walk me through the process?"
+        ]
       }
     ],
     "mistake": null,
@@ -34653,11 +34673,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "That makes sense to me.",
+    "w": "make sense",
     "senses": [
       {
-        "use": "A simple way to show you understand and agree with an explanation.",
-        "examples": []
+        "use": "To be logical, clear, or reasonable and easy to understand.",
+        "examples": [
+          "That makes sense to me."
+        ]
       }
     ],
     "mistake": null,
@@ -34665,11 +34687,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I'm not sure that's correct — could we double-check?",
+    "w": "not sure that's correct",
     "senses": [
       {
-        "use": "A polite way to disagree or raise doubt about something without sounding confrontational.",
-        "examples": []
+        "use": "A polite, hedging way to disagree or raise doubt without sounding blunt.",
+        "examples": [
+          "I'm not sure that's correct — could we double-check?"
+        ]
       }
     ],
     "mistake": null,
@@ -34677,11 +34701,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Please let me know if you have any questions.",
+    "w": "let me know",
     "senses": [
       {
-        "use": "A common, polite closing line in emails and instructions, inviting the reader to follow up.",
-        "examples": []
+        "use": "Used to invite someone to tell you something, often questions or updates.",
+        "examples": [
+          "Please let me know if you have any questions."
+        ]
       }
     ],
     "mistake": null,
@@ -34689,11 +34715,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I'll take care of it right away.",
+    "w": "right away",
     "senses": [
       {
-        "use": "Reassures someone that a task will be handled immediately.",
-        "examples": []
+        "use": "Immediately, without any delay.",
+        "examples": [
+          "I'll take care of it right away."
+        ]
       }
     ],
     "mistake": null,
@@ -34701,11 +34729,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Can we go over this one more time?",
+    "w": "one more time",
     "senses": [
       {
-        "use": "Asks to review something again, usually because it wasn't fully clear the first time.",
-        "examples": []
+        "use": "Used to ask for something to be repeated or reviewed again.",
+        "examples": [
+          "Can we go over this one more time?"
+        ]
       }
     ],
     "mistake": null,
@@ -34713,11 +34743,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I understand your concern.",
+    "w": "understand your concern",
     "senses": [
       {
-        "use": "Acknowledges someone's worry or complaint before responding — common in professional and customer-facing conversations.",
-        "examples": []
+        "use": "Used to acknowledge someone's worry before responding to it.",
+        "examples": [
+          "I understand your concern."
+        ]
       }
     ],
     "mistake": null,
@@ -34725,11 +34757,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Let's touch base next week.",
+    "w": "touch base",
     "senses": [
       {
-        "use": "Suggests a short follow-up conversation later, common in workplace scheduling.",
-        "examples": []
+        "use": "To make brief contact with someone to check in or share updates.",
+        "examples": [
+          "Let's touch base next week."
+        ]
       }
     ],
     "mistake": null,
@@ -34737,11 +34771,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I'd like to bring up a concern.",
+    "w": "I'd like to",
     "senses": [
       {
-        "use": "A professional way to raise an issue in a meeting or discussion.",
-        "examples": []
+        "use": "A polite, common way to introduce a request, suggestion, or intention.",
+        "examples": [
+          "I'd like to bring up a concern."
+        ]
       }
     ],
     "mistake": null,
@@ -34749,11 +34785,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Thank you for your understanding.",
+    "w": "thank you for your understanding",
     "senses": [
       {
-        "use": "A polite closing phrase used after explaining a delay, change, or inconvenience.",
-        "examples": []
+        "use": "A polite closing phrase used after explaining a problem or delay.",
+        "examples": [
+          "Thank you for your understanding."
+        ]
       }
     ],
     "mistake": null,
@@ -34761,11 +34799,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Could you send that over when you get a chance?",
+    "w": "when you get a chance",
     "senses": [
       {
-        "use": "A casual but polite way to request a file or document without pressuring the other person for an exact time.",
-        "examples": []
+        "use": "A polite, low-pressure way to ask someone to do something without urgency.",
+        "examples": [
+          "Could you send that over when you get a chance?"
+        ]
       }
     ],
     "mistake": null,
@@ -34773,11 +34813,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "I just want to make sure we're aligned.",
+    "w": "make sure",
     "senses": [
       {
-        "use": "Checks that everyone has the same understanding before moving forward — common before starting a task.",
-        "examples": []
+        "use": "To confirm or check that something is true, done, or correct.",
+        "examples": [
+          "I just want to make sure we're aligned."
+        ]
       }
     ],
     "mistake": null,
@@ -34785,11 +34827,13 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Let's circle back to this later.",
+    "w": "circle back",
     "senses": [
       {
-        "use": "Used to postpone a topic to discuss again later, usually to keep a meeting on schedule.",
-        "examples": []
+        "use": "To return to a topic or task later, often after other things are handled first.",
+        "examples": [
+          "Let's circle back to this later."
+        ]
       }
     ],
     "mistake": null,
@@ -34797,18 +34841,300 @@ const sentencesData = [
     "ant": []
   },
   {
-    "w": "Feel free to reach out anytime.",
+    "w": "feel free to",
     "senses": [
       {
-        "use": "An open, friendly invitation for someone to contact you again in the future.",
-        "examples": []
+        "use": "Used to give someone permission or encouragement to do something, without hesitation.",
+        "examples": [
+          "Feel free to reach out anytime."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "as soon as possible",
+    "senses": [
+      {
+        "use": "Without delay, at the earliest opportunity — often shortened to ASAP.",
+        "examples": [
+          "Please send the revised drawing as soon as possible."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "on the other hand",
+    "senses": [
+      {
+        "use": "Used to introduce a contrasting point or an alternative view.",
+        "examples": [
+          "The first design is cheaper; on the other hand, it's less durable."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "in terms of",
+    "senses": [
+      {
+        "use": "Used to specify which aspect or category you're referring to.",
+        "examples": [
+          "In terms of cost, this option is the better choice."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "as a result",
+    "senses": [
+      {
+        "use": "Used to introduce a consequence or outcome of something just mentioned.",
+        "examples": [
+          "The shipment was delayed, and as a result, we missed the deadline."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "keep in mind",
+    "senses": [
+      {
+        "use": "To remember or consider something while making a decision.",
+        "examples": [
+          "Keep in mind that the site closes at 5 PM."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "at the end of the day",
+    "senses": [
+      {
+        "use": "Used to introduce the most important point after considering everything.",
+        "examples": [
+          "At the end of the day, safety comes first."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "up to date",
+    "senses": [
+      {
+        "use": "Current, containing the most recent information.",
+        "examples": [
+          "Make sure the report is up to date before the meeting."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "out of the question",
+    "senses": [
+      {
+        "use": "Completely impossible or not allowed to be considered.",
+        "examples": [
+          "Extending the deadline again is out of the question."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "as far as I know",
+    "senses": [
+      {
+        "use": "Used to share information while admitting you might not know everything.",
+        "examples": [
+          "As far as I know, the parts have already shipped."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "with regard to",
+    "senses": [
+      {
+        "use": "A formal way to introduce the subject you're about to discuss.",
+        "examples": [
+          "With regard to your last email, I have a few questions."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "in the meantime",
+    "senses": [
+      {
+        "use": "During the period between now and when something else happens.",
+        "examples": [
+          "In the meantime, please continue with the current plan."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "for the time being",
+    "senses": [
+      {
+        "use": "For now, temporarily, until something changes.",
+        "examples": [
+          "We'll use the backup generator for the time being."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "on a regular basis",
+    "senses": [
+      {
+        "use": "Happening repeatedly, following a set pattern or schedule.",
+        "examples": [
+          "The equipment is inspected on a regular basis."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "to be honest",
+    "senses": [
+      {
+        "use": "Used to introduce a frank or direct opinion, sometimes a difficult one.",
+        "examples": [
+          "To be honest, I don't think we'll finish by Friday."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "sooner rather than later",
+    "senses": [
+      {
+        "use": "Used to encourage doing something soon instead of delaying it.",
+        "examples": [
+          "We should fix this sooner rather than later."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "hands-on experience",
+    "senses": [
+      {
+        "use": "Practical, direct experience gained by actually doing a task, not just studying it.",
+        "examples": [
+          "She has hands-on experience with this kind of equipment."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "off the top of my head",
+    "senses": [
+      {
+        "use": "Said from memory, without checking any notes or references.",
+        "examples": [
+          "Off the top of my head, I'd say the cost is around $500."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "rule of thumb",
+    "senses": [
+      {
+        "use": "A general, practical guideline based on experience rather than exact calculation.",
+        "examples": [
+          "As a rule of thumb, double-check any measurement before cutting."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "step by step",
+    "senses": [
+      {
+        "use": "One stage at a time, in a clear and organized sequence.",
+        "examples": [
+          "Let's go through the installation step by step."
+        ]
+      }
+    ],
+    "mistake": null,
+    "syn": [],
+    "ant": []
+  },
+  {
+    "w": "on hold",
+    "senses": [
+      {
+        "use": "Temporarily paused or delayed.",
+        "examples": [
+          "The project is on hold until we get approval."
+        ]
       }
     ],
     "mistake": null,
     "syn": [],
     "ant": []
   }
-];
+];;
 
 /* =========================================================
    DATA — LANGUAGE BANK: SENTENCE PATTERNS
@@ -36105,7 +36431,7 @@ setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
-setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Useful Sentence", "sentences");
+setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Word Chunk", "sentences");
 setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern", "patterns");
 setupRuleModule(technicalData, "technicalSelect", "technicalEntry", "Technical Term", "technical");
 setupDistinctionsModule();
@@ -37226,7 +37552,7 @@ function indexLanguageBankCategory(data, cat, categoryKey, selectId, entryId, ta
 }
 indexLanguageBankCategory(phrasalData, "Phrasal verb", "phrasal", "phrasalSelect", "phrasalEntry", "Phrasal Verb");
 indexLanguageBankCategory(idiomsData, "Idiom / Expression", "idioms", "idiomsSelect", "idiomsEntry", "Idiom / Expression");
-indexLanguageBankCategory(sentencesData, "Useful Sentence", "sentences", "sentencesSelect", "sentencesEntry", "Useful Sentence");
+indexLanguageBankCategory(sentencesData, "Word Chunk", "sentences", "sentencesSelect", "sentencesEntry", "Word Chunk");
 indexLanguageBankCategory(patternsData, "Sentence Pattern", "patterns", "patternsSelect", "patternsEntry", "Sentence Pattern");
 indexLanguageBankCategory(technicalData, "Technical Term", "technical", "technicalSelect", "technicalEntry", "Technical Term");
 indexDistinctionsData(distinctionsData);
@@ -37263,7 +37589,7 @@ vocabData.forEach(item=>{
 // since they're really pointers to another word's own entry.
 function vocabCategoryPriority(cat){
   if(cat === "Vocabulary Bank") return 0;
-  if(cat === "Phrasal verb" || cat === "Idiom / Expression" || cat === "Useful Sentence" || cat === "Sentence Pattern" || cat === "Technical Term") return 1;
+  if(cat === "Phrasal verb" || cat === "Idiom / Expression" || cat === "Word Chunk" || cat === "Sentence Pattern" || cat === "Technical Term") return 1;
   if(cat === DISTINCTIONS_TAG_LABEL) return 2;
   if(cat === "Word family") return 3;
   if(cat === "Verb (regular)" || cat === "Verb (irregular)") return 4;
@@ -37851,7 +38177,7 @@ const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).
 
 /* =========================================================
    LANGUAGE BANK — one tab, four categories (Phrasal Verbs, Idioms &
-   Expressions, Useful Sentences, Sentence Patterns) sharing the same
+   Expressions, Word Chunks, Sentence Patterns) sharing the same
    "manually trigger, automatically populate" idea as addVocabEntry()
    above. Each category keeps its own data array/select/entry/IndexedDB
    store (same pattern every other module in this file uses), but the
@@ -37879,7 +38205,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // requireExplanation: true (Phrasal Verbs, Idioms & Expressions) means
 // a manually-typed meaning is REQUIRED before the entry can be saved
 // when no online source has it — a dictionary-style entry with no
-// meaning at all isn't useful. false (Useful Sentences, Sentence
+// meaning at all isn't useful. false (Word Chunks, Sentence
 // Patterns) means the manual note is optional, since the sentence/
 // pattern text itself is already self-explanatory content — those
 // categories also offer an "Add without notes" skip button the strict
@@ -37911,8 +38237,8 @@ const LANGUAGE_BANK_CONFIG = {
     manualSaveBtnId: "idiomsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "idiomsManualCancelBtn"
   },
   sentences: {
-    data: sentencesData, selectId: "sentencesSelect", entryId: "sentencesEntry", tagLabel: "Useful Sentence",
-    inputId: "sentencesAddInput", btnId: "sentencesAddBtn", statusId: "sentencesAddStatus", inputNoun: "a useful sentence",
+    data: sentencesData, selectId: "sentencesSelect", entryId: "sentencesEntry", tagLabel: "Word Chunk",
+    inputId: "sentencesAddInput", btnId: "sentencesAddBtn", statusId: "sentencesAddStatus", inputNoun: "a word chunk",
     putFn: function(entry, opts){ return VocabCache.putSentence(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllSentences(opts); },
     deleteFn: function(word, opts){ return VocabCache.deleteSentence(word, opts); },
@@ -39049,7 +39375,7 @@ function applyRemoteLanguageBank(remote){
 
 // The single place that reconciles local personal corrections (and, as
 // of the Language Bank's cross-device sync, locally-added phrasal
-// verbs/idioms/useful sentences/sentence patterns) with the shared
+// verbs/idioms/word chunks/sentence patterns) with the shared
 // Firestore doc — called on every connect, sign-in, sign-out, and
 // page-load reconnect, so this one function is the only place that
 // needs to get "what happens when the doc doesn't exist yet" right.
@@ -40740,7 +41066,7 @@ renderRuleEntry(qaData.find(x=>x.w===document.getElementById("qaSelect").value),
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
-renderRuleEntry(sentencesData.find(x=>x.w===document.getElementById("sentencesSelect").value), document.getElementById("sentencesEntry"), "Useful Sentence", "sentences");
+renderRuleEntry(sentencesData.find(x=>x.w===document.getElementById("sentencesSelect").value), document.getElementById("sentencesEntry"), "Word Chunk", "sentences");
 renderRuleEntry(patternsData.find(x=>x.w===document.getElementById("patternsSelect").value), document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
 renderRuleEntry(technicalData.find(x=>x.w===document.getElementById("technicalSelect").value), document.getElementById("technicalEntry"), "Technical Term", "technical");
 renderDistinctionEntry(distinctionsData.find(x=>x.w===document.getElementById("distinctionsSelect").value), document.getElementById("distinctionsEntry"));

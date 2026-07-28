@@ -1,6 +1,6 @@
 // Integration tests for the Language Bank tab — the renamed Phrasal
 // tab, now holding 5 categories (Phrasal Verbs, Idioms & Expressions,
-// Useful Sentences, Sentence Patterns, Technical/Engineering Terms)
+// Word Chunks, Sentence Patterns, Technical/Engineering Terms)
 // behind a segmented category switcher. See test/phrasal-add.test.js
 // for Phrasal-Verbs-specific coverage (unchanged behavior/IDs); this
 // file covers the category switcher itself and the other categories,
@@ -85,9 +85,9 @@ describe.each([
     sample: { w: "test the waters", senses: [{ use: "(idiom) Try something cautiously before fully committing.", examples: ["We tested the waters with a small pilot first."] }], syn: ["try it out"], ant: [], mistake: null, tagalog: null, source: "online" }
   },
   {
-    key: "sentences", label: "Useful Sentences", inputId: "sentencesAddInput", btnId: "sentencesAddBtn",
-    statusId: "sentencesAddStatus", dataKey: "sentencesData", entryId: "sentencesEntry", tagLabel: "Useful Sentence",
-    builtIn: "I'll get back to you on that.", requireExplanation: false, hasManualExample: false, hasSkip: true,
+    key: "sentences", label: "Word Chunks", inputId: "sentencesAddInput", btnId: "sentencesAddBtn",
+    statusId: "sentencesAddStatus", dataKey: "sentencesData", entryId: "sentencesEntry", tagLabel: "Word Chunk",
+    builtIn: "get back to you", requireExplanation: false, hasManualExample: false, hasSkip: true,
     manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord", manualUseId: "sentencesManualUse",
     manualExampleId: null, manualSaveBtnId: "sentencesManualSaveBtn",
     manualCancelBtnId: "sentencesManualCancelBtn", manualSkipBtnId: "sentencesManualSkipBtn",
