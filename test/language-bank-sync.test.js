@@ -1,5 +1,5 @@
 // Integration tests for Language Bank cross-device sync (phrasal verbs,
-// idioms/expressions, useful sentences, sentence patterns) — the
+// idioms/expressions, word chunks, sentence patterns) — the
 // counterpart to test/sync-owner-auth.test.js, which covers the same
 // syncedLogs/{code} Firestore doc's `entries` (correction log) field.
 //

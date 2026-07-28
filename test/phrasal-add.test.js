@@ -243,7 +243,7 @@ describe("addPhrasalEntry deduplication and richer-data updates", () => {
 // Regression coverage for: "the lookup can't find most idioms/sentences,
 // don't leave the entry unusable." Phrasal Verbs requires an actual
 // meaning before saving (it's a dictionary-style category), unlike
-// Useful Sentences/Sentence Patterns which allow an "Add without notes"
+// Word Chunks/Sentence Patterns which allow an "Add without notes"
 // skip — see test/language-bank.test.js for that side of the split.
 describe("manual completion when no online source has the phrase", () => {
   it("shows the manual-entry box instead of refusing outright", async () => {
