@@ -99,7 +99,7 @@ describe("Vocabulary tab — Sort By", () => {
 
     document.getElementById("vocabSelect").value = "edited-first-word";
     hooks.openVocabEditForm(hooks.vocabData.find((v) => v.w === "edited-first-word"), document.getElementById("vocabEntry"));
-    document.getElementById("vocabEditUse").value = "(noun) One, edited.";
+    document.querySelector("#vocabEntry .vocab-edit-meaning-use").value = "One, edited.";
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
 
@@ -143,13 +143,227 @@ describe("Vocabulary tab — Edit maintains timestamps", () => {
     const original = hooks.vocabData.find((v) => v.w === "timestamped-word");
 
     hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
-    document.getElementById("vocabEditUse").value = "(noun) One, edited.";
+    document.querySelector("#vocabEntry .vocab-edit-meaning-use").value = "One, edited.";
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
 
     const updated = hooks.vocabData.find((v) => v.w === "timestamped-word");
     expect(updated.addedAt).toBe(1000);
     expect(updated.modifiedAt).toBeGreaterThan(1000);
+  });
+});
+
+// A multi-part-of-speech, multi-meaning online lookup result (e.g.
+// "most": noun x2, adverb x2, pronoun x1) — the exact shape of entry
+// whose edit used to collapse down to a single definition, discarding
+// everything else the moment the Owner opened Edit and clicked Save.
+const MULTI_POS_ENTRY = {
+  w: "most-test",
+  senses: [
+    { use: "(noun) The greatest quantity or amount.", examples: ["Most of the work is done."] },
+    { use: "(noun) The majority of people.", examples: ["Most agree with the plan."] },
+    { use: "(adverb) To the greatest extent.", examples: ["This is the most efficient method."] },
+    { use: "(adverb) Very.", examples: ["That's a most unusual result."] },
+    { use: "(pronoun) The greatest number or part.", examples: ["Most of them left early."] }
+  ],
+  syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+};
+
+describe("Vocabulary editor — preserves every part of speech and every meaning (not just the first)", () => {
+  it("opening and saving a multi-POS entry unchanged keeps every part of speech and every meaning intact", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "most-test");
+
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+    // Sanity check the editor actually rendered one box per part of
+    // speech and one row per meaning, matching the read-only display.
+    expect(document.querySelectorAll("#vocabEntry .vocab-edit-pos-group").length).toBe(3); // noun, adverb, pronoun
+    expect(document.querySelectorAll("#vocabEntry .vocab-edit-meaning").length).toBe(5);
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "most-test");
+    expect(updated.senses).toHaveLength(5);
+    expect(updated.senses.map((s) => s.use)).toEqual(MULTI_POS_ENTRY.senses.map((s) => s.use));
+    expect(updated.senses.map((s) => s.examples)).toEqual(MULTI_POS_ENTRY.senses.map((s) => s.examples));
+  });
+
+  it("'+ Add another meaning to this part of speech' adds a new meaning under the SAME part of speech on save", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "addmeaning-test", senses: [{ use: "(noun) The first sense.", examples: ["Example one."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "addmeaning-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    document.querySelector("#vocabEntry .vocab-edit-add-meaning-btn").click();
+    const meaningRows = document.querySelectorAll("#vocabEntry .vocab-edit-meaning");
+    expect(meaningRows).toHaveLength(2);
+    meaningRows[1].querySelector(".vocab-edit-meaning-use").value = "A second sense.";
+    meaningRows[1].querySelector(".vocab-edit-meaning-example").value = "Example two.";
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "addmeaning-test");
+    expect(updated.senses).toHaveLength(2);
+    expect(updated.senses[0].use).toBe("(noun) The first sense.");
+    expect(updated.senses[1].use).toBe("(noun) A second sense.");
+    expect(updated.senses[1].examples).toEqual(["Example two."]);
+  });
+
+  it("'+ Add another part of speech' adds a brand-new POS group that's saved alongside the existing ones", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "addpos-test" }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "addpos-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    document.getElementById("vocabEditAddPosBtn").click();
+    const groups = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group");
+    expect(groups).toHaveLength(4);
+    const newGroup = groups[groups.length - 1];
+    newGroup.querySelector(".vocab-edit-pos-input").value = "interjection";
+    newGroup.querySelector(".vocab-edit-meaning-use").value = "Used to express surprise.";
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "addpos-test");
+    expect(updated.senses).toHaveLength(6);
+    expect(updated.senses[5].use).toBe("(interjection) Used to express surprise.");
+  });
+
+  it("removing one meaning removes only that meaning, leaving its part of speech's other meanings intact", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removemeaning-test" }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "removemeaning-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    // Remove the SECOND noun meaning ("The majority of people.") — the
+    // first noun group's second meaning row.
+    const nounGroup = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")[0];
+    const nounMeanings = nounGroup.querySelectorAll(".vocab-edit-meaning");
+    expect(nounMeanings).toHaveLength(2);
+    nounMeanings[1].querySelector(".vocab-edit-remove-meaning-btn").click();
+    expect(nounGroup.querySelectorAll(".vocab-edit-meaning")).toHaveLength(1);
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "removemeaning-test");
+    expect(updated.senses).toHaveLength(4);
+    expect(updated.senses.map((s) => s.use)).not.toContain("(noun) The majority of people.");
+    expect(updated.senses.map((s) => s.use)).toContain("(noun) The greatest quantity or amount.");
+    expect(updated.senses.map((s) => s.use)).toContain("(adverb) To the greatest extent.");
+  });
+
+  it("removing a part of speech's only meaning removes the whole part-of-speech group", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removepos-test" }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "removepos-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    // The pronoun group has exactly one meaning — removing it should
+    // drop the whole group, not leave an empty part-of-speech box.
+    const groups = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group");
+    const pronounGroup = groups[groups.length - 1];
+    expect(pronounGroup.querySelector(".vocab-edit-pos-input").value).toBe("pronoun");
+    pronounGroup.querySelector(".vocab-edit-remove-meaning-btn").click();
+    expect(document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")).toHaveLength(2);
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "removepos-test");
+    expect(updated.senses).toHaveLength(4);
+    expect(updated.senses.some((s) => s.use.startsWith("(pronoun)"))).toBe(false);
+  });
+
+  it("'🗑 Remove this part of speech' removes every meaning under it at once", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removewholepos-test" }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "removewholepos-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const nounGroup = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")[0];
+    nounGroup.querySelector(".vocab-edit-remove-group-btn").click();
+    expect(document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")).toHaveLength(2);
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "removewholepos-test");
+    expect(updated.senses).toHaveLength(3);
+    expect(updated.senses.some((s) => s.use.startsWith("(noun)"))).toBe(false);
+  });
+
+  it("an owner-entered usage note is saved and shown under its meaning", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "usagenote-test", senses: [{ use: "(adjective) Formal in register.", examples: ["A stately, formal tone."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "usagenote-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+    document.querySelector("#vocabEntry .vocab-edit-meaning-notes").value = "Chiefly used in formal writing.";
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "usagenote-test");
+    expect(updated.senses[0].notes).toBe("Chiefly used in formal writing.");
+
+    hooks.renderRuleEntry(updated, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".sense-notes").textContent).toContain("Chiefly used in formal writing.");
+  });
+
+  it("a word origin entered in the editor is saved and shown in its own section", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "origin-test", senses: [{ use: "(noun) A test word.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "origin-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+    document.getElementById("vocabEditOrigin").value = "From Middle English, testen.";
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "origin-test");
+    expect(updated.origin).toBe("From Middle English, testen.");
+
+    hooks.renderRuleEntry(updated, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+    const entryText = document.getElementById("vocabEntry").textContent;
+    expect(entryText).toContain("Word origin");
+    expect(entryText).toContain("From Middle English, testen.");
+  });
+
+  it("a blank meaning row (added but never filled in) is silently skipped, not saved as an empty definition", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "blankrow-test", senses: [{ use: "(noun) One real sense.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "blankrow-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+    document.querySelector("#vocabEntry .vocab-edit-add-meaning-btn").click(); // left blank on purpose
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "blankrow-test");
+    expect(updated.senses).toHaveLength(1);
   });
 });
 

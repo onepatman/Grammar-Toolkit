@@ -121,12 +121,16 @@ describe("Auto Filipino/Tagalog enrichment (existing local word missing a transl
 
     expect(calledWith).toBe("press-enrich");
     expect(item.tagalog).toBe("pindutin; idiin");
-    const box = document.getElementById("vocabEntry").querySelector(".tagalog-box");
-    expect(box.textContent).toBe("pindutin; idiin");
-    expect(box.classList.contains("muted")).toBe(false);
+    expect(item.tagalogCandidates).toEqual(["pindutin", "idiin"]);
+    // More than one real candidate — shown as its own line per
+    // candidate, not squashed into a single "; "-joined string.
+    const boxes = document.getElementById("vocabEntry").querySelectorAll(".tagalog-box");
+    expect(Array.from(boxes).map((b) => b.textContent)).toEqual(["pindutin", "idiin"]);
+    expect(boxes[0].classList.contains("muted")).toBe(false);
 
     const stored = await VocabCache.get("press-enrich", { indexedDB: idb });
     expect(stored.tagalog).toBe("pindutin; idiin");
+    expect(stored.tagalogCandidates).toEqual(["pindutin", "idiin"]);
   });
 
   it("never re-fetches or overwrites a word that already has a verified translation", async () => {

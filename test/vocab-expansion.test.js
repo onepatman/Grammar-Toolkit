@@ -82,7 +82,7 @@ describe("Vocabulary Bank Edit/Delete (owner-gated)", () => {
     document.getElementById("vocabSelect").dispatchEvent(new window.Event("change"));
 
     document.getElementById("vocabEntry").querySelector(".lb-edit-btn").click();
-    document.getElementById("vocabEditUse").value = "(noun) An updated definition.";
+    document.querySelector("#vocabEntry .vocab-edit-meaning-use").value = "An updated definition.";
     document.getElementById("vocabEditSyn").value = "riddle, mystery";
     document.getElementById("vocabEditSaveBtn").click();
     await wait(50);
