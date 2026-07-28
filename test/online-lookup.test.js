@@ -137,6 +137,43 @@ describe("normalizeDictionaryResponse", () => {
     const result = OnlineLookup.normalizeDictionaryResponse(response, "quick");
     expect(result.syn).toEqual(["fast", "rapid", "swift"]);
   });
+
+  it("keeps up to MAX_SYN_ANT (10) synonyms/antonyms, never fabricating more than the source actually returned", () => {
+    const manySyn = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
+    const response = [{
+      word: "many",
+      meanings: [{ partOfSpeech: "adjective", definitions: [{ definition: "def 1", synonyms: manySyn }] }]
+    }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "many");
+    expect(result.syn).toHaveLength(OnlineLookup.MAX_SYN_ANT);
+    expect(result.syn).toEqual(manySyn.slice(0, OnlineLookup.MAX_SYN_ANT));
+  });
+
+  it("captures a word-origin string when the API provides one", () => {
+    const response = [{ ...SAMPLE_API_RESPONSE[0], origin: "Old English, resilient" }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "resilient");
+    expect(result.origin).toBe("Old English, resilient");
+  });
+
+  it("leaves origin null (never fabricated) when the API has none", () => {
+    const result = OnlineLookup.normalizeDictionaryResponse(SAMPLE_API_RESPONSE, "resilient");
+    expect(result.origin).toBeNull();
+  });
+
+  it("captures more than 2 definitions per part of speech (up to DEFINITIONS_PER_MEANING), matching the '2-5 meanings per part of speech' editorial target", () => {
+    const response = [{
+      word: "many-defs",
+      meanings: [{
+        partOfSpeech: "noun",
+        definitions: [
+          { definition: "def 1" }, { definition: "def 2" }, { definition: "def 3" }, { definition: "def 4" }, { definition: "def 5" }, { definition: "def 6 (should be dropped)" }
+        ]
+      }]
+    }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "many-defs");
+    expect(result.senses).toHaveLength(5);
+    expect(result.senses.map((s) => s.use)).not.toContain("(noun) def 6 (should be dropped)");
+  });
 });
 
 describe("generateFallbackExample", () => {

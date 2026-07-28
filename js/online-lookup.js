@@ -31,8 +31,16 @@
   var DICTIONARY_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en/";
   var WIKTIONARY_API_BASE = "https://en.wiktionary.org/api/rest_v1/page/definition/";
   var WIKTIONARY_SEARCH_API = "https://en.wiktionary.org/w/api.php";
-  var MAX_SENSES = 6;
-  var DEFINITIONS_PER_MEANING = 2;
+  // A combined ceiling across every part of speech (noun/verb/adjective/
+  // etc. all count against this together) — high enough that no
+  // realistic word gets truncated (5 meanings x 8 possible parts of
+  // speech), while still bounding worst-case payload size.
+  var MAX_SENSES = 40;
+  // Per part-of-speech meaning cap, matching this app's "2-5 meanings
+  // per part of speech" editorial target — was 2, which silently
+  // dropped a word's 3rd+ meaning under a given part of speech before
+  // it ever reached the screen or the editor.
+  var DEFINITIONS_PER_MEANING = 5;
 
   function buildRequestUrl(word) {
     return DICTIONARY_API_BASE + encodeURIComponent(word);
@@ -220,6 +228,24 @@
     return null;
   }
 
+  // Some Free Dictionary API entries include a word-origin/etymology
+  // string; most don't. Returns the first non-empty one found, or null
+  // — never fabricated, same "only show what's genuinely there" rule as
+  // extractPhonetic above.
+  function extractOrigin(json) {
+    if (!Array.isArray(json) || json.length === 0) return null;
+    for (var i = 0; i < json.length; i++) {
+      if (json[i] && json[i].origin) return json[i].origin;
+    }
+    return null;
+  }
+
+  // How many synonyms/antonyms to keep once deduplicated — the app
+  // shows these as clickable chips, so this is a display ceiling, not a
+  // claim that the source always has this many; words with fewer just
+  // show fewer.
+  var MAX_SYN_ANT = 10;
+
   // Turns the Free Dictionary API's response shape into the same
   // {w, senses:[{use, examples}], syn, ant} shape renderRuleEntry()
   // already knows how to draw — so the result is indistinguishable
@@ -262,9 +288,10 @@
     return {
       w: (json[0].word || word),
       phonetic: extractPhonetic(json),
+      origin: extractOrigin(json),
       senses: senses.slice(0, MAX_SENSES),
-      syn: dedupe(syn).slice(0, 8),
-      ant: dedupe(ant).slice(0, 8),
+      syn: dedupe(syn).slice(0, MAX_SYN_ANT),
+      ant: dedupe(ant).slice(0, MAX_SYN_ANT),
       mistake: null,
       tagalog: null,
       source: "online",
@@ -446,6 +473,8 @@
     buildWiktionarySearchUrl: buildWiktionarySearchUrl,
     extractWiktionarySearchTitle: extractWiktionarySearchTitle,
     extractPhonetic: extractPhonetic,
+    extractOrigin: extractOrigin,
+    MAX_SYN_ANT: MAX_SYN_ANT,
     normalizeQueryText: normalizeQueryText,
     normalizeDictionaryResponse: normalizeDictionaryResponse,
     normalizeWiktionaryResponse: normalizeWiktionaryResponse,

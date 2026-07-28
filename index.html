@@ -122,6 +122,37 @@
   .update-banner.show{ display:block; }
   @keyframes slideDown{ from{ transform:translateY(-100%); } to{ transform:translateY(0); } }
 
+  /* "A New Version is Available" modal — shown when checkForUpdate()
+     finds a GitHub Release newer than APP_VERSION. Uses the same
+     card/button vocabulary (--card, --rule, .add-btn) as the rest of
+     the app rather than inventing a new visual language for it. */
+  .app-update-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .app-update-modal{
+    background:var(--card); border:1.5px solid var(--rule); border-radius:var(--radius);
+    padding:22px 20px; max-width:420px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  .app-update-title{
+    font-family:'Source Serif 4', serif; font-weight:700; font-size:19px;
+    color:var(--ink); margin-bottom:6px;
+  }
+  .app-update-version{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--teal-deep);
+    font-weight:600; margin-bottom:14px;
+  }
+  .app-update-notes-label{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--ink-soft); font-weight:700; margin-bottom:6px;
+  }
+  .app-update-notes-list{
+    margin:0 0 18px; padding-left:20px; font-size:13.5px; line-height:1.6; color:var(--ink);
+  }
+  .app-update-notes-list li{ margin-bottom:4px; }
+  .app-update-actions{ display:flex; gap:10px; }
+  .app-update-actions .add-btn{ width:auto; flex:1; }
+
   /* Header — centered, balanced left/right, logo aligned with the title */
   .masthead{
     background:var(--brand-deep);
@@ -733,6 +764,39 @@
     content:""; flex:1; border-top:1px dashed var(--rule);
   }
 
+  /* Vocabulary editor — one box per part-of-speech group, each holding
+     an editable list of meanings. Mirrors the read-only .pos-group/
+     .pos-heading display (renderRuleEntry) so what you see while
+     editing matches what you'll see after saving — the whole point of
+     this UI is that nothing here gets silently dropped on save. */
+  .vocab-edit-pos-group{
+    margin:14px 0; padding:12px 14px; background:var(--card);
+    border:1.5px dashed var(--rule); border-radius:var(--radius);
+  }
+  .vocab-edit-pos-header{
+    display:flex; align-items:center; gap:8px; margin-bottom:8px;
+  }
+  .vocab-edit-pos-header input{ flex:1; margin-bottom:0 !important; }
+  .vocab-edit-meaning{
+    padding:10px 0; border-top:1px dashed var(--rule);
+  }
+  .vocab-edit-meaning:first-child{ border-top:none; padding-top:0; }
+  .vocab-edit-meaning-label{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin-bottom:4px;
+  }
+  .vocab-edit-small-btn{
+    width:auto; padding:5px 10px; font-size:12px; border-radius:6px;
+    background:var(--paper); color:var(--brick); border:1.5px solid var(--brick-border);
+    cursor:pointer; font-family:'IBM Plex Sans', sans-serif; white-space:nowrap;
+  }
+  .vocab-edit-add-meaning-btn{ margin-top:4px; }
+
+  .sense-notes{
+    font-size:12.5px; color:var(--ink-soft); font-style:italic;
+    padding-left:10px; border-left:2px solid var(--rule); margin-top:4px;
+  }
+
   .quick-add-box{
     margin-top:16px; padding:14px 16px; background:var(--card);
     border:1.5px dashed var(--rule); border-radius:var(--radius);
@@ -933,6 +997,18 @@
 </script>
 
 <div id="updateBanner" class="update-banner"></div>
+<div id="appUpdateModal" class="app-update-overlay" style="display:none;">
+  <div class="app-update-modal">
+    <div class="app-update-title">A New Version is Available</div>
+    <div class="app-update-version">Version: <span id="appUpdateVersionText"></span></div>
+    <div class="app-update-notes-label">Release Notes</div>
+    <ul id="appUpdateNotesList" class="app-update-notes-list"></ul>
+    <div class="app-update-actions">
+      <button id="appUpdateNowBtn" class="add-btn">Update Now</button>
+      <button id="appUpdateLaterBtn" class="add-btn secondary">Later</button>
+    </div>
+  </div>
+</div>
 <div class="masthead">
   <div class="eyebrow">Field Reference No. 001 — Engineering English Database</div>
   <div class="masthead-brand">
@@ -1512,6 +1588,7 @@
 <script src="js/spaced-repetition.js"></script>
 <script src="js/owner-mode.js"></script>
 <script src="js/sync-auth.js"></script>
+<script src="js/update-check.js"></script>
 <script>
 /* =========================================================
    DICTIONARY CROSS-LINKING — click a synonym/antonym to jump
@@ -35791,11 +35868,18 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
           const senseTagalogHtml = s.tagalog
             ? `<div class="sense-tagalog"><span class="lbl">Filipino/Tagalog:</span> ${s.tagalog}</div>`
             : "";
+          // Owner-entered usage note (see the Vocabulary editor) — never
+          // auto-filled from an online lookup, since neither dictionary
+          // source used here exposes a structured usage-notes field.
+          const senseNotesHtml = s.notes
+            ? `<div class="sense-notes">Usage note: ${s.notes}</div>`
+            : "";
           return `
           <div class="sense"><span class="num">${i+1}</span><div class="body">
             <div class="use">${s.rest}</div>
             ${senseTagalogHtml}
             ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
+            ${senseNotesHtml}
             ${actionsHtml}
           </div></div>`;
         }).join("");
@@ -35841,11 +35925,20 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   const tagalogLowConfidenceHtml = (isVocabEntry && item.tagalog && item.__tagalogLowConfidence)
     ? `<div class="caution-note">This Filipino translation is a possible match, not a confirmed one — please double-check it.</div>`
     : "";
+  // When the lookup returned more than one real Tagalog candidate (see
+  // tagalogCandidates, populated by ensureVocabTagalogTranslation), show
+  // each as its own line rather than the single "; "-joined string —
+  // still every one of them a genuine MyMemory result, never invented.
+  // Falls back to the flat `tagalog` text for entries that predate
+  // tagalogCandidates or were saved with a manually-typed value.
+  const tagalogListHtml = (isVocabEntry && Array.isArray(item.tagalogCandidates) && item.tagalogCandidates.length > 1)
+    ? item.tagalogCandidates.map(c=>`<div class="tagalog-box">${c}</div>`).join("")
+    : `<div class="tagalog-box">${item.tagalog}</div>`;
   const tagalogHtml = isVocabEntry
     ? (item.tagalog
         ? `
     <div class="section-label">Filipino/Tagalog equivalent</div>
-    <div class="tagalog-box">${item.tagalog}</div>
+    ${tagalogListHtml}
     ${tagalogLowConfidenceHtml}
   `
         : (item.__tagalogNotFound ? `
@@ -35856,6 +35949,13 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     <div class="section-label">Tagalog equivalent</div>
     <div class="tagalog-box">${item.tagalog}</div>
   ` : "");
+  // Word origin — shown only when the Free Dictionary API actually
+  // provided one (see js/online-lookup.js's `origin` extraction); never
+  // fabricated, and simply absent for the many entries no source has an
+  // origin for.
+  const originHtml = (isVocabEntry && item.origin)
+    ? `<div class="section-label">Word origin</div><p class="note" style="margin:0 0 4px;">${item.origin}</p>`
+    : "";
   // A plain, neutral attribution line for a definition sourced from a
   // live online lookup — "online" is a SOURCE, not an accuracy verdict,
   // so this is never styled as a warning. Absent for built-in
@@ -35906,6 +36006,7 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     ${entryActionsHtml}
     ${matchConfidenceHtml}
     ${ruleUsageHtml}
+    ${originHtml}
     ${mistakeHtml}
     ${tagalogHtml}
     ${wordsHtml}
@@ -37338,6 +37439,12 @@ async function ensureVocabTagalogTranslation(item, entryEl, tagLabel, categoryKe
 
   if(result && result.text){
     item.tagalog = result.text;
+    // The individual candidates behind that joined `text` — kept as a
+    // real (persisted) field so renderRuleEntry can show each as its
+    // own line when there's more than one, rather than only ever the
+    // single "; "-joined string. Every entry here is still a genuine
+    // MyMemory result; nothing here is invented.
+    item.tagalogCandidates = result.candidates || null;
     // Transient, same as __tagalogNotFound above — a display-only
     // caution flag for a translation that cleared MyMemory's hard
     // cutoff but wasn't a solid match (see js/tagalog-lookup.js's
@@ -37391,35 +37498,182 @@ function importVocabPack(rawEntries){
    edit/delete handlers special-case categoryKey==="vocab" instead of
    routing through the Language Bank functions for it.
 ========================================================= */
-function openVocabEditForm(item, entryEl){
-  const currentUse = (item.senses[0] && item.senses[0].use) || "";
-  const currentExample = (item.senses[0] && item.senses[0].examples && item.senses[0].examples[0]) || "";
+// One editable "meaning" row: definition text, example, and an
+// optional owner-entered usage note. Built with document.createElement
+// (never innerHTML string interpolation) specifically so a word or
+// definition containing a quote can't break out of an HTML attribute —
+// same defensive pattern this app already uses everywhere else a value
+// is set via `.value =` rather than templated into the markup.
+function createVocabEditMeaningRow(meaning){
+  const m = meaning || {};
+  const row = document.createElement("div");
+  row.className = "vocab-edit-meaning";
 
+  const label = document.createElement("div");
+  label.className = "vocab-edit-meaning-label";
+  label.textContent = "Meaning";
+  row.appendChild(label);
+
+  row.appendChild(makeLabeledField("label", "Meaning / definition"));
+  const useField = document.createElement("textarea");
+  useField.className = "vocab-edit-meaning-use";
+  useField.rows = 2;
+  useField.value = m.use || "";
+  row.appendChild(useField);
+
+  row.appendChild(makeLabeledField("label", "Example sentence"));
+  const exField = document.createElement("input");
+  exField.type = "text";
+  exField.className = "vocab-edit-meaning-example";
+  exField.value = (m.examples && m.examples[0]) || "";
+  row.appendChild(exField);
+
+  row.appendChild(makeLabeledField("label", "Usage note (optional)"));
+  const notesField = document.createElement("input");
+  notesField.type = "text";
+  notesField.className = "vocab-edit-meaning-notes";
+  notesField.value = m.notes || "";
+  row.appendChild(notesField);
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "vocab-edit-small-btn vocab-edit-remove-meaning-btn";
+  removeBtn.textContent = "🗑 Remove this meaning";
+  row.appendChild(removeBtn);
+
+  return row;
+}
+
+function makeLabeledField(tag, text){
+  const el = document.createElement(tag);
+  el.className = "note";
+  el.style.display = "block";
+  el.style.marginBottom = "4px";
+  el.textContent = text;
+  return el;
+}
+
+// One part-of-speech box: an editable POS name plus its own list of
+// meaning rows. `group` (optional) comes from groupSensesByPos() —
+// {pos, senses:[{rest, examples, notes}]} — `rest` being the definition
+// text with the "(pos) " prefix already stripped for editing.
+function createVocabEditPosGroup(group){
+  const g = group || {pos: "", senses: []};
+  const box = document.createElement("div");
+  box.className = "vocab-edit-pos-group";
+
+  const header = document.createElement("div");
+  header.className = "vocab-edit-pos-header";
+  const posInput = document.createElement("input");
+  posInput.type = "text";
+  posInput.className = "vocab-edit-pos-input";
+  posInput.placeholder = "Part of speech (e.g. noun) — optional";
+  posInput.value = g.pos || "";
+  header.appendChild(posInput);
+  const removeGroupBtn = document.createElement("button");
+  removeGroupBtn.type = "button";
+  removeGroupBtn.className = "vocab-edit-small-btn vocab-edit-remove-group-btn";
+  removeGroupBtn.textContent = "🗑 Remove this part of speech";
+  header.appendChild(removeGroupBtn);
+  box.appendChild(header);
+
+  const meanings = document.createElement("div");
+  meanings.className = "vocab-edit-meanings";
+  const initial = (g.senses && g.senses.length) ? g.senses : [{}];
+  initial.forEach(s=>{
+    meanings.appendChild(createVocabEditMeaningRow({use: s.rest, examples: s.examples, notes: s.notes}));
+  });
+  box.appendChild(meanings);
+
+  const addMeaningBtn = document.createElement("button");
+  addMeaningBtn.type = "button";
+  addMeaningBtn.className = "add-btn secondary vocab-edit-add-meaning-btn";
+  addMeaningBtn.textContent = "+ Add another meaning to this part of speech";
+  box.appendChild(addMeaningBtn);
+
+  renumberVocabEditMeanings(box);
+  return box;
+}
+
+function renumberVocabEditMeanings(groupEl){
+  groupEl.querySelectorAll(".vocab-edit-meaning").forEach((row, i)=>{
+    row.querySelector(".vocab-edit-meaning-label").textContent = "Meaning " + (i + 1);
+  });
+}
+
+// Single delegated listener for the whole POS-groups container — add/
+// remove buttons are created dynamically, so this avoids re-binding
+// after every add/remove (which would also risk losing focus/typed
+// text in unrelated rows on every click).
+function wireVocabEditGroupEvents(container){
+  container.addEventListener("click", (e)=>{
+    const addBtn = e.target.closest(".vocab-edit-add-meaning-btn");
+    if(addBtn){
+      const group = addBtn.closest(".vocab-edit-pos-group");
+      group.querySelector(".vocab-edit-meanings").appendChild(createVocabEditMeaningRow());
+      renumberVocabEditMeanings(group);
+      return;
+    }
+    const removeMeaningBtn = e.target.closest(".vocab-edit-remove-meaning-btn");
+    if(removeMeaningBtn){
+      const group = removeMeaningBtn.closest(".vocab-edit-pos-group");
+      const meanings = group.querySelector(".vocab-edit-meanings");
+      removeMeaningBtn.closest(".vocab-edit-meaning").remove();
+      // A part of speech with no meanings left under it has nothing to
+      // save — drop the whole group rather than leaving an empty shell.
+      if(meanings.children.length === 0) group.remove();
+      else renumberVocabEditMeanings(group);
+      return;
+    }
+    const removeGroupBtn = e.target.closest(".vocab-edit-remove-group-btn");
+    if(removeGroupBtn){
+      removeGroupBtn.closest(".vocab-edit-pos-group").remove();
+    }
+  });
+}
+
+function openVocabEditForm(item, entryEl){
   entryEl.innerHTML = `
     <div class="section-label">Editing this entry</div>
     <label class="note" style="display:block;margin-bottom:4px;">Word</label>
     <input type="text" id="vocabEditWord" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Meaning / rule &amp; usage</label>
-    <textarea id="vocabEditUse" rows="2"></textarea>
-    <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
-    <input type="text" id="vocabEditExample" autocomplete="off">
+    <div class="section-label">Definitions</div>
+    <p class="note" style="margin:-4px 0 8px;">Every part of speech and every meaning is preserved — add or remove as needed. Nothing here is silently dropped on save.</p>
+    <div id="vocabEditPosGroups"></div>
+    <button id="vocabEditAddPosBtn" type="button" class="add-btn secondary" style="margin-bottom:12px;">+ Add another part of speech</button>
     <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
     <input type="text" id="vocabEditSyn" autocomplete="off">
     <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
     <input type="text" id="vocabEditAnt" autocomplete="off">
     <label class="note" style="display:block;margin-bottom:4px;">Tagalog equivalent (optional)</label>
     <input type="text" id="vocabEditTagalog" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Word origin (optional)</label>
+    <input type="text" id="vocabEditOrigin" autocomplete="off">
     <button id="vocabEditSaveBtn" class="add-btn">Save changes</button>
     <button id="vocabEditCancelBtn" class="add-btn secondary">Cancel</button>
     <div id="vocabEditStatus" class="add-status"></div>
   `;
 
   document.getElementById("vocabEditWord").value = item.w;
-  document.getElementById("vocabEditUse").value = currentUse;
-  document.getElementById("vocabEditExample").value = currentExample;
   document.getElementById("vocabEditSyn").value = (item.syn || []).join(", ");
   document.getElementById("vocabEditAnt").value = (item.ant || []).join(", ");
   document.getElementById("vocabEditTagalog").value = item.tagalog || "";
+  document.getElementById("vocabEditOrigin").value = item.origin || "";
+
+  const groupsContainer = document.getElementById("vocabEditPosGroups");
+  const groups = groupSensesByPos(item.senses || []);
+  if(groups.length === 0){
+    groupsContainer.appendChild(createVocabEditPosGroup());
+  } else {
+    groups.forEach(g=> groupsContainer.appendChild(createVocabEditPosGroup(g)));
+  }
+  wireVocabEditGroupEvents(groupsContainer);
+
+  document.getElementById("vocabEditAddPosBtn").addEventListener("click", ()=>{
+    const newGroup = createVocabEditPosGroup();
+    groupsContainer.appendChild(newGroup);
+    newGroup.querySelector(".vocab-edit-pos-input").focus();
+  });
 
   document.getElementById("vocabEditCancelBtn").addEventListener("click", ()=>{
     renderRuleEntry(item, entryEl, "Vocabulary Bank", "vocab");
@@ -37427,7 +37681,30 @@ function openVocabEditForm(item, entryEl){
   document.getElementById("vocabEditSaveBtn").addEventListener("click", ()=>{
     saveVocabEdit(item, entryEl);
   });
-  bindEnterToClick(["vocabEditWord", "vocabEditExample", "vocabEditSyn", "vocabEditAnt", "vocabEditTagalog"], "vocabEditSaveBtn");
+  bindEnterToClick(["vocabEditWord", "vocabEditSyn", "vocabEditAnt", "vocabEditTagalog", "vocabEditOrigin"], "vocabEditSaveBtn");
+}
+
+// Walks the POS-group boxes in DOM order and reconstructs the full
+// senses[] array — every part of speech, every meaning, each with the
+// same "(pos) " prefix convention groupSensesByPos()/parseSensePos()
+// already parse for display. A meaning left blank (e.g. added then not
+// filled in) is skipped rather than saved as an empty definition.
+function collectVocabEditSenses(){
+  const senses = [];
+  document.querySelectorAll("#vocabEditPosGroups .vocab-edit-pos-group").forEach(groupEl=>{
+    const pos = groupEl.querySelector(".vocab-edit-pos-input").value.trim().toLowerCase();
+    const prefix = pos ? "(" + pos + ") " : "";
+    groupEl.querySelectorAll(".vocab-edit-meaning").forEach(row=>{
+      const useText = row.querySelector(".vocab-edit-meaning-use").value.trim();
+      if(!useText) return;
+      const exampleText = row.querySelector(".vocab-edit-meaning-example").value.trim();
+      const notesText = row.querySelector(".vocab-edit-meaning-notes").value.trim();
+      const sense = { use: prefix + useText, examples: exampleText ? [exampleText] : [] };
+      if(notesText) sense.notes = notesText;
+      senses.push(sense);
+    });
+  });
+  return senses;
 }
 
 async function saveVocabEdit(originalItem, entryEl){
@@ -37444,24 +37721,31 @@ async function saveVocabEdit(originalItem, entryEl){
     statusEl.className = "add-status error";
     return;
   }
-  const newUse = document.getElementById("vocabEditUse").value.trim();
-  const newExample = document.getElementById("vocabEditExample").value.trim();
+  const newSenses = collectVocabEditSenses();
   const newSyn = document.getElementById("vocabEditSyn").value.split(",").map(s=>s.trim()).filter(Boolean);
   const newAnt = document.getElementById("vocabEditAnt").value.split(",").map(s=>s.trim()).filter(Boolean);
   const newTagalog = document.getElementById("vocabEditTagalog").value.trim();
+  const newOrigin = document.getElementById("vocabEditOrigin").value.trim();
 
   const updatedEntry = {
     w: newWord,
-    senses: newUse ? [{ use: newUse, examples: newExample ? [newExample] : [] }] : [],
+    senses: newSenses,
     syn: newSyn,
     ant: newAnt,
     mistake: originalItem.mistake || null,
     tagalog: newTagalog || null,
+    // A manually-edited Tagalog line supersedes whatever candidate list
+    // an earlier automatic lookup produced — keeping a stale list that
+    // no longer matches the edited text would be misleading.
+    tagalogCandidates: null,
     phonetic: originalItem.phonetic || null,
+    origin: newOrigin || null,
     source: "online",
     addedAt: originalItem.addedAt || Date.now(),
     modifiedAt: Date.now()
   };
+  if(originalItem.sourceName) updatedEntry.sourceName = originalItem.sourceName;
+  if(originalItem.verified) updatedEntry.verified = originalItem.verified;
 
   // Remove the OLD entry first, same reasoning as the Language Bank's
   // edit flow — makes the collision check below correctly ignore
@@ -41352,6 +41636,83 @@ window.__TOOLKIT_TEST_HOOKS__ = {
     }
     localStorage.setItem(VERSION_KEY, TOOLKIT_VERSION);
   })();
+
+  /* "A New Version is Available" popup — checks this repo's GitHub
+     Releases on launch (see js/update-check.js) and offers to update
+     when a genuinely newer release exists. Separate from the
+     TOOLKIT_VERSION banner above: that one confirms an update the
+     service worker ALREADY applied; this one proactively offers one. */
+  const APP_VERSION = "1.0.0";
+  const UPDATE_REPO_OWNER = "onepatman";
+  const UPDATE_REPO_NAME = "Grammar-Toolkit";
+  const UPDATE_DISMISSED_KEY = "mepf_toolkit_update_dismissed_version";
+
+  function showAppUpdateModal(update){
+    document.getElementById("appUpdateVersionText").textContent = update.latestVersion;
+    const notesList = document.getElementById("appUpdateNotesList");
+    notesList.innerHTML = update.releaseNotes.length
+      ? update.releaseNotes.map(note=>`<li>${note}</li>`).join("")
+      : "<li>See the release page for details.</li>";
+    document.getElementById("appUpdateModal").style.display = "flex";
+  }
+
+  function hideAppUpdateModal(){
+    document.getElementById("appUpdateModal").style.display = "none";
+  }
+
+  document.getElementById("appUpdateLaterBtn").addEventListener("click", ()=>{
+    const versionText = document.getElementById("appUpdateVersionText").textContent;
+    // Remembered per-version, not "forever" — a still-newer release
+    // after this one will still prompt, so dismissing never silences
+    // updates permanently.
+    sessionStorage.setItem(UPDATE_DISMISSED_KEY, versionText);
+    hideAppUpdateModal();
+  });
+
+  document.getElementById("appUpdateNowBtn").addEventListener("click", ()=>{
+    // This app's service worker already fetches network-first and
+    // calls skipWaiting()/clients.claim() unconditionally (see
+    // service-worker.js) — there's no "waiting worker" to separately
+    // activate. Asking the registration to check for a new script, then
+    // reloading, is what actually pulls the latest deployed files; a
+    // simulated "downloading…" delay here would be theater, not a real
+    // extra step.
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.getRegistration().then(reg=>{
+        const done = reg ? reg.update().catch(()=>{}) : Promise.resolve();
+        done.then(()=> window.location.reload());
+      }).catch(()=> window.location.reload());
+    } else {
+      window.location.reload();
+    }
+  });
+
+  function checkForAppUpdate(){
+    if(typeof UpdateCheck === "undefined") return;
+    UpdateCheck.checkForUpdate({
+      owner: UPDATE_REPO_OWNER,
+      repo: UPDATE_REPO_NAME,
+      currentVersion: APP_VERSION
+    }).then(result=>{
+      if(!result || !result.hasUpdate) return;
+      if(sessionStorage.getItem(UPDATE_DISMISSED_KEY) === result.latestVersion) return;
+      showAppUpdateModal(result);
+    });
+  }
+  checkForAppUpdate();
+
+  // Extends the hooks object the earlier main <script> block already
+  // created on window — this file's App-Update code lives in a later,
+  // separate <script> tag (see the giant comment block above), so
+  // these can't be added to that object's literal directly; merging
+  // them on afterward is the only way tests can reach this closure's
+  // functions/constants.
+  if(window.__TOOLKIT_TEST_HOOKS__){
+    Object.assign(window.__TOOLKIT_TEST_HOOKS__, {
+      APP_VERSION, checkForAppUpdate, showAppUpdateModal, hideAppUpdateModal,
+      UPDATE_DISMISSED_KEY
+    });
+  }
 </script>
 </body>
 </html>
