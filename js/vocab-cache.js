@@ -23,6 +23,16 @@
                         holding two independent word1/word2 sub-entries.
                         Added via its own two-word quick-add, persisted
                         the same way the Language Bank categories are.
+     - prepEntries, articleEntries, modalEntries, capitalEntries,
+       orderEntries, qaEntries:
+                        the six standalone grammar-rule tabs (Prepositions,
+                        Articles, Modals, Capitalization, Word Order,
+                        Question Starters) — same generic { key, entry }
+                        shape as the Language Bank stores, added via each
+                        tab's own quick-add box. Local-only: unlike
+                        vocabEntries/phrasalEntries/etc. these don't
+                        currently participate in Firestore cross-device
+                        sync (see LANGUAGE_BANK_CATEGORIES in index.html).
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -58,7 +68,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 9;
+  var DB_VERSION = 10;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -72,6 +82,12 @@
   var CUSTOM_VERBS_STORE = "customVerbs";
   var PRACTICE_USAGE_STORE = "practiceUsage";
   var PRACTICE_HISTORY_STORE = "practiceHistory";
+  var PREP_STORE = "prepEntries";
+  var ARTICLE_STORE = "articleEntries";
+  var MODAL_STORE = "modalEntries";
+  var CAPITAL_STORE = "capitalEntries";
+  var ORDER_STORE = "orderEntries";
+  var QA_STORE = "qaEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -127,6 +143,11 @@
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
+        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE].forEach(function (name) {
+          if (!db.objectStoreNames.contains(name)) {
+            db.createObjectStore(name, { keyPath: "key" });
+          }
+        });
       };
       request.onsuccess = function () { resolve(request.result); };
       request.onerror = function () { resolve(null); };
@@ -323,6 +344,40 @@
   function putCustomVerb(entry, options) { return putEntry(CUSTOM_VERBS_STORE, entry, options); }
   function getAllCustomVerbs(options) { return getAllEntries(CUSTOM_VERBS_STORE, options); }
   function deleteCustomVerb(word, options) { return deleteEntry(CUSTOM_VERBS_STORE, word, options); }
+
+  /* ---------- standalone grammar-rule tabs (Prepositions, Articles,
+     Modals, Capitalization, Word Order, Question Starters) ----------
+     Same generic { key, entry } shape as the Language Bank categories. */
+
+  function getPrep(word, options) { return getEntry(PREP_STORE, word, options); }
+  function putPrep(entry, options) { return putEntry(PREP_STORE, entry, options); }
+  function getAllPreps(options) { return getAllEntries(PREP_STORE, options); }
+  function deletePrep(word, options) { return deleteEntry(PREP_STORE, word, options); }
+
+  function getArticle(word, options) { return getEntry(ARTICLE_STORE, word, options); }
+  function putArticle(entry, options) { return putEntry(ARTICLE_STORE, entry, options); }
+  function getAllArticles(options) { return getAllEntries(ARTICLE_STORE, options); }
+  function deleteArticle(word, options) { return deleteEntry(ARTICLE_STORE, word, options); }
+
+  function getModal(word, options) { return getEntry(MODAL_STORE, word, options); }
+  function putModal(entry, options) { return putEntry(MODAL_STORE, entry, options); }
+  function getAllModals(options) { return getAllEntries(MODAL_STORE, options); }
+  function deleteModal(word, options) { return deleteEntry(MODAL_STORE, word, options); }
+
+  function getCapital(word, options) { return getEntry(CAPITAL_STORE, word, options); }
+  function putCapital(entry, options) { return putEntry(CAPITAL_STORE, entry, options); }
+  function getAllCapital(options) { return getAllEntries(CAPITAL_STORE, options); }
+  function deleteCapital(word, options) { return deleteEntry(CAPITAL_STORE, word, options); }
+
+  function getOrder(word, options) { return getEntry(ORDER_STORE, word, options); }
+  function putOrder(entry, options) { return putEntry(ORDER_STORE, entry, options); }
+  function getAllOrder(options) { return getAllEntries(ORDER_STORE, options); }
+  function deleteOrder(word, options) { return deleteEntry(ORDER_STORE, word, options); }
+
+  function getQa(word, options) { return getEntry(QA_STORE, word, options); }
+  function putQa(entry, options) { return putEntry(QA_STORE, entry, options); }
+  function getAllQa(options) { return getAllEntries(QA_STORE, options); }
+  function deleteQa(word, options) { return deleteEntry(QA_STORE, word, options); }
 
   /* ---------- favorites ---------- */
 
@@ -530,6 +585,36 @@
     putCustomVerb: putCustomVerb,
     getAllCustomVerbs: getAllCustomVerbs,
     deleteCustomVerb: deleteCustomVerb,
+    PREP_STORE: PREP_STORE,
+    ARTICLE_STORE: ARTICLE_STORE,
+    MODAL_STORE: MODAL_STORE,
+    CAPITAL_STORE: CAPITAL_STORE,
+    ORDER_STORE: ORDER_STORE,
+    QA_STORE: QA_STORE,
+    getPrep: getPrep,
+    putPrep: putPrep,
+    getAllPreps: getAllPreps,
+    deletePrep: deletePrep,
+    getArticle: getArticle,
+    putArticle: putArticle,
+    getAllArticles: getAllArticles,
+    deleteArticle: deleteArticle,
+    getModal: getModal,
+    putModal: putModal,
+    getAllModals: getAllModals,
+    deleteModal: deleteModal,
+    getCapital: getCapital,
+    putCapital: putCapital,
+    getAllCapital: getAllCapital,
+    deleteCapital: deleteCapital,
+    getOrder: getOrder,
+    putOrder: putOrder,
+    getAllOrder: getAllOrder,
+    deleteOrder: deleteOrder,
+    getQa: getQa,
+    putQa: putQa,
+    getAllQa: getAllQa,
+    deleteQa: deleteQa,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,

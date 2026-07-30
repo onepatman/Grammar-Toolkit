@@ -557,3 +557,106 @@ describe.each([
     expect(phrasalAll.map((e) => e.w)).toEqual(["give up"]);
   });
 });
+
+describe("schema migration from DB_VERSION 9 (pre-standalone-rule-tab-stores)", () => {
+  it("upgrading an existing v9 database preserves distinctionsEntries and adds the 6 new rule-tab stores", async () => {
+    const idb = new IDBFactory();
+
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 9);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PHRASAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.IDIOMS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.SENTENCES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PATTERNS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.TECHNICAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.REVIEW_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.DISTINCTIONS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.CUSTOM_VERBS_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.DISTINCTIONS_STORE, "readwrite");
+        tx.objectStore(VocabCache.DISTINCTIONS_STORE).put({ key: "affect vs effect", entry: { w: "affect vs effect" } });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    const db = await VocabCache.openDb(idb);
+    [VocabCache.PREP_STORE, VocabCache.ARTICLE_STORE, VocabCache.MODAL_STORE, VocabCache.CAPITAL_STORE, VocabCache.ORDER_STORE, VocabCache.QA_STORE].forEach((storeName) => {
+      expect(db.objectStoreNames.contains(storeName)).toBe(true);
+    });
+
+    const preserved = await VocabCache.getDistinction("affect vs effect", { indexedDB: idb });
+    expect(preserved).toEqual({ w: "affect vs effect" });
+
+    expect(await VocabCache.getAllPreps({ indexedDB: idb })).toEqual([]);
+  });
+});
+
+describe.each([
+  ["preps", "getPrep", "putPrep", "getAllPreps", "deletePrep", "notwithstanding"],
+  ["articles", "getArticle", "putArticle", "getAllArticles", "deleteArticle", "no article — mass nouns"],
+  ["modals", "getModal", "putModal", "getAllModals", "deleteModal", "ought to"],
+  ["capital", "getCapital", "putCapital", "getAllCapital", "deleteCapital", "acronyms"],
+  ["order", "getOrder", "putOrder", "getAllOrder", "deleteOrder", "indirect questions"],
+  ["qa", "getQa", "putQa", "getAllQa", "deleteQa", "Won't you...?"]
+])("%s entries (get/put/getAll/delete)", (categoryName, getFn, putFn, getAllFn, deleteFn, sampleWord) => {
+  const sampleEntry = {
+    w: sampleWord,
+    senses: [{ use: "A sample entry.", examples: [] }],
+    syn: [],
+    ant: [],
+    mistake: null,
+    tagalog: null,
+    source: "online"
+  };
+
+  it("round-trips an entry by its text, case-insensitively", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache[putFn](sampleEntry, { indexedDB: idb });
+    expect(ok).toBe(true);
+
+    const found = await VocabCache[getFn](sampleWord.toUpperCase(), { indexedDB: idb });
+    expect(found).toEqual(sampleEntry);
+  });
+
+  it("resolves to undefined for an entry that was never cached", async () => {
+    const idb = freshIndexedDB();
+    const found = await VocabCache[getFn]("nonexistent xyz", { indexedDB: idb });
+    expect(found).toBeUndefined();
+  });
+
+  it("resolves to false when putting an entry with no word", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache[putFn]({ senses: [] }, { indexedDB: idb });
+    expect(ok).toBe(false);
+  });
+
+  it(`getAll for ${categoryName} is independent of the other standalone rule-tab stores`, async () => {
+    const idb = freshIndexedDB();
+    // A store that's never the one under test in this describe.each row
+    // (unlike VocabCache.putPrep, which WOULD be the same store when
+    // categoryName is itself "preps") — same neutral-third-party
+    // reasoning as the Language Bank version of this test above, which
+    // uses putPhrasal for the same purpose.
+    await VocabCache.putPhrasal({ w: "give up", senses: [] }, { indexedDB: idb });
+    await VocabCache[putFn](sampleEntry, { indexedDB: idb });
+
+    const all = await VocabCache[getAllFn]({ indexedDB: idb });
+    expect(all.map((e) => e.w)).toEqual([sampleWord]);
+  });
+
+  it(`${deleteFn} removes just that entry`, async () => {
+    const idb = freshIndexedDB();
+    await VocabCache[putFn](sampleEntry, { indexedDB: idb });
+    await VocabCache[deleteFn](sampleWord, { indexedDB: idb });
+    expect(await VocabCache[getFn](sampleWord, { indexedDB: idb })).toBeUndefined();
+  });
+});

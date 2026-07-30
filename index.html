@@ -1093,6 +1093,21 @@
       <button class="nav-btn" data-target="prepSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="prepSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="prepAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a preposition</div>
+      <p class="note" style="margin-bottom:8px;">Type a preposition and we'll look it up online first — if it's already in your Prepositions list, we'll open the existing entry instead of adding a duplicate.</p>
+      <input type="text" id="prepAddInput" placeholder="e.g. throughout" autocomplete="off">
+      <button id="prepAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+      <div id="prepAddStatus" class="add-status"></div>
+      <div class="manual-entry-box" id="prepManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="prepManualWord"></strong>":</p>
+        <textarea id="prepManualUse" placeholder="Meaning / usage explanation" rows="2"></textarea>
+        <input type="text" id="prepManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+        <button id="prepManualSaveBtn" class="add-btn" style="margin-top:10px;">Save with my notes</button>
+        <button id="prepManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===== ARTICLES PANEL ===== -->
@@ -1106,6 +1121,21 @@
     <div class="controls bottom-nav">
       <button class="nav-btn" data-target="articleSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="articleSelect" data-dir="next" aria-label="Next">Next ›</button>
+    </div>
+
+    <div class="quick-add-box owner-only" id="articleAddBox">
+      <div class="section-label">➕ Look Up &amp; Add an Article rule</div>
+      <p class="note" style="margin-bottom:8px;">Article rules aren't dictionary words, so there's no online lookup here — type a short rule name, then add your own explanation and an example below.</p>
+      <input type="text" id="articleAddInput" placeholder="Rule name (e.g. no article — mass nouns)" autocomplete="off">
+      <button id="articleAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+      <div id="articleAddStatus" class="add-status"></div>
+      <div class="manual-entry-box" id="articleManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:4px;">Explain "<strong id="articleManualWord"></strong>":</p>
+        <textarea id="articleManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+        <input type="text" id="articleManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+        <button id="articleManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+        <button id="articleManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
     </div>
   </section>
 
@@ -1121,6 +1151,21 @@
       <button class="nav-btn" data-target="modalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="modalSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="modalAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a Modal rule</div>
+      <p class="note" style="margin-bottom:8px;">Type a short rule name (e.g. "ought to"), then add your own explanation and an example below.</p>
+      <input type="text" id="modalAddInput" placeholder="Rule name (e.g. ought to)" autocomplete="off">
+      <button id="modalAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+      <div id="modalAddStatus" class="add-status"></div>
+      <div class="manual-entry-box" id="modalManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:4px;">Explain "<strong id="modalManualWord"></strong>":</p>
+        <textarea id="modalManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+        <input type="text" id="modalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+        <button id="modalManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+        <button id="modalManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===== CAPITALIZATION PANEL ===== -->
@@ -1135,6 +1180,21 @@
       <button class="nav-btn" data-target="capitalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="capitalSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="capitalAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a Capitalization rule</div>
+      <p class="note" style="margin-bottom:8px;">Type a short rule name, then add your own explanation and an example below.</p>
+      <input type="text" id="capitalAddInput" placeholder="Rule name (e.g. acronyms)" autocomplete="off">
+      <button id="capitalAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+      <div id="capitalAddStatus" class="add-status"></div>
+      <div class="manual-entry-box" id="capitalManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:4px;">Explain "<strong id="capitalManualWord"></strong>":</p>
+        <textarea id="capitalManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+        <input type="text" id="capitalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+        <button id="capitalManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+        <button id="capitalManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===== WORD ORDER PANEL ===== -->
@@ -1148,6 +1208,21 @@
     <div class="controls bottom-nav">
       <button class="nav-btn" data-target="orderSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="orderSelect" data-dir="next" aria-label="Next">Next ›</button>
+    </div>
+
+    <div class="quick-add-box owner-only" id="orderAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a Word Order rule</div>
+      <p class="note" style="margin-bottom:8px;">Type a short rule name, then add your own explanation and an example below.</p>
+      <input type="text" id="orderAddInput" placeholder="Rule name (e.g. indirect questions)" autocomplete="off">
+      <button id="orderAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+      <div id="orderAddStatus" class="add-status"></div>
+      <div class="manual-entry-box" id="orderManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:4px;">Explain "<strong id="orderManualWord"></strong>":</p>
+        <textarea id="orderManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+        <input type="text" id="orderManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+        <button id="orderManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+        <button id="orderManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
     </div>
   </section>
 
@@ -1312,6 +1387,21 @@
       <button class="nav-btn" data-target="qaSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="qaSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="qaRuleAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a Question Starter</div>
+      <p class="note" style="margin-bottom:8px;">Type a short question-starter pattern (e.g. "Won't you...?"), then add your own explanation and an example below.</p>
+      <input type="text" id="qaRuleAddInput" placeholder="Question starter (e.g. Won't you...?)" autocomplete="off">
+      <button id="qaRuleAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+      <div id="qaRuleAddStatus" class="add-status"></div>
+      <div class="manual-entry-box" id="qaRuleManualBox" style="display:none;">
+        <p class="note" style="margin-bottom:4px;">Explain "<strong id="qaRuleManualWord"></strong>":</p>
+        <textarea id="qaRuleManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+        <input type="text" id="qaRuleManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+        <button id="qaRuleManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+        <button id="qaRuleManualCancelBtn" class="add-btn secondary">Cancel</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===== FAVORITES PANEL ===== -->
@@ -1387,6 +1477,14 @@
     </div>
     <div id="vocabSaveArea" class="add-status" style="display:none;"></div>
     <div id="verbFlagArea" class="add-status" style="display:none;"></div>
+
+    <div class="quick-add-box owner-only" id="vocabAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a word</div>
+      <p class="note" style="margin-bottom:8px;">Type any word and we'll look it up online first — if it's already in your Vocabulary Bank, we'll open the existing entry instead of adding a duplicate.</p>
+      <input type="text" id="vocabAddInput" placeholder="e.g. reinforcement" autocomplete="off">
+      <button id="vocabAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+      <div id="vocabAddStatus" class="add-status"></div>
+    </div>
   </section>
 
   <!-- ===== PHRASAL VERBS PANEL ===== -->
@@ -36320,11 +36418,17 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
       <button class="lb-edit-btn">✎ Edit</button>
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
+  // Preposition-only sub-category chips (Time/Place/Direction/Other) —
+  // built-in prepositions always carry these; an owner-added preposition
+  // just doesn't have any until it's edited, which is fine since "All"
+  // (the default chip filter) shows every preposition regardless.
+  const catsHtml = Array.isArray(item.cats) ? item.cats.map(c=>`<span class="tag ghost">${c}</span>`).join("") : "";
   entryEl.innerHTML = `
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${item.w}</span>
       ${makePhoneticHtml(item.phonetic)}
       <span class="tag ghost">${displayTagLabel}</span>
+      ${catsHtml}
       ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.w, tagLabel)}
     </div>
@@ -36422,12 +36526,12 @@ function setupRuleModule(data, selectId, entryId, tagLabel, categoryKey){
   renderRuleEntry(data.find(x=>x.w===sel.value), entry, tagLabel, categoryKey);
 }
 
-setupRuleModule(articleData, "articleSelect", "articleEntry", "Article Rule");
-setupRuleModule(modalData, "modalSelect", "modalEntry", "Modal Verb");
-setupRuleModule(capitalData, "capitalSelect", "capitalEntry", "Capitalization Rule");
-setupRuleModule(orderData, "orderSelect", "orderEntry", "Word Order Pattern");
+setupRuleModule(articleData, "articleSelect", "articleEntry", "Article Rule", "articles");
+setupRuleModule(modalData, "modalSelect", "modalEntry", "Modal Verb", "modals");
+setupRuleModule(capitalData, "capitalSelect", "capitalEntry", "Capitalization Rule", "capital");
+setupRuleModule(orderData, "orderSelect", "orderEntry", "Word Order Pattern", "order");
 setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
-setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter");
+setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter", "qa");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -37368,34 +37472,16 @@ function populatePrepSelect(){
   renderPrep();
 }
 
+// Delegates to the same shared renderRuleEntry() every other rule
+// module uses (Edit/Delete for owner-added entries, Favorite toggle,
+// Listen button, synonyms/antonyms, etc.) — renderRuleEntry renders the
+// Time/Place/Direction/Other category chips itself whenever item.cats
+// is present, which built-in prepositions always have and owner-added
+// ones simply don't (they're uncategorized until edited).
 function renderPrep(){
   const p = prepData.find(x=>x.w===prepSelect.value);
   if(!p){ prepEntry.innerHTML = ""; return; }
-  const sensesHtml = p.senses.map((s,i)=>`
-    <div class="sense"><span class="num">${i+1}</span><div class="body">
-      <div class="use">${s.use}</div>
-      ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
-    </div></div>`).join("");
-  const mistakeHtml = p.mistake ? `
-    <div class="callout">
-      <div class="lbl">Common mistake</div>
-      <p>${p.mistake}</p>
-    </div>` : "";
-  prepEntry.innerHTML = `
-    <div class="headword-row">
-      <span class="headword">${p.w}</span>
-      ${p.cats.map(c=>`<span class="tag ghost">${c}</span>`).join("")}
-      ${makeListenButtonHtml()}
-      ${makeFavToggleHtml(p.w, "Preposition")}
-    </div>
-    <div class="section-label">Where &amp; when it's used</div>
-    ${sensesHtml}
-    ${mistakeHtml}
-    <div class="section-label">Synonyms &amp; antonyms</div>
-    <div class="word-chips">${makeWordChips(p.syn,"synonym")}</div>
-    <div class="word-chips">${makeWordChips(p.ant,"antonym")}</div>
-  `;
-  wireListenButton(prepEntry, p.w);
+  renderRuleEntry(p, prepEntry, "Preposition", "preps");
 }
 prepSelect.addEventListener("change", renderPrep);
 populatePrepSelect();
@@ -38220,10 +38306,11 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putPhrasal(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPhrasal(opts); },
     deleteFn: function(word, opts){ return VocabCache.deletePhrasal(word, opts); },
-    requireExplanation: true,
+    requireExplanation: true, onlineLookup: true,
     manualBoxId: "phrasalManualBox", manualWordId: "phrasalManualWord",
     manualUseId: "phrasalManualUse", manualExampleId: "phrasalManualExample",
-    manualSaveBtnId: "phrasalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "phrasalManualCancelBtn"
+    manualSaveBtnId: "phrasalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "phrasalManualCancelBtn",
+    activateFn: function(){ activateTab("langbank"); activateLangBankCategory("phrasal"); }
   },
   idioms: {
     data: idiomsData, selectId: "idiomsSelect", entryId: "idiomsEntry", tagLabel: "Idiom / Expression",
@@ -38231,10 +38318,11 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putIdiom(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllIdioms(opts); },
     deleteFn: function(word, opts){ return VocabCache.deleteIdiom(word, opts); },
-    requireExplanation: true,
+    requireExplanation: true, onlineLookup: true,
     manualBoxId: "idiomsManualBox", manualWordId: "idiomsManualWord",
     manualUseId: "idiomsManualUse", manualExampleId: "idiomsManualExample",
-    manualSaveBtnId: "idiomsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "idiomsManualCancelBtn"
+    manualSaveBtnId: "idiomsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "idiomsManualCancelBtn",
+    activateFn: function(){ activateTab("langbank"); activateLangBankCategory("idioms"); }
   },
   sentences: {
     data: sentencesData, selectId: "sentencesSelect", entryId: "sentencesEntry", tagLabel: "Word Chunk",
@@ -38242,10 +38330,11 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putSentence(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllSentences(opts); },
     deleteFn: function(word, opts){ return VocabCache.deleteSentence(word, opts); },
-    requireExplanation: false,
+    requireExplanation: false, onlineLookup: true,
     manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord",
     manualUseId: "sentencesManualUse", manualExampleId: null,
-    manualSaveBtnId: "sentencesManualSaveBtn", manualSkipBtnId: "sentencesManualSkipBtn", manualCancelBtnId: "sentencesManualCancelBtn"
+    manualSaveBtnId: "sentencesManualSaveBtn", manualSkipBtnId: "sentencesManualSkipBtn", manualCancelBtnId: "sentencesManualCancelBtn",
+    activateFn: function(){ activateTab("langbank"); activateLangBankCategory("sentences"); }
   },
   patterns: {
     data: patternsData, selectId: "patternsSelect", entryId: "patternsEntry", tagLabel: "Sentence Pattern",
@@ -38253,10 +38342,11 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putPattern(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPatterns(opts); },
     deleteFn: function(word, opts){ return VocabCache.deletePattern(word, opts); },
-    requireExplanation: false,
+    requireExplanation: false, onlineLookup: true,
     manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord",
     manualUseId: "patternsManualUse", manualExampleId: null,
-    manualSaveBtnId: "patternsManualSaveBtn", manualSkipBtnId: "patternsManualSkipBtn", manualCancelBtnId: "patternsManualCancelBtn"
+    manualSaveBtnId: "patternsManualSaveBtn", manualSkipBtnId: "patternsManualSkipBtn", manualCancelBtnId: "patternsManualCancelBtn",
+    activateFn: function(){ activateTab("langbank"); activateLangBankCategory("patterns"); }
   },
   technical: {
     data: technicalData, selectId: "technicalSelect", entryId: "technicalEntry", tagLabel: "Technical Term",
@@ -38264,12 +38354,103 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putTechnical(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllTechnical(opts); },
     deleteFn: function(word, opts){ return VocabCache.deleteTechnical(word, opts); },
-    requireExplanation: true,
+    requireExplanation: true, onlineLookup: true,
     manualBoxId: "technicalManualBox", manualWordId: "technicalManualWord",
     manualUseId: "technicalManualUse", manualExampleId: "technicalManualExample",
-    manualSaveBtnId: "technicalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "technicalManualCancelBtn"
+    manualSaveBtnId: "technicalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "technicalManualCancelBtn",
+    activateFn: function(){ activateTab("langbank"); activateLangBankCategory("technical"); }
+  },
+  // ---- Standalone grammar-rule tabs (not part of the Language Bank's
+  // own category switcher, and deliberately NOT added to
+  // LANGUAGE_BANK_CATEGORIES below) — reusing the exact same generic
+  // add/edit/delete/manual-completion machinery
+  // (addLanguageBankEntryFromInput, openLanguageBankEditForm,
+  // deleteLanguageBankEntry, findLanguageBankDuplicate, etc.) via this
+  // same categoryKey -> config lookup table. Local-only for now: they're
+  // intentionally excluded from LANGUAGE_BANK_CATEGORIES so
+  // collectOnlineLanguageBankEntries/applyRemoteLanguageBank (Firestore
+  // sync) and the Language Bank's own Sort By / category-select UI stay
+  // scoped to exactly the 5 real Language Bank categories.
+  preps: {
+    data: prepData, selectId: "prepSelect", entryId: "prepEntry", tagLabel: "Preposition",
+    inputId: "prepAddInput", btnId: "prepAddBtn", statusId: "prepAddStatus", inputNoun: "a preposition",
+    putFn: function(entry, opts){ return VocabCache.putPrep(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllPreps(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deletePrep(word, opts); },
+    requireExplanation: true, onlineLookup: true,
+    manualBoxId: "prepManualBox", manualWordId: "prepManualWord",
+    manualUseId: "prepManualUse", manualExampleId: "prepManualExample",
+    manualSaveBtnId: "prepManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "prepManualCancelBtn",
+    activateFn: function(){ activateTab("preps"); }
+  },
+  articles: {
+    data: articleData, selectId: "articleSelect", entryId: "articleEntry", tagLabel: "Article Rule",
+    inputId: "articleAddInput", btnId: "articleAddBtn", statusId: "articleAddStatus", inputNoun: "an article rule",
+    putFn: function(entry, opts){ return VocabCache.putArticle(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllArticles(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteArticle(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "articleManualBox", manualWordId: "articleManualWord",
+    manualUseId: "articleManualUse", manualExampleId: "articleManualExample",
+    manualSaveBtnId: "articleManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "articleManualCancelBtn",
+    activateFn: function(){ activateTab("articles"); }
+  },
+  modals: {
+    data: modalData, selectId: "modalSelect", entryId: "modalEntry", tagLabel: "Modal Verb",
+    inputId: "modalAddInput", btnId: "modalAddBtn", statusId: "modalAddStatus", inputNoun: "a modal verb rule",
+    putFn: function(entry, opts){ return VocabCache.putModal(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllModals(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteModal(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "modalManualBox", manualWordId: "modalManualWord",
+    manualUseId: "modalManualUse", manualExampleId: "modalManualExample",
+    manualSaveBtnId: "modalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "modalManualCancelBtn",
+    activateFn: function(){ activateTab("modals"); }
+  },
+  capital: {
+    data: capitalData, selectId: "capitalSelect", entryId: "capitalEntry", tagLabel: "Capitalization Rule",
+    inputId: "capitalAddInput", btnId: "capitalAddBtn", statusId: "capitalAddStatus", inputNoun: "a capitalization rule",
+    putFn: function(entry, opts){ return VocabCache.putCapital(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllCapital(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteCapital(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "capitalManualBox", manualWordId: "capitalManualWord",
+    manualUseId: "capitalManualUse", manualExampleId: "capitalManualExample",
+    manualSaveBtnId: "capitalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "capitalManualCancelBtn",
+    activateFn: function(){ activateTab("capital"); }
+  },
+  order: {
+    data: orderData, selectId: "orderSelect", entryId: "orderEntry", tagLabel: "Word Order Pattern",
+    inputId: "orderAddInput", btnId: "orderAddBtn", statusId: "orderAddStatus", inputNoun: "a word order rule",
+    putFn: function(entry, opts){ return VocabCache.putOrder(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllOrder(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteOrder(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "orderManualBox", manualWordId: "orderManualWord",
+    manualUseId: "orderManualUse", manualExampleId: "orderManualExample",
+    manualSaveBtnId: "orderManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "orderManualCancelBtn",
+    activateFn: function(){ activateTab("order"); }
+  },
+  qa: {
+    data: qaData, selectId: "qaSelect", entryId: "qaEntry", tagLabel: "Question Starter",
+    inputId: "qaRuleAddInput", btnId: "qaRuleAddBtn", statusId: "qaRuleAddStatus", inputNoun: "a question starter",
+    putFn: function(entry, opts){ return VocabCache.putQa(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllQa(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteQa(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "qaRuleManualBox", manualWordId: "qaRuleManualWord",
+    manualUseId: "qaRuleManualUse", manualExampleId: "qaRuleManualExample",
+    manualSaveBtnId: "qaRuleManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "qaRuleManualCancelBtn",
+    activateFn: function(){ activateTab("qa"); }
   }
 };
+
+// The 6 standalone grammar-rule tabs above, kept as their own list
+// (mirroring LANGUAGE_BANK_CATEGORIES) so restore-on-load, add-button
+// wiring, and owner-mode re-render loops can iterate just these — never
+// merged into LANGUAGE_BANK_CATEGORIES itself, which drives the
+// Language Bank tab's own category switcher and Firestore sync payload.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -38407,8 +38588,7 @@ function addLanguageBankEntry(categoryKey, entry, options){
       return {label: existingEntry.w, cat: config.tagLabel, action: ()=>{
         document.getElementById(config.selectId).value = existingEntry.w;
         renderRuleEntry(existingEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
-        activateTab("langbank");
-        activateLangBankCategory(categoryKey);
+        config.activateFn();
       }};
     }
     return existingItem;
@@ -38424,8 +38604,7 @@ function addLanguageBankEntry(categoryKey, entry, options){
   const action = ()=>{
     document.getElementById(config.selectId).value = entry.w;
     renderRuleEntry(entry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
-    activateTab("langbank");
-    activateLangBankCategory(categoryKey);
+    config.activateFn();
   };
   const item = {label: entry.w, cat: config.tagLabel, categories: [config.tagLabel], action};
   searchIndex.push(item);
@@ -38467,6 +38646,26 @@ const technicalCacheRestorePromise = VocabCache.getAllTechnical({dbPromise: voca
 const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addDistinctionEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
+// Thin wrappers over addLanguageBankEntry() for the 6 standalone rule
+// tabs — same reasoning as addPhrasalEntry/addIdiomEntry/etc. above.
+function addPrepEntry(entry, options){ return addLanguageBankEntry("preps", entry, options); }
+function addArticleEntry(entry, options){ return addLanguageBankEntry("articles", entry, options); }
+function addModalEntry(entry, options){ return addLanguageBankEntry("modals", entry, options); }
+function addCapitalEntry(entry, options){ return addLanguageBankEntry("capital", entry, options); }
+function addOrderEntry(entry, options){ return addLanguageBankEntry("order", entry, options); }
+function addQaRuleEntry(entry, options){ return addLanguageBankEntry("qa", entry, options); }
+
+// Restore anything cached from a previous session for the 6 standalone
+// rule tabs — same reasoning as phrasalCacheRestorePromise etc. above,
+// combined into a single Promise.all since nothing needs to await them
+// individually.
+const ruleTabsCacheRestorePromise = Promise.all(RULE_TAB_CATEGORIES.map(categoryKey=>{
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  return config.getAllFn({dbPromise: vocabDbPromise}).then(entries=>{
+    entries.forEach(entry=> addLanguageBankEntry(categoryKey, entry, {persist:false}));
+  }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+}));
 
 // Set to true only for the instant the bottom Previous/Next pair
 // synthetically dispatches a "change" event on a select purely to reuse
@@ -39877,8 +40076,7 @@ function findLanguageBankDuplicate(config, categoryKey, text){
     ? {label: existingOwnEntry.w, cat: config.tagLabel, action: ()=>{
         document.getElementById(config.selectId).value = existingOwnEntry.w;
         renderRuleEntry(existingOwnEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
-        activateTab("langbank");
-        activateLangBankCategory(categoryKey);
+        config.activateFn();
       }}
     : wordIndexMap.get(normalizeWordKey(text));
 }
@@ -39952,6 +40150,60 @@ async function addLanguageBankEntryFromInput(categoryKey){
   input.value = "";
   languageBankPendingSave[categoryKey] = { entry: result, typedText: text };
   renderLanguageBankSavePreview(categoryKey);
+}
+
+// Manual-only counterpart to addLanguageBankEntryFromInput() above, for
+// categories whose entries aren't real dictionary headwords (Article,
+// Modal, Capitalization, Word Order, and Question Starter RULES — e.g.
+// "no article — general plural nouns" — rather than words a dictionary
+// API could ever look up). Skips the online-lookup step entirely and
+// goes straight to the same manual-completion box
+// (showLanguageBankManualBox/saveLanguageBankManualEntry) the online
+// flow above falls back to on a failed lookup, so the actual save path
+// — validation, dedupe, persistence, sync push — is exactly the same
+// code for both kinds of category.
+async function addRuleEntryManualFromInput(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  const statusEl = document.getElementById(config.statusId);
+  hideLanguageBankManualBox(categoryKey);
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const input = document.getElementById(config.inputId);
+  const text = input.value.trim();
+
+  if(!text){
+    statusEl.textContent = `Please enter ${config.inputNoun} first.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const existing = findLanguageBankDuplicate(config, categoryKey, text);
+  if(existing){
+    statusEl.textContent = `"${text}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    navigateToEntry(existing);
+    return;
+  }
+
+  input.value = "";
+  statusEl.textContent = `Add your own explanation for "${text}" below.`;
+  statusEl.className = "add-status";
+  showLanguageBankManualBox(categoryKey, text);
+}
+
+// The single entry point every "Look Up & Add" button in the app calls
+// — dispatches to the online-first flow (Language Bank's 5 categories,
+// plus Prepositions, which really are dictionary words) or the
+// manual-only flow (Articles/Modals/Capitalization/Word Order/Question
+// Starters, whose entries are grammar RULES, not lookup-able words)
+// based on that category's own onlineLookup config flag.
+async function addRuleEntryFromInput(categoryKey){
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  if(config.onlineLookup) return addLanguageBankEntryFromInput(categoryKey);
+  return addRuleEntryManualFromInput(categoryKey);
 }
 
 async function saveLanguageBankManualEntry(categoryKey){
@@ -40073,9 +40325,15 @@ function renderLanguageBankAfterDelete(categoryKey){
 function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
   const currentUse = (item.senses[0] && item.senses[0].use) || "";
   const currentExample = (item.senses[0] && item.senses[0].examples && item.senses[0].examples[0]) || "";
-  const categoryOptionsHtml = LANGUAGE_BANK_CATEGORIES.map(k=>
-    `<option value="${k}">${LANGUAGE_BANK_CONFIG[k].tagLabel}</option>`
-  ).join("");
+  // The category dropdown only ever offers to MOVE an entry between the
+  // Language Bank's own 5 sub-categories — none of that switcher UI (or
+  // its Firestore sync field) exists for the 6 standalone rule tabs, so
+  // those just get a single, fixed option: their own current category.
+  const categoryOptionsHtml = LANGUAGE_BANK_CATEGORIES.includes(categoryKey)
+    ? LANGUAGE_BANK_CATEGORIES.map(k=>
+        `<option value="${k}">${LANGUAGE_BANK_CONFIG[k].tagLabel}</option>`
+      ).join("")
+    : `<option value="${categoryKey}">${LANGUAGE_BANK_CONFIG[categoryKey].tagLabel}</option>`;
 
   entryEl.innerHTML = `
     <div class="section-label">Editing this entry</div>
@@ -40164,17 +40422,16 @@ async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
   await pushToSync(loadPersonalCorrections());
   applyLanguageBankSort();
 
-  activateTab("langbank");
-  activateLangBankCategory(newCategoryKey);
   item.action();
 }
 
-// Re-renders whichever entry is currently selected in each of the 4
-// category panels — called alongside refreshMistakeUI() at every
+// Re-renders whichever entry is currently selected in each of the 5
+// Language Bank category panels PLUS the 6 standalone rule tabs (see
+// RULE_TAB_CATEGORIES) — called alongside refreshMistakeUI() at every
 // owner-mode lock/unlock transition so Edit/Delete buttons appear or
 // disappear immediately instead of only on the next navigation.
 function refreshLanguageBankUI(){
-  LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
+  LANGUAGE_BANK_CATEGORIES.concat(RULE_TAB_CATEGORIES).forEach(categoryKey=>{
     const config = LANGUAGE_BANK_CONFIG[categoryKey];
     const selectEl = document.getElementById(config.selectId);
     const entryEl = document.getElementById(config.entryId);
@@ -40212,6 +40469,20 @@ LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   if(config.manualSkipBtnId){
     document.getElementById(config.manualSkipBtnId).addEventListener("click", ()=> skipLanguageBankManualEntry(categoryKey));
   }
+});
+
+// Same wiring for the 6 standalone rule tabs — addRuleEntryFromInput()
+// itself dispatches to the online-first or manual-only flow per
+// category, so this loop doesn't need to know which is which.
+RULE_TAB_CATEGORIES.forEach(categoryKey=>{
+  const config = LANGUAGE_BANK_CONFIG[categoryKey];
+  document.getElementById(config.btnId).addEventListener("click", ()=> addRuleEntryFromInput(categoryKey));
+  document.getElementById(config.inputId).addEventListener("keydown", (e)=>{
+    if(e.key === "Enter") addRuleEntryFromInput(categoryKey);
+  });
+  if(config.manualExampleId) bindEnterToClick(config.manualExampleId, config.manualSaveBtnId);
+  document.getElementById(config.manualSaveBtnId).addEventListener("click", ()=> saveLanguageBankManualEntry(categoryKey));
+  document.getElementById(config.manualCancelBtnId).addEventListener("click", ()=> cancelLanguageBankManualEntry(categoryKey));
 });
 
 /* =========================================================
@@ -41363,6 +41634,75 @@ function showOnlineVocabResult(result){
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
+// The Vocabulary Bank tab's own direct "➕ Look Up & Add" — same
+// online-first-then-local-duplicate-check flow the global search box's
+// online fallback already uses (tryOnlineLookup), just reachable
+// without having to know to type into the top search bar first. Reuses
+// showOnlineVocabResult()/renderVocabSaveArea()'s existing Save button
+// for the actual persist step, so there's exactly one "save an online
+// vocabulary result" code path either way.
+async function addVocabEntryFromInput(){
+  const statusEl = document.getElementById("vocabAddStatus");
+  const input = document.getElementById("vocabAddInput");
+  const btn = document.getElementById("vocabAddBtn");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = input.value.trim();
+  if(!text){
+    statusEl.textContent = "Please enter a word first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const existing = wordIndexMap.get(normalizeWordKey(text));
+  if(existing){
+    statusEl.textContent = `"${text}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    navigateToEntry(existing);
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = "Looking it up online…";
+  statusEl.className = "add-status";
+
+  const result = await OnlineLookup.fetchOnlineDefinition(text, {cache: onlineLookupCache});
+
+  btn.disabled = false;
+
+  if(!result){
+    statusEl.textContent = `Couldn't find "${text}" online — check the spelling and try again.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  // The dictionary's own returned word can differ from what was typed
+  // (capitalization, an inflected form resolving to its base form,
+  // etc.) — re-check THAT spelling too, same reasoning as
+  // findLanguageBankDuplicate's two-pass check.
+  const existingAfterLookup = wordIndexMap.get(normalizeWordKey(result.w));
+  if(existingAfterLookup){
+    statusEl.textContent = `⚠️ "${result.w}" is already in your Vocabulary Bank.`;
+    statusEl.className = "add-status";
+    input.value = "";
+    navigateToEntry(existingAfterLookup);
+    return;
+  }
+
+  input.value = "";
+  statusEl.textContent = "";
+  statusEl.className = "add-status";
+  showOnlineVocabResult(result);
+}
+
+document.getElementById("vocabAddBtn").addEventListener("click", addVocabEntryFromInput);
+document.getElementById("vocabAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addVocabEntryFromInput();
+});
+
 async function saveOnlineVocabResult(){
   if(!isDeviceUnlocked()){
     setVocabSaveAreaMessage(`<p class="note">This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.</p>`, "error");
@@ -41899,7 +42239,11 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
   addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
   customVerbsCacheRestorePromise, normalizeWordKey, rankSearchMatches,
-  vocabCategoryPriority
+  vocabCategoryPriority,
+  LANGUAGE_BANK_CONFIG, RULE_TAB_CATEGORIES,
+  addRuleEntryFromInput, addRuleEntryManualFromInput,
+  addPrepEntry, addArticleEntry, addModalEntry, addCapitalEntry, addOrderEntry, addQaRuleEntry,
+  ruleTabsCacheRestorePromise, addVocabEntryFromInput
 };
 </script>
 <script>

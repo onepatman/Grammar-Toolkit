@@ -2,13 +2,17 @@
 // By control, Edit/Delete (including the delete-safety fix ensuring a
 // Vocabulary Bank record shared with another category — Distinctions,
 // Language Bank, etc. — doesn't vanish from global search when only its
-// Vocabulary Bank record is deleted), and the unified Save to Vocabulary
-// Bank path from Language Bank/Distinctions. The tab's Add flow is the
-// shared global search bar (see search-coverage.test.js) — there is no
-// separate Vocab-tab-local search/add UI by design (removed as
-// redundant; see git history for the prior round that added and then
-// removed it). Loads the real index.html in jsdom and dispatches real
-// DOM interactions, same as every other integration test in this repo.
+// Vocabulary Bank record is deleted), the unified Save to Vocabulary
+// Bank path from Language Bank/Distinctions, and the tab's own direct
+// "Look Up & Add" box (#vocabAddBox — see addVocabEntryFromInput in
+// index.html), added so every tab that stores dictionary content has a
+// consistent, discoverable way to add an entry instead of relying on
+// users knowing the global search bar doubles as an add flow. The old
+// Vocab-tab-local *filter* input (vocabFilterInput/vocabAddToggleBtn)
+// stays removed as redundant — see git history — only the add box is
+// back, in a different, non-redundant shape. Loads the real index.html
+// in jsdom and dispatches real DOM interactions, same as every other
+// integration test in this repo.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -16,13 +20,21 @@ function wait(ms = 30) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe("Vocabulary tab — no redundant Search/Add UI", () => {
-  it("does not render a Vocab-tab-local search filter or Add Vocabulary Word button/box", async () => {
+describe("Vocabulary tab — no redundant filter UI, but a direct Look Up & Add box", () => {
+  it("does not render the old Vocab-tab-local search filter/toggle", async () => {
     const { window } = await loadApp();
     const document = window.document;
     expect(document.getElementById("vocabFilterInput")).toBeNull();
     expect(document.getElementById("vocabAddToggleBtn")).toBeNull();
-    expect(document.getElementById("vocabAddBox")).toBeNull();
+  });
+
+  it("renders a direct Look Up & Add box with an input, button, and status area", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    expect(document.getElementById("vocabAddBox")).not.toBeNull();
+    expect(document.getElementById("vocabAddInput")).not.toBeNull();
+    expect(document.getElementById("vocabAddBtn")).not.toBeNull();
+    expect(document.getElementById("vocabAddStatus")).not.toBeNull();
   });
 
   it("the Vocabulary tab still exposes Sort By and the select/entry/Prev-Next controls", async () => {
@@ -44,6 +56,89 @@ describe("Vocabulary tab — no redundant Search/Add UI", () => {
     hooks.runSearchPipeline("abandon");
     const labels = Array.from(document.querySelectorAll("#searchResults .search-result-item .label")).map((el) => el.textContent.toLowerCase());
     expect(labels).toContain("abandon");
+  });
+});
+
+const SAMPLE_VOCAB_RESULT = {
+  w: "reinforcement",
+  senses: [{ use: "(noun) Material or structure that strengthens something.", examples: ["Steel bars provide reinforcement for the concrete slab."] }],
+  syn: ["support"],
+  ant: [],
+  mistake: null,
+  tagalog: null,
+  source: "online"
+};
+
+describe("Vocabulary tab's direct Look Up & Add box (addVocabEntryFromInput)", () => {
+  it("shows an error and looks nothing up when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("vocabAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked() — a locked device gets a clear error, not silence", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("vocabAddInput").value = "reinforcement";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.vocabData.some((v) => v.w === "reinforcement")).toBe(false);
+  });
+
+  it("does not create a duplicate and instead navigates to an already-known built-in word, without ever calling the online lookup", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    let fetchCalled = false;
+    window.OnlineLookup.fetchOnlineDefinition = async () => { fetchCalled = true; return null; };
+
+    document.getElementById("vocabAddInput").value = "abandon";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+
+    expect(fetchCalled).toBe(false);
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("already in the database");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
+  });
+
+  it("looks up a genuinely new word online and shows it as an unsaved preview with a Save button — not auto-saved", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.OnlineLookup.fetchOnlineDefinition = async () => SAMPLE_VOCAB_RESULT;
+
+    document.getElementById("vocabAddInput").value = "reinforcement";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+
+    expect(hooks.vocabData.some((v) => v.w === "reinforcement")).toBe(false);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("reinforcement");
+    const saveArea = document.getElementById("vocabSaveArea");
+    expect(saveArea.style.display).not.toBe("none");
+    const saveBtn = document.getElementById("saveOnlineVocabBtn");
+    expect(saveBtn).not.toBeNull();
+
+    saveBtn.click();
+    await wait(30);
+
+    expect(hooks.vocabData.some((v) => v.w === "reinforcement")).toBe(true);
+    expect(hooks.wordIndexMap.get("reinforcement")).toBeTruthy();
+  });
+
+  it("shows a clear error, and adds nothing, when nothing is found online", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.OnlineLookup.fetchOnlineDefinition = async () => null;
+
+    document.getElementById("vocabAddInput").value = "zzznotarealword zzz";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("Couldn't find");
+    expect(hooks.vocabData.some((v) => v.w === "zzznotarealword zzz")).toBe(false);
   });
 });
 
