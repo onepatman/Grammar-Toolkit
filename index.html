@@ -1681,6 +1681,7 @@
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
 <script src="js/tagalog-lookup.js"></script>
+<script src="js/lookup-service.js"></script>
 <script src="js/fuzzy-search.js"></script>
 <script src="js/vocab-cache.js"></script>
 <script src="js/spaced-repetition.js"></script>
@@ -1696,6 +1697,23 @@
 ========================================================= */
 const wordIndexMap = new Map();
 const vocabLookup = new Map();
+
+/* =========================================================
+   LOOKUP SERVICES — Phase 1 of the two-phase architecture plan: every
+   online word/translation lookup in this file goes through these two
+   singletons, never straight through window.OnlineLookup/TagalogLookup.
+   Today's providers just wrap the same free, keyless sources (Free
+   Dictionary API + Wiktionary, MyMemory) this app has always used —
+   swapping in a future backend-backed provider (see js/lookup-service.js's
+   header comment) only means changing these two lines, not any of the
+   many call sites below.
+========================================================= */
+const LookupServiceInstance = LookupService.createOnlineLookupService({
+  provider: LookupService.createFreeDictionaryProvider(OnlineLookup)
+});
+const TranslationServiceInstance = LookupService.createTranslationService({
+  provider: LookupService.createMyMemoryProvider(TagalogLookup)
+});
 
 // Canonical dedup/lookup key for a vocabulary word or phrase — trims
 // leading/trailing space, lowercases, AND collapses internal runs of
@@ -37843,7 +37861,7 @@ async function ensureVocabTagalogTranslation(item, entryEl, tagLabel, categoryKe
   item.__tagalogLookupInFlight = true;
   let result;
   try{
-    result = await TagalogLookup.fetchTagalogTranslation(item.w, {cache: tagalogLookupCache});
+    result = await TranslationServiceInstance.translate(item.w, {cache: tagalogLookupCache});
   } finally {
     item.__tagalogLookupInFlight = false;
   }
@@ -40113,7 +40131,7 @@ async function addLanguageBankEntryFromInput(categoryKey){
   statusEl.textContent = "Looking it up online…";
   statusEl.className = "add-status";
 
-  const result = await OnlineLookup.fetchOnlineDefinition(text, {
+  const result = await LookupServiceInstance.lookup(text, {
     cache: languageBankLookupCache,
     generateFallbackExamples: false
   });
@@ -40818,8 +40836,8 @@ async function addDistinctionFromInputs(){
   statusEl.className = "add-status";
 
   const [result1, result2] = await Promise.all([
-    OnlineLookup.fetchOnlineDefinition(text1, { cache: languageBankLookupCache, generateFallbackExamples: false }),
-    OnlineLookup.fetchOnlineDefinition(text2, { cache: languageBankLookupCache, generateFallbackExamples: false })
+    LookupServiceInstance.lookup(text1, { cache: languageBankLookupCache, generateFallbackExamples: false }),
+    LookupServiceInstance.lookup(text2, { cache: languageBankLookupCache, generateFallbackExamples: false })
   ]);
 
   addBtn.disabled = false;
@@ -41669,7 +41687,7 @@ async function addVocabEntryFromInput(){
   statusEl.textContent = "Looking it up online…";
   statusEl.className = "add-status";
 
-  const result = await OnlineLookup.fetchOnlineDefinition(text, {cache: onlineLookupCache});
+  const result = await LookupServiceInstance.lookup(text, {cache: onlineLookupCache});
 
   btn.disabled = false;
 
@@ -41959,7 +41977,7 @@ let onlineLookupController = null;
 // synonyms, examples) still comes from a real dictionary, never just a
 // bare translated word with nothing else known about it.
 function tryTagalogToEnglishFallback(q, myToken, shown){
-  return TagalogLookup.fetchEnglishTranslation(q, {cache: tagalogLookupCache}).then((translated)=>{
+  return TranslationServiceInstance.translateToEnglish(q, {cache: tagalogLookupCache}).then((translated)=>{
     if(myToken !== onlineLookupToken) return;
     if(!translated || !translated.candidates || !translated.candidates.length){
       if(shown.length === 0) showNoMatches();
@@ -41974,7 +41992,7 @@ function tryTagalogToEnglishFallback(q, myToken, shown){
       navigateToEntry(localMatch);
       return;
     }
-    return OnlineLookup.fetchOnlineDefinition(englishWord, {cache: onlineLookupCache}).then((result)=>{
+    return LookupServiceInstance.lookup(englishWord, {cache: onlineLookupCache}).then((result)=>{
       if(myToken !== onlineLookupToken) return;
       if(!result){
         if(shown.length === 0) showNoMatches();
@@ -42004,7 +42022,7 @@ function tryOnlineLookup(q, shown){
     searchResultsEl.classList.add("show");
   }
 
-  OnlineLookup.fetchOnlineDefinition(q, {
+  LookupServiceInstance.lookup(q, {
     cache: onlineLookupCache,
     signal: onlineLookupController ? onlineLookupController.signal : undefined
   }).then((result)=>{
@@ -42243,7 +42261,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   LANGUAGE_BANK_CONFIG, RULE_TAB_CATEGORIES,
   addRuleEntryFromInput, addRuleEntryManualFromInput,
   addPrepEntry, addArticleEntry, addModalEntry, addCapitalEntry, addOrderEntry, addQaRuleEntry,
-  ruleTabsCacheRestorePromise, addVocabEntryFromInput
+  ruleTabsCacheRestorePromise, addVocabEntryFromInput,
+  LookupServiceInstance, TranslationServiceInstance
 };
 </script>
 <script>
