@@ -1682,6 +1682,7 @@
 <script src="js/online-lookup.js"></script>
 <script src="js/tagalog-lookup.js"></script>
 <script src="js/lookup-service.js"></script>
+<script src="js/duplicate-checker.js"></script>
 <script src="js/fuzzy-search.js"></script>
 <script src="js/vocab-cache.js"></script>
 <script src="js/spaced-repetition.js"></script>
@@ -1722,9 +1723,13 @@ const TranslationServiceInstance = LookupService.createTranslationService({
 // a word gets checked against or added to the Master Vocabulary Bank
 // (wordIndexMap/vocabLookup) — NOT used for unrelated normalized keys
 // elsewhere in the file (sync codes, favorites keys, etc.), which have
-// their own established, already-tested normalization.
+// their own established, already-tested normalization. Delegates to the
+// DuplicateChecker service (js/duplicate-checker.js, Phase 1 of the
+// two-phase architecture plan) — kept as its own named function since
+// it's called from dozens of sites across this file; only the
+// implementation moved, not the call sites.
 function normalizeWordKey(w){
-  return String(w || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return DuplicateChecker.normalizeKey(w);
 }
 
 // The Vocabulary Bank's currently-displayed online lookup result that
@@ -39916,8 +39921,7 @@ function renderVocabBankCheckRows(candidates){
 // exists. Using wordIndexMap here would make every candidate look
 // "already available" immediately after its own unrelated category add.
 function isKnownVocabBankWord(word){
-  const key = normalizeWordKey(word);
-  return vocabData.some(v => normalizeWordKey(v.w) === key);
+  return !!DuplicateChecker.findByKey(vocabData, v=>v.w, word);
 }
 
 function markKnownVocabCandidates(candidates){
@@ -40067,7 +40071,7 @@ document.addEventListener("click", async (e)=>{
 // the app that happen to share a spelling but differ by trailing
 // punctuation.
 function normalizeForDuplicateCheck(text){
-  return normalizeWordKey(text).replace(/[.!?]+$/, "");
+  return DuplicateChecker.normalizeForFuzzyMatch(text);
 }
 
 // Shared duplicate check for a Language Bank category — normalizes case,
@@ -41770,9 +41774,8 @@ function looksLikeVerb(result){
 }
 
 function isKnownVerb(word){
-  const key = normalizeWordKey(word);
-  return verbData.regular.some(v=> normalizeWordKey(v.w) === key) ||
-    verbData.irregular.some(v=> normalizeWordKey(v.w) === key);
+  return !!DuplicateChecker.findByKey(verbData.regular, v=>v.w, word) ||
+    !!DuplicateChecker.findByKey(verbData.irregular, v=>v.w, word);
 }
 
 function offerVerbFlagIfApplicable(item, result){
