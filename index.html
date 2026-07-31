@@ -1892,8 +1892,21 @@ const vocabDbPromise = VocabCache.openDb();
 // the database answers; a render that happens before that resolves
 // just shows an outline star until the entry is opened again.
 const favoriteKeys = new Set();
+// A synchronous in-memory mirror of the favorites IndexedDB store, keyed
+// the same way as favoriteKeys — kept alongside it (not derived from it)
+// so collectFavoritesForSync() can read full {word, cat, addedAt} records
+// without an IndexedDB round trip, exactly like every other
+// collectOnline*() sync collector. Without this, pushToSync/listenToSync's
+// seed write would need to await an async IndexedDB read before every
+// single sync write, which is slow and (worse) breaks every other sync
+// test's assumption that a write following an `await connectSync(...)` /
+// button click has already landed by the next microtask flush.
+const favoriteRecords = new Map();
 VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
-  favs.forEach(f=> favoriteKeys.add(f.key));
+  favs.forEach(f=>{
+    favoriteKeys.add(f.key);
+    favoriteRecords.set(f.key, {word: f.word, cat: f.cat, addedAt: f.addedAt});
+  });
 }).catch(()=>{ /* IndexedDB unavailable — favorites just won't persist */ });
 
 function makeFavToggleHtml(word, cat){
@@ -39873,6 +39886,7 @@ function listenToSync(code){
       applyRemoteDistinctions(data.distinctions);
       applyRemoteVocab(data.vocab);
       applyRemoteVerbs(data.verbs);
+      applyRemoteFavorites(data.favorites);
       return;
     }
     // Nothing saved under this code yet. If we're signed in as the
@@ -39892,6 +39906,7 @@ function listenToSync(code){
         distinctions: collectOnlineDistinctions(),
         vocab: collectOnlineVocabEntries(),
         verbs: collectOnlineVerbs(),
+        favorites: collectFavoritesForSync(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
     }
@@ -39906,21 +39921,31 @@ function listenToSync(code){
   syncEnabled = true;
 }
 
+// Reads the synchronous favoriteRecords mirror (see its declaration
+// above) rather than IndexedDB directly, so this collector behaves
+// exactly like collectOnlineVerbs/collectOnlineDistinctions/etc. — a
+// plain synchronous read pushToSync and listenToSync's seed path can
+// call inline alongside the others, no extra await/race to manage.
+function collectFavoritesForSync(){
+  return Array.from(favoriteRecords.values());
+}
+
 // Resolves to {ok:true} on a successful write, or {ok:false, error} on
 // any failure — most importantly a Firestore permission-denied when
 // the signed-in user isn't the owner (see firestore.rules). Never
 // throws, so every caller can `await` it and decide what "the shared
 // log didn't accept this change" means for its own UI/rollback.
 //
-// Always writes `entries`, `languageBank`, `distinctions`, `vocab`, AND
-// `verbs` together, even though most callers only just changed one of
-// the five — a plain Firestore .set() replaces the whole document, so
-// writing only the field that changed would silently wipe out the
-// others. Reading the current value of whichever fields didn't change
-// (loadPersonalCorrections() / collectOnlineLanguageBankEntries() /
-// collectOnlineDistinctions() / collectOnlineVocabEntries() /
-// collectOnlineVerbs()) right before every write keeps this a single
-// safe entry point instead of several that can race.
+// Always writes `entries`, `languageBank`, `distinctions`, `vocab`,
+// `verbs`, AND `favorites` together, even though most callers only just
+// changed one of the six — a plain Firestore .set() replaces the whole
+// document, so writing only the field that changed would silently wipe
+// out the others. Reading the current value of whichever fields didn't
+// change (loadPersonalCorrections() / collectOnlineLanguageBankEntries()
+// / collectOnlineDistinctions() / collectOnlineVocabEntries() /
+// collectOnlineVerbs() / collectFavoritesForSync()) right before every
+// write keeps this a single safe entry point instead of several that
+// can race.
 function pushToSync(entries){
   if(!syncEnabled || !firestoreDb) return Promise.resolve({ok:true, skipped:true});
   const code = localStorage.getItem(SYNC_CODE_KEY);
@@ -39931,6 +39956,7 @@ function pushToSync(entries){
     distinctions: collectOnlineDistinctions(),
     vocab: collectOnlineVocabEntries(),
     verbs: collectOnlineVerbs(),
+    favorites: collectFavoritesForSync(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
     console.warn("Sync push failed:", e);
@@ -41835,6 +41861,55 @@ function applyRemoteVerbs(remote){
   });
 }
 
+// Unlike applyRemoteVerbs/applyRemoteLanguageBank/etc., which only ever
+// delete a locally-added ("online") item and always leave built-in data
+// alone, EVERY row in the favorites store is itself a user action — there
+// is no "built-in favorite" to protect — so the whole remote list is
+// treated as fully authoritative: whatever's favorited on any device
+// becomes favorited here too, and un-favoriting there removes it here as
+// soon as this snapshot lands. This is exactly the "one shared list
+// everywhere" behavior favorites is supposed to have, unlike the other
+// synced categories which merge a shared "online" subset into each
+// device's own built-in + online data.
+function applyRemoteFavorites(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteKeys = new Set(remote.map(f=> f.word.trim().toLowerCase()));
+
+  remote.forEach(f=>{
+    const key = f.word.trim().toLowerCase();
+    if(!favoriteKeys.has(key)){
+      favoriteKeys.add(key);
+      favoriteRecords.set(key, {word: f.word, cat: f.cat, addedAt: f.addedAt});
+      VocabCache.addFavorite(f.word, {word: f.word, cat: f.cat}, {dbPromise: vocabDbPromise});
+    }
+  });
+
+  Array.from(favoriteKeys).forEach(key=>{
+    if(!remoteKeys.has(key)){
+      favoriteKeys.delete(key);
+      favoriteRecords.delete(key);
+      VocabCache.removeFavorite(key, {dbPromise: vocabDbPromise});
+      VocabCache.deleteReviewSchedule(key, {dbPromise: vocabDbPromise});
+    }
+  });
+
+  // Re-render any fav-toggle star already on screen, and the Favorites
+  // tab itself if it's the one currently open, so a remote change shows
+  // up immediately rather than only after the next navigation.
+  document.querySelectorAll(".fav-toggle").forEach(btn=>{
+    const key = btn.dataset.word.trim().toLowerCase();
+    const active = favoriteKeys.has(key);
+    btn.classList.toggle("active", active);
+    btn.textContent = active ? "★" : "☆";
+    const label = active ? "Remove from favorites" : "Add to favorites";
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("title", label);
+  });
+  if(document.querySelector(".thumb-tab.active")?.dataset.tab === "favorites"){
+    renderFavoritesTab();
+  }
+}
+
 document.getElementById("distinctionsAddBtn").addEventListener("click", addDistinctionFromInputs);
 document.getElementById("distinctionsAddInput1").addEventListener("keydown", (e)=>{
   if(e.key === "Enter") addDistinctionFromInputs();
@@ -41934,9 +42009,11 @@ document.addEventListener("click", (e)=>{
 
   if(nowActive){
     favoriteKeys.add(key);
+    favoriteRecords.set(key, {word, cat, addedAt: Date.now()});
     VocabCache.addFavorite(word, {word, cat}, {dbPromise: vocabDbPromise});
   } else {
     favoriteKeys.delete(key);
+    favoriteRecords.delete(key);
     VocabCache.removeFavorite(word, {dbPromise: vocabDbPromise});
     // No longer a favorite, so its study-mode schedule is meaningless —
     // clear it rather than leaving an orphaned record that would just
@@ -41953,6 +42030,8 @@ document.addEventListener("click", (e)=>{
   if(document.querySelector(".thumb-tab.active")?.dataset.tab === "favorites"){
     renderFavoritesTab();
   }
+
+  pushToSync(loadPersonalCorrections());
 });
 
 /* Re-render whatever is currently on screen now that wordIndexMap is fully
@@ -43431,6 +43510,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   looksLikeVerb, isKnownVerb, offerVerbFlagIfApplicable,
   renderVerbFlagPrompt, renderVerbAddForm, saveVerbFromFlagForm, hideVerbFlagArea,
   addVerbEntry, deleteVerbEntry, collectOnlineVerbs, applyRemoteVerbs,
+  collectFavoritesForSync, applyRemoteFavorites,
   customVerbsCacheRestorePromise, normalizeWordKey, rankSearchMatches,
   vocabCategoryPriority,
   LANGUAGE_BANK_CONFIG, RULE_TAB_CATEGORIES,
