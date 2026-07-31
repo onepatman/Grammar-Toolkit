@@ -1614,7 +1614,6 @@
       <button class="nav-btn" data-target="vocabSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="vocabSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
-    <div id="vocabSaveArea" class="add-status" style="display:none;"></div>
     <div id="verbFlagArea" class="add-status" style="display:none;"></div>
 
     <div class="quick-add-box owner-only" id="vocabAddBox">
@@ -1871,13 +1870,12 @@ function normalizeWordKey(w){
   return DuplicateChecker.normalizeKey(w);
 }
 
-// The Vocabulary Bank's currently-displayed online lookup result that
-// hasn't been saved yet (or null) — declared here, alongside
-// wordIndexMap, for the same reason: renderRuleEntry() and other early
-// renders reference it, and a `const`/`let` referenced before its own
-// declaration line throws even though the function using it is safely
-// hoisted. See showOnlineVocabResult()/saveOnlineVocabResult() below.
-let pendingOnlineVocabResult = null;
+// The Vocabulary Bank's online lookup result awaiting a Save/Decline
+// decision in the shared LookupModal (or null) — same "gate everything
+// behind an explicit Owner choice" pattern as languageBankPendingSave/
+// distinctionsPendingSave. See renderVocabSavePreview()/confirmVocabSave()
+// below.
+let vocabPendingSave = null;
 
 /* =========================================================
    LOCAL-FIRST DATA LAYER — one shared IndexedDB connection for the
@@ -28972,11 +28970,9 @@ const vocabData = [
   }
 ];
 
-// The two source labels renderRuleEntry() displays in place of the
-// literal "Vocabulary Bank" tagLabel: VOCAB_BANK_TAG_LABEL for a
-// genuine local record, ONLINE_SEARCH_TAG_LABEL for a result fetched
-// live from the online dictionary and not yet saved. Display-only —
-// renderRuleEntry() swaps these in for the on-screen `.tag.ghost` text
+// The source label renderRuleEntry() displays in place of the literal
+// "Vocabulary Bank" tagLabel for a genuine local record. Display-only —
+// renderRuleEntry() swaps this in for the on-screen `.tag.ghost` text
 // alone. The literal "Vocabulary Bank" string itself must keep flowing
 // unchanged everywhere else it's used as a stable identifier: the
 // internal `cat`/`categories` fields in wordIndexMap/searchIndex
@@ -28988,7 +28984,6 @@ const vocabData = [
 // Changing what's passed as tagLabel itself (rather than swapping the
 // display text inside renderRuleEntry) silently breaks all three.
 const VOCAB_BANK_TAG_LABEL = "📚 Vocabulary Bank";
-const ONLINE_SEARCH_TAG_LABEL = "🌐 Online Dictionary";
 
 /* =========================================================
    DATA — DISTINCTIONS WORDS (commonly confused/misused word pairs,
@@ -36415,24 +36410,15 @@ function groupSensesByPos(senses){
 // Edit/Delete buttons below scoped to just the Language Bank instead of
 // showing up anywhere renderRuleEntry() is used.
 function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
-  // Displaying an actual saved/built-in Vocabulary Bank entry (not the
-  // not-yet-saved online preview itself) always retires any pending
-  // online result and its Save UI — otherwise a stale "Save to
-  // Vocabulary Bank" prompt for a DIFFERENT word could linger after the
-  // user has navigated elsewhere within Vocab.
-  if(categoryKey === "vocab" && item !== pendingOnlineVocabResult){
-    pendingOnlineVocabResult = null;
-    renderVocabSaveArea();
-  }
-  // The on-screen source tag distinguishes a genuine Vocabulary Bank
-  // record (📚) from a not-yet-saved online lookup preview (🌐) —
-  // display-only, swapped in here rather than changed at the call
-  // site, so every OTHER identity the plain "Vocabulary Bank" tagLabel
-  // carries (makeFavToggleHtml's stored favorite category, Edit/Delete
+  // A not-yet-saved online lookup result is previewed in the shared
+  // LookupModal (see renderVocabSavePreview) rather than here, so every
+  // call reaching this function with tagLabel "Vocabulary Bank" is
+  // always a genuine saved/built-in record — display-only, swapped in
+  // here rather than changed at every call site, so every OTHER
+  // identity the plain "Vocabulary Bank" tagLabel carries
+  // (makeFavToggleHtml's stored favorite category, Edit/Delete
   // confirmation text) keeps working unchanged. See VOCAB_BANK_TAG_LABEL.
-  const displayTagLabel = tagLabel === "Vocabulary Bank"
-    ? (item === pendingOnlineVocabResult ? ONLINE_SEARCH_TAG_LABEL : VOCAB_BANK_TAG_LABEL)
-    : tagLabel;
+  const displayTagLabel = tagLabel === "Vocabulary Bank" ? VOCAB_BANK_TAG_LABEL : tagLabel;
   // Only the Vocabulary tab groups its definitions by part of speech
   // and shows a Filipino/Tagalog line — every other rule module
   // (Language Bank, Distinctions, Articles, etc.) keeps its exact
@@ -41072,17 +41058,13 @@ function refreshLanguageBankUI(){
 
 // Same reasoning as refreshLanguageBankUI()/refreshDistinctionsUI() —
 // re-renders whatever's currently on screen in the Vocab panel so its
-// Edit/Delete buttons (and the online-result Save button) appear/
-// disappear immediately on lock/unlock, with no need to navigate away
-// and back.
+// Edit/Delete buttons appear/disappear immediately on lock/unlock, with
+// no need to navigate away and back. A pending online-result preview
+// lives in the shared LookupModal now, not here, so there's nothing
+// extra to special-case for it.
 function refreshVocabUI(){
   const selectEl = document.getElementById("vocabSelect");
   const entryEl = document.getElementById("vocabEntry");
-  if(pendingOnlineVocabResult){
-    renderRuleEntry(pendingOnlineVocabResult, entryEl, "Vocabulary Bank");
-    renderVocabSaveArea();
-    return;
-  }
   const item = vocabData.find(x=> x.w === selectEl.value);
   if(item) renderRuleEntry(item, entryEl, "Vocabulary Bank", "vocab");
 }
@@ -41772,7 +41754,7 @@ function applyRemoteDistinctions(remote){
 // built-in dictionary, and a word merely cached during someone's
 // browsing (never approved by the Owner) never reaches this array at
 // all now, since search no longer auto-persists (see
-// showOnlineVocabResult/saveOnlineVocabResult below).
+// renderVocabSavePreview/confirmVocabSave below).
 function collectOnlineVocabEntries(){
   return vocabData.filter(e=> e.source === "online");
 }
@@ -42233,68 +42215,118 @@ function showNoMatches(){
 }
 
 /* =========================================================
-   VOCABULARY BANK — ONLINE RESULT PREVIEW + OWNER-ONLY SAVE. A word
-   found online but not yet in the local Vocabulary Bank is displayed
-   using the exact same interface as a saved entry, with a status/
-   action area below the Previous/Next buttons: the Owner sees a "Save
-   to Vocabulary Bank" button, everyone else sees a read-only preview
-   note. Nothing here is ever persisted until the Owner explicitly
-   clicks Save — see pendingOnlineVocabResult (declared near
-   wordIndexMap above) for the not-yet-saved result currently on screen.
+   VOCABULARY BANK — ONLINE RESULT PREVIEW + OWNER-ONLY SAVE, via the
+   shared LookupModal (see buildLookupResultCardHtml/openLookupModal
+   above) — the same preview-then-confirm pattern Language Bank and
+   Distinctions Words use. Unlike those, this is reachable by ANYONE
+   (not just an unlocked Owner): the global search bar's online
+   fallback (tryOnlineLookup, below) has no unlock gate at all, so a
+   locked device still gets to preview the definition, just with no
+   Save button — read-only, with a note asking them to have the Owner
+   save it. Nothing is ever persisted until the Owner explicitly clicks
+   Save — see vocabPendingSave (declared near wordIndexMap above) for
+   the not-yet-saved result currently held.
 ========================================================= */
-function setVocabSaveAreaMessage(html, cls){
-  const areaEl = document.getElementById("vocabSaveArea");
-  areaEl.style.display = "block";
-  areaEl.innerHTML = html;
-  areaEl.className = "add-status" + (cls ? " " + cls : "");
+function declineVocabSave(){
+  vocabPendingSave = null;
 }
 
-function renderVocabSaveArea(){
-  const areaEl = document.getElementById("vocabSaveArea");
-  if(!pendingOnlineVocabResult){
-    areaEl.style.display = "none";
-    areaEl.innerHTML = "";
-    areaEl.className = "add-status";
-    return;
-  }
-  const word = pendingOnlineVocabResult.w;
-  // Neutral, factual framing — "retrieved from an online dictionary" is
-  // a source fact, not a reliability caveat, so this never implies the
-  // definition itself is incomplete or unreliable.
-  if(isDeviceUnlocked()){
-    setVocabSaveAreaMessage(`
-      <p class="note" style="margin-bottom:8px;">🌐 This definition for "<strong>${word}</strong>" was retrieved from an online dictionary and is not yet saved to your Vocabulary Bank.</p>
-      <button id="saveOnlineVocabBtn" class="add-btn">Save to Vocabulary Bank</button>
-    `);
-    document.getElementById("saveOnlineVocabBtn").addEventListener("click", saveOnlineVocabResult);
+function declineVocabSaveWithStatus(){
+  declineVocabSave();
+  const statusEl = document.getElementById("vocabAddStatus");
+  statusEl.textContent = "Not saved.";
+  statusEl.className = "add-status";
+}
+
+async function confirmVocabSave(){
+  const result = vocabPendingSave;
+  if(!result) return;
+  vocabPendingSave = null;
+
+  result.addedAt = Date.now();
+  result.modifiedAt = result.addedAt;
+  const item = addVocabEntry(result, {persist:true});
+  applyVocabListView();
+  const pushResult = await pushToSync(loadPersonalCorrections());
+
+  navigateToEntry(item);
+
+  const statusEl = document.getElementById("vocabAddStatus");
+  if(!pushResult.ok){
+    statusEl.innerHTML = `<p class="note">✅ "${result.w}" has been added to your Vocabulary Bank. ${SyncAuth.friendlyWriteError(pushResult.error)}</p>`;
+    statusEl.className = "add-status error";
   } else {
-    setVocabSaveAreaMessage(`<p class="note">🌐 This definition for "<strong>${word}</strong>" was retrieved from an online dictionary and is not yet saved to the Vocabulary Bank. Ask the Owner to save it to make it permanent.</p>`);
+    statusEl.innerHTML = `<p class="note">✅ "${result.w}" has been added to your Vocabulary Bank.</p>`;
+    statusEl.className = "add-status success";
   }
+
+  offerVerbFlagIfApplicable(item, result);
 }
 
-// Displays an online lookup result using the normal Vocabulary Bank
-// entry interface (headword, definitions, examples, synonyms/antonyms,
-// Tagalog, Listen, Favorite — everything renderRuleEntry() already
-// draws), WITHOUT adding it to vocabData/wordIndexMap/searchIndex —
-// exactly like a saved entry to look at, but temporary until the Owner
-// explicitly saves it. Deliberately renders with no categoryKey (so
-// renderRuleEntry() never shows Edit/Delete for it — that only makes
-// sense once it's actually saved).
-function showOnlineVocabResult(result){
-  pendingOnlineVocabResult = result;
-  renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank");
-  activateTab("vocab");
-  renderVocabSaveArea();
-  window.scrollTo({top:0, behavior:"smooth"});
+// Shows the not-yet-saved online result in the shared LookupModal — the
+// same rich definition/example/synonym/Tagalog card a saved entry would
+// show, before ever committing it. isDeviceUnlocked() is checked fresh
+// here (not just at whichever call site triggered the lookup) because
+// tryOnlineLookup's global-search path has no unlock gate of its own.
+function renderVocabSavePreview(){
+  const pending = vocabPendingSave;
+  const unlocked = isDeviceUnlocked();
+  openLookupModal({
+    title: pending.w,
+    subtitleHtml: unlocked
+      ? "Ready to add to your Vocabulary Bank"
+      : `🌐 This definition for "<strong>${pending.w}</strong>" was retrieved from an online dictionary and is not yet saved. Ask the Owner to save it to make it permanent.`,
+    bodyHtml: buildLookupResultCardHtml(pending),
+    actions: unlocked
+      ? [
+          { label: "Save to Vocabulary Bank", id: "lookupModalSaveBtn", onClick: confirmVocabSave },
+          { label: "Decline", id: "lookupModalDeclineBtn", secondary: true, onClick: declineVocabSaveWithStatus }
+        ]
+      : [],
+    onClose: declineVocabSave
+  });
+  ensureVocabPendingSaveTagalog();
+}
+
+// Forces an online Filipino/Tagalog lookup for the pending preview
+// exactly like ensureVocabTagalogTranslation does for a saved entry —
+// see that function's own comment for the full reasoning — so the
+// Owner sees a Tagalog equivalent (when one exists) before ever
+// deciding to save. Re-renders the modal body in place only if this
+// exact word is still the one open, never stomping the Owner's screen
+// if they've since saved/declined/moved on to a different word.
+async function ensureVocabPendingSaveTagalog(){
+  const item = vocabPendingSave;
+  if(!item || item.tagalog || item.__tagalogNotFound || item.__tagalogLookupInFlight) return;
+  item.__tagalogLookupInFlight = true;
+  let result;
+  try{
+    result = await TranslationServiceInstance.translate(item.w, {cache: tagalogLookupCache});
+  } finally {
+    item.__tagalogLookupInFlight = false;
+  }
+  if(item.tagalog) return;
+
+  if(result && result.text){
+    item.tagalog = result.text;
+    item.tagalogCandidates = result.candidates || null;
+    item.__tagalogLowConfidence = !!result.lowConfidence;
+  } else {
+    item.__tagalogNotFound = true;
+  }
+
+  if(vocabPendingSave === item && document.getElementById("lookupModal").style.display === "flex"){
+    document.getElementById("lookupModalBody").innerHTML = buildLookupResultCardHtml(item);
+  }
 }
 
 // The Vocabulary Bank tab's own direct "➕ Look Up & Add" — same
 // online-first-then-local-duplicate-check flow the global search box's
 // online fallback already uses (tryOnlineLookup), just reachable
 // without having to know to type into the top search bar first. Reuses
-// showOnlineVocabResult()/renderVocabSaveArea()'s existing Save button
-// for the actual persist step, so there's exactly one "save an online
-// vocabulary result" code path either way.
+// renderVocabSavePreview()'s shared modal for the actual persist step,
+// so there's exactly one "save an online vocabulary result" code path
+// either way.
 async function addVocabEntryFromInput(){
   const statusEl = document.getElementById("vocabAddStatus");
   const input = document.getElementById("vocabAddInput");
@@ -42358,39 +42390,14 @@ async function addVocabEntryFromInput(){
   input.value = "";
   statusEl.textContent = "";
   statusEl.className = "add-status";
-  showOnlineVocabResult(result);
+  vocabPendingSave = result;
+  renderVocabSavePreview();
 }
 
 document.getElementById("vocabAddBtn").addEventListener("click", addVocabEntryFromInput);
 document.getElementById("vocabAddInput").addEventListener("keydown", (e)=>{
   if(e.key === "Enter") addVocabEntryFromInput();
 });
-
-async function saveOnlineVocabResult(){
-  if(!isDeviceUnlocked()){
-    setVocabSaveAreaMessage(`<p class="note">This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.</p>`, "error");
-    return;
-  }
-  const result = pendingOnlineVocabResult;
-  if(!result) return;
-
-  result.addedAt = Date.now();
-  result.modifiedAt = result.addedAt;
-  const item = addVocabEntry(result, {persist:true});
-  applyVocabListView();
-  const pushResult = await pushToSync(loadPersonalCorrections());
-
-  pendingOnlineVocabResult = null;
-  renderRuleEntry(result, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
-
-  if(!pushResult.ok){
-    setVocabSaveAreaMessage(`<p class="note">✅ "${result.w}" has been added to your Vocabulary Bank. ${SyncAuth.friendlyWriteError(pushResult.error)}</p>`, "error");
-  } else {
-    setVocabSaveAreaMessage(`<p class="note">✅ "${result.w}" has been added to your Vocabulary Bank.</p>`, "success");
-  }
-
-  offerVerbFlagIfApplicable(item, result);
-}
 
 /* =========================================================
    VERBS TAB INTEGRATION — a newly-saved Vocabulary Bank word that looks
@@ -42400,9 +42407,9 @@ async function saveOnlineVocabResult(){
    incorrect irregular form (go -> "goed" instead of "went") would be
    unacceptable in a grammar-teaching app — so the Owner must type all
    five forms by hand and confirm before anything is added. Uses its own
-   #verbFlagArea (right below #vocabSaveArea on the Vocab panel) rather
-   than reusing vocabSaveArea, so the "saved to Vocabulary Bank" message
-   and the verb prompt can both stay visible at once.
+   #verbFlagArea (right below the Vocab panel's own controls) rather
+   than reusing #vocabAddStatus, so the "saved to Vocabulary Bank"
+   message and the verb prompt can both stay visible at once.
 ========================================================= */
 
 // dictionaryapi.dev/Wiktionary both embed part-of-speech as a
@@ -42512,8 +42519,10 @@ async function saveVerbFromFlagForm(){
   addVerbEntry(group, entry, {persist:true});
   await pushToSync(loadPersonalCorrections());
   hideVerbFlagArea();
-  renderRuleEntry(pendingOnlineVocabResult || {w: base, senses: []}, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
-  setVocabSaveAreaMessage(`<p class="note">✅ "${base}" has been added to your Vocabulary Bank and to Verbs (${group}).</p>`, "success");
+  renderRuleEntry({w: base, senses: []}, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+  const vocabStatusEl = document.getElementById("vocabAddStatus");
+  vocabStatusEl.innerHTML = `<p class="note">✅ "${base}" has been added to your Vocabulary Bank and to Verbs (${group}).</p>`;
+  vocabStatusEl.className = "add-status success";
 }
 
 // The single choke point for adding an owner-provided verb — mirrors
@@ -43115,8 +43124,8 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
 // cached words into it on load). `onlineLookupCache` is just an
 // in-memory de-dupe for repeat lookups within THIS page load, so typing
 // the same word twice doesn't double-fetch. Never auto-persisted
-// anymore — see showOnlineVocabResult()/saveOnlineVocabResult() above;
-// the Owner decides whether it becomes a permanent entry.
+// anymore — see renderVocabSavePreview()/confirmVocabSave() above; the
+// Owner decides whether it becomes a permanent entry.
 //
 // `shown` is whatever's already rendered in the dropdown (local
 // substring matches, fuzzy "did you mean" suggestions, or [] if
@@ -43175,11 +43184,8 @@ function tryTagalogToEnglishFallback(q, myToken, shown){
       // dictionary lookup itself only ever returns English content.
       if(!result.tagalog) result.tagalog = q;
       searchResultsEl.classList.remove("show");
-      navigateToEntry({
-        label: result.w,
-        cat: "Vocabulary Bank",
-        action: ()=> showOnlineVocabResult(result)
-      });
+      vocabPendingSave = result;
+      renderVocabSavePreview();
     });
   });
 }
@@ -43206,11 +43212,8 @@ function tryOnlineLookup(q, shown){
       return tryTagalogToEnglishFallback(q, myToken, shown);
     }
     searchResultsEl.classList.remove("show");
-    navigateToEntry({
-      label: result.w,
-      cat: "Vocabulary Bank",
-      action: ()=> showOnlineVocabResult(result)
-    });
+    vocabPendingSave = result;
+    renderVocabSavePreview();
   });
 }
 
@@ -43418,8 +43421,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getDistinctionsPendingSave: ()=> distinctionsPendingSave,
   openVocabEditForm, saveVocabEdit, deleteVocabEntry, renderVocabAfterDelete,
   collectOnlineVocabEntries, applyRemoteVocab,
-  showOnlineVocabResult, saveOnlineVocabResult, setVocabSaveAreaMessage,
-  renderVocabSaveArea, getPendingOnlineVocabResult: ()=> pendingOnlineVocabResult,
+  renderVocabSavePreview, confirmVocabSave, declineVocabSave,
+  getVocabPendingSave: ()=> vocabPendingSave,
   renderVocabBankCheckRows, getLanguageBankPendingSave: ()=> languageBankPendingSave,
   isKnownVocabBankWord,
   applyVocabListView, getVocabSortPref,

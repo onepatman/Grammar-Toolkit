@@ -194,13 +194,13 @@ describe("Auto Filipino/Tagalog enrichment (existing local word missing a transl
     hooks.runSearchPipeline("zibblewock-tg");
     await wait(600);
 
-    expect(document.getElementById("vocabEntry").querySelector(".tagalog-box").textContent).toBe("bagong-salita");
+    expect(document.getElementById("lookupModalBody").querySelector(".tagalog-box").textContent).toBe("bagong-salita");
     expect(hooks.vocabData.some((v) => v.w === "zibblewock-tg")).toBe(false);
     const stored = await VocabCache.get("zibblewock-tg", { indexedDB: idb });
     expect(stored).toBeUndefined();
 
     // Saving now carries the auto-fetched translation along automatically.
-    document.getElementById("saveOnlineVocabBtn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
     expect(hooks.vocabData.find((v) => v.w === "zibblewock-tg").tagalog).toBe("bagong-salita");
   });
@@ -223,11 +223,11 @@ describe("Tagalog-to-English reverse search fallback", () => {
     hooks.runSearchPipeline("kislap-test");
     await wait(600);
 
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
-    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("sparkle-test");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalTitle").textContent).toBe("sparkle-test");
     // The original Tagalog query is stamped as the translation immediately,
     // never left blank just because the dictionary source only knows English.
-    expect(document.getElementById("vocabEntry").querySelector(".tagalog-box").textContent).toBe("kislap-test");
+    expect(document.getElementById("lookupModalBody").querySelector(".tagalog-box").textContent).toBe("kislap-test");
   });
 
   it("navigates straight to an already-known local word instead of a second network round trip, when the translated word is already in the Vocabulary Bank", async () => {

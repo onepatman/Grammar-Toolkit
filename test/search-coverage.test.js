@@ -6,19 +6,14 @@
 // background whenever there's no exact local match.
 //
 // Also covers the "Intelligent Vocabulary Bank Expansion" rework: an
-// online result is shown as a temporary, NOT-YET-SAVED preview via the
-// same Vocabulary Bank interface — it never auto-persists into
-// vocabData/wordIndexMap/IndexedDB just from being searched. Only the
-// authenticated Owner can turn it into a permanent entry, via the
-// explicit "Save to Vocabulary Bank" button below Previous/Next.
-//
-// As of the navigation-fix round, the app ALWAYS jumps straight to that
-// preview the moment the online lookup resolves — regardless of whether
-// some OTHER local word also happened to substring/fuzzy-match the
-// query — instead of sometimes only appending it as one more row the
-// user had to notice and click. That inconsistency (auto-shown when
-// nothing local matched, buried in a list otherwise) was exactly why
-// the Save notification so often seemed to just not appear.
+// online result is shown as a temporary, NOT-YET-SAVED preview in the
+// shared LookupModal (see renderVocabSavePreview/confirmVocabSave in
+// index.html) — it never auto-persists into vocabData/wordIndexMap/
+// IndexedDB just from being searched. Only the authenticated Owner can
+// turn it into a permanent entry, via the modal's explicit "Save to
+// Vocabulary Bank" button. A locked/non-owner device still gets to
+// preview the definition (the global search bar has no unlock gate of
+// its own) but sees no Save button at all — read-only.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -39,8 +34,8 @@ function stubPressLookup(window) {
 
 // "zibblewock" has no local substring match at all (unlike "press",
 // which substring-matches "express") — used for the tests below that
-// don't care about that distinction, since both cases now navigate to
-// the online preview identically.
+// don't care about that distinction, since both cases now open the
+// online preview modal identically.
 function stubZibblewockLookup(window) {
   window.OnlineLookup.fetchOnlineDefinition = async (word) => {
     if (word !== "zibblewock") return null;
@@ -53,7 +48,7 @@ function stubZibblewockLookup(window) {
 }
 
 describe("online lookup runs even when a partial local match exists", () => {
-  it("jumps straight to the online preview for the exact typed word, even though a local substring match ('express') was already shown", async () => {
+  it("opens the online preview modal for the exact typed word, even though a local substring match ('express') was already shown", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
 
@@ -70,12 +65,12 @@ describe("online lookup runs even when a partial local match exists", () => {
 
     await wait(600); // past the 350ms debounce + the mocked fetch resolving
 
-    // Once the online lookup resolves, the app navigates straight to the
-    // Vocab tab preview for "press" itself — it doesn't just add one more
-    // row to the "express" results list for the user to notice and click.
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
-    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("press");
-    expect(document.getElementById("vocabSaveArea").textContent).toContain("retrieved from an online dictionary and is not yet saved to your Vocabulary Bank");
+    // Once the online lookup resolves, the app opens the shared
+    // LookupModal for "press" itself — it doesn't just add one more row
+    // to the "express" results list for the user to notice and click.
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalTitle").textContent).toBe("press");
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
     expect(hooks.wordIndexMap.has("press")).toBe(false);
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "press")).toBe(false);
   });
@@ -108,7 +103,7 @@ describe("online lookup runs even when a partial local match exists", () => {
     expect(called).toBe(false);
   });
 
-  it("a locked/non-owner device sees a read-only preview with no Save button, and searching never persists the word", async () => {
+  it("a locked/non-owner device sees a read-only preview modal with no Save button, and searching never persists the word", async () => {
     const { window, hooks } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
     stubZibblewockLookup(window);
@@ -116,8 +111,10 @@ describe("online lookup runs even when a partial local match exists", () => {
     hooks.runSearchPipeline("zibblewock"); // no local match at all -> shown.length === 0 path
     await wait(600);
 
-    expect(document.getElementById("vocabSaveArea").textContent).toContain("retrieved from an online dictionary");
-    expect(document.getElementById("saveOnlineVocabBtn")).toBeNull();
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalTitle").textContent).toBe("zibblewock");
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("retrieved from an online dictionary");
+    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
     expect(hooks.wordIndexMap.has("zibblewock")).toBe(false);
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "zibblewock")).toBe(false);
   });
@@ -132,19 +129,20 @@ describe("online lookup runs even when a partial local match exists", () => {
     hooks.runSearchPipeline("zibblewock");
     await wait(600);
 
-    const saveBtn = document.getElementById("saveOnlineVocabBtn");
+    const saveBtn = document.getElementById("lookupModalSaveBtn");
     expect(saveBtn).not.toBeNull();
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "zibblewock")).toBe(false);
 
     saveBtn.click();
     await wait(50);
 
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     expect(hooks.vocabData.some((v) => v.w.toLowerCase() === "zibblewock")).toBe(true);
     expect(hooks.wordIndexMap.has("zibblewock")).toBe(true);
-    expect(document.getElementById("vocabSaveArea").textContent).toContain("has been added to your Vocabulary Bank");
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("has been added to your Vocabulary Bank");
   });
 
-  it("dedup: searching a word already in the Vocabulary Bank never shows a Save/preview prompt", async () => {
+  it("dedup: searching a word already in the Vocabulary Bank never opens the online preview modal", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
 
@@ -152,7 +150,7 @@ describe("online lookup runs even when a partial local match exists", () => {
     hooks.runSearchPipeline("above");
     await wait(50);
 
-    expect(document.getElementById("vocabSaveArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).not.toBe("flex");
   });
 
   it("does not attempt an online lookup when the word is already known via a DIFFERENT category (e.g. a Preposition), and shows that category's own tag, not Vocabulary Bank or Online Search", async () => {
@@ -175,8 +173,8 @@ describe("online lookup runs even when a partial local match exists", () => {
   });
 });
 
-describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Dictionary", () => {
-  it("an unsaved online result is tagged '🌐 Online Dictionary', never 'Vocabulary Bank'", async () => {
+describe("source tag labeling: 📚 Vocabulary Bank, only ever for a genuinely saved entry", () => {
+  it("an unsaved online result appears only in the preview modal — #vocabEntry never shows it, tagged or otherwise, until it's actually saved", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     stubZibblewockLookup(window);
@@ -184,35 +182,36 @@ describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Dictionary", 
     hooks.runSearchPipeline("zibblewock");
     await wait(600);
 
-    const tagText = document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent;
-    expect(tagText).toBe("🌐 Online Dictionary");
-    expect(tagText).not.toContain("Vocabulary Bank");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalTitle").textContent).toBe("zibblewock");
+    const headwordEl = document.getElementById("vocabEntry").querySelector(".headword");
+    expect(headwordEl ? headwordEl.textContent : null).not.toBe("zibblewock");
   });
 
-  it("once saved, the tag switches to '📚 Vocabulary Bank' and the Save button disappears", async () => {
+  it("once saved via the modal, the word appears in #vocabEntry tagged '📚 Vocabulary Bank' and the modal closes", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     stubZibblewockLookup(window);
 
     hooks.runSearchPipeline("zibblewock");
     await wait(600);
-    document.getElementById("saveOnlineVocabBtn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     const tagText = document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent;
     expect(tagText).toBe("📚 Vocabulary Bank");
-    expect(document.getElementById("saveOnlineVocabBtn")).toBeNull();
-    expect(document.getElementById("vocabSaveArea").textContent).toContain("has been added to your Vocabulary Bank");
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("has been added to your Vocabulary Bank");
   });
 
-  it("searching the same word again after saving shows the Vocabulary Bank result and no Save button", async () => {
+  it("searching the same word again after saving shows the local result directly — no modal, no repeat online lookup", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     stubZibblewockLookup(window);
 
     hooks.runSearchPipeline("zibblewock");
     await wait(600);
-    document.getElementById("saveOnlineVocabBtn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     let fetchCalledAgain = false;
@@ -223,14 +222,13 @@ describe("source tag labeling: 📚 Vocabulary Bank vs 🌐 Online Dictionary", 
     // Now a known local word — no online lookup, shown as a plain
     // clickable local match (like any other search result).
     expect(fetchCalledAgain).toBe(false);
+    expect(document.getElementById("lookupModal").style.display).not.toBe("flex");
     const match = document.querySelector("#searchResults .search-result-item");
     expect(match.querySelector(".label").textContent.toLowerCase()).toBe("zibblewock");
     expect(match.querySelector(".cat").textContent).toBe("Vocabulary Bank");
 
     match.click();
     expect(document.getElementById("vocabEntry").querySelector(".tag.ghost").textContent).toBe("📚 Vocabulary Bank");
-    expect(document.getElementById("saveOnlineVocabBtn")).toBeNull();
-    expect(document.getElementById("vocabSaveArea").style.display).toBe("none");
   });
 
   it("every genuine local Vocabulary Bank entry (built-in or owner-saved) is tagged '📚 Vocabulary Bank'", async () => {
@@ -262,9 +260,10 @@ describe("no premature 'No matches' before an online lookup has actually run", (
     expect(immediateText).toContain("Searching online…");
 
     await wait(600);
-    // And it resolves to the real online result shortly after.
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
-    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("zibblewock");
+    // And it resolves to the real online result shortly after, shown in
+    // the shared preview modal.
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalTitle").textContent).toBe("zibblewock");
   });
 
   it("shows the offline-specific message immediately (never 'Searching online…') when navigator.onLine is false", async () => {

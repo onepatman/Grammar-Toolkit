@@ -114,18 +114,40 @@ describe("Vocabulary tab's direct Look Up & Add box (addVocabEntryFromInput)", (
     await wait(30);
 
     expect(hooks.vocabData.some((v) => v.w === "reinforcement")).toBe(false);
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
-    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("reinforcement");
-    const saveArea = document.getElementById("vocabSaveArea");
-    expect(saveArea.style.display).not.toBe("none");
-    const saveBtn = document.getElementById("saveOnlineVocabBtn");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalTitle").textContent).toBe("reinforcement");
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    const saveBtn = document.getElementById("lookupModalSaveBtn");
     expect(saveBtn).not.toBeNull();
+    expect(document.getElementById("lookupModalDeclineBtn")).not.toBeNull();
 
     saveBtn.click();
     await wait(30);
 
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     expect(hooks.vocabData.some((v) => v.w === "reinforcement")).toBe(true);
     expect(hooks.wordIndexMap.get("reinforcement")).toBeTruthy();
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("reinforcement");
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("has been added to your Vocabulary Bank");
+  });
+
+  it("Decline discards the previewed word — nothing is saved", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.OnlineLookup.fetchOnlineDefinition = async () => SAMPLE_VOCAB_RESULT;
+
+    document.getElementById("vocabAddInput").value = "reinforcement";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+
+    document.getElementById("lookupModalDeclineBtn").click();
+    await wait(10);
+
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
+    expect(hooks.vocabData.some((v) => v.w === "reinforcement")).toBe(false);
+    expect(hooks.wordIndexMap.has("reinforcement")).toBe(false);
+    expect(document.getElementById("vocabAddStatus").textContent).toContain("Not saved");
   });
 
   it("shows a clear error, and adds nothing, when nothing is found online", async () => {
