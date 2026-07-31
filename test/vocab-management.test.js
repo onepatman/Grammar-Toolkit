@@ -541,6 +541,126 @@ describe("Vocabulary editor — preserves every part of speech and every meaning
   });
 });
 
+describe("Vocabulary editor — unlimited Tagalog/Filipino meanings (chip-based)", () => {
+  it("a legacy '/'-joined tagalog string pre-fills as separate chips, one per term", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "tagalog-legacy-test", senses: [{ use: "(verb) To leave behind.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: "iwan / talikuran", source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "tagalog-legacy-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const chips = document.querySelectorAll("#vocabEditTagalogChips .chip-editor-chip-text");
+    expect(Array.from(chips).map((c) => c.textContent)).toEqual(["iwan", "talikuran"]);
+  });
+
+  it("prefers tagalogCandidates over the flat tagalog string when both are present", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      {
+        w: "tagalog-candidates-test",
+        senses: [{ use: "(verb) To leave behind.", examples: [] }],
+        syn: [], ant: [], mistake: null,
+        tagalog: "iwan",
+        tagalogCandidates: ["iwan", "talikuran", "hayaan"],
+        source: "online"
+      },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "tagalog-candidates-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const chips = document.querySelectorAll("#vocabEditTagalogChips .chip-editor-chip-text");
+    expect(Array.from(chips).map((c) => c.textContent)).toEqual(["iwan", "talikuran", "hayaan"]);
+  });
+
+  it("adding multiple Tagalog chips and saving joins them with ' / ' into tagalog, and clears tagalogCandidates", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "tagalog-add-test", senses: [{ use: "(verb) To leave behind.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "tagalog-add-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const tagalogChips = document.getElementById("vocabEditTagalogChips");
+    tagalogChips.querySelector(".chip-editor-input").value = "iwan";
+    hooks.commitChipEditorInput(tagalogChips);
+    tagalogChips.querySelector(".chip-editor-input").value = "talikuran";
+    hooks.commitChipEditorInput(tagalogChips);
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "tagalog-add-test");
+    expect(updated.tagalog).toBe("iwan / talikuran");
+    expect(updated.tagalogCandidates).toBeNull();
+  });
+
+  it("removing a Tagalog chip and saving drops just that term", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "tagalog-remove-test", senses: [{ use: "(verb) To leave behind.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: "iwan / talikuran / hayaan", source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "tagalog-remove-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const tagalogChips = document.getElementById("vocabEditTagalogChips");
+    tagalogChips.querySelectorAll(".chip-editor-chip")[1].querySelector(".chip-editor-remove").click(); // remove "talikuran"
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "tagalog-remove-test");
+    expect(updated.tagalog).toBe("iwan / hayaan");
+  });
+
+  it("clearing every Tagalog chip and saving results in tagalog: null, not an empty string", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "tagalog-clear-test", senses: [{ use: "(verb) To leave behind.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: "iwan", source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "tagalog-clear-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const tagalogChips = document.getElementById("vocabEditTagalogChips");
+    tagalogChips.querySelector(".chip-editor-chip").querySelector(".chip-editor-remove").click();
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "tagalog-clear-test");
+    expect(updated.tagalog).toBeNull();
+  });
+
+  it("every saved Tagalog term is independently searchable, not just the first one", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "tagalog-search-test", senses: [{ use: "(verb) To leave behind.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "tagalog-search-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const tagalogChips = document.getElementById("vocabEditTagalogChips");
+    tagalogChips.querySelector(".chip-editor-input").value = "sadyain";
+    hooks.commitChipEditorInput(tagalogChips);
+    tagalogChips.querySelector(".chip-editor-input").value = "tanuran";
+    hooks.commitChipEditorInput(tagalogChips);
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    expect(hooks.searchIndex.some((i) => i.label === "sadyain" && i.cat === "Tagalog → tagalog-search-test")).toBe(true);
+    expect(hooks.searchIndex.some((i) => i.label === "tanuran" && i.cat === "Tagalog → tagalog-search-test")).toBe(true);
+  });
+});
+
 describe("Delete-safety: deleting a Vocabulary Bank record must not remove a word from global search when it still exists in another category", () => {
   it("'under' (a built-in Vocabulary Bank word AND a built-in Preposition) stays searchable and findable as a Preposition after its Vocabulary Bank record is deleted", async () => {
     const { window, hooks } = await loadApp();
