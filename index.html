@@ -1099,6 +1099,15 @@
       <button class="nav-btn" data-target="tenseSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="tenseSelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="tenseAddBox">
+      <div class="section-label">➕ Add a Tense-related Construction</div>
+      <p class="note" style="margin-bottom:8px;">The 12 core English tenses above are already complete, so there's no online lookup here — this is for closely related constructions that aren't one of the 12 (e.g. "Going to" Future, "Used to" / "Would" for habitual past). Type a name; if it's already here we'll open the existing entry instead of adding a duplicate.</p>
+      <input type="text" id="tenseAddInput" placeholder="e.g. Going to Future" autocomplete="off">
+      <button id="tenseAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own construction</button>
+      <div id="tenseAddStatus" class="add-status"></div>
+      <div id="tenseAddArea" class="add-status" style="display:none;"></div>
+    </div>
   </section>
 
   <!-- ===== PREPOSITIONS PANEL ===== -->
@@ -42412,6 +42421,205 @@ const familyCacheRestorePromise = VocabCache.getAllFamily({dbPromise: vocabDbPro
   });
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
+/* =========================================================
+   TENSES TAB — manual-only "Add my own construction"
+   (panel-tenses' own #tenseAddBox). Unlike every other add flow in
+   the app, this one has NO online-lookup step: the 12 core English
+   tenses are already a complete, closed set (built into tenseData
+   below), so there's nothing to "look up online" the way a
+   dictionary word or verb would resolve. This box exists purely for
+   closely related grammar constructions that aren't one of the 12
+   (e.g. "Going to" Future, "Used to"/"Would" for habitual past) —
+   the Owner types every field by hand, same never-fabricate
+   principle as everywhere else in the app. New entries must use one
+   of the three existing groups (Present/Past/Future) so they slot
+   into the same three <optgroup>s the 12 built-in tenses already
+   use — there is deliberately no fourth "Other" group, since a
+   construction that doesn't relate to any of the three time frames
+   isn't really tense-related.
+========================================================= */
+
+function isKnownTenseName(name){
+  return !!DuplicateChecker.findByKey(tenseData, t=>t.name, name);
+}
+
+// Mirrors addFamilyEntry()/addVerbEntry(): the single choke point for
+// adding an owner-provided tense-related construction, including
+// inserting its <option> into the correct existing <optgroup> so it's
+// reachable from the dropdown immediately (not just via search).
+function addTenseEntry(entry, options){
+  const opts = options || {};
+  if(isKnownTenseName(entry.name)) return null;
+
+  tenseData.push(entry);
+
+  const optgroups = document.getElementById("tenseSelect").querySelectorAll("optgroup");
+  const targetGroup = Array.from(optgroups).find(og=> og.label === entry.group);
+  if(targetGroup){
+    const opt = document.createElement("option");
+    opt.value = entry.name;
+    opt.textContent = entry.name;
+    targetGroup.appendChild(opt);
+  }
+
+  const openThisTense = ()=>{
+    document.getElementById("tenseSelect").value = entry.name;
+    tenseEntry.innerHTML = "";
+    const t = entry;
+    tenseEntry.innerHTML = `
+      <div class="headword-row">
+        <span class="headword">${t.name}</span>
+        <span class="tag">${t.group}</span>
+      </div>
+      <div class="section-label">Formula</div>
+      <div class="example-line" style="font-family:'IBM Plex Mono',monospace; font-size:13px;">${t.formula}</div>
+      <div class="section-label">When to use it</div>
+      ${t.uses.map((u,i)=>`<div class="sense"><span class="num">${i+1}</span><div class="body"><div class="use">${u}</div></div></div>`).join("")}
+      <div class="section-label">Signal words</div>
+      <div class="signals">${t.signals.map(s=>`<span>${s}</span>`).join("")}</div>
+      <div class="section-label">Examples</div>
+      <div class="example-line">✓ ${t.examples.pos}</div>
+      <div class="example-line">✗ ${t.examples.neg}</div>
+      <div class="example-line">? ${t.examples.q}</div>
+    `;
+    activateTab("tenses");
+  };
+  const item = {label: entry.name, cat: "Tense", categories: ["Tense"], action: openThisTense};
+  searchIndex.push(item);
+  wordIndexMap.set(normalizeWordKey(entry.name), item);
+
+  if(opts.persist){
+    VocabCache.putTense(entry, {dbPromise: vocabDbPromise});
+  }
+
+  return item;
+}
+
+function hideTenseAddArea(){
+  const areaEl = document.getElementById("tenseAddArea");
+  areaEl.style.display = "none";
+  areaEl.innerHTML = "";
+  areaEl.className = "add-status";
+}
+
+function renderTenseAddForm(name){
+  const areaEl = document.getElementById("tenseAddArea");
+  areaEl.style.display = "block";
+  areaEl.className = "add-status";
+  areaEl.innerHTML = `
+    <div class="section-label">Add "${name}" to Tenses</div>
+    <p class="note" style="margin-bottom:8px;">Type every field yourself — nothing is guessed automatically.</p>
+    <label class="note" style="display:block;margin-bottom:4px;">Name</label>
+    <input type="text" id="tenseFormName" autocomplete="off" value="${name}">
+    <label class="note" style="display:block;margin-bottom:4px;">Time frame</label>
+    <div class="seg" id="tenseFormGroupSeg" style="margin-bottom:8px;">
+      <button class="active" data-val="Present">Present</button>
+      <button data-val="Past">Past</button>
+      <button data-val="Future">Future</button>
+    </div>
+    <label class="note" style="display:block;margin-bottom:4px;">Formula</label>
+    <input type="text" id="tenseFormFormula" autocomplete="off" placeholder="e.g. Subject + am/is/are + going to + base verb">
+    <label class="note" style="display:block;margin-bottom:4px;">When to use it (one per line)</label>
+    <textarea id="tenseFormUses" rows="3" placeholder="A plan or intention decided before speaking."></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Signal words (comma-separated, optional)</label>
+    <input type="text" id="tenseFormSignals" autocomplete="off" placeholder="e.g. tomorrow, next week">
+    <label class="note" style="display:block;margin-bottom:4px;">✓ Positive example</label>
+    <input type="text" id="tenseFormExPos" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">✗ Negative example</label>
+    <input type="text" id="tenseFormExNeg" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">? Question example</label>
+    <input type="text" id="tenseFormExQ" autocomplete="off">
+    <button id="tenseAddSaveBtn" class="add-btn">Save to Tenses</button>
+    <button id="tenseAddCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="tenseAddFormStatus" class="add-status"></div>
+  `;
+  document.querySelectorAll("#tenseFormGroupSeg button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      document.querySelectorAll("#tenseFormGroupSeg button").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+  document.getElementById("tenseAddCancelBtn").addEventListener("click", hideTenseAddArea);
+  document.getElementById("tenseAddSaveBtn").addEventListener("click", saveTenseAddForm);
+  bindEnterToClick(["tenseFormName", "tenseFormFormula", "tenseFormSignals", "tenseFormExPos", "tenseFormExNeg", "tenseFormExQ"], "tenseAddSaveBtn");
+}
+
+async function saveTenseAddForm(){
+  const statusEl = document.getElementById("tenseAddFormStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const name = document.getElementById("tenseFormName").value.trim();
+  const group = document.querySelector("#tenseFormGroupSeg button.active").dataset.val;
+  const formula = document.getElementById("tenseFormFormula").value.trim();
+  const uses = document.getElementById("tenseFormUses").value.split("\n").map(u=>u.trim()).filter(Boolean);
+  const signals = document.getElementById("tenseFormSignals").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const exPos = document.getElementById("tenseFormExPos").value.trim();
+  const exNeg = document.getElementById("tenseFormExNeg").value.trim();
+  const exQ = document.getElementById("tenseFormExQ").value.trim();
+
+  if(!name || !formula || uses.length === 0 || !exPos || !exNeg || !exQ){
+    statusEl.textContent = "Please fill in the Name, Formula, at least one use, and all three examples.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownTenseName(name)){
+    statusEl.textContent = `"${name}" is already in Tenses.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const entry = { name: name, group: group, formula: formula, uses: uses, signals: signals, examples: { pos: exPos, neg: exNeg, q: exQ } };
+  const item = addTenseEntry(entry, {persist:true});
+  hideTenseAddArea();
+  document.getElementById("tenseAddInput").value = "";
+  document.getElementById("tenseAddStatus").textContent = `✅ "${name}" has been added to Tenses.`;
+  document.getElementById("tenseAddStatus").className = "add-status success";
+  if(item) item.action();
+}
+
+async function addTenseEntryFromInput(){
+  const statusEl = document.getElementById("tenseAddStatus");
+  const input = document.getElementById("tenseAddInput");
+  hideTenseAddArea();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = input.value.trim();
+  if(!text){
+    statusEl.textContent = "Please enter a name first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  if(isKnownTenseName(text)){
+    const existing = wordIndexMap.get(normalizeWordKey(text));
+    statusEl.textContent = `"${text}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    if(existing) navigateToEntry(existing);
+    return;
+  }
+
+  statusEl.textContent = "";
+  statusEl.className = "add-status";
+  renderTenseAddForm(text);
+}
+
+document.getElementById("tenseAddBtn").addEventListener("click", addTenseEntryFromInput);
+document.getElementById("tenseAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addTenseEntryFromInput();
+});
+
+const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=>{
+    addTenseEntry(entry, {persist:false});
+  });
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 // Online fallback — the third and last search tier, after the local
 // Vocabulary Bank and the IndexedDB cache (both already covered by the
 // wordIndexMap check in runSearchPipeline, since addVocabEntry() merges
@@ -42743,7 +42951,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addVerbEntryFromInput, renderVerbTabAddForm, saveVerbTabAddForm, hideVerbAddArea,
   isKnownFamilyWord, addFamilyEntry, addFamilyEntryFromInput,
   renderFamilyTabAddForm, saveFamilyTabAddForm, hideFamilyAddArea,
-  familyCacheRestorePromise
+  familyCacheRestorePromise,
+  isKnownTenseName, addTenseEntry, addTenseEntryFromInput,
+  renderTenseAddForm, saveTenseAddForm, hideTenseAddArea,
+  tenseCacheRestorePromise
 };
 </script>
 <script>

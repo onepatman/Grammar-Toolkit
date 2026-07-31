@@ -39,6 +39,14 @@
                         Same generic { key, entry } shape and same
                         local-only scope as the six grammar-rule stores
                         above.
+     - tenseEntries:    Owner-added tense-related constructions (e.g.
+                        "Going to" Future, "Used to" habitual past) that
+                        aren't one of the 12 core English tenses already
+                        built in — added via the Tenses tab's own
+                        manual-only quick-add box (no online lookup: these
+                        are grammar constructions, not dictionary words).
+                        Same generic { key, entry } shape and same
+                        local-only scope as familyEntries above.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -74,7 +82,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 11;
+  var DB_VERSION = 12;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -95,6 +103,7 @@
   var ORDER_STORE = "orderEntries";
   var QA_STORE = "qaEntries";
   var FAMILY_STORE = "familyEntries";
+  var TENSE_STORE = "tenseEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -157,6 +166,9 @@
         });
         if (!db.objectStoreNames.contains(FAMILY_STORE)) {
           db.createObjectStore(FAMILY_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(TENSE_STORE)) {
+          db.createObjectStore(TENSE_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -402,6 +414,19 @@
   function getAllFamily(options) { return getAllEntries(FAMILY_STORE, options); }
   function deleteFamily(word, options) { return deleteEntry(FAMILY_STORE, word, options); }
 
+  /* ---------- tenseEntries (Owner-added tense-related constructions) ----------
+     Same generic { key, entry } shape, keyed on entry.name (tenseData's
+     own headword field) rather than entry.w, since tense entries never
+     had a `.w`. */
+
+  function getTense(name, options) { return storeGet(TENSE_STORE, normalizeKey(name), options).then(function (row) { return row ? row.entry : undefined; }); }
+  function putTense(entry, options) {
+    if (!entry || !entry.name) return Promise.resolve(false);
+    return storePut(TENSE_STORE, { key: normalizeKey(entry.name), entry: entry }, options);
+  }
+  function getAllTense(options) { return getAllEntries(TENSE_STORE, options); }
+  function deleteTense(name, options) { return deleteEntry(TENSE_STORE, name, options); }
+
   /* ---------- favorites ---------- */
 
   function addFavorite(word, meta, options) {
@@ -643,6 +668,11 @@
     putFamily: putFamily,
     getAllFamily: getAllFamily,
     deleteFamily: deleteFamily,
+    TENSE_STORE: TENSE_STORE,
+    getTense: getTense,
+    putTense: putTense,
+    getAllTense: getAllTense,
+    deleteTense: deleteTense,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,

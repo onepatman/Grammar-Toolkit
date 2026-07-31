@@ -748,3 +748,92 @@ describe("familyEntries (get/put/getAll/delete)", () => {
     expect(await VocabCache.getFamily("calibrate", { indexedDB: idb })).toBeUndefined();
   });
 });
+
+describe("schema migration from DB_VERSION 11 (pre-tenseEntries)", () => {
+  it("upgrading an existing v11 database preserves familyEntries and adds tenseEntries", async () => {
+    const idb = new IDBFactory();
+
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 11);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PHRASAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.IDIOMS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.SENTENCES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PATTERNS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.TECHNICAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.REVIEW_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.DISTINCTIONS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.CUSTOM_VERBS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAMILY_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.FAMILY_STORE, "readwrite");
+        tx.objectStore(VocabCache.FAMILY_STORE).put({ key: "calibrate", entry: { verb: "calibrate" } });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.TENSE_STORE)).toBe(true);
+
+    const preserved = await VocabCache.getFamily("calibrate", { indexedDB: idb });
+    expect(preserved).toEqual({ verb: "calibrate" });
+
+    expect(await VocabCache.getAllTense({ indexedDB: idb })).toEqual([]);
+  });
+});
+
+describe("tenseEntries (get/put/getAll/delete)", () => {
+  const sampleEntry = {
+    name: "Going to Future",
+    group: "Future",
+    formula: "Subject + am/is/are + going to + base verb",
+    uses: ["A plan or intention decided before speaking."],
+    signals: ["tomorrow", "next week"],
+    examples: { pos: "We are going to install the panel.", neg: "They are not going to finish today.", q: "Are you going to review it?" }
+  };
+
+  it("round-trips an entry by its name, case-insensitively", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putTense(sampleEntry, { indexedDB: idb });
+    expect(ok).toBe(true);
+
+    const found = await VocabCache.getTense("GOING TO FUTURE", { indexedDB: idb });
+    expect(found).toEqual(sampleEntry);
+  });
+
+  it("resolves to undefined for an entry that was never cached", async () => {
+    const idb = freshIndexedDB();
+    const found = await VocabCache.getTense("nonexistent xyz", { indexedDB: idb });
+    expect(found).toBeUndefined();
+  });
+
+  it("resolves to false when putting an entry with no name", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putTense({ group: "Future" }, { indexedDB: idb });
+    expect(ok).toBe(false);
+  });
+
+  it("getAll for tenseEntries is independent of the other standalone stores", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putPhrasal({ w: "give up", senses: [] }, { indexedDB: idb });
+    await VocabCache.putTense(sampleEntry, { indexedDB: idb });
+
+    const all = await VocabCache.getAllTense({ indexedDB: idb });
+    expect(all.map((e) => e.name)).toEqual(["Going to Future"]);
+  });
+
+  it("deleteTense removes just that entry", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putTense(sampleEntry, { indexedDB: idb });
+    await VocabCache.deleteTense("Going to Future", { indexedDB: idb });
+    expect(await VocabCache.getTense("Going to Future", { indexedDB: idb })).toBeUndefined();
+  });
+});
