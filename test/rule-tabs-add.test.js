@@ -77,11 +77,10 @@ describe("Prepositions tab — online-first Look Up & Add", () => {
     document.getElementById("prepAddBtn").click();
     await wait(30);
 
-    const statusEl = document.getElementById("prepAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
     expect(hooks.prepData.some((p) => p.w === "notwithstanding")).toBe(false);
 
-    statusEl.querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(30);
 
     expect(hooks.prepData.some((p) => p.w === "notwithstanding")).toBe(true);

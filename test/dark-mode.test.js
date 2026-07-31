@@ -116,7 +116,7 @@ describe("dark mode doesn't affect app data or functionality", () => {
     window.document.getElementById("phrasalAddBtn").click();
     await new Promise((resolve) => setTimeout(resolve, 30));
 
-    window.document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-save-btn").click();
+    window.document.getElementById("lookupModalSaveBtn").click();
     await new Promise((resolve) => setTimeout(resolve, 30));
 
     expect(hooks.phrasalData.some((p) => p.w === "resilient-dark-test")).toBe(true);

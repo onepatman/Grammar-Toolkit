@@ -36,7 +36,7 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
     expect(lookupCalled).toBe(false);
     const statusEl = document.getElementById("sentencesAddStatus");
     expect(statusEl.textContent).toContain("already in the database");
-    expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeNull();
+    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
     // The duplicate-conflict popup replaces the old auto-navigate — the
     // Owner has to explicitly click View Existing.
     statusEl.querySelector("#dupConflictViewBtn").click();
@@ -57,8 +57,8 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
     await wait(50);
 
     const statusEl = document.getElementById("sentencesAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
-    expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeTruthy();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
     expect(hooks.sentencesData.some((e) => e.w === "double-check the wiring diagram")).toBe(false);
   });
 
@@ -103,7 +103,7 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
     expect(lookupCalled).toBe(false);
     const statusEl = document.getElementById("sentencesAddStatus");
     expect(statusEl.textContent).toContain("already in the database");
-    expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeNull();
+    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
   });
 
   it("a genuinely different chunk is NOT incorrectly flagged as a duplicate", async () => {
@@ -121,8 +121,8 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
 
     const statusEl = document.getElementById("sentencesAddStatus");
     expect(statusEl.textContent).not.toContain("already in the database");
-    expect(statusEl.textContent).toContain("ready to be added");
-    expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeTruthy();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
     expect(hooks.sentencesData.some((e) => e.w === "think about that for a moment")).toBe(false);
   });
 
@@ -147,7 +147,7 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
 
     const statusEl = document.getElementById("sentencesAddStatus");
     expect(statusEl.textContent).toContain("already available in your Word Chunk list");
-    expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeNull();
+    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
     // Never silently added a second, near-duplicate record.
     expect(hooks.sentencesData.filter((e) => e.w.toLowerCase().replace(/[.!?]+$/, "") === "touch base")).toHaveLength(1);
   });
@@ -183,8 +183,8 @@ describe("Duplicate detection is shared across every Language Bank category", ()
     await wait(50);
 
     const statusEl = document.getElementById("idiomsAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
-    expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeTruthy();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
     expect(hooks.idiomsData.some((e) => e.w === "a brand new test idiom")).toBe(false);
   });
 
@@ -227,7 +227,7 @@ describe("Distinction Words: duplicate detection before showing Save", () => {
     expect(lookupCalled).toBe(false);
     const statusEl = document.getElementById("distinctionsAddStatus");
     expect(statusEl.textContent).toContain("already in the database");
-    expect(statusEl.querySelector(".distinctions-lookup-save-btn")).toBeNull();
+    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
   });
 
   it("a genuinely new pair still shows the Save button", async () => {
@@ -246,8 +246,8 @@ describe("Distinction Words: duplicate detection before showing Save", () => {
     await wait(50);
 
     const statusEl = document.getElementById("distinctionsAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
-    expect(statusEl.querySelector(".distinctions-lookup-save-btn")).toBeTruthy();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
   });
 
   it("re-checks the online lookup's own returned words after they resolve, before showing Save", async () => {
@@ -270,7 +270,7 @@ describe("Distinction Words: duplicate detection before showing Save", () => {
 
     const statusEl = document.getElementById("distinctionsAddStatus");
     expect(statusEl.textContent).toContain("already available in your Distinction Words");
-    expect(statusEl.querySelector(".distinctions-lookup-save-btn")).toBeNull();
+    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
     expect(hooks.distinctionsData.filter((e) => e.word1.w === "Achieve" && e.word2.w === "Attain")).toHaveLength(1);
   });
 
@@ -291,7 +291,7 @@ describe("Distinction Words: duplicate detection before showing Save", () => {
 
     const statusEl = document.getElementById("distinctionsAddStatus");
     expect(statusEl.textContent).not.toContain("already");
-    expect(statusEl.textContent).toContain("ready to be added");
-    expect(statusEl.querySelector(".distinctions-lookup-save-btn")).toBeTruthy();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
   });
 });

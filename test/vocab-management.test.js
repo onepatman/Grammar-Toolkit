@@ -720,7 +720,7 @@ describe("Delete-safety: deleting a Vocabulary Bank record must not remove a wor
     document.getElementById("phrasalAddInput").value = "shared-phrasal-word";
     document.getElementById("phrasalAddBtn").click();
     await wait();
-    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait();
     expect(hooks.phrasalData.some((p) => p.w === "shared-phrasal-word")).toBe(true);
     expect(hooks.wordIndexMap.get("shared-phrasal-word").cat).toBe("Phrasal Verb");
@@ -762,7 +762,7 @@ describe("Save to Vocabulary Bank (Language Bank / Distinctions) uses the same c
     document.getElementById("idiomsAddInput").value = "zzz-unique-test-idiom";
     document.getElementById("idiomsAddBtn").click();
     await wait();
-    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait();
 
     const saveBtn = document.getElementById("idiomsAddStatus").querySelector(".vocab-bank-check-save-btn");
