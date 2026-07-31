@@ -469,6 +469,26 @@ describe("normalizeWiktionaryResponse", () => {
     expect(result.senses[0].use).toBe("(noun) A gentle wind, especially from the west.");
   });
 
+  it("strips an embedded <style> block whole, never leaking its raw CSS text into the definition", () => {
+    // A real Wiktionary REST API response for a word like "nightmare"
+    // includes a <style>.mw-parser-output .defdate{font-size:smaller}</style>
+    // block inside the definition HTML — stripping only the <style> tags
+    // themselves (the old regex) would leave that CSS rule as visible
+    // plain text right in the middle of the definition.
+    const response = {
+      en: [{
+        partOfSpeech: "Noun",
+        definitions: [{
+          definition: '<style data-mw-deduplicate="TemplateStyles:r12345">.mw-parser-output .defdate{font-size:smaller}</style>A very unpleasant or frightening dream.'
+        }]
+      }]
+    };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "nightmare");
+    expect(result.senses[0].use).toBe("(noun) A very unpleasant or frightening dream.");
+    expect(result.senses[0].use).not.toContain("mw-parser-output");
+    expect(result.senses[0].use).not.toContain("font-size");
+  });
+
   it("generates a fallback example when Wiktionary provides none", () => {
     const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
     const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");

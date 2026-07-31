@@ -48,6 +48,29 @@ describe("service-worker.js cache-busting", () => {
   });
 });
 
+describe("service-worker.js only intercepts same-origin requests", () => {
+  it("the fetch handler returns early (never intercepts) a cross-origin request, before ever calling caches.open", () => {
+    // A cross-origin fetch (Free Dictionary API, Wiktionary, MyMemory,
+    // Firebase, the GitHub release check) must never reach caches.put()
+    // — a third-party response's headers can make that call throw,
+    // which would otherwise turn an actually-successful online lookup
+    // into a silent failure the page sees as "no result". Structural
+    // check: the origin comparison must appear, and return, textually
+    // before the "fetch(event.request" call that starts the
+    // network-first-then-cache path.
+    const fetchHandlerMatch = SW_SOURCE.match(/self\.addEventListener\("fetch",[\s\S]*?\}\);/);
+    expect(fetchHandlerMatch).toBeTruthy();
+    const body = fetchHandlerMatch[0];
+    expect(body).toContain("self.location.origin");
+    const originCheckIndex = body.indexOf("self.location.origin");
+    const returnIndex = body.indexOf("return;");
+    const respondWithIndex = body.indexOf("event.respondWith(");
+    expect(originCheckIndex).toBeGreaterThan(-1);
+    expect(returnIndex).toBeGreaterThan(originCheckIndex);
+    expect(respondWithIndex).toBeGreaterThan(returnIndex);
+  });
+});
+
 describe("index.html service worker registration", () => {
   it("calls registration.update() right after registering, instead of waiting for the browser's own periodic check", () => {
     expect(INDEX_SOURCE).toContain("registration.update()");
