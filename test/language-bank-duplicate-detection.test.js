@@ -37,6 +37,9 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
     const statusEl = document.getElementById("sentencesAddStatus");
     expect(statusEl.textContent).toContain("already in the database");
     expect(statusEl.querySelector(".lb-lookup-save-btn")).toBeNull();
+    // The duplicate-conflict popup replaces the old auto-navigate — the
+    // Owner has to explicitly click View Existing.
+    statusEl.querySelector("#dupConflictViewBtn").click();
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
   });
 

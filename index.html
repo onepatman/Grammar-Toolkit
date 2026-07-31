@@ -874,6 +874,24 @@
   .add-status.success{ color:var(--mint); }
   .add-status.error{ color:var(--brick); }
 
+  /* Duplicate-conflict popup (renderDuplicateConflictPopup) — shown in
+     place of the old silent auto-navigate whenever a Look Up & Add
+     flow finds the typed word/phrase already exists. */
+  .duplicate-conflict-box{ font-weight:400; }
+  .duplicate-conflict-card{
+    margin:8px 0 10px; padding:10px 12px; border-radius:8px;
+    background:var(--card); border:1.5px solid var(--rule);
+  }
+  .duplicate-conflict-word{
+    font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:700;
+    color:var(--ink); margin-bottom:4px;
+  }
+  .duplicate-conflict-meta{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-soft);
+    margin-top:3px;
+  }
+  .duplicate-conflict-box .add-btn{ margin-top:6px; }
+
   /* Owner-only "potential new vocabulary" suggestions shown after
      adding a Language Bank/Distinctions entry — deliberately understated
      (not a callout box) so it reads as a secondary, optional prompt
@@ -40257,6 +40275,65 @@ document.addEventListener("click", async (e)=>{
   );
 });
 
+/* =========================================================
+   DUPLICATE-CONFLICT POPUP — shown in place of the old silent
+   auto-navigate whenever a "Look Up & Add" flow finds the typed word/
+   phrase already exists. Gives the Owner an actual choice: View
+   Existing (the old default behavior), Edit Existing (only offered
+   when opts.onEdit is provided — Vocabulary Bank, the 5 Language Bank
+   categories, and Distinctions Words have an edit form; Verbs/Family/
+   Tenses/the 6 standalone rule tabs don't yet, so the button is simply
+   omitted rather than shown and broken), and Cancel (dismiss, add
+   nothing). Renders into that tab's own existing add-status div —
+   no new HTML containers needed anywhere.
+========================================================= */
+function formatDuplicateDate(ms){
+  if(!ms) return null;
+  return new Date(ms).toLocaleDateString("en-US", {year:"numeric", month:"short", day:"numeric"});
+}
+
+function renderDuplicateConflictPopup(container, options){
+  const opts = options || {};
+  const addedLabel = formatDuplicateDate(opts.addedAt);
+  const modifiedLabel = formatDuplicateDate(opts.modifiedAt);
+  const showModified = modifiedLabel && modifiedLabel !== addedLabel;
+
+  container.style.display = "block";
+  container.className = "add-status duplicate-conflict-box";
+  container.innerHTML = `
+    <p class="note" style="margin:0 0 4px;">"${opts.word}" is already in the database.</p>
+    <div class="duplicate-conflict-card">
+      <div class="duplicate-conflict-word">${opts.word}</div>
+      <span class="tag ghost">${opts.category}</span>
+      ${addedLabel ? `<div class="duplicate-conflict-meta">Date added: ${addedLabel}</div>` : `<div class="duplicate-conflict-meta">Date added: not tracked for this entry</div>`}
+      ${showModified ? `<div class="duplicate-conflict-meta">Last updated: ${modifiedLabel}</div>` : ""}
+    </div>
+    <button id="dupConflictViewBtn" class="add-btn">View Existing</button>
+    ${opts.onEdit ? `<button id="dupConflictEditBtn" class="add-btn secondary">Edit Existing</button>` : ""}
+    <button id="dupConflictCancelBtn" class="add-btn secondary">Cancel</button>
+  `;
+  container.querySelector("#dupConflictViewBtn").addEventListener("click", ()=>{
+    hideDuplicateConflictPopup(container);
+    opts.onView();
+  });
+  if(opts.onEdit){
+    container.querySelector("#dupConflictEditBtn").addEventListener("click", ()=>{
+      hideDuplicateConflictPopup(container);
+      opts.onEdit();
+    });
+  }
+  container.querySelector("#dupConflictCancelBtn").addEventListener("click", ()=>{
+    hideDuplicateConflictPopup(container);
+    if(opts.onCancel) opts.onCancel();
+  });
+}
+
+function hideDuplicateConflictPopup(container){
+  container.style.display = "none";
+  container.innerHTML = "";
+  container.className = "add-status";
+}
+
 // A slightly stricter normalization than normalizeWordKey(), used ONLY
 // for "is this the same Language Bank / Distinctions entry" duplicate
 // checks. On top of case/whitespace normalization, it also drops a
@@ -40295,7 +40372,7 @@ function findLanguageBankDuplicate(config, categoryKey, text){
   const key = normalizeForDuplicateCheck(text);
   const existingOwnEntry = config.data.find(v=>normalizeForDuplicateCheck(v.w)===key);
   return existingOwnEntry
-    ? {label: existingOwnEntry.w, cat: config.tagLabel, action: ()=>{
+    ? {label: existingOwnEntry.w, cat: config.tagLabel, entry: existingOwnEntry, action: ()=>{
         document.getElementById(config.selectId).value = existingOwnEntry.w;
         renderRuleEntry(existingOwnEntry, document.getElementById(config.entryId), config.tagLabel, categoryKey);
         config.activateFn();
@@ -40325,9 +40402,24 @@ async function addLanguageBankEntryFromInput(categoryKey){
 
   const existing = findLanguageBankDuplicate(config, categoryKey, text);
   if(existing){
-    statusEl.textContent = `"${text}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    navigateToEntry(existing);
+    // existing.entry is only set when the match is genuinely THIS
+    // category's own entry (findLanguageBankDuplicate) — a cross-
+    // category match (the generic wordIndexMap fallback) means the
+    // word lives under a DIFFERENT category than the one being typed
+    // into, so the popup must say where it actually is (existing.cat),
+    // not the category the Owner happened to type into.
+    const editable = existing.entry && existing.entry.source === "online";
+    renderDuplicateConflictPopup(statusEl, {
+      word: existing.label,
+      category: existing.entry ? config.tagLabel : existing.cat,
+      addedAt: existing.entry && existing.entry.addedAt,
+      modifiedAt: existing.entry && existing.entry.modifiedAt,
+      onView: ()=> navigateToEntry(existing),
+      onEdit: editable ? ()=>{
+        navigateToEntry(existing);
+        openLanguageBankEditForm(categoryKey, existing.entry, document.getElementById(config.entryId), config.tagLabel);
+      } : null
+    });
     return;
   }
 
@@ -40404,9 +40496,21 @@ async function addRuleEntryManualFromInput(categoryKey){
 
   const existing = findLanguageBankDuplicate(config, categoryKey, text);
   if(existing){
-    statusEl.textContent = `"${text}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    navigateToEntry(existing);
+    // See addLanguageBankEntryFromInput's identical comment: only show
+    // this category's own label when the match is genuinely its own
+    // entry, otherwise report the category it actually lives in.
+    const editable = existing.entry && existing.entry.source === "online";
+    renderDuplicateConflictPopup(statusEl, {
+      word: existing.label,
+      category: existing.entry ? config.tagLabel : existing.cat,
+      addedAt: existing.entry && existing.entry.addedAt,
+      modifiedAt: existing.entry && existing.entry.modifiedAt,
+      onView: ()=> navigateToEntry(existing),
+      onEdit: editable ? ()=>{
+        navigateToEntry(existing);
+        openLanguageBankEditForm(categoryKey, existing.entry, document.getElementById(config.entryId), config.tagLabel);
+      } : null
+    });
     return;
   }
 
@@ -41154,13 +41258,22 @@ async function addDistinctionFromInputs(){
 
   const existingPair = findExistingDistinctionPair(text1, text2);
   if(existingPair){
-    statusEl.textContent = `"${text1} vs ${text2}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    navigateToEntry({label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
+    const viewExisting = ()=> navigateToEntry({label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
       document.getElementById("distinctionsSelect").value = existingPair.w;
       renderDistinctionEntry(existingPair, document.getElementById("distinctionsEntry"));
       activateTab("distinctions");
     }});
+    renderDuplicateConflictPopup(statusEl, {
+      word: existingPair.w,
+      category: DISTINCTIONS_TAG_LABEL,
+      addedAt: existingPair.addedAt,
+      modifiedAt: existingPair.modifiedAt,
+      onView: viewExisting,
+      onEdit: existingPair.source === "online" ? ()=>{
+        viewExisting();
+        openDistinctionEditForm(existingPair, document.getElementById("distinctionsEntry"));
+      } : null
+    });
     return;
   }
 
@@ -42022,9 +42135,18 @@ async function addVocabEntryFromInput(){
 
   const existing = wordIndexMap.get(normalizeWordKey(text));
   if(existing){
-    statusEl.textContent = `"${text}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    navigateToEntry(existing);
+    const vocabEntry = vocabData.find(v=> normalizeWordKey(v.w) === normalizeWordKey(text));
+    renderDuplicateConflictPopup(statusEl, {
+      word: existing.label,
+      category: existing.cat,
+      addedAt: vocabEntry && vocabEntry.addedAt,
+      modifiedAt: vocabEntry && vocabEntry.modifiedAt,
+      onView: ()=> navigateToEntry(existing),
+      onEdit: (vocabEntry && vocabEntry.source === "online") ? ()=>{
+        navigateToEntry(existing);
+        openVocabEditForm(vocabEntry, document.getElementById("vocabEntry"));
+      } : null
+    });
     return;
   }
 
@@ -42386,9 +42508,19 @@ async function addVerbEntryFromInput(){
 
   if(isKnownVerb(text)){
     const existing = wordIndexMap.get(normalizeWordKey(text));
-    statusEl.textContent = `"${text}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    if(existing) navigateToEntry(existing);
+    if(existing){
+      // Verbs has no edit form yet, and verbData entries don't track
+      // addedAt/modifiedAt — the popup gracefully shows View/Cancel
+      // only, with no date lines, rather than fabricating either.
+      renderDuplicateConflictPopup(statusEl, {
+        word: existing.label,
+        category: existing.cat,
+        onView: ()=> navigateToEntry(existing)
+      });
+    } else {
+      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.className = "add-status";
+    }
     return;
   }
 
@@ -42567,9 +42699,19 @@ async function addFamilyEntryFromInput(){
 
   if(isKnownFamilyWord(text)){
     const existing = wordIndexMap.get(normalizeWordKey(text));
-    statusEl.textContent = `"${text}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    if(existing) navigateToEntry(existing);
+    if(existing){
+      // Word Family has no edit form yet, and wordFamilyData entries
+      // don't track addedAt/modifiedAt — the popup gracefully shows
+      // View/Cancel only, with no date lines, rather than fabricating.
+      renderDuplicateConflictPopup(statusEl, {
+        word: existing.label,
+        category: existing.cat,
+        onView: ()=> navigateToEntry(existing)
+      });
+    } else {
+      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.className = "add-status";
+    }
     return;
   }
 
@@ -42777,9 +42919,19 @@ async function addTenseEntryFromInput(){
 
   if(isKnownTenseName(text)){
     const existing = wordIndexMap.get(normalizeWordKey(text));
-    statusEl.textContent = `"${text}" is already in the database — opening it.`;
-    statusEl.className = "add-status";
-    if(existing) navigateToEntry(existing);
+    if(existing){
+      // Tenses has no edit form yet, and tenseData entries don't track
+      // addedAt/modifiedAt — the popup gracefully shows View/Cancel
+      // only, with no date lines, rather than fabricating.
+      renderDuplicateConflictPopup(statusEl, {
+        word: existing.label,
+        category: existing.cat,
+        onView: ()=> navigateToEntry(existing)
+      });
+    } else {
+      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.className = "add-status";
+    }
     return;
   }
 
@@ -43135,7 +43287,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   renderTenseAddForm, saveTenseAddForm, hideTenseAddArea,
   tenseCacheRestorePromise,
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
-  collectChipEditorValues, wireChipEditorEvents
+  collectChipEditorValues, wireChipEditorEvents,
+  formatDuplicateDate, renderDuplicateConflictPopup, hideDuplicateConflictPopup
 };
 </script>
 <script>

@@ -130,6 +130,7 @@ describe("Language Bank duplicate-add navigates to its OWN entry, not a same-spe
     await wait(30);
 
     expect(fetchCalled).toBe(false);
+    window.document.getElementById("phrasalAddStatus").querySelector("#dupConflictViewBtn").click();
     expect(window.document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
     expect(window.document.getElementById("phrasalEntry").querySelector(".headword").textContent).toBe("move on");
   });

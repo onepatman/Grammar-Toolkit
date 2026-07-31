@@ -150,7 +150,11 @@ describe("Phrasal Words quick-add UI", () => {
     await new Promise((r) => setTimeout(r, 30));
 
     expect(fetchCalled).toBe(false);
-    expect(document.getElementById("phrasalAddStatus").textContent).toContain("already in the database");
+    const statusEl = document.getElementById("phrasalAddStatus");
+    expect(statusEl.textContent).toContain("already in the database");
+    // The duplicate-conflict popup replaces the old auto-navigate — the
+    // Owner has to explicitly click View Existing.
+    statusEl.querySelector("#dupConflictViewBtn").click();
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
     expect(document.getElementById("phrasalEntry").querySelector(".headword").textContent).toBe("move on");
     expect(hooks.phrasalData.filter((p) => p.w === "move on")).toHaveLength(1);
