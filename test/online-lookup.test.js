@@ -684,6 +684,69 @@ describe("fetchOnlineDefinition with generateFallbackExamples: false", () => {
 });
 
 describe("extractSynAntFromWikitext", () => {
+  it("finds a Synonyms/Antonyms section nested at level 5 (=====), which happens when a word has more than one Etymology section", () => {
+    // A word with multiple etymologies (Etymology 1, Etymology 2, ...)
+    // pushes every one of its own subsections one level deeper than a
+    // single-etymology entry: ==English==>===Etymology 1===>====Noun====>
+    // =====Synonyms=====. A cap of {3,4} (the original range) would miss
+    // this entirely — this is exactly the real-world shape "process" has,
+    // even though "process" itself has no Synonyms section (see the
+    // fixture-based test below using its actual live wikitext).
+    const wikitext = [
+      "==English==",
+      "===Etymology 1===",
+      "====Noun====",
+      "=====Synonyms=====",
+      "* [[gauge]]",
+      "=====Antonyms=====",
+      "* [[chaos]]"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result.syn).toEqual(["gauge"]);
+    expect(result.ant).toEqual(["chaos"]);
+  });
+
+  it("returns empty (not a crash, not a false positive off 'Related terms') for a real word that genuinely has no Synonyms/Antonyms section on Wiktionary", () => {
+    // Real wikitext for "process" fetched directly from
+    // en.wiktionary.org by a user of this app (this sandbox's own network
+    // access to that host is blocked) — it has a multi-etymology,
+    // multi-heading-level structure with "Hyponyms", "Derived terms", and
+    // "Related terms" sections, but no "Synonyms" or "Antonyms" heading
+    // anywhere. This is a genuine content gap in the source data itself,
+    // not a parsing bug — "Related terms" (proceed, procedure) is
+    // deliberately NOT treated as if it were a Synonyms list, since
+    // Wiktionary's own editors chose not to classify it that way.
+    const wikitext = [
+      "{{also|Process}}",
+      "==English==",
+      "===Etymology 1===",
+      "====Noun====",
+      "{{en-noun}}",
+      "",
+      "# A series of events leading to a result.",
+      "",
+      "=====Hyponyms=====",
+      "{{col4|en|Hawkes process|Bergius process}}",
+      "",
+      "=====Derived terms=====",
+      "{{col4|en|due process|process manufacturing}}",
+      "",
+      "=====Related terms=====",
+      "* {{l|en|proceed}}",
+      "* {{l|en|procedure}}",
+      "",
+      "=====Descendants=====",
+      "* {{desc|ja|プロセス|tr=purosesu|bor=1}}",
+      "",
+      "====Verb====",
+      "{{en-verb}}",
+      "",
+      "# To perform a particular process on a thing."
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result).toEqual({ syn: [], ant: [] });
+  });
+
   it("returns empty syn/ant for missing, non-string, or English-section-free wikitext", () => {
     expect(OnlineLookup.extractSynAntFromWikitext(null)).toEqual({ syn: [], ant: [] });
     expect(OnlineLookup.extractSynAntFromWikitext("")).toEqual({ syn: [], ant: [] });
