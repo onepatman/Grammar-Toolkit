@@ -100,3 +100,30 @@ describe("buildCorrectionSenses", () => {
     expect(builtins).toEqual(before);
   });
 });
+
+describe("groupCorrectionsByCategory", () => {
+  it("buckets entries by their category field", () => {
+    const saved = [
+      { id: "pc_1", wrong: "a", right: "b", category: "subject-verb agreement" },
+      { id: "pc_2", wrong: "c", right: "d", category: "subject-verb agreement" },
+      { id: "pc_3", wrong: "e", right: "f", category: "articles" }
+    ];
+    const grouped = CorrectionLog.groupCorrectionsByCategory(saved, "my correction log (personal history)");
+    expect(grouped["subject-verb agreement"]).toHaveLength(2);
+    expect(grouped["subject-verb agreement"].map((e) => e.id)).toEqual(["pc_1", "pc_2"]);
+    expect(grouped["articles"]).toHaveLength(1);
+    expect(grouped["my correction log (personal history)"]).toBeUndefined();
+  });
+
+  it("falls back to defaultCategory for an entry with no category — old entries predating per-category filing", () => {
+    const saved = [{ id: "pc_1", wrong: "a", right: "b" }];
+    const grouped = CorrectionLog.groupCorrectionsByCategory(saved, "my correction log (personal history)");
+    expect(grouped["my correction log (personal history)"]).toHaveLength(1);
+    expect(grouped["my correction log (personal history)"][0].id).toBe("pc_1");
+  });
+
+  it("returns an empty object for no saved entries", () => {
+    expect(CorrectionLog.groupCorrectionsByCategory([], "general")).toEqual({});
+    expect(CorrectionLog.groupCorrectionsByCategory(undefined, "general")).toEqual({});
+  });
+});

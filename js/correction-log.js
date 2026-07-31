@@ -54,11 +54,30 @@
     return builtinSenses.concat((savedEntries || []).map(personalEntryToSense));
   }
 
+  // Buckets saved personal corrections by which Fixes-tab category they
+  // were filed under (entry.category — the value of a mistakeData "w"),
+  // so each category's own senses can be rebuilt from its OWN saved
+  // corrections instead of every personal entry landing in one catch-all
+  // log. A saved entry with no category (every entry created before this
+  // per-category filing existed) falls back to defaultCategory, which
+  // keeps every pre-existing correction showing up exactly where it
+  // always did — the general "my correction log" entry.
+  function groupCorrectionsByCategory(savedEntries, defaultCategory) {
+    var map = {};
+    (savedEntries || []).forEach(function (entry) {
+      var cat = entry.category || defaultCategory;
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(entry);
+    });
+    return map;
+  }
+
   return {
     CORRECTION_LOG_KEY: CORRECTION_LOG_KEY,
     loadPersonalCorrections: loadPersonalCorrections,
     savePersonalCorrections: savePersonalCorrections,
     personalEntryToSense: personalEntryToSense,
-    buildCorrectionSenses: buildCorrectionSenses
+    buildCorrectionSenses: buildCorrectionSenses,
+    groupCorrectionsByCategory: groupCorrectionsByCategory
   };
 });
