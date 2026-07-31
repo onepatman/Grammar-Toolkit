@@ -491,16 +491,21 @@
     return terms;
   }
 
-  // Collects every "===Synonyms===" (or "====Synonyms====", nested under
-  // a specific part-of-speech heading) section's terms — a word can have
-  // more than one such section, one per sense/part of speech.
+  // Collects every "===Synonyms===" (or "====Synonyms===="/"=====Synonyms====="
+  // nested one or two levels deeper, under a specific Etymology split and/or
+  // part-of-speech heading) section's terms — a word can have more than one
+  // such section, one per sense/part of speech. The {3,6} range matters in
+  // practice: a word with multiple etymologies (like "process" itself —
+  // Etymology 1 vs Etymology 2) pushes every subsection one level deeper
+  // than a single-etymology entry, so a Synonyms/Antonyms section can
+  // legitimately land at level 5 ("=====Synonyms====="), not just 3-4.
   function extractTermsForWikitextHeading(section, headingName) {
     // No "m" flag — with it, "$" in the lookahead would mean "end of any
     // line" rather than "end of the whole string", cutting the capture
     // off after the very first line every time. "(?:^|\n)" does the
     // "start of a line" job "^" would otherwise need "m" for.
     var re = new RegExp(
-      "(?:^|\\n)={3,4}\\s*" + headingName + "\\s*={3,4}[ \\t]*\\n([\\s\\S]*?)(?=\\n={2,4}[^=]|$)",
+      "(?:^|\\n)={3,6}\\s*" + headingName + "\\s*={3,6}[ \\t]*\\n([\\s\\S]*?)(?=\\n={2,6}[^=]|$)",
       "g"
     );
     var terms = [];
