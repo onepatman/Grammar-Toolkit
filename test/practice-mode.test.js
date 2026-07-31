@@ -53,7 +53,7 @@ describe("Practice tab — home view", () => {
     expect(document.querySelector('input[name="practiceSource"][value="favorites"]').checked).toBe(true);
 
     const modes = Array.from(document.querySelectorAll(".practice-mode-btn")).map((b) => b.dataset.mode);
-    expect(modes).toEqual(["flashcards", "mcq", "spelling", "truefalse", "matching"]);
+    expect(modes).toEqual(["flashcards", "mcq", "spelling", "truefalse", "matching", "speaking"]);
   });
 
   it("shows a clear message instead of a broken session when the chosen source has nothing usable", async () => {
@@ -331,6 +331,121 @@ describe("Practice tab — True/False mode", () => {
 
     expect(document.getElementById("practiceTfFeedback").textContent).toContain("Correct");
     document.querySelectorAll(".practice-tf-btn").forEach((b) => expect(b.disabled).toBe(true));
+  });
+});
+
+describe("Practice tab — Speaking mode", () => {
+  it("scores an exact spoken transcript as correct and shows what was heard", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    document.getElementById("practiceRecordBtn").click();
+    const recognition = hooks.getPracticeRecognition();
+    expect(recognition).toBeTruthy();
+    recognition.onresult({ results: [[{ transcript: item.word }]] });
+
+    const feedback = document.getElementById("practiceSpeakingFeedback").textContent;
+    expect(feedback).toContain("✅");
+    expect(feedback).toContain(item.word);
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
+    expect(document.querySelector(".practice-next-question-btn")).toBeTruthy();
+  });
+
+  it("still counts a slightly-mis-heard transcript as correct (small edit-distance tolerance)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    // "practice-word-N" -> mis-hear one character near the end, still
+    // within the same edit-distance budget the search box's "did you
+    // mean" fallback already uses.
+    const misheard = item.word.slice(0, -1) + "x";
+    expect(hooks.isSpeakingAnswerCorrect(misheard, item.word)).toBe(true);
+
+    document.getElementById("practiceRecordBtn").click();
+    hooks.getPracticeRecognition().onresult({ results: [[{ transcript: misheard }]] });
+    expect(document.getElementById("practiceSpeakingFeedback").textContent).toContain("✅");
+  });
+
+  it("scores a clearly wrong transcript as incorrect and reveals the target word", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    document.getElementById("practiceRecordBtn").click();
+    hooks.getPracticeRecognition().onresult({ results: [[{ transcript: "completely-unrelated-noise" }]] });
+
+    const feedback = document.getElementById("practiceSpeakingFeedback").textContent;
+    expect(feedback).toContain("❌");
+    expect(feedback).toContain(item.word);
+  });
+
+  it("a recognition error re-enables the Record button instead of leaving the learner stuck", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    document.getElementById("practiceRecordBtn").click();
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
+    hooks.getPracticeRecognition().onerror({ error: "no-speech" });
+
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(false);
+    expect(document.getElementById("practiceSpeakingStatus").textContent).toContain("try again");
+    // No result was ever scored — the question hasn't been answered yet.
+    expect(document.querySelector(".practice-next-question-btn")).toBeNull();
+  });
+
+  it("Skip always lets the learner move on, scored as incorrect, even with no microphone interaction at all", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    document.getElementById("practiceSpeakingSkipBtn").click();
+
+    const state = hooks.getPracticeState();
+    expect(state.results[0].correct).toBe(false);
+    expect(state.results[0].userAnswer).toBe("(skipped)");
+    expect(document.querySelector(".practice-next-question-btn")).toBeTruthy();
+  });
+
+  it("hides the Speaking mode button entirely when SpeechRecognition is unsupported — no dead button", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    expect(document.getElementById("practiceSpeakingModeBtn").style.display).toBe("none");
+  });
+
+  it("shows the Speaking mode button when SpeechRecognition is supported", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    expect(document.getElementById("practiceSpeakingModeBtn").style.display).not.toBe("none");
   });
 });
 
