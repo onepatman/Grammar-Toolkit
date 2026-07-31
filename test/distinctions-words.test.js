@@ -187,7 +187,11 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     await wait(50);
 
     expect(fetchCalled).toBe(false);
-    expect(document.getElementById("distinctionsAddStatus").textContent).toContain("already in the database");
+    const statusEl = document.getElementById("distinctionsAddStatus");
+    expect(statusEl.textContent).toContain("already in the database");
+    // The duplicate-conflict popup replaces the old auto-navigate — the
+    // Owner has to explicitly click View Existing.
+    statusEl.querySelector("#dupConflictViewBtn").click();
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("distinctions");
     expect(hooks.distinctionsData.filter((e) => e.w === "Achieve vs Attain")).toHaveLength(1);
   });

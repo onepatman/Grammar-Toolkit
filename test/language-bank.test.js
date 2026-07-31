@@ -184,7 +184,11 @@ describe.each([
     await wait(30);
 
     expect(fetchCalled).toBe(false);
-    expect(document.getElementById(statusId).textContent).toContain("already in the database");
+    const statusEl = document.getElementById(statusId);
+    expect(statusEl.textContent).toContain("already in the database");
+    // The duplicate-conflict popup replaces the old auto-navigate — the
+    // Owner has to explicitly click View Existing.
+    statusEl.querySelector("#dupConflictViewBtn").click();
     expect(document.getElementById(entryId).querySelector(".headword").textContent).toBe(builtIn);
     expect(hooks[dataKey].filter((p) => p.w === builtIn)).toHaveLength(1);
   });
