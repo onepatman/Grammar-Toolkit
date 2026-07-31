@@ -53,7 +53,7 @@ describe("Practice tab — home view", () => {
     expect(document.querySelector('input[name="practiceSource"][value="favorites"]').checked).toBe(true);
 
     const modes = Array.from(document.querySelectorAll(".practice-mode-btn")).map((b) => b.dataset.mode);
-    expect(modes).toEqual(["flashcards", "mcq", "spelling", "truefalse", "matching", "speaking"]);
+    expect(modes).toEqual(["flashcards", "mcq", "spelling", "truefalse", "matching", "speaking", "dictation"]);
   });
 
   it("shows a clear message instead of a broken session when the chosen source has nothing usable", async () => {
@@ -334,77 +334,106 @@ describe("Practice tab — True/False mode", () => {
   });
 });
 
-describe("Practice tab — Speaking mode", () => {
-  it("scores an exact spoken transcript as correct and shows what was heard", async () => {
+// Practice pool candidates always carry a real example sentence (from
+// makeVocabWord's seeded `examples`), so item.shadowText/dictationText
+// is that sentence, not the bare word — Speaking is a Duolingo-style
+// shadowing exercise (listen to the whole sentence, then repeat it).
+function startSpeakingSession(window, document) {
+  document.querySelector('.thumb-tab[data-tab="practice"]').click();
+  document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+}
+
+// Shadowing requires listening first — the Record button starts
+// disabled every question until "Hear it" has been clicked at least
+// once (see renderSpeakingHtml/the .practice-speaking-listen-btn handler).
+function listenThenRecord(document) {
+  document.querySelector(".practice-speaking-listen-btn").click();
+  document.getElementById("practiceRecordBtn").click();
+}
+
+describe("Practice tab — Speaking mode (shadowing)", () => {
+  it("shows the example sentence (not just the bare word) and keeps Record disabled until Hear it is clicked", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
     const state = hooks.getPracticeState();
     const item = state.items[state.index];
-    document.getElementById("practiceRecordBtn").click();
+    expect(item.shadowText).toBe(`Example sentence ${item.word.split("-")[2]}.`);
+    expect(document.querySelector(".practice-shadow-sentence").textContent).toBe(item.shadowText);
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
+
+    document.querySelector(".practice-speaking-listen-btn").click();
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(false);
+  });
+
+  it("scores an exact spoken transcript of the full sentence as correct and shows what was heard", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    listenThenRecord(document);
     const recognition = hooks.getPracticeRecognition();
     expect(recognition).toBeTruthy();
-    recognition.onresult({ results: [[{ transcript: item.word }]] });
+    recognition.onresult({ results: [[{ transcript: item.shadowText }]] });
 
     const feedback = document.getElementById("practiceSpeakingFeedback").textContent;
     expect(feedback).toContain("✅");
-    expect(feedback).toContain(item.word);
     expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
     expect(document.querySelector(".practice-next-question-btn")).toBeTruthy();
   });
 
-  it("still counts a slightly-mis-heard transcript as correct (small edit-distance tolerance)", async () => {
+  it("still counts a transcript with a few small deviations as correct (sentence-length tolerance, wider than a single word's)", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
     const state = hooks.getPracticeState();
     const item = state.items[state.index];
-    // "practice-word-N" -> mis-hear one character near the end, still
-    // within the same edit-distance budget the search box's "did you
-    // mean" fallback already uses.
-    const misheard = item.word.slice(0, -1) + "x";
-    expect(hooks.isSpeakingAnswerCorrect(misheard, item.word)).toBe(true);
+    // A one-character mishear (the trailing digit) plus no punctuation
+    // at all (as SpeechRecognition transcripts never have) — a single
+    // edit, well within the tolerance this mode allows.
+    const misheard = item.shadowText.replace(/\d\.$/, "X");
+    expect(hooks.isCloseTextMatch(misheard, item.shadowText)).toBe(true);
 
-    document.getElementById("practiceRecordBtn").click();
+    listenThenRecord(document);
     hooks.getPracticeRecognition().onresult({ results: [[{ transcript: misheard }]] });
     expect(document.getElementById("practiceSpeakingFeedback").textContent).toContain("✅");
   });
 
-  it("scores a clearly wrong transcript as incorrect and reveals the target word", async () => {
+  it("scores a clearly wrong transcript as incorrect and reveals the target sentence", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
     const state = hooks.getPracticeState();
     const item = state.items[state.index];
-    document.getElementById("practiceRecordBtn").click();
-    hooks.getPracticeRecognition().onresult({ results: [[{ transcript: "completely-unrelated-noise" }]] });
+    listenThenRecord(document);
+    hooks.getPracticeRecognition().onresult({ results: [[{ transcript: "completely unrelated noise about nothing at all" }]] });
 
     const feedback = document.getElementById("practiceSpeakingFeedback").textContent;
     expect(feedback).toContain("❌");
-    expect(feedback).toContain(item.word);
+    expect(feedback).toContain(item.shadowText);
   });
 
   it("a recognition error re-enables the Record button instead of leaving the learner stuck", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
-    document.getElementById("practiceRecordBtn").click();
+    listenThenRecord(document);
     expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
     hooks.getPracticeRecognition().onerror({ error: "no-speech" });
 
@@ -418,8 +447,7 @@ describe("Practice tab — Speaking mode", () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
     document.getElementById("practiceSpeakingSkipBtn").click();
@@ -434,11 +462,10 @@ describe("Practice tab — Speaking mode", () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
-    document.getElementById("practiceRecordBtn").click();
+    listenThenRecord(document);
     expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
 
     // On some real mobile browsers, SpeechRecognition just goes silent —
@@ -454,11 +481,10 @@ describe("Practice tab — Speaking mode", () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
-    document.querySelector('.thumb-tab[data-tab="practice"]').click();
-    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    startSpeakingSession(window, document);
     await wait(20);
 
-    document.getElementById("practiceRecordBtn").click();
+    listenThenRecord(document);
     document.getElementById("practiceSpeakingSkipBtn").click();
 
     const state = hooks.getPracticeState();
@@ -483,6 +509,134 @@ describe("Practice tab — Speaking mode", () => {
 
     document.querySelector('.thumb-tab[data-tab="practice"]').click();
     expect(document.getElementById("practiceSpeakingModeBtn").style.display).not.toBe("none");
+  });
+});
+
+describe("Practice tab — Writing mode (dictation)", () => {
+  function startDictationSession(window, document) {
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="dictation"]').click();
+  }
+
+  it("never shows the target sentence up front — input and Submit stay disabled until Play is clicked", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    expect(document.getElementById("practiceQuestionArea").textContent).not.toContain(item.dictationText);
+    expect(document.getElementById("practiceDictationInput").disabled).toBe(true);
+    expect(document.getElementById("practiceDictationSubmitBtn").disabled).toBe(true);
+
+    document.querySelector(".practice-dictation-play-btn").click();
+    expect(document.getElementById("practiceDictationInput").disabled).toBe(false);
+    expect(document.getElementById("practiceDictationSubmitBtn").disabled).toBe(false);
+    // Still never leaked into the DOM just from playing it.
+    expect(document.getElementById("practiceQuestionArea").textContent).not.toContain(item.dictationText);
+  });
+
+  it("Play is repeatable — clicking it again doesn't disable anything or error", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    document.querySelector(".practice-dictation-play-btn").click();
+    document.querySelector(".practice-dictation-play-btn").click();
+    expect(document.getElementById("practiceDictationInput").disabled).toBe(false);
+  });
+
+  it("scores an exact typed transcription as correct and reveals the sentence", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    document.querySelector(".practice-dictation-play-btn").click();
+    document.getElementById("practiceDictationInput").value = item.dictationText;
+    document.getElementById("practiceDictationSubmitBtn").click();
+
+    const feedback = document.getElementById("practiceDictationFeedback").textContent;
+    expect(feedback).toContain("✅");
+    expect(feedback).toContain(item.dictationText);
+    expect(document.getElementById("practiceDictationInput").disabled).toBe(true);
+    expect(document.querySelector(".practice-next-question-btn")).toBeTruthy();
+  });
+
+  it("tolerates minor punctuation/case differences in the typed answer", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    const typedVariant = item.dictationText.replace(/\.$/, "").toUpperCase();
+    document.querySelector(".practice-dictation-play-btn").click();
+    document.getElementById("practiceDictationInput").value = typedVariant;
+    document.getElementById("practiceDictationSubmitBtn").click();
+
+    expect(document.getElementById("practiceDictationFeedback").textContent).toContain("✅");
+  });
+
+  it("scores a clearly wrong typed answer as incorrect and reveals the correct sentence", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    document.querySelector(".practice-dictation-play-btn").click();
+    document.getElementById("practiceDictationInput").value = "totally different unrelated words here";
+    document.getElementById("practiceDictationSubmitBtn").click();
+
+    const feedback = document.getElementById("practiceDictationFeedback").textContent;
+    expect(feedback).toContain("❌");
+    expect(feedback).toContain(item.dictationText);
+  });
+
+  it("Skip always lets the learner move on, scored as incorrect, even without ever pressing Play", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    document.getElementById("practiceDictationSkipBtn").click();
+
+    const state = hooks.getPracticeState();
+    expect(state.results[0].correct).toBe(false);
+    expect(state.results[0].userAnswer).toBe("(skipped)");
+    expect(document.querySelector(".practice-next-question-btn")).toBeTruthy();
+  });
+
+  it("shows the Writing mode button (feature-detected on speechSynthesis only, no SpeechRecognition needed)", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    expect(document.getElementById("practiceDictationModeBtn").style.display).not.toBe("none");
+  });
+
+  it("hides the Writing mode button when speechSynthesis is unsupported", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    delete window.speechSynthesis;
+
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    expect(document.getElementById("practiceDictationModeBtn").style.display).toBe("none");
   });
 });
 
