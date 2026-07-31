@@ -33,6 +33,12 @@
                         vocabEntries/phrasalEntries/etc. these don't
                         currently participate in Firestore cross-device
                         sync (see LANGUAGE_BANK_CATEGORIES in index.html).
+     - familyEntries:   Owner-added Word Family entries (verb -> noun/
+                        person/adjective forms + example sentences),
+                        added via the Family tab's own quick-add box.
+                        Same generic { key, entry } shape and same
+                        local-only scope as the six grammar-rule stores
+                        above.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -68,7 +74,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 10;
+  var DB_VERSION = 11;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -88,6 +94,7 @@
   var CAPITAL_STORE = "capitalEntries";
   var ORDER_STORE = "orderEntries";
   var QA_STORE = "qaEntries";
+  var FAMILY_STORE = "familyEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -148,6 +155,9 @@
             db.createObjectStore(name, { keyPath: "key" });
           }
         });
+        if (!db.objectStoreNames.contains(FAMILY_STORE)) {
+          db.createObjectStore(FAMILY_STORE, { keyPath: "key" });
+        }
       };
       request.onsuccess = function () { resolve(request.result); };
       request.onerror = function () { resolve(null); };
@@ -378,6 +388,19 @@
   function putQa(entry, options) { return putEntry(QA_STORE, entry, options); }
   function getAllQa(options) { return getAllEntries(QA_STORE, options); }
   function deleteQa(word, options) { return deleteEntry(QA_STORE, word, options); }
+
+  /* ---------- familyEntries (Owner-added Word Family entries) ----------
+     Same generic { key, entry } shape as customVerbs/the six grammar-rule
+     stores, but keyed on entry.verb (wordFamilyData's own headword field)
+     rather than entry.w, since Word Family entries never had a `.w`. */
+
+  function getFamily(word, options) { return storeGet(FAMILY_STORE, normalizeKey(word), options).then(function (row) { return row ? row.entry : undefined; }); }
+  function putFamily(entry, options) {
+    if (!entry || !entry.verb) return Promise.resolve(false);
+    return storePut(FAMILY_STORE, { key: normalizeKey(entry.verb), entry: entry }, options);
+  }
+  function getAllFamily(options) { return getAllEntries(FAMILY_STORE, options); }
+  function deleteFamily(word, options) { return deleteEntry(FAMILY_STORE, word, options); }
 
   /* ---------- favorites ---------- */
 
@@ -615,6 +638,11 @@
     putQa: putQa,
     getAllQa: getAllQa,
     deleteQa: deleteQa,
+    FAMILY_STORE: FAMILY_STORE,
+    getFamily: getFamily,
+    putFamily: putFamily,
+    getAllFamily: getAllFamily,
+    deleteFamily: deleteFamily,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,
