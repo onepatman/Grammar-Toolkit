@@ -37972,7 +37972,9 @@ function importVocabPack(rawEntries){
    edit/delete handlers special-case categoryKey==="vocab" instead of
    routing through the Language Bank functions for it.
 ========================================================= */
-// One editable "meaning" row: definition text, example, and an
+// One editable "meaning" row: definition text, an unlimited list of
+// example sentences (createLbEditExampleRow — the same reusable
+// example-row component the Language Bank editor uses), and an
 // optional owner-entered usage note. Built with document.createElement
 // (never innerHTML string interpolation) specifically so a word or
 // definition containing a quote can't break out of an HTML attribute —
@@ -37995,12 +37997,18 @@ function createVocabEditMeaningRow(meaning){
   useField.value = m.use || "";
   row.appendChild(useField);
 
-  row.appendChild(makeLabeledField("label", "Example sentence"));
-  const exField = document.createElement("input");
-  exField.type = "text";
-  exField.className = "vocab-edit-meaning-example";
-  exField.value = (m.examples && m.examples[0]) || "";
-  row.appendChild(exField);
+  row.appendChild(makeLabeledField("label", "Example sentences"));
+  const examplesContainer = document.createElement("div");
+  examplesContainer.className = "lb-edit-examples";
+  const initialExamples = (m.examples && m.examples.length) ? m.examples : [""];
+  initialExamples.forEach(ex=> examplesContainer.appendChild(createLbEditExampleRow(ex)));
+  row.appendChild(examplesContainer);
+
+  const addExampleBtn = document.createElement("button");
+  addExampleBtn.type = "button";
+  addExampleBtn.className = "add-btn secondary lb-edit-add-example-btn";
+  addExampleBtn.textContent = "+ Add Example";
+  row.appendChild(addExampleBtn);
 
   row.appendChild(makeLabeledField("label", "Usage note (optional)"));
   const notesField = document.createElement("input");
@@ -38088,6 +38096,16 @@ function wireVocabEditGroupEvents(container){
       renumberVocabEditMeanings(group);
       return;
     }
+    const addExampleBtn = e.target.closest(".lb-edit-add-example-btn");
+    if(addExampleBtn){
+      addExampleBtn.closest(".vocab-edit-meaning").querySelector(".lb-edit-examples").appendChild(createLbEditExampleRow());
+      return;
+    }
+    const removeExampleBtn = e.target.closest(".lb-edit-remove-example-btn");
+    if(removeExampleBtn){
+      removeExampleBtn.closest(".lb-edit-example-row").remove();
+      return;
+    }
     const removeMeaningBtn = e.target.closest(".vocab-edit-remove-meaning-btn");
     if(removeMeaningBtn){
       const group = removeMeaningBtn.closest(".vocab-edit-pos-group");
@@ -38171,9 +38189,11 @@ function collectVocabEditSenses(){
     groupEl.querySelectorAll(".vocab-edit-meaning").forEach(row=>{
       const useText = row.querySelector(".vocab-edit-meaning-use").value.trim();
       if(!useText) return;
-      const exampleText = row.querySelector(".vocab-edit-meaning-example").value.trim();
+      const examples = Array.from(row.querySelectorAll(".lb-edit-example-input"))
+        .map(inp=> inp.value.trim())
+        .filter(Boolean);
       const notesText = row.querySelector(".vocab-edit-meaning-notes").value.trim();
-      const sense = { use: prefix + useText, examples: exampleText ? [exampleText] : [] };
+      const sense = { use: prefix + useText, examples: examples };
       if(notesText) sense.notes = notesText;
       senses.push(sense);
     });

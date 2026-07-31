@@ -300,7 +300,7 @@ describe("Vocabulary editor — preserves every part of speech and every meaning
     const meaningRows = document.querySelectorAll("#vocabEntry .vocab-edit-meaning");
     expect(meaningRows).toHaveLength(2);
     meaningRows[1].querySelector(".vocab-edit-meaning-use").value = "A second sense.";
-    meaningRows[1].querySelector(".vocab-edit-meaning-example").value = "Example two.";
+    meaningRows[1].querySelector(".lb-edit-example-input").value = "Example two.";
 
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
@@ -459,6 +459,85 @@ describe("Vocabulary editor — preserves every part of speech and every meaning
 
     const updated = hooks.vocabData.find((v) => v.w === "blankrow-test");
     expect(updated.senses).toHaveLength(1);
+  });
+
+  it("a meaning row pre-fills one example-row per existing example, matching the entry's own count", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "multiexample-test", senses: [{ use: "(verb) To join together.", examples: ["First example.", "Second example.", "Third example."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "multiexample-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const meaningRow = document.querySelector("#vocabEntry .vocab-edit-meaning");
+    const exampleInputs = meaningRow.querySelectorAll(".lb-edit-example-input");
+    expect(Array.from(exampleInputs).map((inp) => inp.value)).toEqual(["First example.", "Second example.", "Third example."]);
+  });
+
+  it("'+ Add Example' adds another example input to that meaning, and both are saved on save", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "addexample-test", senses: [{ use: "(verb) To join together.", examples: ["First example."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "addexample-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    document.querySelector("#vocabEntry .lb-edit-add-example-btn").click();
+    const exampleInputs = document.querySelectorAll("#vocabEntry .vocab-edit-meaning .lb-edit-example-input");
+    expect(exampleInputs).toHaveLength(2);
+    exampleInputs[1].value = "Second example.";
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "addexample-test");
+    expect(updated.senses[0].examples).toEqual(["First example.", "Second example."]);
+  });
+
+  it("Remove on an example row deletes just that example, keeping the rest and the meaning itself", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "removeexample-test", senses: [{ use: "(verb) To join together.", examples: ["Keep this one.", "Remove this one."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "removeexample-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    const exampleRows = document.querySelectorAll("#vocabEntry .lb-edit-example-row");
+    expect(exampleRows).toHaveLength(2);
+    exampleRows[1].querySelector(".lb-edit-remove-example-btn").click();
+
+    expect(document.querySelectorAll("#vocabEntry .lb-edit-example-row")).toHaveLength(1);
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "removeexample-test");
+    expect(updated.senses[0].examples).toEqual(["Keep this one."]);
+  });
+
+  it("a blank example row (left empty) is silently dropped, not saved as an empty string", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry(
+      { w: "blankexample-test", senses: [{ use: "(verb) To join together.", examples: ["Real example."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+    const original = hooks.vocabData.find((v) => v.w === "blankexample-test");
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    document.querySelector("#vocabEntry .lb-edit-add-example-btn").click(); // left blank on purpose
+
+    document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const updated = hooks.vocabData.find((v) => v.w === "blankexample-test");
+    expect(updated.senses[0].examples).toEqual(["Real example."]);
   });
 });
 
