@@ -31,6 +31,15 @@
   var DICTIONARY_API_BASE = "https://api.dictionaryapi.dev/api/v2/entries/en/";
   var WIKTIONARY_API_BASE = "https://en.wiktionary.org/api/rest_v1/page/definition/";
   var WIKTIONARY_SEARCH_API = "https://en.wiktionary.org/w/api.php";
+  // Last-resort synonym/antonym source — keyless, CORS-enabled, WordNet-
+  // backed, and (confirmed against real requests, since this sandbox
+  // can't reach it directly) returns results for plenty of words whose
+  // Wiktionary page has no dedicated Synonyms/Antonyms section at all
+  // (e.g. "process"). Tried only after both the Free Dictionary API and
+  // the Wiktionary wikitext scrape have already come up empty for a
+  // given side, since Datamuse's WordNet-derived list isn't sense-
+  // disambiguated and can be noisier than a curated dictionary entry.
+  var DATAMUSE_API_BASE = "https://api.datamuse.com/words";
   // A combined ceiling across every part of speech (noun/verb/adjective/
   // etc. all count against this together) — high enough that no
   // realistic word gets truncated (5 meanings x 8 possible parts of
@@ -74,6 +83,27 @@
       "origin=*"
     ];
     return WIKTIONARY_SEARCH_API + "?" + params.join("&");
+  }
+
+  // Datamuse's "means like"/relation-constrained word-finding endpoint —
+  // rel_syn and rel_ant are its dedicated synonym/antonym relations,
+  // capped at MAX_SYN_ANT results since that's the most this app ever
+  // displays anyway.
+  function buildDatamuseSynUrl(word) {
+    return DATAMUSE_API_BASE + "?rel_syn=" + encodeURIComponent(word) + "&max=" + MAX_SYN_ANT;
+  }
+
+  function buildDatamuseAntUrl(word) {
+    return DATAMUSE_API_BASE + "?rel_ant=" + encodeURIComponent(word) + "&max=" + MAX_SYN_ANT;
+  }
+
+  // Datamuse returns an array of {word, score, ...} objects, already
+  // sorted by relevance — just the word strings are kept.
+  function extractDatamuseTerms(json) {
+    if (!Array.isArray(json)) return [];
+    return json
+      .map(function (entry) { return entry && typeof entry.word === "string" ? entry.word : null; })
+      .filter(Boolean);
   }
 
   // The MediaWiki Action API (keyless, CORS-enabled via origin=*, same
@@ -158,6 +188,7 @@
   // came from, not a verdict on its accuracy.
   var SOURCE_FREE_DICTIONARY_API = "Free Dictionary API";
   var SOURCE_WIKTIONARY = "Wiktionary";
+  var SOURCE_DATAMUSE = "Datamuse";
 
   // Every online-sourced entry (any of the three tiers) carries provenance
   // metadata — mirrors the `verified` field now present on every built-in
@@ -533,10 +564,14 @@
     };
   }
 
-  function withWiktionaryAttribution(sourceName) {
-    if (!sourceName) return SOURCE_WIKTIONARY;
-    if (sourceName.indexOf(SOURCE_WIKTIONARY) !== -1) return sourceName;
-    return sourceName + " + " + SOURCE_WIKTIONARY;
+  // Appends a source label to an existing attribution string, unless
+  // it's already present — shared by both the Wiktionary wikitext scrape
+  // and the Datamuse fallback so a result's sourceName always lists
+  // every source that actually contributed something to it.
+  function appendSourceAttribution(sourceName, label) {
+    if (!sourceName) return label;
+    if (sourceName.indexOf(label) !== -1) return sourceName;
+    return sourceName + " + " + label;
   }
 
   function dedupe(arr) {
@@ -665,15 +700,50 @@
             var extracted = extractSynAntFromWikitext(wikitext);
             if (missingSyn && extracted.syn.length) {
               result.syn = dedupe(extracted.syn).slice(0, MAX_SYN_ANT);
-              result.sourceName = withWiktionaryAttribution(result.sourceName);
+              result.sourceName = appendSourceAttribution(result.sourceName, SOURCE_WIKTIONARY);
             }
             if (missingAnt && extracted.ant.length) {
               result.ant = dedupe(extracted.ant).slice(0, MAX_SYN_ANT);
-              result.sourceName = withWiktionaryAttribution(result.sourceName);
+              result.sourceName = appendSourceAttribution(result.sourceName, SOURCE_WIKTIONARY);
             }
             return result;
           })
           .catch(function () { return result; });
+      })
+      .then(function (result) {
+        // Last resort: plenty of real words have no dedicated Synonyms/
+        // Antonyms section on Wiktionary at all (confirmed against a
+        // real request for "process" — it genuinely has none), so
+        // Datamuse's WordNet-backed rel_syn/rel_ant relations are tried
+        // for whichever side is STILL missing after both prior sources.
+        if (!result) return result;
+        var missingSyn = !result.syn || result.syn.length === 0;
+        var missingAnt = !result.ant || result.ant.length === 0;
+        if (!missingSyn && !missingAnt) return result;
+
+        var word = result.w || queryText;
+        function fetchDatamuseJson(url) {
+          return fetchImpl(url, { signal: opts.signal })
+            .then(function (res) { return res && res.ok ? res.json() : null; })
+            .catch(function () { return null; });
+        }
+
+        return Promise.all([
+          missingSyn ? fetchDatamuseJson(buildDatamuseSynUrl(word)) : Promise.resolve(null),
+          missingAnt ? fetchDatamuseJson(buildDatamuseAntUrl(word)) : Promise.resolve(null)
+        ]).then(function (pair) {
+          var synTerms = missingSyn ? extractDatamuseTerms(pair[0]) : [];
+          var antTerms = missingAnt ? extractDatamuseTerms(pair[1]) : [];
+          if (synTerms.length) {
+            result.syn = dedupe(synTerms).slice(0, MAX_SYN_ANT);
+            result.sourceName = appendSourceAttribution(result.sourceName, SOURCE_DATAMUSE);
+          }
+          if (antTerms.length) {
+            result.ant = dedupe(antTerms).slice(0, MAX_SYN_ANT);
+            result.sourceName = appendSourceAttribution(result.sourceName, SOURCE_DATAMUSE);
+          }
+          return result;
+        });
       })
       .then(function (result) {
         if (result && cache) cache.set(trimmed, result);
@@ -689,8 +759,11 @@
     buildWiktionaryUrl: buildWiktionaryUrl,
     buildWiktionarySearchUrl: buildWiktionarySearchUrl,
     buildWiktionaryWikitextUrl: buildWiktionaryWikitextUrl,
+    buildDatamuseSynUrl: buildDatamuseSynUrl,
+    buildDatamuseAntUrl: buildDatamuseAntUrl,
     extractWiktionarySearchTitle: extractWiktionarySearchTitle,
     extractSynAntFromWikitext: extractSynAntFromWikitext,
+    extractDatamuseTerms: extractDatamuseTerms,
     extractPhonetic: extractPhonetic,
     extractOrigin: extractOrigin,
     MAX_SYN_ANT: MAX_SYN_ANT,
@@ -706,6 +779,7 @@
     SEARCH_MATCH_REJECT_THRESHOLD: SEARCH_MATCH_REJECT_THRESHOLD,
     SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD: SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD,
     SOURCE_FREE_DICTIONARY_API: SOURCE_FREE_DICTIONARY_API,
-    SOURCE_WIKTIONARY: SOURCE_WIKTIONARY
+    SOURCE_WIKTIONARY: SOURCE_WIKTIONARY,
+    SOURCE_DATAMUSE: SOURCE_DATAMUSE
   };
 });
