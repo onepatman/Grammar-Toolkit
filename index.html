@@ -611,6 +611,27 @@
   .practice-record-btn:active{ transform:scale(.98); }
   .practice-record-btn:disabled{ cursor:default; opacity:.7; }
 
+  .practice-shadow-sentence{
+    font-size:17px; font-weight:600; color:var(--ink); line-height:1.5;
+  }
+  .practice-shadow-word-label{
+    margin-top:10px; font-size:12.5px; color:var(--ink-soft);
+  }
+
+  .practice-dictation-hidden-hint{
+    font-size:13px; color:var(--ink-soft); font-style:italic;
+  }
+  .practice-dictation-input{
+    width:100%; padding:12px 14px; border:1.5px solid var(--rule); border-radius:10px;
+    font-size:15px; color:var(--ink); background:var(--card); margin:12px 0;
+    resize:vertical; min-height:60px; font-family:inherit;
+  }
+  .practice-dictation-input:disabled{ opacity:.7; }
+  .practice-dictation-reveal{
+    margin-top:8px; padding:10px 12px; border-radius:10px; font-size:14px;
+    background:var(--tab-off); color:var(--ink);
+  }
+
   .practice-matching-columns{
     display:grid; grid-template-columns:1fr 1fr; gap:10px;
   }
@@ -1568,7 +1589,7 @@
   <!-- ===== PRACTICE PANEL ===== -->
   <section id="panel-practice" style="display:none;">
     <div id="practiceHome">
-      <p class="note" style="margin-bottom:10px;">Test yourself with 15 random questions built from your own saved content — Flashcards, Multiple Choice, Spelling, True/False, Matching, or Speaking.</p>
+      <p class="note" style="margin-bottom:10px;">Test yourself with 15 random questions built from your own saved content — Flashcards, Multiple Choice, Spelling, True/False, Matching, Speaking, or Writing.</p>
 
       <div class="section-label">Practice from</div>
       <div class="practice-source-picker" id="practiceSourcePicker">
@@ -1585,6 +1606,7 @@
         <button class="practice-mode-btn" data-mode="truefalse">✅<span>True / False</span></button>
         <button class="practice-mode-btn" data-mode="matching">🔗<span>Matching</span></button>
         <button class="practice-mode-btn" data-mode="speaking" id="practiceSpeakingModeBtn">🎤<span>Speaking</span></button>
+        <button class="practice-mode-btn" data-mode="dictation" id="practiceDictationModeBtn">🎧<span>Writing</span></button>
       </div>
       <div id="practiceHomeStatus" class="add-status"></div>
 
@@ -36943,7 +36965,8 @@ const PRACTICE_RATINGS = [
 ];
 const PRACTICE_MODE_LABELS = {
   flashcards: "Flashcards", mcq: "Multiple Choice", spelling: "Spelling",
-  truefalse: "True / False", matching: "Matching", speaking: "Speaking"
+  truefalse: "True / False", matching: "Matching", speaking: "Speaking",
+  dictation: "Writing"
 };
 
 function ratePracticeScore(correct){
@@ -37042,8 +37065,46 @@ function buildTrueFalseItems(session, pool){
   });
 }
 
+// Distinctions Words prefixes each of its two examples with "Basic:"/
+// "Advanced:" (see resolveFavoriteEntryData) — a real formatting
+// artifact of that category's two-word-comparison layout, never part of
+// the actual sentence a shadowing/dictation exercise should present.
+function cleanShadowSentence(text){
+  return (text || "").replace(/^(Basic|Advanced):\s*/i, "").trim();
+}
+
+// Verbs favorites carry a fabricated "examples" string — a slash-joined
+// list of the five verb forms (e.g. "work / works / working / worked /
+// worked") — not a real sentence, since Verbs entries have no genuine
+// example data at all (see resolveFavoriteEntryData). Detected instead
+// of threaded through as a category flag, since candidates from
+// buildPracticeCandidates() don't carry their source category: a
+// multi-slash string with no sentence-ending punctuation is otherwise
+// never something the real seed data produces.
+function looksLikeShadowableSentence(text){
+  if(!text) return false;
+  const trimmed = text.trim();
+  if(!trimmed) return false;
+  if(/\/.*\/.*\//.test(trimmed) && !/[.!?]/.test(trimmed)) return false;
+  return trimmed.split(/\s+/).length > 1;
+}
+
+// The single target text both the Speaking (shadowing) and Dictation
+// modes read from — a real example sentence when the candidate has a
+// usable one, falling back to the bare word otherwise so neither mode
+// ever has nothing to work with.
+function getPracticeShadowTarget(candidate){
+  const raw = candidate.examples && candidate.examples[0];
+  const cleaned = raw ? cleanShadowSentence(raw) : "";
+  return looksLikeShadowableSentence(cleaned) ? cleaned : candidate.word;
+}
+
 function buildSpeakingItems(session){
-  return session.map(c=> ({ key: c.key, word: c.word, use: c.use }));
+  return session.map(c=> ({ key: c.key, word: c.word, use: c.use, shadowText: getPracticeShadowTarget(c) }));
+}
+
+function buildDictationItems(session){
+  return session.map(c=> ({ key: c.key, word: c.word, dictationText: getPracticeShadowTarget(c) }));
 }
 
 function buildMatchingBatches(session){
@@ -37089,6 +37150,7 @@ function startPractice(mode){
     else if(mode === "spelling") practiceState.items = buildSpellingItems(session);
     else if(mode === "truefalse") practiceState.items = buildTrueFalseItems(session, pool);
     else if(mode === "speaking") practiceState.items = buildSpeakingItems(session);
+    else if(mode === "dictation") practiceState.items = buildDictationItems(session);
     else if(mode === "matching"){
       practiceState.batches = buildMatchingBatches(session);
       practiceState.batchIndex = 0;
@@ -37122,6 +37184,7 @@ function renderPracticeQuestion(){
   else if(state.mode === "spelling") area.innerHTML = renderSpellingHtml(item);
   else if(state.mode === "truefalse") area.innerHTML = renderTrueFalseHtml(item);
   else if(state.mode === "speaking") area.innerHTML = renderSpeakingHtml(item);
+  else if(state.mode === "dictation") area.innerHTML = renderDictationHtml(item);
 }
 
 function nextQuestionButtonHtml(){
@@ -37279,36 +37342,61 @@ function isSpeechRecognitionSupported(){
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
 
-// A spoken transcript will never match as cleanly as Spelling's exact
-// case-insensitive compare — speech recognition can mishear a syllable
-// even from a genuinely correct pronunciation — so this allows a small
-// edit-distance tolerance (the same "typo budget" findClosestMatches()
-// already uses for the search box's "did you mean" fallback: roughly 1
-// edit per 3 characters, capped at 3) instead of demanding an exact match.
-function isSpeakingAnswerCorrect(transcript, targetWord){
-  const heard = (transcript || "").trim().toLowerCase();
-  const target = (targetWord || "").trim().toLowerCase();
+// Strips punctuation SpeechRecognition transcripts never include
+// (periods, commas, quotes...) and normalizes whitespace/case, so a
+// target sentence ending in "." isn't unfairly penalized against a
+// transcript that (correctly) has no terminal punctuation at all. A
+// bare single word passes through unchanged in practice, since it
+// rarely carries punctuation to begin with.
+function normalizeForSpeechCompare(text){
+  return (text || "").toLowerCase().replace(/[.,!?'"()\-–—;:]/g, "").replace(/\s+/g, " ").trim();
+}
+
+// A spoken (or typed) answer will never match as cleanly as Spelling's
+// exact case-insensitive compare — speech recognition can mishear a
+// syllable even from a genuinely correct pronunciation, and a longer
+// sentence accumulates more small deviations than a single word ever
+// would — so this allows an edit-distance tolerance instead of
+// demanding an exact match: the same "typo budget" findClosestMatches()
+// already uses for the search box's "did you mean" fallback (roughly 1
+// edit per 3 characters, capped at 3) for short text, widening to a
+// flat ~1-in-4 ratio for anything longer than a single word/short
+// phrase, where that cap-of-3 would otherwise be far too strict.
+function isCloseTextMatch(input, target){
+  const heard = normalizeForSpeechCompare(input);
+  const wanted = normalizeForSpeechCompare(target);
   if(!heard) return false;
-  if(heard === target) return true;
-  const distance = FuzzySearch.levenshteinDistance(heard, target);
-  const maxDistance = Math.max(1, Math.min(3, Math.ceil(target.length * 0.34)));
+  if(heard === wanted) return true;
+  const distance = FuzzySearch.levenshteinDistance(heard, wanted);
+  const maxDistance = wanted.length <= 20
+    ? Math.max(1, Math.min(3, Math.ceil(wanted.length * 0.34)))
+    : Math.ceil(wanted.length * 0.25);
   return distance <= maxDistance;
 }
 
 let practiceRecognition = null; // the in-flight SpeechRecognition instance, if any
 let practiceRecognitionTimeout = null;
 
+// A Duolingo-style shadowing exercise: listen to the whole target FIRST
+// (a real sentence when the word has one, falling back to just the bare
+// word otherwise — see getPracticeShadowTarget), then repeat it back.
+// The word-styled "practice-front" treatment (large, uppercase, mono)
+// only fits a single word — a full sentence gets its own quieter,
+// sentence-cased style with the word called out separately underneath
+// for context, since that's still the vocabulary actually being tested.
 function renderSpeakingHtml(item){
+  const isSentence = item.shadowText !== item.word;
+  const targetHtml = isSentence
+    ? `<div class="practice-shadow-sentence">${item.shadowText}</div><div class="practice-shadow-word-label">Word: <strong>${item.word}</strong></div>`
+    : `<div class="practice-front">${item.shadowText}</div>${item.use ? `<p class="note" style="margin-top:10px;">${item.use}</p>` : ""}`;
   return `
-    <div class="practice-card">
-      <div class="practice-front">${item.word}</div>
-      ${item.use ? `<p class="note" style="margin-top:10px;">${item.use}</p>` : ""}
-    </div>
+    <div class="practice-card">${targetHtml}</div>
+    <p class="note" style="margin:10px 0;">🎧 Listen first, then repeat what you hear.</p>
     <div class="practice-speaking-actions">
-      <button class="listen-btn practice-speaking-listen-btn" aria-label="Listen" title="Hear the correct pronunciation">🔊 Hear it</button>
+      <button class="listen-btn practice-speaking-listen-btn" aria-label="Listen" title="Listen, then repeat">🔊 Hear it</button>
     </div>
-    <button class="practice-record-btn" id="practiceRecordBtn">🎤 Tap to Speak</button>
-    <button class="add-btn secondary" id="practiceSpeakingSkipBtn">Skip this word</button>
+    <button class="practice-record-btn" id="practiceRecordBtn" disabled>🎤 Tap to Speak</button>
+    <button class="add-btn secondary" id="practiceSpeakingSkipBtn">Skip this one</button>
     <div id="practiceSpeakingStatus" class="note" style="margin-top:8px;"></div>
     <div id="practiceSpeakingFeedback"></div>
   `;
@@ -37349,7 +37437,7 @@ function startSpeakingRecognition(){
   const statusEl = document.getElementById("practiceSpeakingStatus");
   const feedbackEl = document.getElementById("practiceSpeakingFeedback");
   if(feedbackEl) feedbackEl.innerHTML = "";
-  if(statusEl) statusEl.textContent = "Listening… speak the word now.";
+  if(statusEl) statusEl.textContent = "Listening… speak it now.";
   if(recordBtn){ recordBtn.disabled = true; recordBtn.classList.add("listening"); }
 
   const recognition = new Ctor();
@@ -37372,7 +37460,7 @@ function startSpeakingRecognition(){
     recognition._settled = true;
     clearPracticeRecognitionTimeout();
     practiceRecognition = null;
-    resetSpeakingRecordUI("Didn't catch that — tap the mic to try again, or skip this word.");
+    resetSpeakingRecordUI("Didn't catch that — tap the mic to try again, or skip this one.");
   };
   recognition.onend = ()=>{
     const alreadySettled = recognition._settled;
@@ -37380,7 +37468,7 @@ function startSpeakingRecognition(){
     if(!alreadySettled){
       recognition._settled = true;
       clearPracticeRecognitionTimeout();
-      resetSpeakingRecordUI("Didn't catch that — tap the mic to try again, or skip this word.");
+      resetSpeakingRecordUI("Didn't catch that — tap the mic to try again, or skip this one.");
     }
   };
 
@@ -37389,7 +37477,7 @@ function startSpeakingRecognition(){
   } catch(e){
     recognition._settled = true;
     practiceRecognition = null;
-    resetSpeakingRecordUI("Couldn't start the microphone — please try again, or skip this word.");
+    resetSpeakingRecordUI("Couldn't start the microphone — please try again, or skip this one.");
     return;
   }
 
@@ -37398,7 +37486,7 @@ function startSpeakingRecognition(){
     recognition._settled = true;
     try{ recognition.abort(); } catch(err){ /* already stopped */ }
     practiceRecognition = null;
-    resetSpeakingRecordUI("Didn't catch that in time — tap the mic to try again, or skip this word.");
+    resetSpeakingRecordUI("Didn't catch that in time — tap the mic to try again, or skip this one.");
   }, 10000);
 }
 
@@ -37406,7 +37494,7 @@ function submitSpeakingAnswer(transcript){
   if(!practiceState || practiceState.mode !== "speaking") return;
   const item = practiceState.items[practiceState.index];
   const heard = (transcript || "").trim();
-  const correct = isSpeakingAnswerCorrect(heard, item.word);
+  const correct = isCloseTextMatch(heard, item.shadowText);
   const recordBtn = document.getElementById("practiceRecordBtn");
   if(recordBtn){ recordBtn.disabled = true; recordBtn.classList.remove("listening"); }
   const skipBtn = document.getElementById("practiceSpeakingSkipBtn");
@@ -37417,9 +37505,9 @@ function submitSpeakingAnswer(transcript){
   if(feedback){
     feedback.innerHTML = correct
       ? `<div class="practice-feedback correct">✅ Nice! We heard: "${heard || "(nothing)"}"</div>`
-      : `<div class="practice-feedback incorrect">❌ We heard: "${heard || "(nothing)"}"<br>Target word: ${item.word}</div>`;
+      : `<div class="practice-feedback incorrect">❌ We heard: "${heard || "(nothing)"}"<br>Target: ${item.shadowText}</div>`;
   }
-  practiceState.results.push({ correct, word: item.word, question: `Say the word: "${item.word}"`, userAnswer: heard || "(nothing heard)", correctAnswer: item.word });
+  practiceState.results.push({ correct, word: item.word, question: `Repeat: "${item.shadowText}"`, userAnswer: heard || "(nothing heard)", correctAnswer: item.shadowText });
   document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
 }
 
@@ -37427,7 +37515,11 @@ document.addEventListener("click", (e)=>{
   if(!practiceState || practiceState.mode !== "speaking") return;
   if(e.target.closest(".practice-speaking-listen-btn")){
     const item = practiceState.items[practiceState.index];
-    speakText(item.word);
+    speakText(item.shadowText);
+    // Shadowing means listen FIRST — Record stays disabled (see
+    // renderSpeakingHtml) until this fires at least once per question.
+    const recordBtn = document.getElementById("practiceRecordBtn");
+    if(recordBtn) recordBtn.disabled = false;
     return;
   }
   if(e.target.closest("#practiceRecordBtn")){
@@ -37451,12 +37543,92 @@ document.addEventListener("click", (e)=>{
     if(skipBtn) skipBtn.disabled = true;
     const statusEl = document.getElementById("practiceSpeakingStatus");
     if(statusEl) statusEl.textContent = "";
-    practiceState.results.push({ correct: false, word: item.word, question: `Say the word: "${item.word}"`, userAnswer: "(skipped)", correctAnswer: item.word });
+    practiceState.results.push({ correct: false, word: item.word, question: `Repeat: "${item.shadowText}"`, userAnswer: "(skipped)", correctAnswer: item.shadowText });
     document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
   }
 });
 
-/* ---------- shared "Next Question" advance (MCQ/Spelling/True-False/Speaking) ---------- */
+/* ---------- Writing (Dictation) ---------- */
+
+// Feature-detected on speechSynthesis (playback only — no microphone,
+// no SpeechRecognition needed) the same way makeListenButtonHtml() is,
+// re-checked every renderPracticeHome() call for the same reasons as
+// Speaking's isSpeechRecognitionSupported() above.
+function isDictationSupported(){
+  return "speechSynthesis" in window;
+}
+
+// True dictation: the target text is NEVER shown before the learner
+// submits an answer — that's the entire exercise (listen, then write
+// from memory) — only revealed afterward in the feedback area for
+// comparison. Input/Submit stay disabled until Play has been pressed
+// at least once, mirroring Speaking's "listen before you answer" gate;
+// Play itself stays repeatable throughout, same as a real Duolingo-style
+// dictation letting you re-listen as often as you want.
+function renderDictationHtml(item){
+  return `
+    <p class="practice-dictation-hidden-hint">🎧 Listen carefully, then write exactly what you hear.</p>
+    <div class="practice-speaking-actions">
+      <button class="listen-btn practice-dictation-play-btn" aria-label="Play" title="Play the sentence">🔊 Play</button>
+    </div>
+    <textarea class="practice-dictation-input" id="practiceDictationInput" placeholder="Type what you heard..." disabled></textarea>
+    <button class="add-btn" id="practiceDictationSubmitBtn" disabled>Submit</button>
+    <button class="add-btn secondary" id="practiceDictationSkipBtn">Skip this one</button>
+    <div id="practiceDictationFeedback"></div>
+  `;
+}
+
+function submitDictationAnswer(){
+  if(!practiceState || practiceState.mode !== "dictation") return;
+  const input = document.getElementById("practiceDictationInput");
+  if(!input || input.disabled) return;
+  const item = practiceState.items[practiceState.index];
+  const typed = input.value.trim();
+  const correct = isCloseTextMatch(typed, item.dictationText);
+  input.disabled = true;
+  const submitBtn = document.getElementById("practiceDictationSubmitBtn");
+  if(submitBtn) submitBtn.disabled = true;
+  const skipBtn = document.getElementById("practiceDictationSkipBtn");
+  if(skipBtn) skipBtn.disabled = true;
+  const feedback = document.getElementById("practiceDictationFeedback");
+  if(feedback){
+    feedback.innerHTML = correct
+      ? `<div class="practice-feedback correct">✅ Correct!</div><div class="practice-dictation-reveal">${item.dictationText}</div>`
+      : `<div class="practice-feedback incorrect">❌ Not quite. Your answer: "${typed || "(blank)"}"</div><div class="practice-dictation-reveal">Correct: ${item.dictationText}</div>`;
+  }
+  practiceState.results.push({ correct, word: item.word, question: `Write what you hear: "${item.dictationText}"`, userAnswer: typed || "(blank)", correctAnswer: item.dictationText });
+  document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
+}
+
+document.addEventListener("click", (e)=>{
+  if(!practiceState || practiceState.mode !== "dictation") return;
+  if(e.target.closest(".practice-dictation-play-btn")){
+    const item = practiceState.items[practiceState.index];
+    speakText(item.dictationText);
+    const input = document.getElementById("practiceDictationInput");
+    const submitBtn = document.getElementById("practiceDictationSubmitBtn");
+    if(input) input.disabled = false;
+    if(submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  if(e.target.closest("#practiceDictationSubmitBtn")){
+    submitDictationAnswer();
+    return;
+  }
+  if(e.target.closest("#practiceDictationSkipBtn")){
+    const item = practiceState.items[practiceState.index];
+    const input = document.getElementById("practiceDictationInput");
+    if(input) input.disabled = true;
+    const submitBtn = document.getElementById("practiceDictationSubmitBtn");
+    if(submitBtn) submitBtn.disabled = true;
+    const skipBtn = document.getElementById("practiceDictationSkipBtn");
+    if(skipBtn) skipBtn.disabled = true;
+    practiceState.results.push({ correct: false, word: item.word, question: `Write what you hear: "${item.dictationText}"`, userAnswer: "(skipped)", correctAnswer: item.dictationText });
+    document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
+  }
+});
+
+/* ---------- shared "Next Question" advance (MCQ/Spelling/True-False/Speaking/Dictation) ---------- */
 
 document.addEventListener("click", (e)=>{
   const btn = e.target.closest(".practice-next-question-btn");
@@ -37643,6 +37815,8 @@ function renderPracticeHome(){
   renderPracticeHistoryList();
   const speakingBtn = document.getElementById("practiceSpeakingModeBtn");
   if(speakingBtn) speakingBtn.style.display = isSpeechRecognitionSupported() ? "" : "none";
+  const dictationBtn = document.getElementById("practiceDictationModeBtn");
+  if(dictationBtn) dictationBtn.style.display = isDictationSupported() ? "" : "none";
 }
 
 document.getElementById("practiceModeGrid").addEventListener("click", (e)=>{
@@ -43675,8 +43849,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   compareForSort, reorderSelectBySort,
   startPractice, buildPracticeCandidates, buildPracticeSession, recordPracticeSessionUsage,
   buildFlashcardItems, buildMcqItems, buildSpellingItems, buildTrueFalseItems, buildMatchingBatches,
-  buildSpeakingItems, isSpeechRecognitionSupported, isSpeakingAnswerCorrect,
-  startSpeakingRecognition, submitSpeakingAnswer, getPracticeRecognition: ()=> practiceRecognition,
+  buildSpeakingItems, isSpeechRecognitionSupported, isCloseTextMatch,
+  getPracticeShadowTarget, startSpeakingRecognition, submitSpeakingAnswer,
+  getPracticeRecognition: ()=> practiceRecognition,
+  buildDictationItems, isDictationSupported, submitDictationAnswer,
   ratePracticeScore, finishPracticeSession, renderPracticeHome, renderPracticeHistoryList,
   getSelectedPracticeSource, getPracticeState: ()=> practiceState,
   favoriteKeys, renderFavoritesTab, importVocabPack, showRecentlyViewed,
