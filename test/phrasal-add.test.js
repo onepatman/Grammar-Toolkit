@@ -40,12 +40,12 @@ describe("Phrasal Words quick-add UI", () => {
     document.getElementById("phrasalAddBtn").click();
     await new Promise((r) => setTimeout(r, 30));
 
-    // Not saved yet — shown as a preview with Save/Decline first.
-    const statusEl = document.getElementById("phrasalAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
+    // Not saved yet — shown as a preview modal with Save/Decline first.
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
     expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(false);
 
-    statusEl.querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await new Promise((r) => setTimeout(r, 30));
 
     expect(document.getElementById("phrasalAddStatus").textContent).toContain("Added");
@@ -65,7 +65,7 @@ describe("Phrasal Words quick-add UI", () => {
     document.getElementById("phrasalAddBtn").click();
     await new Promise((r) => setTimeout(r, 30));
 
-    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-decline-btn").click();
+    document.getElementById("lookupModalDeclineBtn").click();
     await new Promise((r) => setTimeout(r, 10));
 
     expect(document.getElementById("phrasalAddStatus").textContent).toContain("Not saved");
@@ -113,7 +113,7 @@ describe("Phrasal Words quick-add UI", () => {
     document.getElementById("phrasalAddInput").value = "zonk out";
     document.getElementById("phrasalAddBtn").click();
     await new Promise((r) => setTimeout(r, 30));
-    document.getElementById("phrasalAddStatus").querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await new Promise((r) => setTimeout(r, 30));
 
     const entryEl = document.getElementById("phrasalEntry");
@@ -172,9 +172,8 @@ describe("Phrasal Words quick-add UI", () => {
 
     // Enter triggers the same lookup + preview as clicking the button —
     // still requires an explicit Save before anything is persisted.
-    const statusEl = document.getElementById("phrasalAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
-    statusEl.querySelector(".lb-lookup-save-btn").click();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    document.getElementById("lookupModalSaveBtn").click();
     await new Promise((r) => setTimeout(r, 30));
 
     expect(hooks.phrasalData.some((p) => p.w === "wind down")).toBe(true);

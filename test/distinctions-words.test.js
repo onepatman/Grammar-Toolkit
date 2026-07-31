@@ -105,9 +105,8 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
 
-    const statusEl = document.getElementById("distinctionsAddStatus");
-    expect(statusEl.textContent).toContain("ready to be added");
-    statusEl.querySelector(".distinctions-lookup-save-btn").click();
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     expect(document.getElementById("distinctionsAddStatus").textContent).toContain("Added");
@@ -146,7 +145,7 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
 
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     expect(hooks.wordIndexMap.get("arise").cat).toBe("Distinction Word");
@@ -206,7 +205,7 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     document.getElementById("distinctionsAddInput2").dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter" }));
     await wait(50);
 
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     expect(hooks.distinctionsData.some((e) => e.w === "Arise vs Quibblet")).toBe(true);
@@ -337,7 +336,7 @@ describe("Edit — owner-only, both words editable", () => {
     document.getElementById("distinctionsAddInput2").value = "Quibblet";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
   }
 
@@ -470,7 +469,7 @@ describe("Delete — owner-only, with confirmation", () => {
     document.getElementById("distinctionsAddInput2").value = "Quibblet";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
   }
 
@@ -646,7 +645,7 @@ describe("Distinctions Words cross-device sync", () => {
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
 
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const doc = firebase._docs.get("syncedLogs/dw-code-2");
@@ -667,7 +666,7 @@ describe("Distinctions Words cross-device sync", () => {
     window.document.getElementById("distinctionsAddBtn").click();
     await wait(50);
 
-    window.document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    window.document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const doc = firebase._docs.get("syncedLogs/dw-code-3");
@@ -688,7 +687,7 @@ describe("Distinctions Words cross-device sync", () => {
     window.document.getElementById("distinctionsAddBtn").click();
     await wait(50);
 
-    window.document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    window.document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     window.confirm = () => true;
@@ -709,7 +708,7 @@ describe("Distinctions Words cross-device sync", () => {
     owner.window.document.getElementById("distinctionsAddInput2").value = "Quibblet";
     owner.window.document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    owner.window.document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    owner.window.document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const second = await loadApp({ firebase, ownerUnlocked: false });

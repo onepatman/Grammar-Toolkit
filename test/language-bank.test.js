@@ -136,13 +136,13 @@ describe.each([
     document.getElementById(btnId).click();
     await wait(30);
 
-    // Not saved yet — a preview with Save/Decline is shown first.
-    const statusEl = document.getElementById(statusId);
-    expect(statusEl.textContent).toContain("ready to be added");
+    // Not saved yet — a preview modal with Save/Decline is shown first.
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
     expect(hooks[dataKey].some((p) => p.w === sample.w)).toBe(false);
-    const saveBtn = statusEl.querySelector(".lb-lookup-save-btn");
+    const saveBtn = document.getElementById("lookupModalSaveBtn");
     expect(saveBtn).toBeTruthy();
-    expect(statusEl.querySelector(".lb-lookup-decline-btn")).toBeTruthy();
+    expect(document.getElementById("lookupModalDeclineBtn")).toBeTruthy();
 
     saveBtn.click();
     await wait(30);
@@ -164,8 +164,7 @@ describe.each([
     document.getElementById(btnId).click();
     await wait(30);
 
-    const statusEl = document.getElementById(statusId);
-    statusEl.querySelector(".lb-lookup-decline-btn").click();
+    document.getElementById("lookupModalDeclineBtn").click();
     await wait(10);
 
     expect(document.getElementById(statusId).textContent).toContain("Not saved");

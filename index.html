@@ -153,6 +153,50 @@
   .app-update-actions{ display:flex; gap:10px; }
   .app-update-actions .add-btn{ width:auto; flex:1; }
 
+  /* Shared "found it online" result modal — used by every Look Up &
+     Add flow to preview a not-yet-saved dictionary/lookup result
+     before the Owner commits it, instead of each tab building its own
+     ad hoc inline preview. Same card/button vocabulary as the rest of
+     the app (--card, --rule, .add-btn, .sense, .word-chips,
+     .tagalog-box) so a result here looks exactly like a saved entry
+     would once it's actually saved. */
+  .lookup-modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1000;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .lookup-modal-card{
+    background:var(--card); border:1.5px solid var(--rule); border-radius:var(--radius);
+    padding:20px 20px 18px; max-width:520px; width:100%; max-height:85vh;
+    overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  .lookup-modal-header{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap:10px; margin-bottom:12px;
+  }
+  .lookup-modal-title{
+    font-family:'Source Serif 4', serif; font-weight:700; font-size:20px;
+    color:var(--ink); line-height:1.25;
+  }
+  .lookup-modal-subtitle{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--ink-soft);
+    margin-top:3px;
+  }
+  .lookup-modal-close{
+    flex:none; background:none; border:none; font-size:24px; line-height:1;
+    color:var(--ink-soft); cursor:pointer; padding:0 2px;
+  }
+  .lookup-modal-close:hover{ color:var(--ink); }
+  .lookup-modal-body{ margin-bottom:16px; }
+  .lookup-modal-body .headword-row{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  .lookup-modal-body .headword{ font-family:'Source Serif 4', serif; font-weight:700; }
+  .lookup-modal-body .section-label{ margin-top:12px; }
+  .lookup-modal-body .section-label:first-child{ margin-top:0; }
+  .lookup-modal-pair-divider{
+    border:none; border-top:1.5px dashed var(--rule); margin:14px 0;
+  }
+  .lookup-modal-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  .lookup-modal-actions .add-btn{ width:auto; flex:1; min-width:120px; }
+
   /* Header — centered, balanced left/right, logo aligned with the title */
   .masthead{
     background:var(--brand-deep);
@@ -1065,6 +1109,19 @@
       <button id="appUpdateNowBtn" class="add-btn">Update Now</button>
       <button id="appUpdateLaterBtn" class="add-btn secondary">Later</button>
     </div>
+  </div>
+</div>
+<div id="lookupModal" class="lookup-modal-overlay" style="display:none;">
+  <div class="lookup-modal-card">
+    <div class="lookup-modal-header">
+      <div>
+        <div class="lookup-modal-title" id="lookupModalTitle"></div>
+        <div class="lookup-modal-subtitle" id="lookupModalSubtitle"></div>
+      </div>
+      <button id="lookupModalCloseBtn" class="lookup-modal-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="lookup-modal-body" id="lookupModalBody"></div>
+    <div class="lookup-modal-actions" id="lookupModalActions"></div>
   </div>
 </div>
 <div class="masthead">
@@ -40229,51 +40286,50 @@ function hideLanguageBankManualBox(categoryKey){
 // Decline (discarding it, nothing written anywhere).
 const languageBankPendingSave = {};
 
+// Shows the not-yet-saved lookup result in the shared LookupModal
+// (see buildLookupResultCardHtml/openLookupModal above) instead of a
+// bespoke inline headword-only preview — the Owner sees the same rich
+// definition/example/synonym/Tagalog card a saved entry would show,
+// before ever committing it.
 function renderLanguageBankSavePreview(categoryKey){
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
   const pending = languageBankPendingSave[categoryKey];
   const statusEl = document.getElementById(config.statusId);
-  const entry = pending.entry;
-  const useText = (entry.senses[0] && entry.senses[0].use) || "";
-  statusEl.innerHTML = `
-    <p class="note" style="margin-bottom:6px;">This entry is ready to be added to your ${config.tagLabel} list:</p>
-    <div class="lookup-preview">
-      <strong>${entry.w}</strong>
-      ${useText ? `<p class="note" style="margin:4px 0 0;">${useText}</p>` : ""}
-    </div>
-    <button class="add-btn lb-lookup-save-btn" data-category="${categoryKey}" style="margin-top:8px;">Save</button>
-    <button class="add-btn secondary lb-lookup-decline-btn" data-category="${categoryKey}">Decline</button>
-  `;
+  statusEl.textContent = "";
   statusEl.className = "add-status";
+  openLookupModal({
+    title: pending.entry.w,
+    subtitleHtml: `Ready to add to your ${config.tagLabel} list`,
+    bodyHtml: buildLookupResultCardHtml(pending.entry),
+    actions: [
+      { label: "Save", id: "lookupModalSaveBtn", onClick: ()=> confirmLanguageBankSave(categoryKey, statusEl) },
+      { label: "Decline", id: "lookupModalDeclineBtn", secondary: true, onClick: ()=> declineLanguageBankSave(categoryKey, statusEl) }
+    ],
+    onClose: ()=> declineLanguageBankSave(categoryKey, statusEl)
+  });
 }
 
 function hideLanguageBankSavePreview(categoryKey){
   delete languageBankPendingSave[categoryKey];
 }
 
-document.addEventListener("click", async (e)=>{
-  const saveBtn = e.target.closest(".lb-lookup-save-btn");
-  const declineBtn = e.target.closest(".lb-lookup-decline-btn");
-  if(!saveBtn && !declineBtn) return;
-  const categoryKey = (saveBtn || declineBtn).dataset.category;
-  const config = LANGUAGE_BANK_CONFIG[categoryKey];
-  const statusEl = document.getElementById(config.statusId);
+async function confirmLanguageBankSave(categoryKey, statusEl){
   const pending = languageBankPendingSave[categoryKey];
   if(!pending) return;
   hideLanguageBankSavePreview(categoryKey);
-
-  if(declineBtn){
-    statusEl.textContent = "Not saved.";
-    statusEl.className = "add-status";
-    return;
-  }
-
   await finalizeLanguageBankAdd(
     categoryKey, pending.entry, statusEl,
     `Added "${pending.entry.w}" — now searchable and available offline.`,
     [{w: pending.typedText, entry: pending.entry}]
   );
-});
+}
+
+function declineLanguageBankSave(categoryKey, statusEl){
+  if(!languageBankPendingSave[categoryKey]) return;
+  hideLanguageBankSavePreview(categoryKey);
+  statusEl.textContent = "Not saved.";
+  statusEl.className = "add-status";
+}
 
 /* =========================================================
    DUPLICATE-CONFLICT POPUP — shown in place of the old silent
@@ -40333,6 +40389,119 @@ function hideDuplicateConflictPopup(container){
   container.innerHTML = "";
   container.className = "add-status";
 }
+
+/* =========================================================
+   SHARED LOOKUP MODAL — a single reusable overlay dialog for
+   previewing a not-yet-saved "Look Up & Add" result (online lookup or
+   manually completed) before the Owner commits it, used across
+   Language Bank, Distinctions Words, and (eventually) every other
+   add flow in the app instead of each tab building its own ad hoc
+   inline preview. buildLookupResultCardHtml() renders one entry's
+   headword/phonetic/definitions/examples/synonyms-antonyms/Tagalog
+   using the exact same markup vocabulary a saved entry uses
+   (renderRuleEntry), minus the actions that only make sense once
+   something is actually saved (Favorite, Listen, Edit, Delete).
+========================================================= */
+let lookupModalOnClose = null;
+
+function buildLookupResultCardHtml(entry){
+  const sensesHtml = (entry.senses || []).map((s,i)=>`
+    <div class="sense"><span class="num">${i+1}</span><div class="body">
+      <div class="use">${s.use}</div>
+      ${(s.examples || []).map(ex=>`<div class="ex">${ex}</div>`).join("")}
+    </div></div>
+  `).join("");
+  const mistakeHtml = entry.mistake ? `
+    <div class="callout">
+      <div class="lbl">Common mistake</div>
+      <p>${entry.mistake}</p>
+    </div>` : "";
+  const hasWords = (entry.syn && entry.syn.length) || (entry.ant && entry.ant.length);
+  const wordsHtml = hasWords ? `
+    <div class="section-label">Synonyms &amp; antonyms</div>
+    <div class="word-chips">${makeWordChips(entry.syn, "synonym")}</div>
+    <div class="word-chips">${makeWordChips(entry.ant, "antonym")}</div>
+  ` : "";
+  const tagalogHtml = entry.tagalog ? `
+    <div class="section-label">Tagalog equivalent</div>
+    <div class="tagalog-box">${entry.tagalog}</div>
+  ` : "";
+  const sourceLineHtml = entry.sourceName ? `<div class="source-line">Source: ${entry.sourceName}</div>` : "";
+  const matchConfidenceHtml = (entry.matchConfidence === "low") ? `
+    <div class="caution-note">🔎 Possible ambiguous match — this came from a broader dictionary search rather than an exact entry for "${entry.w}," so it may not be a perfect fit. Please confirm it's the definition you're looking for.</div>
+  ` : "";
+  const definitionHtml = (entry.senses && entry.senses.length) ? `
+    <div class="section-label">Definition</div>
+    ${sensesHtml}
+  ` : "";
+  return `
+    <div class="headword-row">
+      <span class="headword" style="font-size:20px;">${entry.w}</span>
+      ${makePhoneticHtml(entry.phonetic)}
+    </div>
+    ${matchConfidenceHtml}
+    ${definitionHtml}
+    ${mistakeHtml}
+    ${wordsHtml}
+    ${tagalogHtml}
+    ${sourceLineHtml}
+  `;
+}
+
+function openLookupModal(options){
+  const opts = options || {};
+  const modal = document.getElementById("lookupModal");
+  document.getElementById("lookupModalTitle").textContent = opts.title || "";
+  document.getElementById("lookupModalSubtitle").innerHTML = opts.subtitleHtml || "";
+  document.getElementById("lookupModalBody").innerHTML = opts.bodyHtml || "";
+  const actionsEl = document.getElementById("lookupModalActions");
+  actionsEl.innerHTML = "";
+  (opts.actions || []).forEach(action=>{
+    const btn = document.createElement("button");
+    btn.className = "add-btn" + (action.secondary ? " secondary" : "");
+    btn.textContent = action.label;
+    if(action.id) btn.id = action.id;
+    // An action button is a deliberate choice (Save/Decline/etc.), not
+    // a "back out without deciding" — it hides the modal WITHOUT
+    // firing onClose, then runs its own onClick, so a Save handler
+    // never races against a Decline-flavored onClose for the same
+    // pending state (see the ordering note on closeLookupModal below).
+    btn.addEventListener("click", ()=>{
+      hideLookupModal();
+      if(action.onClick) action.onClick();
+    });
+    actionsEl.appendChild(btn);
+  });
+  lookupModalOnClose = opts.onClose || null;
+  modal.style.display = "flex";
+}
+
+function hideLookupModal(){
+  const modal = document.getElementById("lookupModal");
+  modal.style.display = "none";
+  document.getElementById("lookupModalBody").innerHTML = "";
+  document.getElementById("lookupModalActions").innerHTML = "";
+  lookupModalOnClose = null;
+}
+
+// Only reached via the × button, a backdrop click, or Escape — an
+// actual action button hides the modal through hideLookupModal()
+// directly (see above) so it never fires onClose too.
+function closeLookupModal(){
+  const cb = lookupModalOnClose;
+  hideLookupModal();
+  if(cb) cb();
+}
+
+document.getElementById("lookupModalCloseBtn").addEventListener("click", closeLookupModal);
+document.getElementById("lookupModal").addEventListener("click", (e)=>{
+  if(e.target.id === "lookupModal") closeLookupModal();
+});
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "Escape" && document.getElementById("lookupModal").style.display === "flex"){
+    closeLookupModal();
+  }
+});
 
 // A slightly stricter normalization than normalizeWordKey(), used ONLY
 // for "is this the same Language Bank / Distinctions entry" duplicate
@@ -41164,49 +41333,52 @@ async function finalizeDistinctionAdd(word1Result, word2Result, statusEl, succes
 // Words) or Decline (discarding it, nothing written anywhere).
 let distinctionsPendingSave = null;
 
+// Same shared LookupModal used by Language Bank (see
+// renderLanguageBankSavePreview) — both entries get the full card
+// treatment, joined by the same "vs" divider the saved two-word entry
+// view (renderDistinctionEntry) uses.
 function renderDistinctionsSavePreview(){
   const pending = distinctionsPendingSave;
   const statusEl = document.getElementById("distinctionsAddStatus");
-  const use1 = (pending.result1.senses[0] && pending.result1.senses[0].use) || "";
-  const use2 = (pending.result2.senses[0] && pending.result2.senses[0].use) || "";
-  statusEl.innerHTML = `
-    <p class="note" style="margin-bottom:6px;">This entry is ready to be added to your Distinction Words:</p>
-    <div class="lookup-preview">
-      <strong>${pending.result1.w} vs ${pending.result2.w}</strong>
-      ${use1 ? `<p class="note" style="margin:4px 0 0;"><strong>${pending.result1.w}:</strong> ${use1}</p>` : ""}
-      ${use2 ? `<p class="note" style="margin:4px 0 0;"><strong>${pending.result2.w}:</strong> ${use2}</p>` : ""}
-    </div>
-    <button class="add-btn distinctions-lookup-save-btn" style="margin-top:8px;">Save</button>
-    <button class="add-btn secondary distinctions-lookup-decline-btn">Decline</button>
-  `;
+  statusEl.textContent = "";
   statusEl.className = "add-status";
+  openLookupModal({
+    title: `${pending.result1.w} vs ${pending.result2.w}`,
+    subtitleHtml: "Ready to add to your Distinctions Words",
+    bodyHtml: `
+      ${buildLookupResultCardHtml(pending.result1)}
+      <div class="distinction-divider"><span>vs</span></div>
+      ${buildLookupResultCardHtml(pending.result2)}
+    `,
+    actions: [
+      { label: "Save", id: "lookupModalSaveBtn", onClick: ()=> confirmDistinctionsSave(statusEl) },
+      { label: "Decline", id: "lookupModalDeclineBtn", secondary: true, onClick: ()=> declineDistinctionsSave(statusEl) }
+    ],
+    onClose: ()=> declineDistinctionsSave(statusEl)
+  });
 }
 
 function hideDistinctionsSavePreview(){
   distinctionsPendingSave = null;
 }
 
-document.addEventListener("click", async (e)=>{
-  const saveBtn = e.target.closest(".distinctions-lookup-save-btn");
-  const declineBtn = e.target.closest(".distinctions-lookup-decline-btn");
-  if(!saveBtn && !declineBtn) return;
-  const statusEl = document.getElementById("distinctionsAddStatus");
+async function confirmDistinctionsSave(statusEl){
   const pending = distinctionsPendingSave;
   if(!pending) return;
   hideDistinctionsSavePreview();
-
-  if(declineBtn){
-    statusEl.textContent = "Not saved.";
-    statusEl.className = "add-status";
-    return;
-  }
-
   await finalizeDistinctionAdd(
     pending.result1, pending.result2, statusEl,
     `Added "${pending.result1.w} vs ${pending.result2.w}" — now searchable and available offline.`,
     [{w: pending.result1.w, entry: pending.result1}, {w: pending.result2.w, entry: pending.result2}]
   );
-});
+}
+
+function declineDistinctionsSave(statusEl){
+  if(!distinctionsPendingSave) return;
+  hideDistinctionsSavePreview();
+  statusEl.textContent = "Not saved.";
+  statusEl.className = "add-status";
+}
 
 // Tracks the pair awaiting manual completion between "lookup failed for
 // one or both words" and the user clicking Save/Cancel — cleared
@@ -43288,7 +43460,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   tenseCacheRestorePromise,
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
   collectChipEditorValues, wireChipEditorEvents,
-  formatDuplicateDate, renderDuplicateConflictPopup, hideDuplicateConflictPopup
+  formatDuplicateDate, renderDuplicateConflictPopup, hideDuplicateConflictPopup,
+  buildLookupResultCardHtml, openLookupModal, closeLookupModal
 };
 </script>
 <script>

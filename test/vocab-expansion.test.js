@@ -209,7 +209,7 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
     document.getElementById("idiomsAddInput").value = "burn the midnight oil";
     document.getElementById("idiomsAddBtn").click();
     await wait(50);
-    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("idiomsAddStatus");
@@ -237,7 +237,7 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
     document.getElementById("idiomsAddInput").value = "resilient-race";
     document.getElementById("idiomsAddBtn").click();
     await wait(50);
-    document.getElementById("idiomsAddStatus").querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("idiomsAddStatus");
@@ -270,7 +270,7 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
     document.getElementById("sentencesAddInput").value = "Could you send that file when you get a chance?";
     document.getElementById("sentencesAddBtn").click();
     await wait(50);
-    document.getElementById("sentencesAddStatus").querySelector(".lb-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("sentencesAddStatus");
@@ -307,7 +307,7 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
     document.getElementById("distinctionsAddInput2").value = "quibblet-test";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("distinctionsAddStatus");
@@ -336,7 +336,7 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
     document.getElementById("distinctionsAddInput2").value = "quibblet-test2";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("distinctionsAddStatus").querySelector(".distinctions-lookup-save-btn").click();
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("distinctionsAddStatus");
