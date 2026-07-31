@@ -75,6 +75,32 @@ export async function loadApp(options) {
           this.text = text;
         };
       }
+      // Same reasoning for SpeechRecognition (the Speaking practice
+      // mode's feature-detection, `window.SpeechRecognition ||
+      // window.webkitSpeechRecognition`) — a fake constructor that does
+      // nothing on start() by default, so a test can grab the in-flight
+      // instance via hooks.getPracticeRecognition() and manually invoke
+      // onresult/onerror to simulate a spoken answer or a recognition
+      // failure without any real microphone/audio involved.
+      if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+        function FakeSpeechRecognition() {
+          this.lang = "en-US";
+          this.interimResults = false;
+          this.maxAlternatives = 1;
+          this.onresult = null;
+          this.onerror = null;
+          this.onend = null;
+        }
+        FakeSpeechRecognition.prototype.start = function () {};
+        FakeSpeechRecognition.prototype.abort = function () {
+          if (this.onend) this.onend();
+        };
+        FakeSpeechRecognition.prototype.stop = function () {
+          if (this.onend) this.onend();
+        };
+        window.SpeechRecognition = FakeSpeechRecognition;
+        window.webkitSpeechRecognition = FakeSpeechRecognition;
+      }
       // jsdom has no matchMedia at all — the dark-mode toggle uses it both
       // to detect the OS preference on load and to live-follow OS changes.
       // opts.prefersDarkScheme simulates "OS is set to dark" for a test;
