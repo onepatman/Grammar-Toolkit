@@ -50,6 +50,32 @@
     return WIKTIONARY_API_BASE + encodeURIComponent(word);
   }
 
+  // Neither the Free Dictionary API's own data nor Wiktionary's
+  // page/definition REST endpoint (normalizeWiktionaryResponse, above)
+  // actually carries synonym/antonym data for every word — dictionaryapi.dev
+  // frequently returns an empty synonyms/antonyms array for perfectly
+  // ordinary words ("process", "nuisance"), and the definition endpoint
+  // never had that data to begin with. Wiktionary's own article DOES
+  // usually have a "===Synonyms===" / "===Antonyms===" section though —
+  // it just lives in the page's raw wikitext, not the REST API's
+  // structured JSON. This fetches that wikitext (via the same MediaWiki
+  // Action API already used for search) so it can be scraped as a
+  // last-resort fill-in, used only when the primary result is missing
+  // synonyms or antonyms entirely (see fetchOnlineDefinition's
+  // enrichSynAnt step).
+  function buildWiktionaryWikitextUrl(word) {
+    var params = [
+      "action=parse",
+      "page=" + encodeURIComponent(word),
+      "prop=wikitext",
+      "format=json",
+      "formatversion=2",
+      "redirects=1",
+      "origin=*"
+    ];
+    return WIKTIONARY_SEARCH_API + "?" + params.join("&");
+  }
+
   // The MediaWiki Action API (keyless, CORS-enabled via origin=*, same
   // Wikimedia infrastructure as WIKTIONARY_API_BASE above) — used as a
   // last resort to find the closest matching Wiktionary PAGE TITLE for
@@ -390,8 +416,10 @@
   // covered, which is exactly where its idiom/phrase coverage earns its
   // keep. Wiktionary's syn/ant are always empty in this module's own
   // normalizeWiktionaryResponse (its REST endpoint doesn't expose
-  // them), so merging here never fabricates a synonym/antonym list that
-  // source didn't actually provide.
+  // them) — a real synonym/antonym list, when the merged result still
+  // has none, is instead filled in later by fetchOnlineDefinition's own
+  // wikitext-scraping enrichment step (see extractSynAntFromWikitext),
+  // not by this function.
   function mergeLookupResults(fdaResult, wiktResult) {
     if (!fdaResult) return wiktResult;
     if (!wiktResult) return fdaResult;
@@ -416,6 +444,94 @@
         : fdaResult.sourceName,
       verified: fdaResult.verified
     };
+  }
+
+  // Only a plain word/short-phrase token is trusted as a real synonym or
+  // antonym — anything left over from a wikitext template or link the
+  // regexes below couldn't fully unwrap (stray braces, "=", digits used
+  // as a sense-note marker, etc.) is dropped rather than shown to the
+  // user as if it were a real word.
+  function isPlausibleSynAntTerm(term) {
+    return /^[A-Za-z][A-Za-z' -]{0,39}$/.test(term);
+  }
+
+  function cleanSynAntToken(raw) {
+    if (!raw) return "";
+    var t = String(raw).split("<")[0].replace(/\{\{[^}]*\}\}/g, "").trim();
+    return t;
+  }
+
+  // Pulls plain terms out of one Synonyms/Antonyms wikitext section body —
+  // handles the two shapes Wiktionary entries actually use: template
+  // form ({{syn|en|term1|term2}}, {{l|en|term}}) and plain wikilinks
+  // ([[term]], [[term|display]], skipping [[Thesaurus:...]] links which
+  // point at a thesaurus page rather than being a term themselves).
+  function extractTermsFromWikitextBlock(block) {
+    var terms = [];
+    var templateRe = /\{\{\s*(?:syn|ant|l|link)\s*\|([^}]*)\}\}/gi;
+    var m;
+    while ((m = templateRe.exec(block))) {
+      var parts = m[1].split("|");
+      // parts[0] is the language code (e.g. "en"); positional terms
+      // follow. Named parameters (q1=, t1=, alt1=, ...) are qualifiers/
+      // annotations, not terms, and are skipped.
+      for (var i = 1; i < parts.length; i++) {
+        if (/^[A-Za-z0-9_]+\s*=/.test(parts[i])) continue;
+        var term = cleanSynAntToken(parts[i]);
+        if (term && isPlausibleSynAntTerm(term)) terms.push(term);
+      }
+    }
+    var linkRe = /\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+    while ((m = linkRe.exec(block))) {
+      var target = m[1].split("#")[0]; // drop any #section anchor
+      if (/^Thesaurus:/i.test(target)) continue;
+      var linkTerm = cleanSynAntToken(target);
+      if (linkTerm && isPlausibleSynAntTerm(linkTerm)) terms.push(linkTerm);
+    }
+    return terms;
+  }
+
+  // Collects every "===Synonyms===" (or "====Synonyms====", nested under
+  // a specific part-of-speech heading) section's terms — a word can have
+  // more than one such section, one per sense/part of speech.
+  function extractTermsForWikitextHeading(section, headingName) {
+    // No "m" flag — with it, "$" in the lookahead would mean "end of any
+    // line" rather than "end of the whole string", cutting the capture
+    // off after the very first line every time. "(?:^|\n)" does the
+    // "start of a line" job "^" would otherwise need "m" for.
+    var re = new RegExp(
+      "(?:^|\\n)={3,4}\\s*" + headingName + "\\s*={3,4}[ \\t]*\\n([\\s\\S]*?)(?=\\n={2,4}[^=]|$)",
+      "g"
+    );
+    var terms = [];
+    var match;
+    while ((match = re.exec(section))) {
+      terms = terms.concat(extractTermsFromWikitextBlock(match[1]));
+    }
+    return terms;
+  }
+
+  // The English-language section only — a page's wikitext covers every
+  // language sharing that spelling (French, German, ...), and their
+  // Synonyms sections are in a different language entirely.
+  function extractSynAntFromWikitext(wikitext) {
+    if (typeof wikitext !== "string" || !wikitext) return { syn: [], ant: [] };
+    var englishMatch = wikitext.match(/(?:^|\n)==\s*English\s*==\s*\n([\s\S]*?)(?=\n==[^=]|$)/);
+    // No "==English==" heading at all means there's nothing safe to
+    // scan — falling back to the whole page risks pulling in another
+    // language's Synonyms section for a word that also exists there.
+    if (!englishMatch) return { syn: [], ant: [] };
+    var section = englishMatch[1];
+    return {
+      syn: extractTermsForWikitextHeading(section, "Synonyms"),
+      ant: extractTermsForWikitextHeading(section, "Antonyms")
+    };
+  }
+
+  function withWiktionaryAttribution(sourceName) {
+    if (!sourceName) return SOURCE_WIKTIONARY;
+    if (sourceName.indexOf(SOURCE_WIKTIONARY) !== -1) return sourceName;
+    return sourceName + " + " + SOURCE_WIKTIONARY;
   }
 
   function dedupe(arr) {
@@ -532,6 +648,29 @@
         return searchWiktionaryThenFetch();
       })
       .then(function (result) {
+        if (!result) return result;
+        var missingSyn = !result.syn || result.syn.length === 0;
+        var missingAnt = !result.ant || result.ant.length === 0;
+        if (!missingSyn && !missingAnt) return result;
+        return fetchImpl(buildWiktionaryWikitextUrl(result.w || queryText), { signal: opts.signal })
+          .then(function (res) { return res && res.ok ? res.json() : null; })
+          .then(function (json) {
+            var wikitext = json && json.parse && json.parse.wikitext;
+            if (!wikitext) return result;
+            var extracted = extractSynAntFromWikitext(wikitext);
+            if (missingSyn && extracted.syn.length) {
+              result.syn = dedupe(extracted.syn).slice(0, MAX_SYN_ANT);
+              result.sourceName = withWiktionaryAttribution(result.sourceName);
+            }
+            if (missingAnt && extracted.ant.length) {
+              result.ant = dedupe(extracted.ant).slice(0, MAX_SYN_ANT);
+              result.sourceName = withWiktionaryAttribution(result.sourceName);
+            }
+            return result;
+          })
+          .catch(function () { return result; });
+      })
+      .then(function (result) {
         if (result && cache) cache.set(trimmed, result);
         return result;
       });
@@ -544,7 +683,9 @@
     buildRequestUrl: buildRequestUrl,
     buildWiktionaryUrl: buildWiktionaryUrl,
     buildWiktionarySearchUrl: buildWiktionarySearchUrl,
+    buildWiktionaryWikitextUrl: buildWiktionaryWikitextUrl,
     extractWiktionarySearchTitle: extractWiktionarySearchTitle,
+    extractSynAntFromWikitext: extractSynAntFromWikitext,
     extractPhonetic: extractPhonetic,
     extractOrigin: extractOrigin,
     MAX_SYN_ANT: MAX_SYN_ANT,
