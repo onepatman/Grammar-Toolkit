@@ -660,3 +660,91 @@ describe.each([
     expect(await VocabCache[getFn](sampleWord, { indexedDB: idb })).toBeUndefined();
   });
 });
+
+describe("schema migration from DB_VERSION 10 (pre-familyEntries)", () => {
+  it("upgrading an existing v10 database preserves customVerbs and adds familyEntries", async () => {
+    const idb = new IDBFactory();
+
+    await new Promise((resolve, reject) => {
+      const req = idb.open(VocabCache.DB_NAME, 10);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        db.createObjectStore(VocabCache.STORE_NAME, { keyPath: "key" });
+        db.createObjectStore(VocabCache.FAVORITES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.RECENT_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PHRASAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.IDIOMS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.SENTENCES_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.PATTERNS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.TECHNICAL_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.REVIEW_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.DISTINCTIONS_STORE, { keyPath: "key" });
+        db.createObjectStore(VocabCache.CUSTOM_VERBS_STORE, { keyPath: "key" });
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction(VocabCache.CUSTOM_VERBS_STORE, "readwrite");
+        tx.objectStore(VocabCache.CUSTOM_VERBS_STORE).put({ key: "proceed", entry: { w: "proceed", group: "regular" } });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = reject;
+      };
+      req.onerror = reject;
+    });
+
+    const db = await VocabCache.openDb(idb);
+    expect(db.objectStoreNames.contains(VocabCache.FAMILY_STORE)).toBe(true);
+
+    const preserved = await VocabCache.getCustomVerb("proceed", { indexedDB: idb });
+    expect(preserved).toEqual({ w: "proceed", group: "regular" });
+
+    expect(await VocabCache.getAllFamily({ indexedDB: idb })).toEqual([]);
+  });
+});
+
+describe("familyEntries (get/put/getAll/delete)", () => {
+  const sampleEntry = {
+    verb: "calibrate",
+    noun: "calibration",
+    person: "calibrator",
+    adj: "calibrated",
+    exNoun: "The calibration took an hour.",
+    exAdj: "The gauge is freshly calibrated."
+  };
+
+  it("round-trips an entry by its verb, case-insensitively", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putFamily(sampleEntry, { indexedDB: idb });
+    expect(ok).toBe(true);
+
+    const found = await VocabCache.getFamily("CALIBRATE", { indexedDB: idb });
+    expect(found).toEqual(sampleEntry);
+  });
+
+  it("resolves to undefined for an entry that was never cached", async () => {
+    const idb = freshIndexedDB();
+    const found = await VocabCache.getFamily("nonexistent xyz", { indexedDB: idb });
+    expect(found).toBeUndefined();
+  });
+
+  it("resolves to false when putting an entry with no verb", async () => {
+    const idb = freshIndexedDB();
+    const ok = await VocabCache.putFamily({ noun: "calibration" }, { indexedDB: idb });
+    expect(ok).toBe(false);
+  });
+
+  it("getAll for familyEntries is independent of the other standalone stores", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putPhrasal({ w: "give up", senses: [] }, { indexedDB: idb });
+    await VocabCache.putFamily(sampleEntry, { indexedDB: idb });
+
+    const all = await VocabCache.getAllFamily({ indexedDB: idb });
+    expect(all.map((e) => e.verb)).toEqual(["calibrate"]);
+  });
+
+  it("deleteFamily removes just that entry", async () => {
+    const idb = freshIndexedDB();
+    await VocabCache.putFamily(sampleEntry, { indexedDB: idb });
+    await VocabCache.deleteFamily("calibrate", { indexedDB: idb });
+    expect(await VocabCache.getFamily("calibrate", { indexedDB: idb })).toBeUndefined();
+  });
+});

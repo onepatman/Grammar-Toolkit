@@ -1308,6 +1308,15 @@
       <button class="nav-btn" data-target="familySelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="familySelect" data-dir="next" aria-label="Next">Next ›</button>
     </div>
+
+    <div class="quick-add-box owner-only" id="familyAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a Word Family</div>
+      <p class="note" style="margin-bottom:8px;">Type the base verb and we'll check it online first — if it's already in Word Family, we'll open the existing entry instead of adding a duplicate. The noun/person/adjective forms and example sentences are never guessed: you'll always type them yourself.</p>
+      <input type="text" id="familyAddInput" placeholder="e.g. calibrate" autocomplete="off">
+      <button id="familyAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+      <div id="familyAddStatus" class="add-status"></div>
+      <div id="familyAddArea" class="add-status" style="display:none;"></div>
+    </div>
   </section>
 
   <!-- ===== COMMON MISTAKES PANEL ===== -->
@@ -42223,6 +42232,186 @@ const customVerbsCacheRestorePromise = VocabCache.getAllCustomVerbs({dbPromise: 
   });
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
+/* =========================================================
+   FAMILY TAB — direct "Look Up & Add" (panel-family's own
+   #familyAddBox), mirroring the Verbs-tab flow above exactly:
+   an online lookup only confirms the base verb is real and
+   previews its meaning, then the Owner always types the derived
+   forms (noun/person/adjective) and example sentences by hand —
+   no free dictionary API exposes "word family" forms, so guessing
+   them would risk teaching a wrong derivation.
+========================================================= */
+
+function isKnownFamilyWord(word){
+  return !!DuplicateChecker.findByKey(wordFamilyData, x=>x.verb, word);
+}
+
+// Mirrors addVerbEntry(): the single choke point for adding an
+// owner-provided Word Family entry, including the reverse-sync into the
+// Vocabulary Bank so this word is consistent no matter which tab it was
+// discovered from.
+function addFamilyEntry(entry, options){
+  const opts = options || {};
+  if(isKnownFamilyWord(entry.verb)) return null;
+
+  if(!vocabLookup.has(normalizeWordKey(entry.verb))){
+    addVocabEntry({
+      w: entry.verb,
+      senses: [{ use: "(verb) See the Word Family tab for related forms.", examples: [] }],
+      syn: [], ant: [], mistake: null, tagalog: null, phonetic: null,
+      source: "online"
+    }, {persist: opts.persist});
+  }
+
+  wordFamilyData.push(entry);
+
+  const openThisFamily = ()=>{
+    document.getElementById("familySelect").value = entry.verb;
+    renderFamily(entry);
+    activateTab("family");
+  };
+  const item = {label: entry.verb, cat: "Word family", categories: ["Word family"], action: openThisFamily};
+  searchIndex.push(item);
+  wordIndexMap.set(normalizeWordKey(entry.verb), item);
+  [entry.noun, entry.person, entry.adj].forEach(form=>{
+    if(form && form !== "—" && form !== entry.verb){
+      const formItem = {label: form, cat: "Word family form", action: openThisFamily};
+      searchIndex.push(formItem);
+      const formKey = normalizeWordKey(form);
+      if(!wordIndexMap.has(formKey)) wordIndexMap.set(formKey, formItem);
+    }
+  });
+
+  if(opts.persist){
+    VocabCache.putFamily(entry, {dbPromise: vocabDbPromise});
+  }
+
+  return item;
+}
+
+function hideFamilyAddArea(){
+  const areaEl = document.getElementById("familyAddArea");
+  areaEl.style.display = "none";
+  areaEl.innerHTML = "";
+  areaEl.className = "add-status";
+}
+
+function renderFamilyTabAddForm(word, previewNote){
+  const areaEl = document.getElementById("familyAddArea");
+  areaEl.style.display = "block";
+  areaEl.className = "add-status";
+  areaEl.innerHTML = `
+    ${previewNote ? `<p class="note" style="margin-bottom:8px;">${previewNote}</p>` : ""}
+    <div class="section-label">Add "${word}" to Word Family</div>
+    <p class="note" style="margin-bottom:8px;">Type every related form yourself — nothing is guessed automatically.</p>
+    <label class="note" style="display:block;margin-bottom:4px;">Verb</label>
+    <input type="text" id="familyFormVerb" autocomplete="off" value="${word}">
+    <label class="note" style="display:block;margin-bottom:4px;">Noun form</label>
+    <input type="text" id="familyFormNoun" autocomplete="off" placeholder="e.g. calibration">
+    <label class="note" style="display:block;margin-bottom:4px;">Person form (optional — use — if none)</label>
+    <input type="text" id="familyFormPerson" autocomplete="off" placeholder="e.g. calibrator">
+    <label class="note" style="display:block;margin-bottom:4px;">Adjective form</label>
+    <input type="text" id="familyFormAdj" autocomplete="off" placeholder="e.g. calibrated">
+    <label class="note" style="display:block;margin-bottom:4px;">Example sentence (using the noun form)</label>
+    <input type="text" id="familyFormExNoun" autocomplete="off" placeholder="e.g. The calibration took an hour.">
+    <label class="note" style="display:block;margin-bottom:4px;">Example sentence using the adjective form (optional)</label>
+    <input type="text" id="familyFormExAdj" autocomplete="off" placeholder="e.g. The gauge is freshly calibrated.">
+    <button id="familyTabAddSaveBtn" class="add-btn">Save to Word Family</button>
+    <button id="familyTabAddCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="familyTabAddStatus" class="add-status"></div>
+  `;
+  document.getElementById("familyTabAddCancelBtn").addEventListener("click", hideFamilyAddArea);
+  document.getElementById("familyTabAddSaveBtn").addEventListener("click", saveFamilyTabAddForm);
+  bindEnterToClick(["familyFormVerb", "familyFormNoun", "familyFormPerson", "familyFormAdj", "familyFormExNoun", "familyFormExAdj"], "familyTabAddSaveBtn");
+}
+
+async function saveFamilyTabAddForm(){
+  const statusEl = document.getElementById("familyTabAddStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const verb = document.getElementById("familyFormVerb").value.trim();
+  const noun = document.getElementById("familyFormNoun").value.trim();
+  const person = document.getElementById("familyFormPerson").value.trim();
+  const adj = document.getElementById("familyFormAdj").value.trim();
+  const exNoun = document.getElementById("familyFormExNoun").value.trim();
+  const exAdj = document.getElementById("familyFormExAdj").value.trim();
+
+  if(!verb || !noun || !adj || !exNoun){
+    statusEl.textContent = "Please fill in the Verb, Noun form, Adjective form, and a noun-form example sentence.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownFamilyWord(verb)){
+    statusEl.textContent = `"${verb}" is already in Word Family.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const entry = { verb: verb, noun: noun, person: person || "—", adj: adj, exNoun: exNoun, exAdj: exAdj || "" };
+  const item = addFamilyEntry(entry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+  hideFamilyAddArea();
+  document.getElementById("familyAddInput").value = "";
+  document.getElementById("familyAddStatus").textContent = `✅ "${verb}" has been added to Word Family.`;
+  document.getElementById("familyAddStatus").className = "add-status success";
+  if(item) item.action();
+}
+
+async function addFamilyEntryFromInput(){
+  const statusEl = document.getElementById("familyAddStatus");
+  const input = document.getElementById("familyAddInput");
+  const btn = document.getElementById("familyAddBtn");
+  hideFamilyAddArea();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = input.value.trim();
+  if(!text){
+    statusEl.textContent = "Please enter a verb first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  if(isKnownFamilyWord(text)){
+    const existing = wordIndexMap.get(normalizeWordKey(text));
+    statusEl.textContent = `"${text}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    if(existing) navigateToEntry(existing);
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = "Looking it up online…";
+  statusEl.className = "add-status";
+
+  const result = await LookupServiceInstance.lookup(text, {cache: onlineLookupCache});
+
+  btn.disabled = false;
+  statusEl.textContent = "";
+  statusEl.className = "add-status";
+
+  const previewNote = result
+    ? `🌐 Found online: ${(result.senses[0] && result.senses[0].use) || "a definition was found, but has no preview text."}`
+    : `Couldn't find "${text}" online — you can still add it manually below.`;
+  renderFamilyTabAddForm(text, previewNote);
+}
+
+document.getElementById("familyAddBtn").addEventListener("click", addFamilyEntryFromInput);
+document.getElementById("familyAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addFamilyEntryFromInput();
+});
+
+const familyCacheRestorePromise = VocabCache.getAllFamily({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=>{
+    addFamilyEntry(entry, {persist:false});
+  });
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 // Online fallback — the third and last search tier, after the local
 // Vocabulary Bank and the IndexedDB cache (both already covered by the
 // wordIndexMap check in runSearchPipeline, since addVocabEntry() merges
@@ -42551,7 +42740,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   LookupServiceInstance, TranslationServiceInstance,
   createLbEditMeaningRow, createLbEditExampleRow, collectLbEditSenses,
   renumberLbEditMeanings, wireLbEditGroupEvents,
-  addVerbEntryFromInput, renderVerbTabAddForm, saveVerbTabAddForm, hideVerbAddArea
+  addVerbEntryFromInput, renderVerbTabAddForm, saveVerbTabAddForm, hideVerbAddArea,
+  isKnownFamilyWord, addFamilyEntry, addFamilyEntryFromInput,
+  renderFamilyTabAddForm, saveFamilyTabAddForm, hideFamilyAddArea,
+  familyCacheRestorePromise
 };
 </script>
 <script>
