@@ -48,15 +48,32 @@ const VERB_LOOKUP_RESULT = {
 /* ---------- Vocabulary Bank Edit/Delete ---------- */
 
 describe("Vocabulary Bank Edit/Delete (owner-gated)", () => {
-  it("a built-in vocab entry never shows Edit/Delete, even when unlocked", async () => {
+  it("a built-in vocab entry now ALSO shows Edit/Delete when unlocked (see vocab-management.test.js for the full seed-word edit/delete/tombstone coverage), but stays read-only while locked", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     const builtIn = hooks.vocabData[0];
+    expect(builtIn.source).toBeUndefined();
     document.getElementById("vocabSelect").value = builtIn.w;
     hooks.renderRuleEntry(builtIn, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 
+    expect(document.getElementById("vocabEntry").querySelector(".lb-edit-btn")).toBeTruthy();
+    expect(document.getElementById("vocabEntry").querySelector(".lb-delete-btn")).toBeTruthy();
+
+    document.getElementById("ownerLockBtn").click();
+    await wait(20);
+    hooks.renderRuleEntry(builtIn, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
     expect(document.getElementById("vocabEntry").querySelector(".lb-edit-btn")).toBeNull();
     expect(document.getElementById("vocabEntry").querySelector(".lb-delete-btn")).toBeNull();
+  });
+
+  it("a built-in entry in a DIFFERENT rule module (not Vocabulary Bank) still never shows Edit/Delete — the relaxation is scoped to categoryKey 'vocab' only", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const builtInPrep = hooks.prepData[0];
+    hooks.renderRuleEntry(builtInPrep, document.getElementById("prepEntry"), "Preposition", "preps");
+
+    expect(document.getElementById("prepEntry").querySelector(".lb-edit-btn")).toBeNull();
+    expect(document.getElementById("prepEntry").querySelector(".lb-delete-btn")).toBeNull();
   });
 
   it("an owner-added vocab entry shows Edit/Delete while unlocked, hidden while locked", async () => {

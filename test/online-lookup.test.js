@@ -37,11 +37,11 @@ describe("normalizeDictionaryResponse", () => {
       use: "(adjective) Able to withstand or recover quickly from difficult conditions.",
       examples: ["The structure is resilient to seismic loads."]
     });
-    // The API gave no example for the second definition — a generated
-    // fallback fills in rather than leaving it with none.
+    // The API gave no example for the second definition — fallback
+    // examples are opt-in only (see below), so this sense stays empty
+    // rather than getting a fabricated, possibly-nonsensical sentence.
     expect(result.senses[1].use).toBe("(adjective) Springing back readily.");
-    expect(result.senses[1].examples).toHaveLength(1);
-    expect(result.senses[1].examples[0]).toContain("resilient");
+    expect(result.senses[1].examples).toEqual([]);
     expect(result.syn).toEqual(["tough", "hardy"]);
     expect(result.ant).toEqual(["fragile"]);
   });
@@ -83,7 +83,7 @@ describe("normalizeDictionaryResponse", () => {
     expect(result.phonetic).toBeNull();
   });
 
-  it("never leaves a sense without an example, even when the API provides none at all", () => {
+  it("leaves a sense's examples empty (no fabrication) when the API provides none at all and fallback examples aren't explicitly requested", () => {
     const response = [{
       word: "zephyr",
       meanings: [{
@@ -93,8 +93,20 @@ describe("normalizeDictionaryResponse", () => {
     }];
     const result = OnlineLookup.normalizeDictionaryResponse(response, "zephyr");
     expect(result.senses).toHaveLength(1);
+    expect(result.senses[0].examples).toEqual([]);
+  });
+
+  it("only generates a fallback example when explicitly opted in via generateFallbackExamples: true", () => {
+    const response = [{
+      word: "zephyr",
+      meanings: [{
+        partOfSpeech: "noun",
+        definitions: [{ definition: "A gentle breeze." }]
+      }]
+    }];
+    const result = OnlineLookup.normalizeDictionaryResponse(response, "zephyr", { generateFallbackExamples: true });
     expect(result.senses[0].examples).toHaveLength(1);
-    expect(result.senses[0].examples[0].length).toBeGreaterThan(0);
+    expect(result.senses[0].examples[0]).toContain("zephyr");
   });
 
   it("returns null for an empty or malformed response", () => {
@@ -498,11 +510,35 @@ describe("normalizeWiktionaryResponse", () => {
     expect(result.senses[0].use).not.toContain("font-size");
   });
 
-  it("generates a fallback example when Wiktionary provides none", () => {
+  it("leaves examples empty by default (no fabrication) when Wiktionary provides none", () => {
     const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
     const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
+    expect(result.senses[0].examples).toEqual([]);
+  });
+
+  it("only generates a fallback example when explicitly opted in via generateFallbackExamples: true", () => {
+    const response = { en: [{ partOfSpeech: "Noun", definitions: [{ definition: "A gentle breeze." }] }] };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr", { generateFallbackExamples: true });
     expect(result.senses[0].examples).toHaveLength(1);
     expect(result.senses[0].examples[0]).toContain("zephyr");
+  });
+
+  it("captures up to 3 real examples per definition when Wiktionary provides multiple, instead of discarding all but the first", () => {
+    const response = {
+      en: [{
+        partOfSpeech: "Noun",
+        definitions: [{
+          definition: "A gentle breeze.",
+          examples: ["A zephyr drifted through the open window.", "The zephyr cooled the afternoon heat.", "Sailors welcomed the light zephyr.", "A fourth example that should be dropped."]
+        }]
+      }]
+    };
+    const result = OnlineLookup.normalizeWiktionaryResponse(response, "zephyr");
+    expect(result.senses[0].examples).toEqual([
+      "A zephyr drifted through the open window.",
+      "The zephyr cooled the afternoon heat.",
+      "Sailors welcomed the light zephyr."
+    ]);
   });
 
   it("returns null when the response has no English entries or is malformed", () => {
