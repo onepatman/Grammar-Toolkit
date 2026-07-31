@@ -365,12 +365,16 @@ describe("Verbs tab: flag possible verb + manual 5-form entry (never auto-guesse
   it("after the Owner saves a verb-looking word from search, a flag prompt appears offering to add it to Verbs", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    // Drives the same UI path saveOnlineVocabResult() would after a real
-    // search (see search-coverage.test.js for that path end-to-end) —
-    // shown.length===0 vs. >0 branching is a search-pipeline detail
-    // unrelated to what THIS test is verifying (the verb-flag prompt).
-    hooks.showOnlineVocabResult(VERB_LOOKUP_RESULT);
-    document.getElementById("saveOnlineVocabBtn").click();
+    // Drives the same UI path a real search would (see search-coverage.
+    // test.js for that path end-to-end), just via the Vocab tab's own
+    // Look Up & Add box instead — shown.length===0 vs. >0 branching is a
+    // search-pipeline detail unrelated to what THIS test is verifying
+    // (the verb-flag prompt).
+    window.OnlineLookup.fetchOnlineDefinition = async () => VERB_LOOKUP_RESULT;
+    document.getElementById("vocabAddInput").value = "sprint";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
 
     expect(document.getElementById("verbFlagArea").textContent).toContain("This looks like a verb");
@@ -381,8 +385,11 @@ describe("Verbs tab: flag possible verb + manual 5-form entry (never auto-guesse
   it("clicking 'Add it to Verbs' requires all five forms, never guesses them, and only saves once confirmed", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    hooks.showOnlineVocabResult(VERB_LOOKUP_RESULT);
-    document.getElementById("saveOnlineVocabBtn").click();
+    window.OnlineLookup.fetchOnlineDefinition = async () => VERB_LOOKUP_RESULT;
+    document.getElementById("vocabAddInput").value = "sprint";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+    document.getElementById("lookupModalSaveBtn").click();
     await wait(50);
     document.getElementById("verbFlagYesBtn").click();
 
