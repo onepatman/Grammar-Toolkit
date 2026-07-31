@@ -49,7 +49,7 @@ describe("Tenses tab — Add my own construction box", () => {
     await wait(30);
 
     expect(document.getElementById("tenseAddStatus").textContent).toContain("already in the database");
-    expect(document.getElementById("tenseAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
   });
 
   it("shows the manual form immediately for a new name — no online lookup step at all", async () => {
@@ -60,8 +60,7 @@ describe("Tenses tab — Add my own construction box", () => {
     document.getElementById("tenseAddBtn").click();
     await wait(30);
 
-    const areaEl = document.getElementById("tenseAddArea");
-    expect(areaEl.style.display).not.toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
     expect(document.getElementById("tenseFormName").value).toBe("Going to Future");
     expect(document.getElementById("tenseFormFormula").value).toBe("");
     expect(document.querySelector("#tenseFormGroupSeg button.active").dataset.val).toBe("Present");
@@ -116,7 +115,7 @@ describe("Tenses tab — Add my own construction box", () => {
     });
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("tenses");
     expect(document.getElementById("tenseAddStatus").textContent).toContain("has been added to Tenses");
-    expect(document.getElementById("tenseAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
 
     const futureOptgroup = Array.from(document.querySelectorAll("#tenseSelect optgroup")).find((og) => og.label === "Future");
     expect(Array.from(futureOptgroup.querySelectorAll("option")).some((o) => o.value === "Going to Future")).toBe(true);
@@ -131,7 +130,7 @@ describe("Tenses tab — Add my own construction box", () => {
 
     document.getElementById("tenseAddCancelBtn").click();
 
-    expect(document.getElementById("tenseAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     expect(hooks.tenseData.some((t) => t.name === "Going to Future")).toBe(false);
   });
 });

@@ -51,7 +51,7 @@ describe("Word Family tab — direct Look Up & Add box", () => {
 
     expect(fetchCalled).toBe(false);
     expect(document.getElementById("familyAddStatus").textContent).toContain("already in the database");
-    expect(document.getElementById("familyAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
   });
 
   it("looks up a new verb online, then shows the always-manual form — nothing beyond the base verb is auto-filled", async () => {
@@ -67,9 +67,8 @@ describe("Word Family tab — direct Look Up & Add box", () => {
     document.getElementById("familyAddBtn").click();
     await wait(30);
 
-    const areaEl = document.getElementById("familyAddArea");
-    expect(areaEl.style.display).not.toBe("none");
-    expect(areaEl.textContent).toContain("Found online");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalBody").textContent).toContain("Found online");
     expect(document.getElementById("familyFormVerb").value).toBe("prioritize");
     expect(document.getElementById("familyFormNoun").value).toBe("");
     expect(document.getElementById("familyFormPerson").value).toBe("");
@@ -87,9 +86,8 @@ describe("Word Family tab — direct Look Up & Add box", () => {
     document.getElementById("familyAddBtn").click();
     await wait(30);
 
-    const areaEl = document.getElementById("familyAddArea");
-    expect(areaEl.style.display).not.toBe("none");
-    expect(areaEl.textContent).toContain("Couldn't find");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalBody").textContent).toContain("Couldn't find");
     expect(document.getElementById("familyFormVerb").value).toBe("engineerify");
   });
 
@@ -132,7 +130,7 @@ describe("Word Family tab — direct Look Up & Add box", () => {
     expect(saved.exNoun).toBe("The prioritization took an hour.");
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("family");
     expect(document.getElementById("familyAddStatus").textContent).toContain("has been added to Word Family");
-    expect(document.getElementById("familyAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
   });
 
   it("saves the optional person form and adjective-form example when provided", async () => {
@@ -166,7 +164,7 @@ describe("Word Family tab — direct Look Up & Add box", () => {
 
     document.getElementById("familyTabAddCancelBtn").click();
 
-    expect(document.getElementById("familyAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     expect(hooks.wordFamilyData.some((f) => f.verb === "prioritize")).toBe(false);
   });
 

@@ -52,7 +52,7 @@ describe("Verbs tab — direct Look Up & Add box", () => {
 
     expect(fetchCalled).toBe(false);
     expect(document.getElementById("verbAddStatus").textContent).toContain("already in the database");
-    expect(document.getElementById("verbAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
   });
 
   it("looks up a new verb online, then shows the always-manual 5-form conjugation entry — nothing is auto-filled beyond the base form", async () => {
@@ -68,9 +68,8 @@ describe("Verbs tab — direct Look Up & Add box", () => {
     document.getElementById("verbAddBtn").click();
     await wait(30);
 
-    const areaEl = document.getElementById("verbAddArea");
-    expect(areaEl.style.display).not.toBe("none");
-    expect(areaEl.textContent).toContain("Found online");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalBody").textContent).toContain("Found online");
     expect(document.getElementById("verbTabFormBase").value).toBe("proceed");
     expect(document.getElementById("verbTabFormS").value).toBe("");
     expect(document.getElementById("verbTabFormPast").value).toBe("");
@@ -87,9 +86,8 @@ describe("Verbs tab — direct Look Up & Add box", () => {
     document.getElementById("verbAddBtn").click();
     await wait(30);
 
-    const areaEl = document.getElementById("verbAddArea");
-    expect(areaEl.style.display).not.toBe("none");
-    expect(areaEl.textContent).toContain("Couldn't find");
+    expect(document.getElementById("lookupModal").style.display).toBe("flex");
+    expect(document.getElementById("lookupModalBody").textContent).toContain("Couldn't find");
     expect(document.getElementById("verbTabFormBase").value).toBe("engineerify");
   });
 
@@ -133,7 +131,7 @@ describe("Verbs tab — direct Look Up & Add box", () => {
     expect(saved.ing).toBe("proceeding");
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("verbs");
     expect(document.getElementById("verbAddStatus").textContent).toContain("has been added to Verbs");
-    expect(document.getElementById("verbAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
   });
 
   it("saves an irregular verb under the irregular group when selected", async () => {
@@ -166,7 +164,7 @@ describe("Verbs tab — direct Look Up & Add box", () => {
 
     document.getElementById("verbTabAddCancelBtn").click();
 
-    expect(document.getElementById("verbAddArea").style.display).toBe("none");
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     expect(hooks.verbData.regular.some((v) => v.w === "proceed")).toBe(false);
   });
 

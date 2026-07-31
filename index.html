@@ -1186,7 +1186,6 @@
       <input type="text" id="verbAddInput" placeholder="e.g. proceed" autocomplete="off">
       <button id="verbAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
       <div id="verbAddStatus" class="add-status"></div>
-      <div id="verbAddArea" class="add-status" style="display:none;"></div>
     </div>
   </section>
 
@@ -1209,7 +1208,6 @@
       <input type="text" id="tenseAddInput" placeholder="e.g. Going to Future" autocomplete="off">
       <button id="tenseAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own construction</button>
       <div id="tenseAddStatus" class="add-status"></div>
-      <div id="tenseAddArea" class="add-status" style="display:none;"></div>
     </div>
   </section>
 
@@ -1427,7 +1425,6 @@
       <input type="text" id="familyAddInput" placeholder="e.g. calibrate" autocomplete="off">
       <button id="familyAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
       <div id="familyAddStatus" class="add-status"></div>
-      <div id="familyAddArea" class="add-status" style="display:none;"></div>
     </div>
   </section>
 
@@ -40466,7 +40463,16 @@ function openLookupModal(options){
     // firing onClose, then runs its own onClick, so a Save handler
     // never races against a Decline-flavored onClose for the same
     // pending state (see the ordering note on closeLookupModal below).
+    // closeOnClick:false opts out of the auto-hide-first ordering
+    // entirely — for a Save button backed by a validation step (a
+    // manual-entry form that must stay open and show an error inline
+    // when required fields are missing), the modal has to still be on
+    // screen, with its fields still readable, when onClick runs.
     btn.addEventListener("click", ()=>{
+      if(action.closeOnClick === false){
+        if(action.onClick) action.onClick();
+        return;
+      }
       hideLookupModal();
       if(action.onClick) action.onClick();
     });
@@ -42573,56 +42579,52 @@ function addVerbEntry(group, entry, options){
    separate from the Vocab-tab-triggered flag flow above
    (renderVerbFlagPrompt/renderVerbAddForm/saveVerbFromFlagForm target
    #verbFlagArea on the VOCAB panel and finish with vocab-tab-specific
-   messaging) — this one targets #verbAddArea on the Verbs panel itself
-   and finishes by navigating within Verbs, so a user sitting on the
+   messaging) — this one shows its manual 5-form entry form in the
+   shared LookupModal and finishes by navigating within Verbs, so a
+   user sitting on the
    Verbs tab has a way to add a word without first going through Vocab.
    Same "never guess a conjugation" rule: the online lookup here is only
    used to confirm the word is real and preview its meaning before
    asking for all five forms by hand.
 ========================================================= */
 
-function hideVerbAddArea(){
-  const areaEl = document.getElementById("verbAddArea");
-  areaEl.style.display = "none";
-  areaEl.innerHTML = "";
-  areaEl.className = "add-status";
-}
-
 function renderVerbTabAddForm(word, previewNote){
-  const areaEl = document.getElementById("verbAddArea");
-  areaEl.style.display = "block";
-  areaEl.className = "add-status";
-  areaEl.innerHTML = `
-    ${previewNote ? `<p class="note" style="margin-bottom:8px;">${previewNote}</p>` : ""}
-    <div class="section-label">Add "${word}" to Verbs</div>
-    <p class="note" style="margin-bottom:8px;">Type every form yourself — nothing is guessed automatically, so irregular verbs stay correct.</p>
-    <label class="note" style="display:block;margin-bottom:4px;">Verb type</label>
-    <div class="seg" id="verbTabAddTypeSeg" style="margin-bottom:8px;">
-      <button class="active" data-val="regular">Regular</button>
-      <button data-val="irregular">Irregular</button>
-    </div>
-    <label class="note" style="display:block;margin-bottom:4px;">Base Form</label>
-    <input type="text" id="verbTabFormBase" autocomplete="off" value="${word}">
-    <label class="note" style="display:block;margin-bottom:4px;">3rd Person Singular (he/she/it)</label>
-    <input type="text" id="verbTabFormS" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Past Tense</label>
-    <input type="text" id="verbTabFormPast" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Past Participle</label>
-    <input type="text" id="verbTabFormPP" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Present Participle / -ing Form</label>
-    <input type="text" id="verbTabFormIng" autocomplete="off">
-    <button id="verbTabAddSaveBtn" class="add-btn">Save to Verbs</button>
-    <button id="verbTabAddCancelBtn" class="add-btn secondary">Cancel</button>
-    <div id="verbTabAddStatus" class="add-status"></div>
-  `;
+  openLookupModal({
+    title: `Add "${word}" to Verbs`,
+    subtitleHtml: "Type every form yourself — nothing is guessed automatically, so irregular verbs stay correct.",
+    bodyHtml: `
+      ${previewNote ? `<p class="note" style="margin-bottom:8px;">${previewNote}</p>` : ""}
+      <label class="note" style="display:block;margin-bottom:4px;">Verb type</label>
+      <div class="seg" id="verbTabAddTypeSeg" style="margin-bottom:8px;">
+        <button class="active" data-val="regular">Regular</button>
+        <button data-val="irregular">Irregular</button>
+      </div>
+      <label class="note" style="display:block;margin-bottom:4px;">Base Form</label>
+      <input type="text" id="verbTabFormBase" autocomplete="off" value="${word}">
+      <label class="note" style="display:block;margin-bottom:4px;">3rd Person Singular (he/she/it)</label>
+      <input type="text" id="verbTabFormS" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">Past Tense</label>
+      <input type="text" id="verbTabFormPast" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">Past Participle</label>
+      <input type="text" id="verbTabFormPP" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">Present Participle / -ing Form</label>
+      <input type="text" id="verbTabFormIng" autocomplete="off">
+      <div id="verbTabAddStatus" class="add-status"></div>
+    `,
+    actions: [
+      // closeOnClick:false — saveVerbTabAddForm() must be able to keep
+      // the modal (and its own field values) on screen to show a
+      // validation error, only closing it once the entry actually saves.
+      { label: "Save to Verbs", id: "verbTabAddSaveBtn", closeOnClick: false, onClick: saveVerbTabAddForm },
+      { label: "Cancel", id: "verbTabAddCancelBtn", secondary: true }
+    ]
+  });
   document.querySelectorAll("#verbTabAddTypeSeg button").forEach(b=>{
     b.addEventListener("click", ()=>{
       document.querySelectorAll("#verbTabAddTypeSeg button").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
     });
   });
-  document.getElementById("verbTabAddCancelBtn").addEventListener("click", hideVerbAddArea);
-  document.getElementById("verbTabAddSaveBtn").addEventListener("click", saveVerbTabAddForm);
   bindEnterToClick(["verbTabFormBase", "verbTabFormS", "verbTabFormPast", "verbTabFormPP", "verbTabFormIng"], "verbTabAddSaveBtn");
 }
 
@@ -42654,7 +42656,7 @@ async function saveVerbTabAddForm(){
   const entry = { w: base, s: s, ing: ing, past: past, pp: pp, obj: "", syn: [], ant: [], source: "online" };
   const item = addVerbEntry(group, entry, {persist:true});
   await pushToSync(loadPersonalCorrections());
-  hideVerbAddArea();
+  hideLookupModal();
   document.getElementById("verbAddInput").value = "";
   document.getElementById("verbAddStatus").textContent = `✅ "${base}" has been added to Verbs (${group}).`;
   document.getElementById("verbAddStatus").className = "add-status success";
@@ -42665,7 +42667,7 @@ async function addVerbEntryFromInput(){
   const statusEl = document.getElementById("verbAddStatus");
   const input = document.getElementById("verbAddInput");
   const btn = document.getElementById("verbAddBtn");
-  hideVerbAddArea();
+  hideLookupModal();
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
@@ -42781,39 +42783,31 @@ function addFamilyEntry(entry, options){
   return item;
 }
 
-function hideFamilyAddArea(){
-  const areaEl = document.getElementById("familyAddArea");
-  areaEl.style.display = "none";
-  areaEl.innerHTML = "";
-  areaEl.className = "add-status";
-}
-
 function renderFamilyTabAddForm(word, previewNote){
-  const areaEl = document.getElementById("familyAddArea");
-  areaEl.style.display = "block";
-  areaEl.className = "add-status";
-  areaEl.innerHTML = `
-    ${previewNote ? `<p class="note" style="margin-bottom:8px;">${previewNote}</p>` : ""}
-    <div class="section-label">Add "${word}" to Word Family</div>
-    <p class="note" style="margin-bottom:8px;">Type every related form yourself — nothing is guessed automatically.</p>
-    <label class="note" style="display:block;margin-bottom:4px;">Verb</label>
-    <input type="text" id="familyFormVerb" autocomplete="off" value="${word}">
-    <label class="note" style="display:block;margin-bottom:4px;">Noun form</label>
-    <input type="text" id="familyFormNoun" autocomplete="off" placeholder="e.g. calibration">
-    <label class="note" style="display:block;margin-bottom:4px;">Person form (optional — use — if none)</label>
-    <input type="text" id="familyFormPerson" autocomplete="off" placeholder="e.g. calibrator">
-    <label class="note" style="display:block;margin-bottom:4px;">Adjective form</label>
-    <input type="text" id="familyFormAdj" autocomplete="off" placeholder="e.g. calibrated">
-    <label class="note" style="display:block;margin-bottom:4px;">Example sentence (using the noun form)</label>
-    <input type="text" id="familyFormExNoun" autocomplete="off" placeholder="e.g. The calibration took an hour.">
-    <label class="note" style="display:block;margin-bottom:4px;">Example sentence using the adjective form (optional)</label>
-    <input type="text" id="familyFormExAdj" autocomplete="off" placeholder="e.g. The gauge is freshly calibrated.">
-    <button id="familyTabAddSaveBtn" class="add-btn">Save to Word Family</button>
-    <button id="familyTabAddCancelBtn" class="add-btn secondary">Cancel</button>
-    <div id="familyTabAddStatus" class="add-status"></div>
-  `;
-  document.getElementById("familyTabAddCancelBtn").addEventListener("click", hideFamilyAddArea);
-  document.getElementById("familyTabAddSaveBtn").addEventListener("click", saveFamilyTabAddForm);
+  openLookupModal({
+    title: `Add "${word}" to Word Family`,
+    subtitleHtml: "Type every related form yourself — nothing is guessed automatically.",
+    bodyHtml: `
+      ${previewNote ? `<p class="note" style="margin-bottom:8px;">${previewNote}</p>` : ""}
+      <label class="note" style="display:block;margin-bottom:4px;">Verb</label>
+      <input type="text" id="familyFormVerb" autocomplete="off" value="${word}">
+      <label class="note" style="display:block;margin-bottom:4px;">Noun form</label>
+      <input type="text" id="familyFormNoun" autocomplete="off" placeholder="e.g. calibration">
+      <label class="note" style="display:block;margin-bottom:4px;">Person form (optional — use — if none)</label>
+      <input type="text" id="familyFormPerson" autocomplete="off" placeholder="e.g. calibrator">
+      <label class="note" style="display:block;margin-bottom:4px;">Adjective form</label>
+      <input type="text" id="familyFormAdj" autocomplete="off" placeholder="e.g. calibrated">
+      <label class="note" style="display:block;margin-bottom:4px;">Example sentence (using the noun form)</label>
+      <input type="text" id="familyFormExNoun" autocomplete="off" placeholder="e.g. The calibration took an hour.">
+      <label class="note" style="display:block;margin-bottom:4px;">Example sentence using the adjective form (optional)</label>
+      <input type="text" id="familyFormExAdj" autocomplete="off" placeholder="e.g. The gauge is freshly calibrated.">
+      <div id="familyTabAddStatus" class="add-status"></div>
+    `,
+    actions: [
+      { label: "Save to Word Family", id: "familyTabAddSaveBtn", closeOnClick: false, onClick: saveFamilyTabAddForm },
+      { label: "Cancel", id: "familyTabAddCancelBtn", secondary: true }
+    ]
+  });
   bindEnterToClick(["familyFormVerb", "familyFormNoun", "familyFormPerson", "familyFormAdj", "familyFormExNoun", "familyFormExAdj"], "familyTabAddSaveBtn");
 }
 
@@ -42845,7 +42839,7 @@ async function saveFamilyTabAddForm(){
   const entry = { verb: verb, noun: noun, person: person || "—", adj: adj, exNoun: exNoun, exAdj: exAdj || "" };
   const item = addFamilyEntry(entry, {persist:true});
   await pushToSync(loadPersonalCorrections());
-  hideFamilyAddArea();
+  hideLookupModal();
   document.getElementById("familyAddInput").value = "";
   document.getElementById("familyAddStatus").textContent = `✅ "${verb}" has been added to Word Family.`;
   document.getElementById("familyAddStatus").className = "add-status success";
@@ -42856,7 +42850,7 @@ async function addFamilyEntryFromInput(){
   const statusEl = document.getElementById("familyAddStatus");
   const input = document.getElementById("familyAddInput");
   const btn = document.getElementById("familyAddBtn");
-  hideFamilyAddArea();
+  hideLookupModal();
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
@@ -42988,52 +42982,44 @@ function addTenseEntry(entry, options){
   return item;
 }
 
-function hideTenseAddArea(){
-  const areaEl = document.getElementById("tenseAddArea");
-  areaEl.style.display = "none";
-  areaEl.innerHTML = "";
-  areaEl.className = "add-status";
-}
-
 function renderTenseAddForm(name){
-  const areaEl = document.getElementById("tenseAddArea");
-  areaEl.style.display = "block";
-  areaEl.className = "add-status";
-  areaEl.innerHTML = `
-    <div class="section-label">Add "${name}" to Tenses</div>
-    <p class="note" style="margin-bottom:8px;">Type every field yourself — nothing is guessed automatically.</p>
-    <label class="note" style="display:block;margin-bottom:4px;">Name</label>
-    <input type="text" id="tenseFormName" autocomplete="off" value="${name}">
-    <label class="note" style="display:block;margin-bottom:4px;">Time frame</label>
-    <div class="seg" id="tenseFormGroupSeg" style="margin-bottom:8px;">
-      <button class="active" data-val="Present">Present</button>
-      <button data-val="Past">Past</button>
-      <button data-val="Future">Future</button>
-    </div>
-    <label class="note" style="display:block;margin-bottom:4px;">Formula</label>
-    <input type="text" id="tenseFormFormula" autocomplete="off" placeholder="e.g. Subject + am/is/are + going to + base verb">
-    <label class="note" style="display:block;margin-bottom:4px;">When to use it (one per line)</label>
-    <textarea id="tenseFormUses" rows="3" placeholder="A plan or intention decided before speaking."></textarea>
-    <label class="note" style="display:block;margin-bottom:4px;">Signal words (comma-separated, optional)</label>
-    <input type="text" id="tenseFormSignals" autocomplete="off" placeholder="e.g. tomorrow, next week">
-    <label class="note" style="display:block;margin-bottom:4px;">✓ Positive example</label>
-    <input type="text" id="tenseFormExPos" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">✗ Negative example</label>
-    <input type="text" id="tenseFormExNeg" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">? Question example</label>
-    <input type="text" id="tenseFormExQ" autocomplete="off">
-    <button id="tenseAddSaveBtn" class="add-btn">Save to Tenses</button>
-    <button id="tenseAddCancelBtn" class="add-btn secondary">Cancel</button>
-    <div id="tenseAddFormStatus" class="add-status"></div>
-  `;
+  openLookupModal({
+    title: `Add "${name}" to Tenses`,
+    subtitleHtml: "Type every field yourself — nothing is guessed automatically.",
+    bodyHtml: `
+      <label class="note" style="display:block;margin-bottom:4px;">Name</label>
+      <input type="text" id="tenseFormName" autocomplete="off" value="${name}">
+      <label class="note" style="display:block;margin-bottom:4px;">Time frame</label>
+      <div class="seg" id="tenseFormGroupSeg" style="margin-bottom:8px;">
+        <button class="active" data-val="Present">Present</button>
+        <button data-val="Past">Past</button>
+        <button data-val="Future">Future</button>
+      </div>
+      <label class="note" style="display:block;margin-bottom:4px;">Formula</label>
+      <input type="text" id="tenseFormFormula" autocomplete="off" placeholder="e.g. Subject + am/is/are + going to + base verb">
+      <label class="note" style="display:block;margin-bottom:4px;">When to use it (one per line)</label>
+      <textarea id="tenseFormUses" rows="3" placeholder="A plan or intention decided before speaking."></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">Signal words (comma-separated, optional)</label>
+      <input type="text" id="tenseFormSignals" autocomplete="off" placeholder="e.g. tomorrow, next week">
+      <label class="note" style="display:block;margin-bottom:4px;">✓ Positive example</label>
+      <input type="text" id="tenseFormExPos" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">✗ Negative example</label>
+      <input type="text" id="tenseFormExNeg" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">? Question example</label>
+      <input type="text" id="tenseFormExQ" autocomplete="off">
+      <div id="tenseAddFormStatus" class="add-status"></div>
+    `,
+    actions: [
+      { label: "Save to Tenses", id: "tenseAddSaveBtn", closeOnClick: false, onClick: saveTenseAddForm },
+      { label: "Cancel", id: "tenseAddCancelBtn", secondary: true }
+    ]
+  });
   document.querySelectorAll("#tenseFormGroupSeg button").forEach(b=>{
     b.addEventListener("click", ()=>{
       document.querySelectorAll("#tenseFormGroupSeg button").forEach(x=>x.classList.remove("active"));
       b.classList.add("active");
     });
   });
-  document.getElementById("tenseAddCancelBtn").addEventListener("click", hideTenseAddArea);
-  document.getElementById("tenseAddSaveBtn").addEventListener("click", saveTenseAddForm);
   bindEnterToClick(["tenseFormName", "tenseFormFormula", "tenseFormSignals", "tenseFormExPos", "tenseFormExNeg", "tenseFormExQ"], "tenseAddSaveBtn");
 }
 
@@ -43066,7 +43052,7 @@ async function saveTenseAddForm(){
 
   const entry = { name: name, group: group, formula: formula, uses: uses, signals: signals, examples: { pos: exPos, neg: exNeg, q: exQ } };
   const item = addTenseEntry(entry, {persist:true});
-  hideTenseAddArea();
+  hideLookupModal();
   document.getElementById("tenseAddInput").value = "";
   document.getElementById("tenseAddStatus").textContent = `✅ "${name}" has been added to Tenses.`;
   document.getElementById("tenseAddStatus").className = "add-status success";
@@ -43076,7 +43062,7 @@ async function saveTenseAddForm(){
 async function addTenseEntryFromInput(){
   const statusEl = document.getElementById("tenseAddStatus");
   const input = document.getElementById("tenseAddInput");
-  hideTenseAddArea();
+  hideLookupModal();
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
@@ -43451,12 +43437,12 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   LookupServiceInstance, TranslationServiceInstance,
   createLbEditMeaningRow, createLbEditExampleRow, collectLbEditSenses,
   renumberLbEditMeanings, wireLbEditGroupEvents,
-  addVerbEntryFromInput, renderVerbTabAddForm, saveVerbTabAddForm, hideVerbAddArea,
+  addVerbEntryFromInput, renderVerbTabAddForm, saveVerbTabAddForm,
   isKnownFamilyWord, addFamilyEntry, addFamilyEntryFromInput,
-  renderFamilyTabAddForm, saveFamilyTabAddForm, hideFamilyAddArea,
+  renderFamilyTabAddForm, saveFamilyTabAddForm,
   familyCacheRestorePromise,
   isKnownTenseName, addTenseEntry, addTenseEntryFromInput,
-  renderTenseAddForm, saveTenseAddForm, hideTenseAddArea,
+  renderTenseAddForm, saveTenseAddForm,
   tenseCacheRestorePromise,
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
   collectChipEditorValues, wireChipEditorEvents,
