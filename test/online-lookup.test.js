@@ -269,13 +269,16 @@ describe("fetchOnlineDefinition", () => {
     const fetchImpl = vi.fn((url) => {
       if (url === OnlineLookup.buildRequestUrl("press")) return jsonResponse([], false);
       if (url === OnlineLookup.buildWiktionaryUrl("press")) return jsonResponse(wiktionaryResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("press")) return jsonResponse({ parse: { wikitext: "" } });
       throw new Error("unexpected url: " + url);
     });
     const result = await OnlineLookup.fetchOnlineDefinition("press", { fetchImpl, isOnline: () => true });
     expect(result).not.toBeNull();
     expect(result.w).toBe("press");
     expect(result.senses[0].use).toContain("apply steady force");
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // Wiktionary's own definition result has no synonyms/antonyms, so the
+    // syn/ant-enrichment tier also fires (a 3rd call) to try to fill them in.
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it("resolves to null when all three sources have nothing", async () => {
@@ -303,6 +306,7 @@ describe("fetchOnlineDefinition", () => {
       if (url === OnlineLookup.buildWiktionaryUrl("It slipped my mind")) return jsonResponse({}, false);
       if (url === OnlineLookup.buildWiktionarySearchUrl("It slipped my mind")) return jsonResponse(searchResponse);
       if (url === OnlineLookup.buildWiktionaryUrl("slip someone's mind")) return jsonResponse(definitionResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("It slipped my mind.")) return jsonResponse({ parse: { wikitext: "" } });
       throw new Error("unexpected url: " + url);
     });
 
@@ -606,12 +610,15 @@ describe("fetchOnlineDefinition — hybrid Free Dictionary API + Wiktionary merg
     const fetchImpl = vi.fn((url) => {
       if (url === OnlineLookup.buildRequestUrl("burn the midnight oil")) return jsonResponse(fdaResponse);
       if (url === OnlineLookup.buildWiktionaryUrl("burn the midnight oil")) return jsonResponse(wiktResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("burn the midnight oil")) return jsonResponse({ parse: { wikitext: "" } });
       throw new Error("unexpected url: " + url);
     });
 
     const result = await OnlineLookup.fetchOnlineDefinition("burn the midnight oil", { fetchImpl, isOnline: () => true });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // Neither source's synonyms/antonyms are populated here, so the
+    // syn/ant-enrichment tier also fires (a 3rd call) trying to fill them in.
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(result.senses).toHaveLength(2);
     expect(result.senses[0].use).toContain("work late into the night");
     expect(result.senses[1].use).toContain("stay up working");
@@ -626,12 +633,15 @@ describe("fetchOnlineDefinition — hybrid Free Dictionary API + Wiktionary merg
     const fetchImpl = vi.fn((url) => {
       if (url === OnlineLookup.buildRequestUrl("give up")) return jsonResponse(fdaResponse);
       if (url === OnlineLookup.buildWiktionaryUrl("give up")) return jsonResponse({}, false);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("give up")) return jsonResponse({ parse: { wikitext: "" } });
       throw new Error("unexpected url: " + url);
     });
 
     const result = await OnlineLookup.fetchOnlineDefinition("give up", { fetchImpl, isOnline: () => true });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // No synonyms/antonyms from the Free Dictionary API here either, so
+    // the syn/ant-enrichment tier fires too (a 3rd call).
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(result.sourceName).toBe("Free Dictionary API");
     expect(result.senses).toHaveLength(1);
   });
@@ -643,6 +653,7 @@ describe("fetchOnlineDefinition — hybrid Free Dictionary API + Wiktionary merg
     const fetchImpl = vi.fn((url) => {
       if (url === OnlineLookup.buildRequestUrl("wind down")) return jsonResponse([], false);
       if (url === OnlineLookup.buildWiktionaryUrl("wind down")) return jsonResponse(wiktResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("wind down")) return jsonResponse({ parse: { wikitext: "" } });
       throw new Error("unexpected url: " + url);
     });
 
@@ -650,7 +661,9 @@ describe("fetchOnlineDefinition — hybrid Free Dictionary API + Wiktionary merg
 
     expect(result).not.toBeNull();
     expect(result.sourceName).toBe("Wiktionary");
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    // Wiktionary's own result has no synonyms/antonyms, so the
+    // syn/ant-enrichment tier fires too (a 3rd call).
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -667,5 +680,188 @@ describe("fetchOnlineDefinition with generateFallbackExamples: false", () => {
       generateFallbackExamples: false
     });
     expect(result.senses[0].examples).toEqual([]);
+  });
+});
+
+describe("extractSynAntFromWikitext", () => {
+  it("returns empty syn/ant for missing, non-string, or English-section-free wikitext", () => {
+    expect(OnlineLookup.extractSynAntFromWikitext(null)).toEqual({ syn: [], ant: [] });
+    expect(OnlineLookup.extractSynAntFromWikitext("")).toEqual({ syn: [], ant: [] });
+    expect(OnlineLookup.extractSynAntFromWikitext("==French==\n===Synonyms===\n* [[rapide]]")).toEqual({ syn: [], ant: [] });
+  });
+
+  it("extracts terms out of a {{syn|en|...}}/{{ant|en|...}} template", () => {
+    const wikitext = [
+      "==English==",
+      "===Adjective===",
+      "===Synonyms===",
+      "* {{syn|en|fast|quick|speedy}}",
+      "===Antonyms===",
+      "* {{ant|en|slow|sluggish}}"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result.syn).toEqual(["fast", "quick", "speedy"]);
+    expect(result.ant).toEqual(["slow", "sluggish"]);
+  });
+
+  it("extracts terms out of plain [[wikilinks]], including a piped display form, but skips Thesaurus: links", () => {
+    const wikitext = [
+      "==English==",
+      "===Noun===",
+      "===Synonyms===",
+      "* {{sense|to measure}} [[gauge]], [[assess|assessment]]",
+      "* [[Thesaurus:process]]"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result.syn).toEqual(["gauge", "assess"]);
+  });
+
+  it("skips named template parameters (q1=, t1=, ...) — they're qualifiers, not terms", () => {
+    const wikitext = [
+      "==English==",
+      "===Synonyms===",
+      "* {{syn|en|gauge|q1=informal|assess}}"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result.syn).toEqual(["gauge", "assess"]);
+  });
+
+  it("drops tokens that don't look like a plausible plain word/phrase after cleanup", () => {
+    const wikitext = [
+      "==English==",
+      "===Synonyms===",
+      "* [[gauge#English|gauge]]",
+      "* [[123]]"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    // "123" isn't a plausible word and is dropped; "gauge" (before the
+    // "#English" anchor, stripped by the [^\]|#]+ link-target capture)
+    // survives.
+    expect(result.syn).toEqual(["gauge"]);
+  });
+
+  it("collects terms from more than one Synonyms section (one per part of speech/sense)", () => {
+    const wikitext = [
+      "==English==",
+      "===Noun===",
+      "===Synonyms===",
+      "* [[procedure]]",
+      "===Verb===",
+      "===Synonyms===",
+      "* [[proceed]]"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result.syn).toEqual(["procedure", "proceed"]);
+  });
+
+  it("only reads the English-language section, ignoring another language's Synonyms further down the page", () => {
+    const wikitext = [
+      "==English==",
+      "===Synonyms===",
+      "* [[gauge]]",
+      "==French==",
+      "===Synonyms===",
+      "* [[rapide]]"
+    ].join("\n");
+    const result = OnlineLookup.extractSynAntFromWikitext(wikitext);
+    expect(result.syn).toEqual(["gauge"]);
+  });
+});
+
+describe("fetchOnlineDefinition — synonym/antonym wikitext enrichment", () => {
+  it("does not fetch the wikitext enrichment tier at all when the primary result already has both synonyms and antonyms", async () => {
+    const fetchImpl = vi.fn(() => jsonResponse(SAMPLE_API_RESPONSE));
+    await OnlineLookup.fetchOnlineDefinition("resilient", { fetchImpl, isOnline: () => true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("fills in missing synonyms and antonyms from Wiktionary's wikitext when the Free Dictionary API had none", async () => {
+    const fdaResponse = [{
+      word: "process",
+      meanings: [{ partOfSpeech: "noun", definitions: [{ definition: "A series of actions toward an end." }] }]
+    }];
+    const wikitext = [
+      "==English==",
+      "===Noun===",
+      "===Synonyms===",
+      "* [[procedure]], [[method]]",
+      "===Antonyms===",
+      "* [[chaos]]"
+    ].join("\n");
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("process")) return jsonResponse(fdaResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("process")) return jsonResponse({ parse: { wikitext } });
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("process", { fetchImpl, isOnline: () => true });
+
+    expect(result.syn).toEqual(["procedure", "method"]);
+    expect(result.ant).toEqual(["chaos"]);
+    expect(result.sourceName).toBe("Free Dictionary API + Wiktionary");
+    // Single-word query, Free Dictionary API succeeded: only 2 calls total
+    // (the FDA lookup itself, plus the syn/ant enrichment fetch) — no
+    // Wiktionary definition-merge call, since that tier is multi-word-only.
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("fills in only the missing side (e.g. antonyms) without touching synonyms the primary source already had", async () => {
+    const fdaResponse = [{
+      word: "nuisance",
+      meanings: [{
+        partOfSpeech: "noun",
+        definitions: [{ definition: "A person or thing causing trouble.", synonyms: ["annoyance"] }]
+      }]
+    }];
+    const wikitext = ["==English==", "===Antonyms===", "* [[blessing]]"].join("\n");
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("nuisance")) return jsonResponse(fdaResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("nuisance")) return jsonResponse({ parse: { wikitext } });
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("nuisance", { fetchImpl, isOnline: () => true });
+
+    expect(result.syn).toEqual(["annoyance"]);
+    expect(result.ant).toEqual(["blessing"]);
+  });
+
+  it("leaves the result exactly as-is (no crash, no attribution change) when the wikitext fetch itself fails", async () => {
+    const fdaResponse = [{
+      word: "process",
+      meanings: [{ partOfSpeech: "noun", definitions: [{ definition: "A series of actions toward an end." }] }]
+    }];
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("process")) return jsonResponse(fdaResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("process")) return Promise.reject(new Error("network down"));
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("process", { fetchImpl, isOnline: () => true });
+
+    expect(result).not.toBeNull();
+    expect(result.syn).toEqual([]);
+    expect(result.ant).toEqual([]);
+    expect(result.sourceName).toBe("Free Dictionary API");
+  });
+
+  it("leaves the result as-is when the wikitext has no Synonyms/Antonyms sections at all", async () => {
+    const fdaResponse = [{
+      word: "process",
+      meanings: [{ partOfSpeech: "noun", definitions: [{ definition: "A series of actions toward an end." }] }]
+    }];
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("process")) return jsonResponse(fdaResponse);
+      if (url === OnlineLookup.buildWiktionaryWikitextUrl("process")) {
+        return jsonResponse({ parse: { wikitext: "==English==\n===Noun===\nA series of actions." } });
+      }
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("process", { fetchImpl, isOnline: () => true });
+
+    expect(result.syn).toEqual([]);
+    expect(result.ant).toEqual([]);
+    expect(result.sourceName).toBe("Free Dictionary API");
   });
 });
