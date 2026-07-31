@@ -37296,6 +37296,7 @@ function isSpeakingAnswerCorrect(transcript, targetWord){
 }
 
 let practiceRecognition = null; // the in-flight SpeechRecognition instance, if any
+let practiceRecognitionTimeout = null;
 
 function renderSpeakingHtml(item){
   return `
@@ -37313,12 +37314,34 @@ function renderSpeakingHtml(item){
   `;
 }
 
+function clearPracticeRecognitionTimeout(){
+  if(practiceRecognitionTimeout){ clearTimeout(practiceRecognitionTimeout); practiceRecognitionTimeout = null; }
+}
+
+function resetSpeakingRecordUI(message){
+  const recordBtn = document.getElementById("practiceRecordBtn");
+  const statusEl = document.getElementById("practiceSpeakingStatus");
+  if(recordBtn){ recordBtn.disabled = false; recordBtn.classList.remove("listening"); }
+  if(statusEl) statusEl.textContent = message || "";
+}
+
 // A microphone permission denial, a device with no mic, or a browser
 // that lies about supporting SpeechRecognition are all real
 // possibilities — this never leaves the learner stuck: onerror
 // re-enables Record so they can retry, and the always-visible Skip
 // button (below) is the guaranteed way out regardless of what the API
 // does.
+//
+// A real-world failure mode observed on some Android Chrome builds:
+// SpeechRecognition just goes silent after start() — no onresult, no
+// onerror, sometimes not even onend — leaving "Listening…" on screen
+// forever with nothing to recover from except Skip. The recognition._
+// settled flag (read from onend so it knows whether onresult/onerror
+// already handled things) plus the belt-and-suspenders setTimeout below
+// are both defenses against that: whichever fires first — a real
+// result, a real error, an onend with nothing, or the timeout — always
+// restores the Record button, since a hung "Listening…" indicator is
+// strictly worse for a language learner than a false "try again."
 function startSpeakingRecognition(){
   const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!Ctor) return;
@@ -37333,29 +37356,50 @@ function startSpeakingRecognition(){
   recognition.lang = "en-US";
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
+  recognition._settled = false;
   practiceRecognition = recognition;
 
   recognition.onresult = (event)=>{
+    if(recognition._settled) return;
+    recognition._settled = true;
+    clearPracticeRecognitionTimeout();
     const transcript = (event && event.results && event.results[0] && event.results[0][0])
       ? event.results[0][0].transcript : "";
     submitSpeakingAnswer(transcript);
   };
   recognition.onerror = ()=>{
+    if(recognition._settled) return;
+    recognition._settled = true;
+    clearPracticeRecognitionTimeout();
     practiceRecognition = null;
-    if(statusEl) statusEl.textContent = "Didn't catch that — tap the mic to try again, or skip this word.";
-    if(recordBtn){ recordBtn.disabled = false; recordBtn.classList.remove("listening"); }
+    resetSpeakingRecordUI("Didn't catch that — tap the mic to try again, or skip this word.");
   };
   recognition.onend = ()=>{
+    const alreadySettled = recognition._settled;
     practiceRecognition = null;
+    if(!alreadySettled){
+      recognition._settled = true;
+      clearPracticeRecognitionTimeout();
+      resetSpeakingRecordUI("Didn't catch that — tap the mic to try again, or skip this word.");
+    }
   };
 
   try{
     recognition.start();
   } catch(e){
+    recognition._settled = true;
     practiceRecognition = null;
-    if(statusEl) statusEl.textContent = "Couldn't start the microphone — please try again, or skip this word.";
-    if(recordBtn){ recordBtn.disabled = false; recordBtn.classList.remove("listening"); }
+    resetSpeakingRecordUI("Couldn't start the microphone — please try again, or skip this word.");
+    return;
   }
+
+  practiceRecognitionTimeout = setTimeout(()=>{
+    if(recognition._settled) return;
+    recognition._settled = true;
+    try{ recognition.abort(); } catch(err){ /* already stopped */ }
+    practiceRecognition = null;
+    resetSpeakingRecordUI("Didn't catch that in time — tap the mic to try again, or skip this word.");
+  }, 10000);
 }
 
 function submitSpeakingAnswer(transcript){
@@ -37392,14 +37436,21 @@ document.addEventListener("click", (e)=>{
   }
   if(e.target.closest("#practiceSpeakingSkipBtn")){
     const item = practiceState.items[practiceState.index];
+    clearPracticeRecognitionTimeout();
     if(practiceRecognition){
+      // Marks it settled BEFORE aborting, so the onend handler (which
+      // abort() triggers) doesn't stomp the skip below with its own
+      // "Didn't catch that" recovery message.
+      practiceRecognition._settled = true;
       try{ practiceRecognition.abort(); } catch(err){ /* already stopped */ }
       practiceRecognition = null;
     }
     const recordBtn = document.getElementById("practiceRecordBtn");
-    if(recordBtn) recordBtn.disabled = true;
+    if(recordBtn){ recordBtn.disabled = true; recordBtn.classList.remove("listening"); }
     const skipBtn = document.getElementById("practiceSpeakingSkipBtn");
     if(skipBtn) skipBtn.disabled = true;
+    const statusEl = document.getElementById("practiceSpeakingStatus");
+    if(statusEl) statusEl.textContent = "";
     practiceState.results.push({ correct: false, word: item.word, question: `Say the word: "${item.word}"`, userAnswer: "(skipped)", correctAnswer: item.word });
     document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
   }

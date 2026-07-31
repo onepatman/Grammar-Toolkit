@@ -430,6 +430,43 @@ describe("Practice tab — Speaking mode", () => {
     expect(document.querySelector(".practice-next-question-btn")).toBeTruthy();
   });
 
+  it("regression: recovers automatically if the recognition ends with no result and no error (real device report — was stuck on 'Listening…' forever)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    document.getElementById("practiceRecordBtn").click();
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
+
+    // On some real mobile browsers, SpeechRecognition just goes silent —
+    // onend fires with no prior onresult or onerror at all.
+    hooks.getPracticeRecognition().onend();
+
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(false);
+    expect(document.getElementById("practiceSpeakingStatus").textContent).toContain("try again");
+    expect(document.querySelector(".practice-next-question-btn")).toBeNull();
+  });
+
+  it("Skip while actively listening isn't clobbered by the recognition's own onend recovery message", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    document.querySelector('.thumb-tab[data-tab="practice"]').click();
+    document.querySelector('.practice-mode-btn[data-mode="speaking"]').click();
+    await wait(20);
+
+    document.getElementById("practiceRecordBtn").click();
+    document.getElementById("practiceSpeakingSkipBtn").click();
+
+    const state = hooks.getPracticeState();
+    expect(state.results[0].userAnswer).toBe("(skipped)");
+    expect(document.querySelectorAll(".practice-next-question-btn")).toHaveLength(1);
+    expect(document.getElementById("practiceSpeakingStatus").textContent).not.toContain("Listening");
+  });
+
   it("hides the Speaking mode button entirely when SpeechRecognition is unsupported — no dead button", async () => {
     const { window } = await loadApp();
     const document = window.document;
