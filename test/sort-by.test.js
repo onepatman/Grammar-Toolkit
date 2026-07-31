@@ -91,7 +91,7 @@ describe("Sort By — Language Bank", () => {
     document.getElementById("idiomsSelect").value = "edited-first-idiom";
     document.getElementById("idiomsSelect").dispatchEvent(new window.Event("change"));
     document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
-    document.getElementById("lbEditUse").value = "(idiom) One, revised.";
+    document.querySelector("#lbEditMeanings .lb-edit-meaning-use").value = "(idiom) One, revised.";
     document.getElementById("lbEditSaveBtn").click();
     await wait(30);
 
