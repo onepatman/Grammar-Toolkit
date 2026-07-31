@@ -169,7 +169,7 @@ describe("Edit", () => {
     expect(document.getElementById("lbEditWord").value).toBe(SAMPLE_IDIOM.w);
     expect(document.querySelector("#lbEditMeanings .lb-edit-meaning-use").value).toBe(SAMPLE_IDIOM.senses[0].use);
     expect(document.querySelector("#lbEditMeanings .lb-edit-example-input").value).toBe(SAMPLE_IDIOM.senses[0].examples[0]);
-    expect(document.getElementById("lbEditSyn").value).toBe("try it out");
+    expect(document.querySelector("#lbEditSynChips .chip-editor-chip-text").textContent).toBe("try it out");
     expect(document.getElementById("lbEditCategory").value).toBe("idioms");
   });
 
@@ -199,8 +199,15 @@ describe("Edit", () => {
     document.getElementById("lbEditWord").value = "test the waters carefully";
     document.querySelector("#lbEditMeanings .lb-edit-meaning-use").value = "(idiom) A more careful version of the original meaning.";
     document.querySelector("#lbEditMeanings .lb-edit-example-input").value = "He tested the waters carefully before investing.";
-    document.getElementById("lbEditSyn").value = "feel it out, sound it out";
-    document.getElementById("lbEditAnt").value = "dive in headfirst";
+    const synChips = document.getElementById("lbEditSynChips");
+    synChips.querySelector(".chip-editor-chip-text").closest(".chip-editor-chip").remove(); // remove the pre-filled "try it out" chip
+    synChips.querySelector(".chip-editor-input").value = "feel it out";
+    hooks.commitChipEditorInput(synChips);
+    synChips.querySelector(".chip-editor-input").value = "sound it out";
+    hooks.commitChipEditorInput(synChips);
+    const antChips = document.getElementById("lbEditAntChips");
+    antChips.querySelector(".chip-editor-input").value = "dive in headfirst";
+    hooks.commitChipEditorInput(antChips);
     document.getElementById("lbEditSaveBtn").click();
     await wait(30);
 

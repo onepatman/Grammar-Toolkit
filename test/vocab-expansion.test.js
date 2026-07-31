@@ -83,7 +83,12 @@ describe("Vocabulary Bank Edit/Delete (owner-gated)", () => {
 
     document.getElementById("vocabEntry").querySelector(".lb-edit-btn").click();
     document.querySelector("#vocabEntry .vocab-edit-meaning-use").value = "An updated definition.";
-    document.getElementById("vocabEditSyn").value = "riddle, mystery";
+    const synChips = document.getElementById("vocabEditSynChips");
+    synChips.querySelector(".chip-editor-chip-text").closest(".chip-editor-chip").remove(); // remove the pre-filled "puzzle" chip
+    synChips.querySelector(".chip-editor-input").value = "riddle";
+    hooks.commitChipEditorInput(synChips);
+    synChips.querySelector(".chip-editor-input").value = "mystery";
+    hooks.commitChipEditorInput(synChips);
     document.getElementById("vocabEditSaveBtn").click();
     await wait(50);
 

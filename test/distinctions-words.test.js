@@ -363,8 +363,9 @@ describe("Edit — owner-only, both words editable", () => {
     expect(document.getElementById("distEditWord1").value).toBe("Arise");
     expect(document.getElementById("distEditWord2").value).toBe("Quibblet");
     expect(document.getElementById("distEditUse1").value).toContain("come into being");
-    expect(document.getElementById("distEditSyn1").value).toBe("emerge");
-    expect(document.getElementById("distEditAnt2").value).toBe("fall");
+    expect(document.querySelectorAll("#distEditSynChips1 .chip-editor-chip-text").length).toBe(1);
+    expect(document.querySelector("#distEditSynChips1 .chip-editor-chip-text").textContent).toBe("emerge");
+    expect(document.querySelector("#distEditAntChips2 .chip-editor-chip-text").textContent).toBe("fall");
   });
 
   it("saves updated word/meaning/example/synonyms/antonyms for both words", async () => {
@@ -374,9 +375,19 @@ describe("Edit — owner-only, both words editable", () => {
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();
     document.getElementById("distEditUse1").value = "(verb) A corrected definition.";
-    document.getElementById("distEditSyn1").value = "appear, occur";
+    const syn1Chips = document.getElementById("distEditSynChips1");
+    syn1Chips.querySelector(".chip-editor-chip-text").closest(".chip-editor-chip").remove(); // remove the pre-filled "emerge" chip
+    syn1Chips.querySelector(".chip-editor-input").value = "appear";
+    hooks.commitChipEditorInput(syn1Chips);
+    syn1Chips.querySelector(".chip-editor-input").value = "occur";
+    hooks.commitChipEditorInput(syn1Chips);
     document.getElementById("distEditUse2").value = "(verb) Another corrected definition.";
-    document.getElementById("distEditAnt2").value = "sink, drop";
+    const ant2Chips = document.getElementById("distEditAntChips2");
+    ant2Chips.querySelector(".chip-editor-chip-text").closest(".chip-editor-chip").remove(); // remove the pre-filled "fall" chip
+    ant2Chips.querySelector(".chip-editor-input").value = "sink";
+    hooks.commitChipEditorInput(ant2Chips);
+    ant2Chips.querySelector(".chip-editor-input").value = "drop";
+    hooks.commitChipEditorInput(ant2Chips);
     document.getElementById("distEditSaveBtn").click();
     await wait(30);
 

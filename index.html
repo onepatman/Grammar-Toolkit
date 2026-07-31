@@ -804,6 +804,31 @@
   .lb-edit-example-row input{ flex:1; margin-bottom:0 !important; }
   .lb-edit-add-example-btn{ margin-bottom:10px; }
 
+  /* Chip-based Synonym/Antonym editor (createChipEditor et al.) — used
+     by both the Vocabulary and Language Bank edit forms. Reuses the
+     exact .syn/.ant color language the read-only .word-chips display
+     already has (mint for synonyms, brick for antonyms), so a chip
+     looks identical whether it's being read or edited. */
+  .chip-editor{
+    display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px;
+  }
+  .chip-editor-chip{
+    display:inline-flex; align-items:center; gap:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    border-radius:5px; padding:3px 6px 3px 9px;
+  }
+  .chip-editor-chip.syn{ background:var(--mint-bg); border:1px solid var(--mint-border); color:var(--mint); }
+  .chip-editor-chip.ant{ background:var(--brick-bg); border:1px solid var(--brick-border); color:var(--brick); }
+  .chip-editor-remove{
+    border:none; background:transparent; color:inherit; cursor:pointer;
+    font-family:inherit; font-size:13px; line-height:1; padding:0 1px;
+  }
+  .chip-editor-remove:hover{ filter:brightness(0.7); }
+  .chip-editor-input{
+    flex:1; min-width:140px; margin-bottom:0 !important;
+    font-family:'IBM Plex Sans', sans-serif; font-size:13px;
+  }
+
   .sense-notes{
     font-size:12.5px; color:var(--ink-soft); font-style:italic;
     padding-left:10px; border-left:2px solid var(--rule); margin-top:4px;
@@ -37963,6 +37988,93 @@ function importVocabPack(rawEntries){
 }
 
 /* =========================================================
+   CHIP-BASED SYNONYM/ANTONYM EDITOR (createChipEditorChip/
+   renderChipEditor/wireChipEditorEvents/collectChipEditorValues) — a
+   small reusable component shared by both the Vocabulary editor
+   (below) and the Language Bank editor (openLanguageBankEditForm),
+   replacing the old plain comma-separated text input. Existing words
+   render as removable chips using the exact same .syn/.ant color
+   language the read-only .word-chips display already has (see
+   makeWordChips); typing in the trailing input and pressing Enter or
+   "," commits it as a new chip, case-insensitively de-duped against
+   what's already there.
+========================================================= */
+function createChipEditorChip(text, type){
+  const chip = document.createElement("span");
+  chip.className = "chip-editor-chip " + type;
+  const label = document.createElement("span");
+  label.className = "chip-editor-chip-text";
+  label.textContent = text;
+  chip.appendChild(label);
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "chip-editor-remove";
+  removeBtn.setAttribute("aria-label", "Remove " + text);
+  removeBtn.textContent = "×";
+  chip.appendChild(removeBtn);
+  return chip;
+}
+
+// (Re)builds a chip-editor container from scratch — `type` is "syn" or
+// "ant", stored on the container itself (data-chip-type) so the
+// delegated event handlers below know which color/class new chips
+// should get without needing it passed in again.
+function renderChipEditor(container, values, type){
+  container.innerHTML = "";
+  container.className = "chip-editor";
+  container.dataset.chipType = type;
+  (values || []).forEach(v=>{
+    if(v) container.appendChild(createChipEditorChip(v, type));
+  });
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "chip-editor-input";
+  input.autocomplete = "off";
+  input.placeholder = "Type a word, press Enter";
+  container.appendChild(input);
+}
+
+function commitChipEditorInput(container){
+  const input = container.querySelector(".chip-editor-input");
+  if(!input) return;
+  const text = input.value.trim();
+  if(!text){ input.value = ""; return; }
+  const type = container.dataset.chipType;
+  const existing = Array.from(container.querySelectorAll(".chip-editor-chip-text")).map(el=> el.textContent.toLowerCase());
+  if(!existing.includes(text.toLowerCase())){
+    container.insertBefore(createChipEditorChip(text, type), input);
+  }
+  input.value = "";
+}
+
+function collectChipEditorValues(container){
+  return Array.from(container.querySelectorAll(".chip-editor-chip-text")).map(el=> el.textContent);
+}
+
+// One delegated listener setup per chip-editor container: Enter or ","
+// while typing commits the word as a chip (without submitting/
+// triggering any nearby Save button — this listener is completely
+// independent of bindEnterToClick), losing focus commits whatever was
+// typed too (forgiving — no half-typed word silently lost), and
+// clicking a chip's × removes just that chip.
+function wireChipEditorEvents(container){
+  container.addEventListener("keydown", (e)=>{
+    if(!e.target.classList.contains("chip-editor-input")) return;
+    if(e.key === "Enter" || e.key === ","){
+      e.preventDefault();
+      commitChipEditorInput(container);
+    }
+  });
+  container.addEventListener("focusout", (e)=>{
+    if(e.target.classList.contains("chip-editor-input")) commitChipEditorInput(container);
+  });
+  container.addEventListener("click", (e)=>{
+    const removeBtn = e.target.closest(".chip-editor-remove");
+    if(removeBtn) removeBtn.closest(".chip-editor-chip").remove();
+  });
+}
+
+/* =========================================================
    VOCABULARY BANK — EDIT / DELETE (owner-only). Mirrors the Language
    Bank's single-category edit/delete pattern exactly (see
    openLanguageBankEditForm/deleteLanguageBankEntry above), but "vocab"
@@ -38133,10 +38245,10 @@ function openVocabEditForm(item, entryEl){
     <p class="note" style="margin:-4px 0 8px;">Every part of speech and every meaning is preserved — add or remove as needed. Nothing here is silently dropped on save.</p>
     <div id="vocabEditPosGroups"></div>
     <button id="vocabEditAddPosBtn" type="button" class="add-btn secondary" style="margin-bottom:12px;">+ Add another part of speech</button>
-    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
-    <input type="text" id="vocabEditSyn" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
-    <input type="text" id="vocabEditAnt" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms</label>
+    <div id="vocabEditSynChips"></div>
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms</label>
+    <div id="vocabEditAntChips"></div>
     <label class="note" style="display:block;margin-bottom:4px;">Tagalog equivalent (optional)</label>
     <input type="text" id="vocabEditTagalog" autocomplete="off">
     <label class="note" style="display:block;margin-bottom:4px;">Word origin (optional)</label>
@@ -38147,8 +38259,12 @@ function openVocabEditForm(item, entryEl){
   `;
 
   document.getElementById("vocabEditWord").value = item.w;
-  document.getElementById("vocabEditSyn").value = (item.syn || []).join(", ");
-  document.getElementById("vocabEditAnt").value = (item.ant || []).join(", ");
+  const synContainer = document.getElementById("vocabEditSynChips");
+  const antContainer = document.getElementById("vocabEditAntChips");
+  renderChipEditor(synContainer, item.syn || [], "syn");
+  renderChipEditor(antContainer, item.ant || [], "ant");
+  wireChipEditorEvents(synContainer);
+  wireChipEditorEvents(antContainer);
   document.getElementById("vocabEditTagalog").value = item.tagalog || "";
   document.getElementById("vocabEditOrigin").value = item.origin || "";
 
@@ -38173,7 +38289,7 @@ function openVocabEditForm(item, entryEl){
   document.getElementById("vocabEditSaveBtn").addEventListener("click", ()=>{
     saveVocabEdit(item, entryEl);
   });
-  bindEnterToClick(["vocabEditWord", "vocabEditSyn", "vocabEditAnt", "vocabEditTagalog", "vocabEditOrigin"], "vocabEditSaveBtn");
+  bindEnterToClick(["vocabEditWord", "vocabEditTagalog", "vocabEditOrigin"], "vocabEditSaveBtn");
 }
 
 // Walks the POS-group boxes in DOM order and reconstructs the full
@@ -38216,8 +38332,13 @@ async function saveVocabEdit(originalItem, entryEl){
     return;
   }
   const newSenses = collectVocabEditSenses();
-  const newSyn = document.getElementById("vocabEditSyn").value.split(",").map(s=>s.trim()).filter(Boolean);
-  const newAnt = document.getElementById("vocabEditAnt").value.split(",").map(s=>s.trim()).filter(Boolean);
+  // Commit whatever's still typed but un-submitted in either chip
+  // input (the user clicked Save instead of pressing Enter first) so
+  // it isn't silently lost.
+  commitChipEditorInput(document.getElementById("vocabEditSynChips"));
+  commitChipEditorInput(document.getElementById("vocabEditAntChips"));
+  const newSyn = collectChipEditorValues(document.getElementById("vocabEditSynChips"));
+  const newAnt = collectChipEditorValues(document.getElementById("vocabEditAntChips"));
   const newTagalog = document.getElementById("vocabEditTagalog").value.trim();
   const newOrigin = document.getElementById("vocabEditOrigin").value.trim();
 
@@ -40519,10 +40640,10 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
     <p class="note" style="margin:-4px 0 8px;">Every meaning and every example is preserved — add or remove as needed. Nothing here is silently dropped on save.</p>
     <div id="lbEditMeanings"></div>
     <button id="lbEditAddMeaningBtn" type="button" class="add-btn secondary" style="margin-bottom:12px;">+ Add another meaning</button>
-    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
-    <input type="text" id="lbEditSyn" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
-    <input type="text" id="lbEditAnt" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms</label>
+    <div id="lbEditSynChips"></div>
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms</label>
+    <div id="lbEditAntChips"></div>
     <label class="note" style="display:block;margin-bottom:4px;">Category</label>
     <select id="lbEditCategory">${categoryOptionsHtml}</select>
     <button id="lbEditSaveBtn" class="add-btn">Save changes</button>
@@ -40531,8 +40652,12 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
   `;
 
   document.getElementById("lbEditWord").value = item.w;
-  document.getElementById("lbEditSyn").value = (item.syn || []).join(", ");
-  document.getElementById("lbEditAnt").value = (item.ant || []).join(", ");
+  const lbSynContainer = document.getElementById("lbEditSynChips");
+  const lbAntContainer = document.getElementById("lbEditAntChips");
+  renderChipEditor(lbSynContainer, item.syn || [], "syn");
+  renderChipEditor(lbAntContainer, item.ant || [], "ant");
+  wireChipEditorEvents(lbSynContainer);
+  wireChipEditorEvents(lbAntContainer);
   document.getElementById("lbEditCategory").value = categoryKey;
 
   const meaningsContainer = document.getElementById("lbEditMeanings");
@@ -40554,7 +40679,7 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
   document.getElementById("lbEditSaveBtn").addEventListener("click", ()=>{
     saveLanguageBankEdit(categoryKey, item, entryEl);
   });
-  bindEnterToClick(["lbEditWord", "lbEditSyn", "lbEditAnt"], "lbEditSaveBtn");
+  bindEnterToClick(["lbEditWord"], "lbEditSaveBtn");
 }
 
 // Walks the meaning rows in DOM order and reconstructs the full
@@ -40590,8 +40715,10 @@ async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
     return;
   }
   const newSenses = collectLbEditSenses();
-  const newSyn = document.getElementById("lbEditSyn").value.split(",").map(s=>s.trim()).filter(Boolean);
-  const newAnt = document.getElementById("lbEditAnt").value.split(",").map(s=>s.trim()).filter(Boolean);
+  commitChipEditorInput(document.getElementById("lbEditSynChips"));
+  commitChipEditorInput(document.getElementById("lbEditAntChips"));
+  const newSyn = collectChipEditorValues(document.getElementById("lbEditSynChips"));
+  const newAnt = collectChipEditorValues(document.getElementById("lbEditAntChips"));
   const newCategoryKey = document.getElementById("lbEditCategory").value;
 
   const updatedEntry = {
@@ -41134,10 +41261,10 @@ function openDistinctionEditForm(entry, entryEl){
     <textarea id="distEditUse1" rows="2"></textarea>
     <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
     <input type="text" id="distEditExample1" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
-    <input type="text" id="distEditSyn1" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
-    <input type="text" id="distEditAnt1" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms</label>
+    <div id="distEditSynChips1"></div>
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms</label>
+    <div id="distEditAntChips1"></div>
 
     <div class="section-label">Word 2</div>
     <label class="note" style="display:block;margin-bottom:4px;">Word</label>
@@ -41146,10 +41273,10 @@ function openDistinctionEditForm(entry, entryEl){
     <textarea id="distEditUse2" rows="2"></textarea>
     <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
     <input type="text" id="distEditExample2" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
-    <input type="text" id="distEditSyn2" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
-    <input type="text" id="distEditAnt2" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Synonyms</label>
+    <div id="distEditSynChips2"></div>
+    <label class="note" style="display:block;margin-bottom:4px;">Antonyms</label>
+    <div id="distEditAntChips2"></div>
 
     <button id="distEditSaveBtn" class="add-btn">Save changes</button>
     <button id="distEditCancelBtn" class="add-btn secondary">Cancel</button>
@@ -41159,14 +41286,22 @@ function openDistinctionEditForm(entry, entryEl){
   document.getElementById("distEditWord1").value = w1.w;
   document.getElementById("distEditUse1").value = use1;
   document.getElementById("distEditExample1").value = example1;
-  document.getElementById("distEditSyn1").value = (w1.syn || []).join(", ");
-  document.getElementById("distEditAnt1").value = (w1.ant || []).join(", ");
+  const distSyn1 = document.getElementById("distEditSynChips1");
+  const distAnt1 = document.getElementById("distEditAntChips1");
+  renderChipEditor(distSyn1, w1.syn || [], "syn");
+  renderChipEditor(distAnt1, w1.ant || [], "ant");
+  wireChipEditorEvents(distSyn1);
+  wireChipEditorEvents(distAnt1);
 
   document.getElementById("distEditWord2").value = w2.w;
   document.getElementById("distEditUse2").value = use2;
   document.getElementById("distEditExample2").value = example2;
-  document.getElementById("distEditSyn2").value = (w2.syn || []).join(", ");
-  document.getElementById("distEditAnt2").value = (w2.ant || []).join(", ");
+  const distSyn2 = document.getElementById("distEditSynChips2");
+  const distAnt2 = document.getElementById("distEditAntChips2");
+  renderChipEditor(distSyn2, w2.syn || [], "syn");
+  renderChipEditor(distAnt2, w2.ant || [], "ant");
+  wireChipEditorEvents(distSyn2);
+  wireChipEditorEvents(distAnt2);
 
   document.getElementById("distEditCancelBtn").addEventListener("click", ()=>{
     renderDistinctionEntry(entry, entryEl);
@@ -41175,8 +41310,8 @@ function openDistinctionEditForm(entry, entryEl){
     saveDistinctionEdit(entry, entryEl);
   });
   bindEnterToClick([
-    "distEditWord1", "distEditExample1", "distEditSyn1", "distEditAnt1",
-    "distEditWord2", "distEditExample2", "distEditSyn2", "distEditAnt2"
+    "distEditWord1", "distEditExample1",
+    "distEditWord2", "distEditExample2"
   ], "distEditSaveBtn");
 }
 
@@ -41198,13 +41333,17 @@ async function saveDistinctionEdit(originalEntry, entryEl){
 
   const use1 = document.getElementById("distEditUse1").value.trim();
   const example1 = document.getElementById("distEditExample1").value.trim();
-  const syn1 = document.getElementById("distEditSyn1").value.split(",").map(s=>s.trim()).filter(Boolean);
-  const ant1 = document.getElementById("distEditAnt1").value.split(",").map(s=>s.trim()).filter(Boolean);
+  commitChipEditorInput(document.getElementById("distEditSynChips1"));
+  commitChipEditorInput(document.getElementById("distEditAntChips1"));
+  const syn1 = collectChipEditorValues(document.getElementById("distEditSynChips1"));
+  const ant1 = collectChipEditorValues(document.getElementById("distEditAntChips1"));
 
   const use2 = document.getElementById("distEditUse2").value.trim();
   const example2 = document.getElementById("distEditExample2").value.trim();
-  const syn2 = document.getElementById("distEditSyn2").value.split(",").map(s=>s.trim()).filter(Boolean);
-  const ant2 = document.getElementById("distEditAnt2").value.split(",").map(s=>s.trim()).filter(Boolean);
+  commitChipEditorInput(document.getElementById("distEditSynChips2"));
+  commitChipEditorInput(document.getElementById("distEditAntChips2"));
+  const syn2 = collectChipEditorValues(document.getElementById("distEditSynChips2"));
+  const ant2 = collectChipEditorValues(document.getElementById("distEditAntChips2"));
 
   const updatedEntry = {
     w: newWord1 + " vs " + newWord2,
@@ -42974,7 +43113,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   familyCacheRestorePromise,
   isKnownTenseName, addTenseEntry, addTenseEntryFromInput,
   renderTenseAddForm, saveTenseAddForm, hideTenseAddArea,
-  tenseCacheRestorePromise
+  tenseCacheRestorePromise,
+  createChipEditorChip, renderChipEditor, commitChipEditorInput,
+  collectChipEditorValues, wireChipEditorEvents
 };
 </script>
 <script>
