@@ -631,6 +631,13 @@
     margin-top:8px; padding:10px 12px; border-radius:10px; font-size:14px;
     background:var(--tab-off); color:var(--ink);
   }
+  .practice-dictation-hint-toggle-btn{
+    opacity:.8;
+  }
+  .practice-dictation-hint{
+    margin-top:10px; padding:10px 12px; border-radius:10px; font-size:15px;
+    font-style:italic; background:var(--tab-off); color:var(--ink);
+  }
 
   .practice-matching-columns{
     display:grid; grid-template-columns:1fr 1fr; gap:10px;
@@ -37004,7 +37011,14 @@ function buildPracticeCandidates(source){
       const data = resolveFavoriteEntryData(fav);
       const use = data.meanings[0] && data.meanings[0].use;
       if(!use) return; // no usable definition — never fabricated, just skipped
-      candidates.push({ key, word: data.word, use, examples: data.meanings[0].examples || [], syn: data.syn || [], ant: data.ant || [] });
+      // Every sense's examples, not just meanings[0] — a word with
+      // multiple senses (e.g. "contract") already has multiple real
+      // sentences sitting in the data; pooling them all here is what lets
+      // getPracticeShadowTarget() pick a different one each time instead
+      // of always the same first sentence.
+      const examples = [];
+      data.meanings.forEach(m=> (m.examples || []).forEach(ex=>{ if(ex && !examples.includes(ex)) examples.push(ex); }));
+      candidates.push({ key, word: data.word, use, examples, syn: data.syn || [], ant: data.ant || [] });
     });
     return candidates;
   });
@@ -37092,15 +37106,53 @@ function looksLikeShadowableSentence(text){
 // The single target text both the Speaking (shadowing) and Dictation
 // modes read from — a real example sentence when the candidate has a
 // usable one, falling back to the bare word otherwise so neither mode
-// ever has nothing to work with.
+// ever has nothing to work with. Picks RANDOMLY among every valid local
+// sentence the candidate has (across every sense/meaning, via
+// buildPracticeCandidates' pooled examples) rather than always the
+// first, so repeat practice sessions for the same word don't drill the
+// exact same sentence every time.
 function getPracticeShadowTarget(candidate){
-  const raw = candidate.examples && candidate.examples[0];
-  const cleaned = raw ? cleanShadowSentence(raw) : "";
-  return looksLikeShadowableSentence(cleaned) ? cleaned : candidate.word;
+  const valid = (candidate.examples || [])
+    .map(cleanShadowSentence)
+    .filter(looksLikeShadowableSentence);
+  if(valid.length === 0) return candidate.word;
+  return valid[Math.floor(Math.random() * valid.length)];
 }
 
 function buildSpeakingItems(session){
   return session.map(c=> ({ key: c.key, word: c.word, use: c.use, shadowText: getPracticeShadowTarget(c) }));
+}
+
+// Widens Speaking mode's sentence pool beyond what's saved locally: while
+// the learner is looking at a question (before they've tapped "Hear it"),
+// opportunistically ask the same online dictionary lookup the search bar
+// already uses for a fresh sentence, and swap it in if one shows up in
+// time. LookupServiceInstance.lookup() (== OnlineLookup.fetchOnlineDefinition)
+// never throws and never rejects — it resolves null on any failure, an
+// offline device, or (in the test harness, which has no `fetch` at all)
+// immediately — so this needs no try/catch and is always safe to fire.
+// Guarded on both ends so a slow/stale response can never clobber a
+// sentence the learner has already started listening to or already moved
+// past: `item._heard` freezes it the instant Hear it is tapped, and the
+// identity/mode check below catches every other way the question could
+// have changed first (Skip, Submit, Next, leaving Speaking mode).
+function maybeEnhanceSpeakingSentenceOnline(item){
+  if(item._onlineTried) return;
+  item._onlineTried = true;
+  return LookupServiceInstance.lookup(item.word, { cache: onlineLookupCache }).then(result=>{
+    if(item._heard) return;
+    if(!practiceState || practiceState.mode !== "speaking") return;
+    if(practiceState.items[practiceState.index] !== item) return;
+    if(!result || !Array.isArray(result.senses)) return;
+    const pool = [];
+    result.senses.forEach(sense=> (sense.examples || []).forEach(ex=>{
+      const cleaned = cleanShadowSentence(ex);
+      if(looksLikeShadowableSentence(cleaned)) pool.push(cleaned);
+    }));
+    if(pool.length === 0) return;
+    item.shadowText = pool[Math.floor(Math.random() * pool.length)];
+    renderPracticeQuestion();
+  });
 }
 
 function buildDictationItems(session){
@@ -37183,7 +37235,7 @@ function renderPracticeQuestion(){
   else if(state.mode === "mcq") area.innerHTML = renderMcqHtml(item);
   else if(state.mode === "spelling") area.innerHTML = renderSpellingHtml(item);
   else if(state.mode === "truefalse") area.innerHTML = renderTrueFalseHtml(item);
-  else if(state.mode === "speaking") area.innerHTML = renderSpeakingHtml(item);
+  else if(state.mode === "speaking"){ area.innerHTML = renderSpeakingHtml(item); maybeEnhanceSpeakingSentenceOnline(item); }
   else if(state.mode === "dictation") area.innerHTML = renderDictationHtml(item);
 }
 
@@ -37515,6 +37567,7 @@ document.addEventListener("click", (e)=>{
   if(!practiceState || practiceState.mode !== "speaking") return;
   if(e.target.closest(".practice-speaking-listen-btn")){
     const item = practiceState.items[practiceState.index];
+    item._heard = true; // freezes the sentence — see maybeEnhanceSpeakingSentenceOnline
     speakText(item.shadowText);
     // Shadowing means listen FIRST — Record stays disabled (see
     // renderSpeakingHtml) until this fires at least once per question.
@@ -37565,12 +37618,22 @@ function isDictationSupported(){
 // at least once, mirroring Speaking's "listen before you answer" gate;
 // Play itself stays repeatable throughout, same as a real Duolingo-style
 // dictation letting you re-listen as often as you want.
+// The Show/Hide hint toggle is deliberately NOT gated behind Play (or
+// disabled after Submit) — it's an independent difficulty-easing
+// affordance for a sentence that turned out too long/fast to catch by
+// ear alone, not part of the core listen-then-write requirement. It
+// always starts hidden each new question (built into this template
+// rather than a separate reset call), so peeking is a decision the
+// learner makes fresh every time rather than something that leaks
+// across questions.
 function renderDictationHtml(item){
   return `
     <p class="practice-dictation-hidden-hint">🎧 Listen carefully, then write exactly what you hear.</p>
     <div class="practice-speaking-actions">
       <button class="listen-btn practice-dictation-play-btn" aria-label="Play" title="Play the sentence">🔊 Play</button>
+      <button class="listen-btn practice-dictation-hint-toggle-btn" id="practiceDictationHintToggle" aria-label="Show hint" title="Show the sentence as a hint">👁 Show hint</button>
     </div>
+    <div class="practice-dictation-hint" id="practiceDictationHint" style="display:none;">${item.dictationText}</div>
     <textarea class="practice-dictation-input" id="practiceDictationInput" placeholder="Type what you heard..." disabled></textarea>
     <button class="add-btn" id="practiceDictationSubmitBtn" disabled>Submit</button>
     <button class="add-btn secondary" id="practiceDictationSkipBtn">Skip this one</button>
@@ -37609,6 +37672,15 @@ document.addEventListener("click", (e)=>{
     const submitBtn = document.getElementById("practiceDictationSubmitBtn");
     if(input) input.disabled = false;
     if(submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  if(e.target.closest("#practiceDictationHintToggle")){
+    const hintEl = document.getElementById("practiceDictationHint");
+    const toggleBtn = document.getElementById("practiceDictationHintToggle");
+    if(!hintEl || !toggleBtn) return;
+    const showing = hintEl.style.display !== "none";
+    hintEl.style.display = showing ? "none" : "block";
+    toggleBtn.textContent = showing ? "👁 Show hint" : "🙈 Hide hint";
     return;
   }
   if(e.target.closest("#practiceDictationSubmitBtn")){
@@ -43851,6 +43923,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   buildFlashcardItems, buildMcqItems, buildSpellingItems, buildTrueFalseItems, buildMatchingBatches,
   buildSpeakingItems, isSpeechRecognitionSupported, isCloseTextMatch,
   getPracticeShadowTarget, startSpeakingRecognition, submitSpeakingAnswer,
+  maybeEnhanceSpeakingSentenceOnline, onlineLookupCache,
   getPracticeRecognition: ()=> practiceRecognition,
   buildDictationItems, isDictationSupported, submitDictationAnswer,
   ratePracticeScore, finishPracticeSession, renderPracticeHome, renderPracticeHistoryList,

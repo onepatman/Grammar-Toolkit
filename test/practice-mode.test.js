@@ -7,7 +7,7 @@
 // Tests use the "favorites" source with synthetic seeded words (rather
 // than "vocab", which also includes the ~800 built-in Vocabulary Bank
 // words) so each test's candidate pool is small, exact, and isolated.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
 function wait(ms = 30) {
@@ -169,6 +169,41 @@ describe("Practice tab — session data layer", () => {
     const allKeys = batches.flat().map((b) => b.key);
     expect(allKeys.length).toBe(session.length);
     expect(new Set(allKeys).size).toBe(session.length);
+  });
+
+  it("buildPracticeCandidates() pools example sentences across every sense, not just the first", async () => {
+    const { window, hooks } = await loadApp();
+    hooks.addVocabEntry({
+      w: "multi-sense-word",
+      senses: [
+        { use: "(noun) First sense.", examples: ["First sense example."] },
+        { use: "(verb) Second sense.", examples: ["Second sense example.", "Another second sense example."] }
+      ],
+      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+    }, { persist: false });
+    await window.VocabCache.addFavorite("multi-sense-word", { word: "multi-sense-word", cat: "Vocabulary Bank" }, { dbPromise: hooks.vocabDbPromise });
+
+    const candidates = await hooks.buildPracticeCandidates("favorites");
+    const candidate = candidates.find((c) => c.word === "multi-sense-word");
+    expect(candidate.examples).toEqual([
+      "First sense example.",
+      "Second sense example.",
+      "Another second sense example."
+    ]);
+  });
+
+  it("getPracticeShadowTarget() picks randomly among every valid local example instead of always the first", async () => {
+    const { hooks } = await loadApp();
+    const candidate = {
+      word: "multi-sense-word",
+      examples: ["First sense example.", "Second sense example.", "Third sense example."]
+    };
+    const seen = new Set();
+    for (let i = 0; i < 40; i++) seen.add(hooks.getPracticeShadowTarget(candidate));
+    // Vanishingly unlikely to land on the same one all 40 times by chance
+    // if the selection really is random across all three.
+    expect(seen.size).toBeGreaterThan(1);
+    seen.forEach((s) => expect(candidate.examples).toContain(s));
   });
 
   it("ratePracticeScore() matches the documented rating table", async () => {
@@ -510,6 +545,64 @@ describe("Practice tab — Speaking mode (shadowing)", () => {
     document.querySelector('.thumb-tab[data-tab="practice"]').click();
     expect(document.getElementById("practiceSpeakingModeBtn").style.display).not.toBe("none");
   });
+
+  it("swaps in a fresh online sentence if it arrives before the learner presses Hear it", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+
+    const lookupSpy = vi.spyOn(hooks.LookupServiceInstance, "lookup").mockResolvedValue({
+      senses: [{ use: "(noun) online sense", examples: ["A fresh online example sentence."] }]
+    });
+
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    expect(lookupSpy).toHaveBeenCalledWith(item.word, expect.objectContaining({ cache: hooks.onlineLookupCache }));
+    expect(item.shadowText).toBe("A fresh online example sentence.");
+    expect(document.querySelector(".practice-shadow-sentence").textContent).toBe("A fresh online example sentence.");
+    lookupSpy.mockRestore();
+  });
+
+  it("never swaps the sentence once the learner has already pressed Hear it", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+
+    let resolveLookup;
+    const lookupSpy = vi.spyOn(hooks.LookupServiceInstance, "lookup")
+      .mockReturnValue(new Promise((resolve) => { resolveLookup = resolve; }));
+
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    const originalText = item.shadowText;
+
+    // Learner listens before the online lookup has resolved.
+    document.querySelector(".practice-speaking-listen-btn").click();
+    resolveLookup({ senses: [{ use: "(noun) online sense", examples: ["A late-arriving online sentence."] }] });
+    await wait(20);
+
+    expect(item.shadowText).toBe(originalText);
+    lookupSpy.mockRestore();
+  });
+
+  it("leaves the local sentence untouched when there's no network (this test environment has no fetch, matching a real offline device)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    expect(item.shadowText).toMatch(/^Example sentence \d+\.$/);
+    expect(document.querySelector(".practice-shadow-sentence").textContent).toBe(item.shadowText);
+  });
 });
 
 describe("Practice tab — Writing mode (dictation)", () => {
@@ -518,7 +611,7 @@ describe("Practice tab — Writing mode (dictation)", () => {
     document.querySelector('.practice-mode-btn[data-mode="dictation"]').click();
   }
 
-  it("never shows the target sentence up front — input and Submit stay disabled until Play is clicked", async () => {
+  it("never shows the target sentence up front — input and Submit stay disabled until Play is clicked, hint stays hidden", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     await seedFavoritedWords(window, hooks, 16);
@@ -527,15 +620,61 @@ describe("Practice tab — Writing mode (dictation)", () => {
 
     const state = hooks.getPracticeState();
     const item = state.items[state.index];
-    expect(document.getElementById("practiceQuestionArea").textContent).not.toContain(item.dictationText);
+    // The target sentence sits inside the hint element (for the optional
+    // Show/Hide hint toggle below), but that element is hidden by default —
+    // it must never be VISIBLE before Play is clicked.
+    const hintEl = document.getElementById("practiceDictationHint");
+    expect(hintEl.textContent).toBe(item.dictationText);
+    expect(hintEl.style.display).toBe("none");
     expect(document.getElementById("practiceDictationInput").disabled).toBe(true);
     expect(document.getElementById("practiceDictationSubmitBtn").disabled).toBe(true);
 
     document.querySelector(".practice-dictation-play-btn").click();
     expect(document.getElementById("practiceDictationInput").disabled).toBe(false);
     expect(document.getElementById("practiceDictationSubmitBtn").disabled).toBe(false);
-    // Still never leaked into the DOM just from playing it.
-    expect(document.getElementById("practiceQuestionArea").textContent).not.toContain(item.dictationText);
+    // Still hidden just from playing it — the hint is a separate, explicit action.
+    expect(hintEl.style.display).toBe("none");
+  });
+
+  it("Show/Hide hint toggle reveals and re-hides the target sentence, available even before Play", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    const hintEl = document.getElementById("practiceDictationHint");
+    const toggleBtn = document.getElementById("practiceDictationHintToggle");
+    expect(hintEl.style.display).toBe("none");
+
+    // Works before Play has ever been clicked — it's an independent hint,
+    // not gated behind the listen-first requirement.
+    toggleBtn.click();
+    expect(hintEl.style.display).toBe("block");
+    expect(hintEl.textContent).toBe(item.dictationText);
+    expect(toggleBtn.textContent).toContain("Hide hint");
+
+    toggleBtn.click();
+    expect(hintEl.style.display).toBe("none");
+    expect(toggleBtn.textContent).toContain("Show hint");
+  });
+
+  it("hint resets to hidden on the next question", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startDictationSession(window, document);
+    await wait(20);
+
+    document.getElementById("practiceDictationHintToggle").click();
+    expect(document.getElementById("practiceDictationHint").style.display).toBe("block");
+
+    document.getElementById("practiceDictationSkipBtn").click();
+    document.querySelector(".practice-next-question-btn").click();
+    expect(document.getElementById("practiceDictationHint").style.display).toBe("none");
+    expect(document.getElementById("practiceDictationHintToggle").textContent).toContain("Show hint");
   });
 
   it("Play is repeatable — clicking it again doesn't disable anything or error", async () => {
