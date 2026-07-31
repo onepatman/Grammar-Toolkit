@@ -804,11 +804,13 @@
   .lb-edit-example-row input{ flex:1; margin-bottom:0 !important; }
   .lb-edit-add-example-btn{ margin-bottom:10px; }
 
-  /* Chip-based Synonym/Antonym editor (createChipEditor et al.) — used
-     by both the Vocabulary and Language Bank edit forms. Reuses the
-     exact .syn/.ant color language the read-only .word-chips display
-     already has (mint for synonyms, brick for antonyms), so a chip
-     looks identical whether it's being read or edited. */
+  /* Chip-based Synonym/Antonym/Tagalog editor (createChipEditor et al.)
+     — used by the Vocabulary and Language Bank edit forms (syn/ant) and
+     the Vocabulary editor's Tagalog field. Reuses the exact color
+     language the read-only displays already have (mint for synonyms,
+     brick for antonyms, the same gold/warm tone as .tagalog-box for
+     Tagalog), so a chip looks identical whether it's being read or
+     edited. */
   .chip-editor{
     display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px;
   }
@@ -819,6 +821,7 @@
   }
   .chip-editor-chip.syn{ background:var(--mint-bg); border:1px solid var(--mint-border); color:var(--mint); }
   .chip-editor-chip.ant{ background:var(--brick-bg); border:1px solid var(--brick-border); color:var(--brick); }
+  .chip-editor-chip.tagalog{ background:var(--warn-bg); border:1px solid var(--warn-border); color:var(--warn-text); }
   .chip-editor-remove{
     border:none; background:transparent; color:inherit; cursor:pointer;
     font-family:inherit; font-size:13px; line-height:1; padding:0 1px;
@@ -38249,8 +38252,8 @@ function openVocabEditForm(item, entryEl){
     <div id="vocabEditSynChips"></div>
     <label class="note" style="display:block;margin-bottom:4px;">Antonyms</label>
     <div id="vocabEditAntChips"></div>
-    <label class="note" style="display:block;margin-bottom:4px;">Tagalog equivalent (optional)</label>
-    <input type="text" id="vocabEditTagalog" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Tagalog/Filipino meanings (optional)</label>
+    <div id="vocabEditTagalogChips"></div>
     <label class="note" style="display:block;margin-bottom:4px;">Word origin (optional)</label>
     <input type="text" id="vocabEditOrigin" autocomplete="off">
     <button id="vocabEditSaveBtn" class="add-btn">Save changes</button>
@@ -38265,7 +38268,18 @@ function openVocabEditForm(item, entryEl){
   renderChipEditor(antContainer, item.ant || [], "ant");
   wireChipEditorEvents(synContainer);
   wireChipEditorEvents(antContainer);
-  document.getElementById("vocabEditTagalog").value = item.tagalog || "";
+  // Prefers the richer tagalogCandidates list (from an automatic online
+  // lookup — see ensureVocabTagalogTranslation) when present; otherwise
+  // falls back to splitting the flat `tagalog` string on the same
+  // "/,;" separators addVocabEntry's own search-indexing already
+  // expects, so an older entry like "iwan / talikuran" pre-fills as two
+  // separate chips instead of one run-together one.
+  const tagalogContainer = document.getElementById("vocabEditTagalogChips");
+  const initialTagalog = (item.tagalogCandidates && item.tagalogCandidates.length)
+    ? item.tagalogCandidates
+    : (item.tagalog ? item.tagalog.split(/[\/,;]/).map(t=>t.trim()).filter(Boolean) : []);
+  renderChipEditor(tagalogContainer, initialTagalog, "tagalog");
+  wireChipEditorEvents(tagalogContainer);
   document.getElementById("vocabEditOrigin").value = item.origin || "";
 
   const groupsContainer = document.getElementById("vocabEditPosGroups");
@@ -38289,7 +38303,7 @@ function openVocabEditForm(item, entryEl){
   document.getElementById("vocabEditSaveBtn").addEventListener("click", ()=>{
     saveVocabEdit(item, entryEl);
   });
-  bindEnterToClick(["vocabEditWord", "vocabEditTagalog", "vocabEditOrigin"], "vocabEditSaveBtn");
+  bindEnterToClick(["vocabEditWord", "vocabEditOrigin"], "vocabEditSaveBtn");
 }
 
 // Walks the POS-group boxes in DOM order and reconstructs the full
@@ -38332,14 +38346,20 @@ async function saveVocabEdit(originalItem, entryEl){
     return;
   }
   const newSenses = collectVocabEditSenses();
-  // Commit whatever's still typed but un-submitted in either chip
-  // input (the user clicked Save instead of pressing Enter first) so
-  // it isn't silently lost.
+  // Commit whatever's still typed but un-submitted in any chip input
+  // (the user clicked Save instead of pressing Enter first) so it isn't
+  // silently lost.
   commitChipEditorInput(document.getElementById("vocabEditSynChips"));
   commitChipEditorInput(document.getElementById("vocabEditAntChips"));
+  commitChipEditorInput(document.getElementById("vocabEditTagalogChips"));
   const newSyn = collectChipEditorValues(document.getElementById("vocabEditSynChips"));
   const newAnt = collectChipEditorValues(document.getElementById("vocabEditAntChips"));
-  const newTagalog = document.getElementById("vocabEditTagalog").value.trim();
+  // Joined with " / " — the same separator addVocabEntry's own
+  // search-indexing already splits `tagalog` on (see the "/,;" regex
+  // both there and in the initial bulk index above), so every chip
+  // stays independently searchable, not just the first one.
+  const newTagalogList = collectChipEditorValues(document.getElementById("vocabEditTagalogChips"));
+  const newTagalog = newTagalogList.join(" / ");
   const newOrigin = document.getElementById("vocabEditOrigin").value.trim();
 
   const updatedEntry = {
