@@ -82,7 +82,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 12;
+  var DB_VERSION = 13;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -104,6 +104,13 @@
   var QA_STORE = "qaEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
+  // Tracks built-in vocabData seed words the Owner has deleted, so the
+  // deletion survives a reload (the hardcoded seed array itself never
+  // changes) instead of the word silently reappearing. Records are just
+  // {key: normalizedWord} — presence in the store IS the tombstone.
+  var DELETED_SEED_STORE = "deletedSeedWords";
+  var BASIC_ADVANCED_STORE = "basicAdvancedEntries";
+  var TAGALOG_ENGLISH_STORE = "tagalogEnglishEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -169,6 +176,15 @@
         }
         if (!db.objectStoreNames.contains(TENSE_STORE)) {
           db.createObjectStore(TENSE_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(DELETED_SEED_STORE)) {
+          db.createObjectStore(DELETED_SEED_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(BASIC_ADVANCED_STORE)) {
+          db.createObjectStore(BASIC_ADVANCED_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(TAGALOG_ENGLISH_STORE)) {
+          db.createObjectStore(TAGALOG_ENGLISH_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -427,6 +443,43 @@
   function getAllTense(options) { return getAllEntries(TENSE_STORE, options); }
   function deleteTense(name, options) { return deleteEntry(TENSE_STORE, name, options); }
 
+  /* ---------- deletedSeedWords (tombstones for deleted built-in
+     vocabData words — see DELETED_SEED_STORE above) ---------- */
+
+  function addDeletedSeedWord(word, options) {
+    var key = normalizeKey(word);
+    if (!key) return Promise.resolve(false);
+    return storePut(DELETED_SEED_STORE, { key: key }, options);
+  }
+  function removeDeletedSeedWord(word, options) { return storeDelete(DELETED_SEED_STORE, normalizeKey(word), options); }
+  function getAllDeletedSeedWords(options) {
+    return storeGetAll(DELETED_SEED_STORE, options).then(function (rows) {
+      return rows.map(function (r) { return r.key; });
+    });
+  }
+
+  /* ---------- basicAdvancedEntries (Basic English -> Advanced English,
+     manual-only, Owner-typed) ---------- */
+
+  function getBasicAdvanced(basic, options) { return storeGet(BASIC_ADVANCED_STORE, normalizeKey(basic), options).then(function (row) { return row ? row.entry : undefined; }); }
+  function putBasicAdvanced(entry, options) {
+    if (!entry || !entry.basic) return Promise.resolve(false);
+    return storePut(BASIC_ADVANCED_STORE, { key: normalizeKey(entry.basic), entry: entry }, options);
+  }
+  function getAllBasicAdvanced(options) { return getAllEntries(BASIC_ADVANCED_STORE, options); }
+  function deleteBasicAdvanced(basic, options) { return deleteEntry(BASIC_ADVANCED_STORE, basic, options); }
+
+  /* ---------- tagalogEnglishEntries (Tagalog word -> English word,
+     manual-only, Owner-typed) ---------- */
+
+  function getTagalogEnglish(tagalog, options) { return storeGet(TAGALOG_ENGLISH_STORE, normalizeKey(tagalog), options).then(function (row) { return row ? row.entry : undefined; }); }
+  function putTagalogEnglish(entry, options) {
+    if (!entry || !entry.tagalog) return Promise.resolve(false);
+    return storePut(TAGALOG_ENGLISH_STORE, { key: normalizeKey(entry.tagalog), entry: entry }, options);
+  }
+  function getAllTagalogEnglish(options) { return getAllEntries(TAGALOG_ENGLISH_STORE, options); }
+  function deleteTagalogEnglish(tagalog, options) { return deleteEntry(TAGALOG_ENGLISH_STORE, tagalog, options); }
+
   /* ---------- favorites ---------- */
 
   function addFavorite(word, meta, options) {
@@ -673,6 +726,20 @@
     putTense: putTense,
     getAllTense: getAllTense,
     deleteTense: deleteTense,
+    DELETED_SEED_STORE: DELETED_SEED_STORE,
+    addDeletedSeedWord: addDeletedSeedWord,
+    removeDeletedSeedWord: removeDeletedSeedWord,
+    getAllDeletedSeedWords: getAllDeletedSeedWords,
+    BASIC_ADVANCED_STORE: BASIC_ADVANCED_STORE,
+    getBasicAdvanced: getBasicAdvanced,
+    putBasicAdvanced: putBasicAdvanced,
+    getAllBasicAdvanced: getAllBasicAdvanced,
+    deleteBasicAdvanced: deleteBasicAdvanced,
+    TAGALOG_ENGLISH_STORE: TAGALOG_ENGLISH_STORE,
+    getTagalogEnglish: getTagalogEnglish,
+    putTagalogEnglish: putTagalogEnglish,
+    getAllTagalogEnglish: getAllTagalogEnglish,
+    deleteTagalogEnglish: deleteTagalogEnglish,
     richnessScore: richnessScore,
     isRicherEntry: isRicherEntry,
     validateEntry: validateEntry,

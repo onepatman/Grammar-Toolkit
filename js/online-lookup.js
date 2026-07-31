@@ -240,11 +240,14 @@
   }
 
   // The Free Dictionary API frequently omits an example sentence for a
-  // given definition. Rather than leave that sense with no example at
-  // all, fall back to a simple, grammatically-safe template sentence for
-  // the definition's part of speech, so every sense a user opens has at
-  // least one usable example — same goal as the local Vocabulary Bank,
-  // where every entry is hand-authored with one.
+  // given definition. This template generator exists as an opt-in
+  // escape hatch only (a caller must explicitly pass
+  // generateFallbackExamples:true) — it's OFF by default everywhere,
+  // since a generic template like "Understanding nobody is useful in
+  // this context." reads as nonsense for many words and was reported as
+  // actively misleading. A sense with no real example now just has no
+  // example, same as any other optional field this app never fabricates
+  // (see extractPhonetic/extractOrigin above).
   var FALLBACK_EXAMPLE_TEMPLATES = {
     noun: [
       "The team discussed the {word} during the meeting.",
@@ -322,7 +325,7 @@
   function normalizeDictionaryResponse(json, word, options) {
     if (!Array.isArray(json) || json.length === 0) return null;
 
-    var allowFallbackExamples = !options || options.generateFallbackExamples !== false;
+    var allowFallbackExamples = !!(options && options.generateFallbackExamples === true);
     var senses = [];
     var syn = [];
     var ant = [];
@@ -380,7 +383,7 @@
     var entries = json.en; // English only, matching this app's audience
     if (!Array.isArray(entries) || entries.length === 0) return null;
 
-    var allowFallbackExamples = !options || options.generateFallbackExamples !== false;
+    var allowFallbackExamples = !!(options && options.generateFallbackExamples === true);
     var senses = [];
     var senseIndex = 0;
 
@@ -391,9 +394,13 @@
         var text = stripHtml(def.definition);
         if (!text) return;
 
+        // Take every real example Wiktionary gives this definition, not
+        // just the first — a genuine sentence is always better material
+        // for Practice mode's shadowing/dictation variety than a
+        // fabricated fallback would be (see FALLBACK_EXAMPLE_TEMPLATES).
         var rawExamples = def.parsedExamples || def.examples || [];
         var examples = [];
-        rawExamples.slice(0, 1).forEach(function (ex) {
+        rawExamples.slice(0, 3).forEach(function (ex) {
           var exText = stripHtml(typeof ex === "string" ? ex : (ex.example || ex.expansion || ""));
           if (exText) examples.push(exText);
         });

@@ -1186,6 +1186,7 @@
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="distinctions">Distinctions Words<span class="n">DW</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
+    <button class="thumb-tab" data-tab="wordbank">Word Bank<span class="n">WB</span></button>
     <button class="thumb-tab" data-tab="preps">Preps<span class="n">P</span></button>
     <button class="thumb-tab" data-tab="articles">Articles<span class="n">A</span></button>
     <button class="thumb-tab" data-tab="tenses">Tenses<span class="n">T</span></button>
@@ -1464,6 +1465,56 @@
       <input type="text" id="familyAddInput" placeholder="e.g. calibrate" autocomplete="off">
       <button id="familyAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
       <div id="familyAddStatus" class="add-status"></div>
+    </div>
+  </section>
+
+  <!-- ===== WORD BANK PANEL (Basic to Advanced English / Tagalog to English — manual-only, Owner-researched) ===== -->
+  <section id="panel-wordbank" style="display:none;">
+    <div class="controls">
+      <div class="seg" id="wordBankCategorySeg">
+        <button class="active" data-val="basicAdvanced">Basic → Advanced</button>
+        <button data-val="tagalogEnglish">Tagalog → English</button>
+      </div>
+    </div>
+
+    <div class="wordbank-category" id="wordbank-basicAdvanced">
+      <div class="controls">
+        <select id="basicAdvancedSelect"></select>
+        <button class="nav-btn" data-target="basicAdvancedSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="basicAdvancedSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="basicAdvancedEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="basicAdvancedSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="basicAdvancedSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+      <div class="quick-add-box owner-only" id="basicAdvancedAddBox">
+        <div class="section-label">➕ Add a Basic → Advanced Word Pair</div>
+        <p class="note" style="margin-bottom:8px;">No online lookup here — type a basic word and a more advanced word you've researched yourself. An example sentence is optional.</p>
+        <input type="text" id="basicAdvancedAddInput" placeholder="e.g. happy" autocomplete="off">
+        <button id="basicAdvancedAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
+        <div id="basicAdvancedAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="wordbank-category" id="wordbank-tagalogEnglish" style="display:none;">
+      <div class="controls">
+        <select id="tagalogEnglishSelect"></select>
+        <button class="nav-btn" data-target="tagalogEnglishSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="tagalogEnglishSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="tagalogEnglishEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="tagalogEnglishSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="tagalogEnglishSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+      <div class="quick-add-box owner-only" id="tagalogEnglishAddBox">
+        <div class="section-label">➕ Add a Tagalog → English Word Pair</div>
+        <p class="note" style="margin-bottom:8px;">No online lookup here — type a Tagalog word and its English translation you've researched yourself. An example sentence is optional.</p>
+        <input type="text" id="tagalogEnglishAddInput" placeholder="e.g. tiyaga" autocomplete="off">
+        <button id="tagalogEnglishAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
+        <div id="tagalogEnglishAddStatus" class="add-status"></div>
+      </div>
     </div>
   </section>
 
@@ -1949,6 +2000,16 @@ VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
     favoriteRecords.set(f.key, {word: f.word, cat: f.cat, addedAt: f.addedAt});
   });
 }).catch(()=>{ /* IndexedDB unavailable — favorites just won't persist */ });
+
+// Same synchronous-mirror reasoning as favoriteRecords above, for the
+// built-in-seed-word deletion tombstones (see deleteVocabEntry /
+// VocabCache.deletedSeedWords) — collectDeletedSeedWordsForSync() needs
+// a plain in-memory read, not an IndexedDB round trip, so it can sit
+// alongside every other collectOnline*() sync collector.
+const deletedSeedWordsSet = new Set();
+VocabCache.getAllDeletedSeedWords({dbPromise: vocabDbPromise}).then(keys=>{
+  keys.forEach(k=> deletedSeedWordsSet.add(k));
+}).catch(()=>{ /* IndexedDB unavailable — deletions just won't persist across reloads */ });
 
 function makeFavToggleHtml(word, cat){
   const key = word.trim().toLowerCase();
@@ -36609,12 +36670,14 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
     <div class="section-label">${isVocabEntry ? "Definition" : "Rule &amp; usage"}</div>
     ${sensesHtml}
   ` : "";
-  // Only entries the owner actually added (source:"online" — a lookup
-  // result, a manually-completed entry, or one pulled in from a synced
-  // device) can be managed here. Built-in seed entries have nowhere
-  // permanent to save an edit/delete to (they're hardcoded in this
-  // file), so they stay read-only, same as every other rule module.
-  const canManage = !!(categoryKey && item.source === "online" && isDeviceUnlocked());
+  // Vocabulary Bank is the one category where a built-in seed entry
+  // (no `.source` field) is ALSO manageable — editing one promotes it
+  // into IndexedDB with source:"online" (see saveVocabEdit), and
+  // deleting one is tracked via a tombstone (see deleteVocabEntry /
+  // deletedSeedWords) so it doesn't silently reappear on reload. Every
+  // other rule module still has nowhere permanent to save an edit for a
+  // hardcoded entry, so they stay read-only as before.
+  const canManage = !!(categoryKey && isDeviceUnlocked() && (item.source === "online" || (categoryKey === "vocab" && !item.source)));
   const entryActionsHtml = canManage ? `
     <div class="entry-actions">
       <button class="lb-edit-btn">✎ Edit</button>
@@ -38216,7 +38279,13 @@ function indexRuleModule(data, cat, selectId, entryId, tagLabel, tab){
   data.forEach(item=>{
     searchIndex.push({label:item.w, cat:cat, action:()=>{
       document.getElementById(selectId).value = item.w;
-      renderRuleEntry(item, document.getElementById(entryId), tagLabel);
+      // `tab` doubles as this module's categoryKey (they're always the
+      // same string at every call site below) — without passing it,
+      // renderRuleEntry's canManage check silently sees categoryKey as
+      // undefined and Edit/Delete never show for a word opened via a
+      // global search result, even though the exact same word opened via
+      // its own tab's dropdown renders them correctly.
+      renderRuleEntry(item, document.getElementById(entryId), tagLabel, tab);
       activateTab(tab);
     }});
   });
@@ -38362,15 +38431,29 @@ function addVocabEntry(entry, options){
 
   if(existingItem){
     // Already a built-in word, or already cached from an earlier
-    // lookup — don't create a duplicate entry. A built-in word (no
-    // `.source` field) always stays authoritative, no matter how
-    // "rich" the new data is; a previously-cached entry can be
-    // upgraded in place if this lookup found more senses/synonyms/
-    // antonyms than what's already stored for it.
+    // lookup — don't create a duplicate entry. A previously-cached
+    // online entry can be upgraded in place if this lookup found more
+    // senses/synonyms/antonyms than what's already stored for it. A
+    // built-in word (no `.source` field) stays authoritative against an
+    // ORDINARY online lookup happening to share its spelling — that
+    // safety property must hold no matter who calls addVocabEntry(),
+    // which is why opts.allowOverrideBuiltin is required, not just
+    // entry.source==="online", to adopt over a built-in. Only two
+    // callers ever set it: saveVocabEdit() (the Owner explicitly saving
+    // an edit to this exact word — even though it deletes the old entry
+    // first, that deletion's own canonical-reindex step can leave
+    // wordIndexMap still resolving this key to a NON-vocab category's
+    // entry for the same spelling, so this branch can still be reached)
+    // and applyRemoteVocab() (replaying that same edit from another
+    // synced device).
     recordCategoryOnExisting(existingItem, "Vocabulary Bank");
     const existingEntry = vocabData.find(v=>normalizeWordKey(v.w)===key);
     if(existingEntry){
-      if(existingEntry.source === "online" && VocabCache.isRicherEntry(entry, existingEntry)){
+      const isBuiltIn = !existingEntry.source;
+      const shouldAdopt = entry.source === "online" && (
+        isBuiltIn ? !!opts.allowOverrideBuiltin : VocabCache.isRicherEntry(entry, existingEntry)
+      );
+      if(shouldAdopt){
         Object.assign(existingEntry, entry, {w: existingEntry.w});
         if(opts.persist) VocabCache.put(existingEntry, {dbPromise: vocabDbPromise});
       }
@@ -38921,7 +39004,7 @@ async function saveVocabEdit(originalItem, entryEl){
     return;
   }
 
-  const item = addVocabEntry(updatedEntry, {persist:true});
+  const item = addVocabEntry(updatedEntry, {persist:true, allowOverrideBuiltin:true});
   applyVocabListView();
   await pushToSync(loadPersonalCorrections());
 
@@ -38935,6 +39018,14 @@ async function deleteVocabEntry(word, options){
 
   const idx = vocabData.findIndex(v=> v.w.trim().toLowerCase() === key);
   if(idx === -1) return;
+  const removedEntry = vocabData[idx];
+  // A built-in seed word (no `.source`) being genuinely deleted — not
+  // replayed from a tombstone (skipSync:true, see vocabCacheRestorePromise)
+  // and not an edit's internal delete-then-add (also skipSync:true, see
+  // saveVocabEdit) — needs a tombstone, since the hardcoded vocabData
+  // literal itself never changes and would otherwise bring the word
+  // straight back on the next reload.
+  const needsSeedTombstone = !removedEntry.source && !opts.skipSync;
   vocabData.splice(idx, 1);
 
   // Also removes any Tagalog cross-index aliases for this same word —
@@ -38979,6 +39070,10 @@ async function deleteVocabEntry(word, options){
   if(optionEl) optionEl.remove();
 
   await VocabCache.deleteVocab(word, {dbPromise: vocabDbPromise});
+  if(needsSeedTombstone){
+    deletedSeedWordsSet.add(key);
+    await VocabCache.addDeletedSeedWord(word, {dbPromise: vocabDbPromise});
+  }
 
   if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
 }
@@ -39005,7 +39100,26 @@ function renderVocabAfterDelete(){
 // than fire-and-forget) so a test harness can deterministically await
 // "the restore has finished" instead of guessing with a timer.
 const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).then(entries=>{
-  entries.forEach(entry=> addVocabEntry(entry, {persist:false}));
+  // allowOverrideBuiltin:true — anything already persisted here as
+  // source:"online" was already an explicit, approved save (including a
+  // promoted-and-edited seed word — see addVocabEntry's shouldAdopt);
+  // restoring it on a later page load is exactly as legitimate as the
+  // save itself, so it must still win over the untouched hardcoded seed
+  // copy this same word would otherwise have been indexed as moments
+  // earlier by this file's synchronous top-level indexing.
+  entries.forEach(entry=> addVocabEntry(entry, {persist:false, allowOverrideBuiltin:true}));
+  // Re-apply any built-in seed word the Owner previously deleted — the
+  // hardcoded vocabData literal above is unchanged from run to run, so
+  // without this the word would otherwise silently reappear every time
+  // the page loads. skipSync:true since this is just replaying an
+  // already-known deletion, not a new one to push.
+  return VocabCache.getAllDeletedSeedWords({dbPromise: vocabDbPromise}).then(deletedKeys=>{
+    deletedKeys.forEach(key=>{
+      const entry = vocabData.find(v=> !v.source && normalizeWordKey(v.w) === key);
+      if(entry) deleteVocabEntry(entry.w, {skipSync:true});
+    });
+  });
+}).then(()=>{
   applyVocabListView();
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
@@ -40338,6 +40452,7 @@ function listenToSync(code){
       refreshMistakeUI();
       applyRemoteLanguageBank(data.languageBank);
       applyRemoteDistinctions(data.distinctions);
+      applyRemoteDeletedSeedWords(data.deletedSeedWords);
       applyRemoteVocab(data.vocab);
       applyRemoteVerbs(data.verbs);
       applyRemoteFavorites(data.favorites);
@@ -40358,6 +40473,7 @@ function listenToSync(code){
         entries: localEntries,
         languageBank: collectOnlineLanguageBankEntries(),
         distinctions: collectOnlineDistinctions(),
+        deletedSeedWords: collectDeletedSeedWordsForSync(),
         vocab: collectOnlineVocabEntries(),
         verbs: collectOnlineVerbs(),
         favorites: collectFavoritesForSync(),
@@ -40408,6 +40524,7 @@ function pushToSync(entries){
     entries: entries,
     languageBank: collectOnlineLanguageBankEntries(),
     distinctions: collectOnlineDistinctions(),
+    deletedSeedWords: collectDeletedSeedWordsForSync(),
     vocab: collectOnlineVocabEntries(),
     verbs: collectOnlineVerbs(),
     favorites: collectFavoritesForSync(),
@@ -42243,7 +42360,7 @@ function applyRemoteVocab(remote){
   if(!Array.isArray(remote)) return;
   const remoteKeys = new Set(remote.map(e=> e.w.trim().toLowerCase()));
 
-  remote.forEach(entry=> addVocabEntry(entry, {persist:true}));
+  remote.forEach(entry=> addVocabEntry(entry, {persist:true, allowOverrideBuiltin:true}));
 
   const selectEl = document.getElementById("vocabSelect");
   let deletedSelected = false;
@@ -42256,6 +42373,28 @@ function applyRemoteVocab(remote){
   });
   if(deletedSelected) renderVocabAfterDelete();
   else applyVocabListView();
+}
+
+// Built-in vocabData seed words the Owner has deleted (see
+// deleteVocabEntry's needsSeedTombstone) — a plain array of normalized
+// word keys, read from the synchronous deletedSeedWordsSet mirror the
+// same way collectFavoritesForSync() reads favoriteRecords.
+function collectDeletedSeedWordsForSync(){
+  return Array.from(deletedSeedWordsSet);
+}
+
+// Applies seed-word deletions made on ANOTHER synced device. Only ever
+// adds to the local tombstone set/store — a key already known here is
+// left alone (its local deletion, if any, already happened).
+function applyRemoteDeletedSeedWords(remote){
+  if(!Array.isArray(remote)) return;
+  remote.forEach(key=>{
+    if(deletedSeedWordsSet.has(key)) return;
+    deletedSeedWordsSet.add(key);
+    VocabCache.addDeletedSeedWord(key, {dbPromise: vocabDbPromise});
+    const entry = vocabData.find(v=> !v.source && normalizeWordKey(v.w) === key);
+    if(entry) deleteVocabEntry(entry.w, {skipSync:true});
+  });
 }
 
 // Owner-added verbs (source:"online") only — every client ships the
@@ -43651,6 +43790,323 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
   });
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
+/* =========================================================
+   WORD BANK TAB — Basic → Advanced English / Tagalog → English,
+   both manual-only (no online lookup — same reasoning as Tenses/
+   Family's own manual boxes: this is deliberately for content the
+   Owner has already researched elsewhere and just wants to type in
+   and keep), sharing one tab via a 2-category segmented switcher
+   (same activateXCategory idiom the Language Bank tab's own category
+   switcher uses, just for 2 options instead of 5). Local-only, same
+   as Tenses/Family — not part of Firestore cross-device sync.
+========================================================= */
+const basicAdvancedData = [];
+const tagalogEnglishData = [];
+const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish"];
+let currentWordBankCategory = "basicAdvanced";
+
+function activateWordBankCategory(key){
+  if(WORD_BANK_CATEGORIES.indexOf(key) === -1) key = "basicAdvanced";
+  currentWordBankCategory = key;
+  document.querySelectorAll("#wordBankCategorySeg button").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
+  WORD_BANK_CATEGORIES.forEach(k=>{
+    document.getElementById("wordbank-"+k).style.display = (k===key) ? "block" : "none";
+  });
+}
+document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  activateWordBankCategory(btn.dataset.val);
+});
+
+const basicAdvancedSelect = document.getElementById("basicAdvancedSelect");
+const basicAdvancedEntryEl = document.getElementById("basicAdvancedEntry");
+
+function isKnownBasicAdvanced(basic){
+  return !!DuplicateChecker.findByKey(basicAdvancedData, e=>e.basic, basic);
+}
+
+function renderBasicAdvancedPair(entry){
+  basicAdvancedEntryEl.innerHTML = `
+    <div class="headword-row">
+      <span class="headword">${entry.basic}</span>
+      <span class="tag">→</span>
+      <span class="headword">${entry.advanced}</span>
+    </div>
+    ${entry.example ? `<div class="section-label">Example</div><div class="example-line">${entry.example}</div>` : ""}
+  `;
+}
+
+function renderBasicAdvancedSelected(){
+  const entry = basicAdvancedData.find(e=>e.basic===basicAdvancedSelect.value);
+  if(entry) renderBasicAdvancedPair(entry);
+}
+basicAdvancedSelect.addEventListener("change", renderBasicAdvancedSelected);
+
+// Mirrors addTenseEntry()/addFamilyEntry(): the single choke point for
+// adding an owner-typed Basic→Advanced pair, including its <option> and
+// search-index entry (searchable by the BASIC word — the one the
+// learner is more likely to already know and search for).
+function addBasicAdvancedEntry(entry, options){
+  const opts = options || {};
+  if(isKnownBasicAdvanced(entry.basic)) return null;
+
+  basicAdvancedData.push(entry);
+  const opt = document.createElement("option");
+  opt.value = entry.basic;
+  opt.textContent = `${entry.basic} → ${entry.advanced}`;
+  appendOptionSorted(basicAdvancedSelect, opt);
+
+  const openThisPair = ()=>{
+    basicAdvancedSelect.value = entry.basic;
+    renderBasicAdvancedPair(entry);
+    activateTab("wordbank");
+    activateWordBankCategory("basicAdvanced");
+  };
+  const item = {label: entry.basic, cat: "Basic → Advanced", categories: ["Basic → Advanced"], action: openThisPair};
+  searchIndex.push(item);
+  wordIndexMap.set(normalizeWordKey(entry.basic), item);
+
+  if(opts.persist) VocabCache.putBasicAdvanced(entry, {dbPromise: vocabDbPromise});
+  return item;
+}
+
+function renderBasicAdvancedAddForm(basic){
+  openLookupModal({
+    title: `Add "${basic}" to Word Bank`,
+    subtitleHtml: "No online lookup here — type both words yourself. An example sentence is optional.",
+    bodyHtml: `
+      <label class="note" style="display:block;margin-bottom:4px;">Basic word</label>
+      <input type="text" id="basicAdvancedFormBasic" autocomplete="off" value="${basic}">
+      <label class="note" style="display:block;margin-bottom:4px;">Advanced word</label>
+      <input type="text" id="basicAdvancedFormAdvanced" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">Example sentence (optional)</label>
+      <textarea id="basicAdvancedFormExample" rows="2"></textarea>
+      <div id="basicAdvancedAddFormStatus" class="add-status"></div>
+    `,
+    actions: [
+      { label: "Save to Word Bank", id: "basicAdvancedAddSaveBtn", closeOnClick: false, onClick: saveBasicAdvancedAddForm },
+      { label: "Cancel", id: "basicAdvancedAddCancelBtn", secondary: true }
+    ]
+  });
+  bindEnterToClick(["basicAdvancedFormBasic", "basicAdvancedFormAdvanced"], "basicAdvancedAddSaveBtn");
+}
+
+async function saveBasicAdvancedAddForm(){
+  const statusEl = document.getElementById("basicAdvancedAddFormStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const basic = document.getElementById("basicAdvancedFormBasic").value.trim();
+  const advanced = document.getElementById("basicAdvancedFormAdvanced").value.trim();
+  const example = document.getElementById("basicAdvancedFormExample").value.trim();
+
+  if(!basic || !advanced){
+    statusEl.textContent = "Please fill in both the basic and advanced word.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownBasicAdvanced(basic)){
+    statusEl.textContent = `"${basic}" is already in Word Bank.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const entry = { basic: basic, advanced: advanced, example: example || null };
+  const item = addBasicAdvancedEntry(entry, {persist:true});
+  hideLookupModal();
+  document.getElementById("basicAdvancedAddInput").value = "";
+  document.getElementById("basicAdvancedAddStatus").textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank.`;
+  document.getElementById("basicAdvancedAddStatus").className = "add-status success";
+  if(item) item.action();
+}
+
+async function addBasicAdvancedEntryFromInput(){
+  const statusEl = document.getElementById("basicAdvancedAddStatus");
+  const input = document.getElementById("basicAdvancedAddInput");
+  hideLookupModal();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = input.value.trim();
+  if(!text){
+    statusEl.textContent = "Please enter the basic word first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownBasicAdvanced(text)){
+    const existing = wordIndexMap.get(normalizeWordKey(text));
+    if(existing){
+      renderDuplicateConflictPopup(statusEl, {
+        word: existing.label,
+        category: existing.cat,
+        onView: ()=> navigateToEntry(existing)
+      });
+    } else {
+      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.className = "add-status";
+    }
+    return;
+  }
+  statusEl.textContent = "";
+  statusEl.className = "add-status";
+  renderBasicAdvancedAddForm(text);
+}
+document.getElementById("basicAdvancedAddBtn").addEventListener("click", addBasicAdvancedEntryFromInput);
+document.getElementById("basicAdvancedAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addBasicAdvancedEntryFromInput();
+});
+
+const basicAdvancedCacheRestorePromise = VocabCache.getAllBasicAdvanced({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addBasicAdvancedEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
+const tagalogEnglishSelect = document.getElementById("tagalogEnglishSelect");
+const tagalogEnglishEntryEl = document.getElementById("tagalogEnglishEntry");
+
+function isKnownTagalogEnglish(tagalog){
+  return !!DuplicateChecker.findByKey(tagalogEnglishData, e=>e.tagalog, tagalog);
+}
+
+function renderTagalogEnglishPair(entry){
+  tagalogEnglishEntryEl.innerHTML = `
+    <div class="headword-row">
+      <span class="headword">${entry.tagalog}</span>
+      <span class="tag">→</span>
+      <span class="headword">${entry.english}</span>
+    </div>
+    ${entry.example ? `<div class="section-label">Example</div><div class="example-line">${entry.example}</div>` : ""}
+  `;
+}
+
+function renderTagalogEnglishSelected(){
+  const entry = tagalogEnglishData.find(e=>e.tagalog===tagalogEnglishSelect.value);
+  if(entry) renderTagalogEnglishPair(entry);
+}
+tagalogEnglishSelect.addEventListener("change", renderTagalogEnglishSelected);
+
+function addTagalogEnglishEntry(entry, options){
+  const opts = options || {};
+  if(isKnownTagalogEnglish(entry.tagalog)) return null;
+
+  tagalogEnglishData.push(entry);
+  const opt = document.createElement("option");
+  opt.value = entry.tagalog;
+  opt.textContent = `${entry.tagalog} → ${entry.english}`;
+  appendOptionSorted(tagalogEnglishSelect, opt);
+
+  const openThisPair = ()=>{
+    tagalogEnglishSelect.value = entry.tagalog;
+    renderTagalogEnglishPair(entry);
+    activateTab("wordbank");
+    activateWordBankCategory("tagalogEnglish");
+  };
+  const item = {label: entry.tagalog, cat: "Tagalog → English", categories: ["Tagalog → English"], action: openThisPair};
+  searchIndex.push(item);
+  wordIndexMap.set(normalizeWordKey(entry.tagalog), item);
+
+  if(opts.persist) VocabCache.putTagalogEnglish(entry, {dbPromise: vocabDbPromise});
+  return item;
+}
+
+function renderTagalogEnglishAddForm(tagalog){
+  openLookupModal({
+    title: `Add "${tagalog}" to Word Bank`,
+    subtitleHtml: "No online lookup here — type both words yourself. An example sentence is optional.",
+    bodyHtml: `
+      <label class="note" style="display:block;margin-bottom:4px;">Tagalog word</label>
+      <input type="text" id="tagalogEnglishFormTagalog" autocomplete="off" value="${tagalog}">
+      <label class="note" style="display:block;margin-bottom:4px;">English word</label>
+      <input type="text" id="tagalogEnglishFormEnglish" autocomplete="off">
+      <label class="note" style="display:block;margin-bottom:4px;">Example sentence (optional)</label>
+      <textarea id="tagalogEnglishFormExample" rows="2"></textarea>
+      <div id="tagalogEnglishAddFormStatus" class="add-status"></div>
+    `,
+    actions: [
+      { label: "Save to Word Bank", id: "tagalogEnglishAddSaveBtn", closeOnClick: false, onClick: saveTagalogEnglishAddForm },
+      { label: "Cancel", id: "tagalogEnglishAddCancelBtn", secondary: true }
+    ]
+  });
+  bindEnterToClick(["tagalogEnglishFormTagalog", "tagalogEnglishFormEnglish"], "tagalogEnglishAddSaveBtn");
+}
+
+async function saveTagalogEnglishAddForm(){
+  const statusEl = document.getElementById("tagalogEnglishAddFormStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const tagalog = document.getElementById("tagalogEnglishFormTagalog").value.trim();
+  const english = document.getElementById("tagalogEnglishFormEnglish").value.trim();
+  const example = document.getElementById("tagalogEnglishFormExample").value.trim();
+
+  if(!tagalog || !english){
+    statusEl.textContent = "Please fill in both the Tagalog and English word.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownTagalogEnglish(tagalog)){
+    statusEl.textContent = `"${tagalog}" is already in Word Bank.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const entry = { tagalog: tagalog, english: english, example: example || null };
+  const item = addTagalogEnglishEntry(entry, {persist:true});
+  hideLookupModal();
+  document.getElementById("tagalogEnglishAddInput").value = "";
+  document.getElementById("tagalogEnglishAddStatus").textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank.`;
+  document.getElementById("tagalogEnglishAddStatus").className = "add-status success";
+  if(item) item.action();
+}
+
+async function addTagalogEnglishEntryFromInput(){
+  const statusEl = document.getElementById("tagalogEnglishAddStatus");
+  const input = document.getElementById("tagalogEnglishAddInput");
+  hideLookupModal();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = input.value.trim();
+  if(!text){
+    statusEl.textContent = "Please enter the Tagalog word first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownTagalogEnglish(text)){
+    const existing = wordIndexMap.get(normalizeWordKey(text));
+    if(existing){
+      renderDuplicateConflictPopup(statusEl, {
+        word: existing.label,
+        category: existing.cat,
+        onView: ()=> navigateToEntry(existing)
+      });
+    } else {
+      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.className = "add-status";
+    }
+    return;
+  }
+  statusEl.textContent = "";
+  statusEl.className = "add-status";
+  renderTagalogEnglishAddForm(text);
+}
+document.getElementById("tagalogEnglishAddBtn").addEventListener("click", addTagalogEnglishEntryFromInput);
+document.getElementById("tagalogEnglishAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addTagalogEnglishEntryFromInput();
+});
+
+const tagalogEnglishCacheRestorePromise = VocabCache.getAllTagalogEnglish({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addTagalogEnglishEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 // Online fallback — the third and last search tier, after the local
 // Vocabulary Bank and the IndexedDB cache (both already covered by the
 // wordIndexMap check in runSearchPipeline, since addVocabEntry() merges
@@ -43959,6 +44415,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getDistinctionsPendingSave: ()=> distinctionsPendingSave,
   openVocabEditForm, saveVocabEdit, deleteVocabEntry, renderVocabAfterDelete,
   collectOnlineVocabEntries, applyRemoteVocab,
+  deletedSeedWordsSet, collectDeletedSeedWordsForSync, applyRemoteDeletedSeedWords,
   renderVocabSavePreview, confirmVocabSave, declineVocabSave,
   getVocabPendingSave: ()=> vocabPendingSave,
   renderVocabBankCheckRows, getLanguageBankPendingSave: ()=> languageBankPendingSave,
@@ -43986,6 +44443,13 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   isKnownTenseName, addTenseEntry, addTenseEntryFromInput,
   renderTenseAddForm, saveTenseAddForm,
   tenseCacheRestorePromise,
+  basicAdvancedData, tagalogEnglishData, activateWordBankCategory,
+  isKnownBasicAdvanced, addBasicAdvancedEntry, addBasicAdvancedEntryFromInput,
+  renderBasicAdvancedAddForm, saveBasicAdvancedAddForm,
+  basicAdvancedCacheRestorePromise,
+  isKnownTagalogEnglish, addTagalogEnglishEntry, addTagalogEnglishEntryFromInput,
+  renderTagalogEnglishAddForm, saveTagalogEnglishAddForm,
+  tagalogEnglishCacheRestorePromise,
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
   collectChipEditorValues, wireChipEditorEvents,
   formatDuplicateDate, renderDuplicateConflictPopup, hideDuplicateConflictPopup,

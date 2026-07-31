@@ -14,7 +14,9 @@
 // in jsdom and dispatches real DOM interactions, same as every other
 // integration test in this repo.
 import { describe, it, expect } from "vitest";
+import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
+import VocabCache from "../js/vocab-cache.js";
 
 function wait(ms = 30) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -817,5 +819,140 @@ describe("Save to Vocabulary Bank (Language Bank / Distinctions) uses the same c
     expect(document.getElementById("phrasalAddStatus").textContent).toContain("already in the database");
     expect(hooks.phrasalData.some((p) => p.w.toLowerCase() === "abandon")).toBe(false);
     expect(hooks.vocabData.filter((v) => v.w.toLowerCase() === "abandon")).toHaveLength(1);
+  });
+});
+
+describe("Vocabulary Bank — built-in seed words are also editable/deletable", () => {
+  it("shows Edit/Delete for a built-in seed word (no .source) when unlocked, unlike a built-in word in another rule module", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const seedWord = hooks.vocabData.find((v) => v.w === "abandon");
+    expect(seedWord.source).toBeUndefined();
+
+    hooks.renderRuleEntry(seedWord, document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".lb-edit-btn")).toBeTruthy();
+    expect(document.getElementById("vocabEntry").querySelector(".lb-delete-btn")).toBeTruthy();
+
+    // A built-in Preposition is a different rule module entirely — this
+    // relaxation is scoped to categoryKey "vocab" only, so it must stay
+    // exactly as read-only as before.
+    const prepWord = hooks.prepData.find((p) => p.w === "under");
+    const prepEntryEl = document.getElementById("prepEntry");
+    hooks.renderRuleEntry(prepWord, prepEntryEl, "Preposition", "preps");
+    expect(prepEntryEl.querySelector(".lb-edit-btn")).toBeNull();
+    expect(prepEntryEl.querySelector(".lb-delete-btn")).toBeNull();
+  });
+
+  it("shows Edit/Delete for a seed word opened via a global search result too, not just via the tab's own dropdown (regression: indexRuleModule was dropping categoryKey)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.runSearchPipeline("abandon");
+    const match = document.querySelector("#searchResults .search-result-item");
+    expect(match).toBeTruthy();
+    match.click();
+    await wait();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
+    expect(document.getElementById("vocabEntry").querySelector(".lb-edit-btn")).toBeTruthy();
+    expect(document.getElementById("vocabEntry").querySelector(".lb-delete-btn")).toBeTruthy();
+  });
+
+  it("editing a built-in seed word promotes it to an owner-saved (source:'online') IndexedDB record that survives a reload", async () => {
+    const idb = new IDBFactory();
+    const first = await loadApp({ indexedDBFactory: idb });
+    const seedWord = first.hooks.vocabData.find((v) => v.w === "abandon");
+
+    first.hooks.openVocabEditForm(seedWord, first.window.document.getElementById("vocabEntry"));
+    first.window.document.querySelector("#vocabEntry .vocab-edit-meaning-use").value = "To give up completely, edited.";
+    first.window.document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const edited = first.hooks.vocabData.find((v) => v.w === "abandon");
+    expect(edited.source).toBe("online");
+    expect(edited.senses[0].use).toBe("To give up completely, edited.");
+
+    const second = await loadApp({ indexedDBFactory: idb });
+    const reloaded = second.hooks.vocabData.find((v) => v.w === "abandon");
+    expect(reloaded.senses[0].use).toBe("To give up completely, edited.");
+  });
+
+  it("deleting a built-in seed word removes it and — via the deletedSeedWords tombstone — it does not reappear after a reload", async () => {
+    const idb = new IDBFactory();
+    const first = await loadApp({ indexedDBFactory: idb });
+    expect(first.hooks.vocabData.some((v) => v.w === "abandon")).toBe(true);
+
+    await first.hooks.deleteVocabEntry("abandon");
+    expect(first.hooks.vocabData.some((v) => v.w === "abandon")).toBe(false);
+
+    const tombstoned = await VocabCache.getAllDeletedSeedWords({ indexedDB: idb });
+    expect(tombstoned).toContain("abandon");
+
+    const second = await loadApp({ indexedDBFactory: idb });
+    expect(second.hooks.vocabData.some((v) => v.w === "abandon")).toBe(false);
+    // Never actually leaked into the hardcoded array itself — only
+    // filtered back out at restore time.
+    expect(second.hooks.wordIndexMap.has("abandon")).toBe(false);
+  });
+
+  it("editing (not deleting) a seed word never writes a tombstone — the delete-then-add inside saveVocabEdit uses skipSync", async () => {
+    const idb = new IDBFactory();
+    const { window, hooks } = await loadApp({ indexedDBFactory: idb });
+    const seedWord = hooks.vocabData.find((v) => v.w === "abandon");
+
+    hooks.openVocabEditForm(seedWord, window.document.getElementById("vocabEntry"));
+    window.document.getElementById("vocabEditSaveBtn").click();
+    await wait();
+
+    const tombstoned = await VocabCache.getAllDeletedSeedWords({ indexedDB: idb });
+    expect(tombstoned).not.toContain("abandon");
+    expect(hooks.vocabData.some((v) => v.w === "abandon")).toBe(true);
+  });
+
+  it("collectDeletedSeedWordsForSync()/applyRemoteDeletedSeedWords() round-trip a seed-word deletion to another device", async () => {
+    const deviceA = await loadApp();
+    await deviceA.hooks.deleteVocabEntry("abandon");
+    const payload = deviceA.hooks.collectDeletedSeedWordsForSync();
+    expect(payload).toContain("abandon");
+
+    const deviceB = await loadApp();
+    expect(deviceB.hooks.vocabData.some((v) => v.w === "abandon")).toBe(true);
+    deviceB.hooks.applyRemoteDeletedSeedWords(payload);
+    expect(deviceB.hooks.vocabData.some((v) => v.w === "abandon")).toBe(false);
+    expect(deviceB.hooks.deletedSeedWordsSet.has("abandon")).toBe(true);
+  });
+
+  it("addVocabEntry() with allowOverrideBuiltin:true adopts a synced edit (source:'online') of a seed word, exactly as applyRemoteVocab() calls it", async () => {
+    const { hooks } = await loadApp();
+    const seedWord = hooks.vocabData.find((v) => v.w === "abandon");
+    expect(seedWord.source).toBeUndefined();
+
+    // Simulates applyRemoteVocab replaying an edit made on another device
+    // — the exact {persist, allowOverrideBuiltin} shape applyRemoteVocab uses.
+    hooks.addVocabEntry(
+      { w: "abandon", senses: [{ use: "Edited from another device.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false, allowOverrideBuiltin: true }
+    );
+
+    const updated = hooks.vocabData.find((v) => v.w === "abandon");
+    expect(updated.source).toBe("online");
+    expect(updated.senses[0].use).toBe("Edited from another device.");
+    // Still exactly one record for the word, never a duplicate.
+    expect(hooks.vocabData.filter((v) => v.w === "abandon")).toHaveLength(1);
+  });
+
+  it("addVocabEntry() WITHOUT allowOverrideBuiltin never overwrites a built-in seed word, even with an online-sourced entry sharing its spelling — an ordinary lookup must never silently clobber curated content", async () => {
+    const { hooks } = await loadApp();
+    const seedWord = hooks.vocabData.find((v) => v.w === "abandon");
+    const originalUse = seedWord.senses[0].use;
+
+    hooks.addVocabEntry(
+      { w: "abandon", senses: [{ use: "Some other online result.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { persist: false }
+    );
+
+    const stillOriginal = hooks.vocabData.find((v) => v.w === "abandon");
+    expect(stillOriginal.source).toBeUndefined();
+    expect(stillOriginal.senses[0].use).toBe(originalUse);
+    expect(hooks.vocabData.filter((v) => v.w === "abandon")).toHaveLength(1);
   });
 });
