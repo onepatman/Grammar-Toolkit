@@ -167,7 +167,19 @@
   }
 
   function stripHtml(html) {
-    return typeof html === "string" ? html.replace(/<[^>]*>/g, "").trim() : "";
+    if (typeof html !== "string") return "";
+    // <style>/<script> blocks carry their own TEXT content between the
+    // tags (CSS rules, JS source) — stripping just the tags themselves
+    // and leaving that inner text behind would leak raw markup like
+    // ".mw-parser-output .defdate{font-size:smaller}" straight into a
+    // definition, which is exactly what a Wiktionary response's
+    // embedded <style> block does. These are removed whole, body and
+    // all, before the generic tag-stripping pass below.
+    return html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<[^>]*>/g, "")
+      .trim();
   }
 
   // The Free Dictionary API frequently omits an example sentence for a

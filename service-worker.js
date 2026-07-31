@@ -6,7 +6,7 @@
 // treats it as a new script (triggers install -> activate, which
 // purges every OTHER cache bucket below) instead of silently reusing
 // whatever's already registered.
-const CACHE_NAME = "mepf-grammar-toolkit-v28";
+const CACHE_NAME = "mepf-grammar-toolkit-v29";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
@@ -62,6 +62,20 @@ self.addEventListener("activate", (event) => {
 // without a real round-trip at all, which is exactly the kind of
 // invisible staleness this strategy exists to prevent.
 self.addEventListener("fetch", (event) => {
+  // Only this app's OWN same-origin assets (FILES_TO_CACHE, plus
+  // anything else GitHub Pages serves under this origin) ever go
+  // through the network-first-then-cache strategy below. A cross-origin
+  // request — the Free Dictionary API, Wiktionary, MyMemory (Tagalog),
+  // Firebase, the GitHub release check — is left completely untouched,
+  // never intercepted at all. This matters for a real, easy-to-hit
+  // reason: caches.put() can throw for a third-party response shape
+  // this worker doesn't control (an unusual Vary header, an opaque
+  // response, etc.), and without this guard that throw turns a
+  // perfectly successful cross-origin fetch into a failed one from the
+  // page's own point of view — exactly the kind of silent breakage that
+  // would make online dictionary lookups mysteriously never succeed.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
+
   event.respondWith(
     fetch(event.request, { cache: "no-store" })
       .then((response) => {
