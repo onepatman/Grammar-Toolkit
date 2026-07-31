@@ -503,6 +503,137 @@ describe("normalizeWiktionaryResponse", () => {
   });
 });
 
+describe("isMultiWordQuery", () => {
+  it("is true for anything containing whitespace", () => {
+    expect(OnlineLookup.isMultiWordQuery("burn the midnight oil")).toBe(true);
+    expect(OnlineLookup.isMultiWordQuery("give up")).toBe(true);
+  });
+
+  it("is false for a single word", () => {
+    expect(OnlineLookup.isMultiWordQuery("resilient")).toBe(false);
+  });
+
+  it("is false for empty/blank input", () => {
+    expect(OnlineLookup.isMultiWordQuery("")).toBe(false);
+    expect(OnlineLookup.isMultiWordQuery("   ")).toBe(false);
+    expect(OnlineLookup.isMultiWordQuery(null)).toBe(false);
+  });
+});
+
+describe("mergeLookupResults", () => {
+  const fda = {
+    w: "burn the midnight oil", phonetic: "/bɜːrn/", origin: null,
+    senses: [{ use: "(verb) To work late into the night.", examples: ["He burned the midnight oil."] }],
+    syn: ["work late"], ant: ["call it a day"], mistake: null, tagalog: null,
+    source: "online", sourceName: "Free Dictionary API", verified: { status: "needs_review", heuristicFlags: [] }
+  };
+  const wiktSameSense = {
+    w: "burn the midnight oil",
+    senses: [{ use: "(verb) To work late into the night.", examples: ["Different example sentence."] }],
+    syn: [], ant: [], mistake: null, tagalog: null, source: "online", sourceName: "Wiktionary", verified: {}
+  };
+  const wiktExtraSense = {
+    w: "burn the midnight oil",
+    senses: [{ use: "(idiom) To stay up working, especially studying.", examples: ["She burned the midnight oil before exams."] }],
+    syn: [], ant: [], mistake: null, tagalog: null, source: "online", sourceName: "Wiktionary", verified: {}
+  };
+
+  it("returns the other result unchanged when one side is null", () => {
+    expect(OnlineLookup.mergeLookupResults(fda, null)).toBe(fda);
+    expect(OnlineLookup.mergeLookupResults(null, wiktExtraSense)).toBe(wiktExtraSense);
+    expect(OnlineLookup.mergeLookupResults(null, null)).toBeNull();
+  });
+
+  it("keeps the Free Dictionary API's own senses, synonyms, antonyms, and phonetic untouched", () => {
+    const merged = OnlineLookup.mergeLookupResults(fda, wiktExtraSense);
+    expect(merged.senses[0]).toEqual(fda.senses[0]);
+    expect(merged.syn).toEqual(["work late"]);
+    expect(merged.ant).toEqual(["call it a day"]);
+    expect(merged.phonetic).toBe("/bɜːrn/");
+  });
+
+  it("appends a Wiktionary sense whose definition text isn't already covered", () => {
+    const merged = OnlineLookup.mergeLookupResults(fda, wiktExtraSense);
+    expect(merged.senses).toHaveLength(2);
+    expect(merged.senses[1].use).toContain("stay up working");
+    expect(merged.sourceName).toBe("Free Dictionary API + Wiktionary");
+  });
+
+  it("does not duplicate a Wiktionary sense whose definition text already matches a Free Dictionary API sense", () => {
+    const merged = OnlineLookup.mergeLookupResults(fda, wiktSameSense);
+    expect(merged.senses).toHaveLength(1);
+    // No new content actually added — stays attributed to the Free
+    // Dictionary API alone, never claiming a "+" merge that added nothing.
+    expect(merged.sourceName).toBe("Free Dictionary API");
+  });
+});
+
+describe("fetchOnlineDefinition — hybrid Free Dictionary API + Wiktionary merge for multi-word queries", () => {
+  it("does not call Wiktionary at all for a single-word query once the Free Dictionary API already succeeded", async () => {
+    const fetchImpl = vi.fn(() => jsonResponse(SAMPLE_API_RESPONSE));
+    await OnlineLookup.fetchOnlineDefinition("resilient", { fetchImpl, isOnline: () => true });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("also queries Wiktionary for a multi-word query even when the Free Dictionary API already succeeded, and merges in any new sense", async () => {
+    const fdaResponse = [{
+      word: "burn the midnight oil",
+      meanings: [{ partOfSpeech: "verb", definitions: [{ definition: "To work late into the night.", example: "He burned the midnight oil." }] }]
+    }];
+    const wiktResponse = {
+      en: [{ partOfSpeech: "Idiom", definitions: [{ definition: "To stay up working, especially studying.", examples: ["She burned the midnight oil before exams."] }] }]
+    };
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("burn the midnight oil")) return jsonResponse(fdaResponse);
+      if (url === OnlineLookup.buildWiktionaryUrl("burn the midnight oil")) return jsonResponse(wiktResponse);
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("burn the midnight oil", { fetchImpl, isOnline: () => true });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.senses).toHaveLength(2);
+    expect(result.senses[0].use).toContain("work late into the night");
+    expect(result.senses[1].use).toContain("stay up working");
+    expect(result.sourceName).toBe("Free Dictionary API + Wiktionary");
+  });
+
+  it("stays attributed to the Free Dictionary API alone when Wiktionary has nothing new to add for a multi-word query", async () => {
+    const fdaResponse = [{
+      word: "give up",
+      meanings: [{ partOfSpeech: "verb", definitions: [{ definition: "To stop trying.", example: "Don't give up." }] }]
+    }];
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("give up")) return jsonResponse(fdaResponse);
+      if (url === OnlineLookup.buildWiktionaryUrl("give up")) return jsonResponse({}, false);
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("give up", { fetchImpl, isOnline: () => true });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.sourceName).toBe("Free Dictionary API");
+    expect(result.senses).toHaveLength(1);
+  });
+
+  it("still falls back to Wiktionary alone for a multi-word query the Free Dictionary API has nothing for at all", async () => {
+    const wiktResponse = {
+      en: [{ partOfSpeech: "Idiom", definitions: [{ definition: "To relax before going to sleep.", examples: ["He likes to wind down with a book."] }] }]
+    };
+    const fetchImpl = vi.fn((url) => {
+      if (url === OnlineLookup.buildRequestUrl("wind down")) return jsonResponse([], false);
+      if (url === OnlineLookup.buildWiktionaryUrl("wind down")) return jsonResponse(wiktResponse);
+      throw new Error("unexpected url: " + url);
+    });
+
+    const result = await OnlineLookup.fetchOnlineDefinition("wind down", { fetchImpl, isOnline: () => true });
+
+    expect(result).not.toBeNull();
+    expect(result.sourceName).toBe("Wiktionary");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("fetchOnlineDefinition with generateFallbackExamples: false", () => {
   it("threads the option through to the normalizer, leaving fabricated-example-free senses", async () => {
     const response = [{

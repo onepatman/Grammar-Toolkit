@@ -352,6 +352,60 @@
     };
   }
 
+  // Multi-word queries (idioms, expressions, phrasal verbs, sentence
+  // patterns, useful sentences) are exactly the category the Free
+  // Dictionary API is weakest on — it indexes single headwords, not
+  // phrases — so for these, Wiktionary is queried and merged in even
+  // when the Free Dictionary API already found something, instead of
+  // only being tried as a last-resort fallback. Ordinary single-word
+  // queries keep the original behavior (Wiktionary tried only when the
+  // Free Dictionary API has nothing at all): its own single-word
+  // coverage is already strong, so doubling every plain word lookup's
+  // network cost isn't worth it.
+  function isMultiWordQuery(text) {
+    return /\s/.test(String(text || "").trim());
+  }
+
+  function definitionKey(use) {
+    return String(use || "").toLowerCase().replace(/\s+/g, " ").trim();
+  }
+
+  // Combines a Free Dictionary API result and a Wiktionary result for
+  // the SAME query into one entry, instead of the caller ever having to
+  // pick only one. The Free Dictionary API's own senses/synonyms/
+  // antonyms/pronunciation always come first and are never displaced —
+  // Wiktionary only ADDS senses whose definition text isn't already
+  // covered, which is exactly where its idiom/phrase coverage earns its
+  // keep. Wiktionary's syn/ant are always empty in this module's own
+  // normalizeWiktionaryResponse (its REST endpoint doesn't expose
+  // them), so merging here never fabricates a synonym/antonym list that
+  // source didn't actually provide.
+  function mergeLookupResults(fdaResult, wiktResult) {
+    if (!fdaResult) return wiktResult;
+    if (!wiktResult) return fdaResult;
+
+    var seen = Object.create(null);
+    fdaResult.senses.forEach(function (s) { seen[definitionKey(s.use)] = true; });
+    var extraSenses = wiktResult.senses.filter(function (s) { return !seen[definitionKey(s.use)]; });
+    var addedNewContent = extraSenses.length > 0;
+
+    return {
+      w: fdaResult.w,
+      phonetic: fdaResult.phonetic,
+      origin: fdaResult.origin,
+      senses: fdaResult.senses.concat(extraSenses).slice(0, MAX_SENSES),
+      syn: fdaResult.syn,
+      ant: fdaResult.ant,
+      mistake: fdaResult.mistake,
+      tagalog: fdaResult.tagalog,
+      source: "online",
+      sourceName: addedNewContent
+        ? (SOURCE_FREE_DICTIONARY_API + " + " + SOURCE_WIKTIONARY)
+        : fdaResult.sourceName,
+      verified: fdaResult.verified
+    };
+  }
+
   function dedupe(arr) {
     var seen = Object.create(null);
     var out = [];
@@ -446,13 +500,20 @@
     }
 
     return fetchAndNormalize(buildRequestUrl(queryText), normalizeDictionaryResponse)
-      .then(function (result) {
-        if (result) return result;
-        // Primary source had nothing for this word — try a second,
-        // independent source before giving up. Safe to chain: any
-        // failure here (network, unexpected shape) still resolves to
-        // null the same way a single-source lookup would.
-        return fetchAndNormalize(buildWiktionaryUrl(queryText), normalizeWiktionaryResponse);
+      .then(function (fdaResult) {
+        // A single-word query the Free Dictionary API already answered
+        // is left exactly as is — no second network call. A multi-word
+        // query (idiom/phrase/expression territory) is worth checking
+        // Wiktionary for too, EVEN when the Free Dictionary API already
+        // succeeded, so any additional senses it has get merged in
+        // rather than silently discarded; a query the Free Dictionary
+        // API had nothing for always tries Wiktionary next regardless
+        // of word count, same as before.
+        if (fdaResult && !isMultiWordQuery(queryText)) return fdaResult;
+        return fetchAndNormalize(buildWiktionaryUrl(queryText), normalizeWiktionaryResponse)
+          .then(function (wiktResult) {
+            return fdaResult ? mergeLookupResults(fdaResult, wiktResult) : wiktResult;
+          });
       })
       .then(function (result) {
         if (result) return result;
@@ -481,6 +542,8 @@
     generateFallbackExample: generateFallbackExample,
     createMemoryCache: createMemoryCache,
     fetchOnlineDefinition: fetchOnlineDefinition,
+    isMultiWordQuery: isMultiWordQuery,
+    mergeLookupResults: mergeLookupResults,
     computeTitleSimilarity: computeTitleSimilarity,
     SEARCH_MATCH_REJECT_THRESHOLD: SEARCH_MATCH_REJECT_THRESHOLD,
     SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD: SEARCH_MATCH_LOW_CONFIDENCE_THRESHOLD,
