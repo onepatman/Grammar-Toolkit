@@ -792,6 +792,18 @@
   }
   .vocab-edit-add-meaning-btn{ margin-top:4px; }
 
+  /* Language Bank / rule-tab shared edit form (openLanguageBankEditForm)
+     — same visual language as the Vocabulary editor above (reuses
+     .vocab-edit-meaning/.vocab-edit-meaning-label/.vocab-edit-small-btn
+     directly), plus this one extra layout: each meaning's own list of
+     example-sentence rows, input + Remove button side by side. */
+  .lb-edit-examples{ margin-bottom:6px; }
+  .lb-edit-example-row{
+    display:flex; align-items:center; gap:8px; margin-bottom:6px;
+  }
+  .lb-edit-example-row input{ flex:1; margin-bottom:0 !important; }
+  .lb-edit-add-example-btn{ margin-bottom:10px; }
+
   .sense-notes{
     font-size:12.5px; color:var(--ink-soft); font-style:italic;
     padding-left:10px; border-left:2px solid var(--rule); margin-top:4px;
@@ -1063,6 +1075,15 @@
     <div class="controls bottom-nav">
       <button class="nav-btn" data-target="verbSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
       <button class="nav-btn" data-target="verbSelect" data-dir="next" aria-label="Next">Next ›</button>
+    </div>
+
+    <div class="quick-add-box owner-only" id="verbAddBox">
+      <div class="section-label">➕ Look Up &amp; Add a Verb</div>
+      <p class="note" style="margin-bottom:8px;">Type a verb and we'll check it online first — if it's already in Verbs, we'll open the existing entry instead of adding a duplicate. Conjugations are never guessed: you'll always type all five forms yourself, so irregular verbs stay correct.</p>
+      <input type="text" id="verbAddInput" placeholder="e.g. proceed" autocomplete="off">
+      <button id="verbAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+      <div id="verbAddStatus" class="add-status"></div>
+      <div id="verbAddArea" class="add-status" style="display:none;"></div>
     </div>
   </section>
 
@@ -40344,9 +40365,104 @@ function renderLanguageBankAfterDelete(categoryKey){
 // current entry. Values are assigned via .value (never interpolated
 // into an HTML attribute) so arbitrary typed text — quotes and all —
 // can never break the markup.
+// One example-sentence row within a meaning: an input plus its own
+// Remove button. Mirrors createVocabEditMeaningRow's single-example
+// field, generalized to a list — this is the specific gap (unlimited
+// examples per meaning) the shared Language Bank/rule-tab editor didn't
+// have until now.
+function createLbEditExampleRow(text){
+  const wrap = document.createElement("div");
+  wrap.className = "lb-edit-example-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "lb-edit-example-input";
+  input.autocomplete = "off";
+  input.value = text || "";
+  wrap.appendChild(input);
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "vocab-edit-small-btn lb-edit-remove-example-btn";
+  removeBtn.textContent = "Remove";
+  wrap.appendChild(removeBtn);
+  return wrap;
+}
+
+// One meaning row: a meaning/usage textarea plus its own unlimited list
+// of example rows. Reuses the exact same .vocab-edit-meaning/
+// .vocab-edit-meaning-label/.vocab-edit-small-btn visual language as
+// the Vocabulary editor's meaning rows (createVocabEditMeaningRow) —
+// same card, just without the part-of-speech grouping these entries
+// don't have.
+function createLbEditMeaningRow(sense){
+  const s = sense || {};
+  const row = document.createElement("div");
+  row.className = "vocab-edit-meaning lb-edit-meaning";
+
+  const label = document.createElement("div");
+  label.className = "vocab-edit-meaning-label lb-edit-meaning-label";
+  label.textContent = "Meaning";
+  row.appendChild(label);
+
+  row.appendChild(makeLabeledField("label", "Meaning / rule & usage"));
+  const useField = document.createElement("textarea");
+  useField.className = "lb-edit-meaning-use";
+  useField.rows = 2;
+  useField.value = s.use || "";
+  row.appendChild(useField);
+
+  row.appendChild(makeLabeledField("label", "Example sentences"));
+  const examplesContainer = document.createElement("div");
+  examplesContainer.className = "lb-edit-examples";
+  const initialExamples = (s.examples && s.examples.length) ? s.examples : [""];
+  initialExamples.forEach(ex=> examplesContainer.appendChild(createLbEditExampleRow(ex)));
+  row.appendChild(examplesContainer);
+
+  const addExampleBtn = document.createElement("button");
+  addExampleBtn.type = "button";
+  addExampleBtn.className = "add-btn secondary lb-edit-add-example-btn";
+  addExampleBtn.textContent = "+ Add Example";
+  row.appendChild(addExampleBtn);
+
+  const removeMeaningBtn = document.createElement("button");
+  removeMeaningBtn.type = "button";
+  removeMeaningBtn.className = "vocab-edit-small-btn lb-edit-remove-meaning-btn";
+  removeMeaningBtn.textContent = "🗑 Remove this meaning";
+  row.appendChild(removeMeaningBtn);
+
+  return row;
+}
+
+function renumberLbEditMeanings(container){
+  container.querySelectorAll(".lb-edit-meaning").forEach((row, i)=>{
+    row.querySelector(".lb-edit-meaning-label").textContent = "Meaning " + (i + 1);
+  });
+}
+
+// One delegated listener for the whole flat meanings list — same
+// reasoning as wireVocabEditGroupEvents (add/remove buttons are created
+// dynamically, so re-binding per row would risk losing focus/typed text
+// in unrelated rows on every click).
+function wireLbEditGroupEvents(container){
+  container.addEventListener("click", (e)=>{
+    const addExampleBtn = e.target.closest(".lb-edit-add-example-btn");
+    if(addExampleBtn){
+      addExampleBtn.closest(".lb-edit-meaning").querySelector(".lb-edit-examples").appendChild(createLbEditExampleRow());
+      return;
+    }
+    const removeExampleBtn = e.target.closest(".lb-edit-remove-example-btn");
+    if(removeExampleBtn){
+      removeExampleBtn.closest(".lb-edit-example-row").remove();
+      return;
+    }
+    const removeMeaningBtn = e.target.closest(".lb-edit-remove-meaning-btn");
+    if(removeMeaningBtn){
+      removeMeaningBtn.closest(".lb-edit-meaning").remove();
+      renumberLbEditMeanings(container);
+    }
+  });
+}
+
 function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
-  const currentUse = (item.senses[0] && item.senses[0].use) || "";
-  const currentExample = (item.senses[0] && item.senses[0].examples && item.senses[0].examples[0]) || "";
   // The category dropdown only ever offers to MOVE an entry between the
   // Language Bank's own 5 sub-categories — none of that switcher UI (or
   // its Firestore sync field) exists for the 6 standalone rule tabs, so
@@ -40361,10 +40477,10 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
     <div class="section-label">Editing this entry</div>
     <label class="note" style="display:block;margin-bottom:4px;">Word / phrase</label>
     <input type="text" id="lbEditWord" autocomplete="off">
-    <label class="note" style="display:block;margin-bottom:4px;">Meaning / rule &amp; usage</label>
-    <textarea id="lbEditUse" rows="2"></textarea>
-    <label class="note" style="display:block;margin-bottom:4px;">Example sentence</label>
-    <input type="text" id="lbEditExample" autocomplete="off">
+    <div class="section-label">Meanings</div>
+    <p class="note" style="margin:-4px 0 8px;">Every meaning and every example is preserved — add or remove as needed. Nothing here is silently dropped on save.</p>
+    <div id="lbEditMeanings"></div>
+    <button id="lbEditAddMeaningBtn" type="button" class="add-btn secondary" style="margin-bottom:12px;">+ Add another meaning</button>
     <label class="note" style="display:block;margin-bottom:4px;">Synonyms (comma-separated)</label>
     <input type="text" id="lbEditSyn" autocomplete="off">
     <label class="note" style="display:block;margin-bottom:4px;">Antonyms (comma-separated)</label>
@@ -40377,11 +40493,22 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
   `;
 
   document.getElementById("lbEditWord").value = item.w;
-  document.getElementById("lbEditUse").value = currentUse;
-  document.getElementById("lbEditExample").value = currentExample;
   document.getElementById("lbEditSyn").value = (item.syn || []).join(", ");
   document.getElementById("lbEditAnt").value = (item.ant || []).join(", ");
   document.getElementById("lbEditCategory").value = categoryKey;
+
+  const meaningsContainer = document.getElementById("lbEditMeanings");
+  const initialSenses = (item.senses && item.senses.length) ? item.senses : [{}];
+  initialSenses.forEach(s=> meaningsContainer.appendChild(createLbEditMeaningRow(s)));
+  renumberLbEditMeanings(meaningsContainer);
+  wireLbEditGroupEvents(meaningsContainer);
+
+  document.getElementById("lbEditAddMeaningBtn").addEventListener("click", ()=>{
+    const row = createLbEditMeaningRow();
+    meaningsContainer.appendChild(row);
+    renumberLbEditMeanings(meaningsContainer);
+    row.querySelector(".lb-edit-meaning-use").focus();
+  });
 
   document.getElementById("lbEditCancelBtn").addEventListener("click", ()=>{
     renderRuleEntry(item, entryEl, tagLabel, categoryKey);
@@ -40389,7 +40516,25 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
   document.getElementById("lbEditSaveBtn").addEventListener("click", ()=>{
     saveLanguageBankEdit(categoryKey, item, entryEl);
   });
-  bindEnterToClick(["lbEditWord", "lbEditExample", "lbEditSyn", "lbEditAnt"], "lbEditSaveBtn");
+  bindEnterToClick(["lbEditWord", "lbEditSyn", "lbEditAnt"], "lbEditSaveBtn");
+}
+
+// Walks the meaning rows in DOM order and reconstructs the full
+// senses[] array — every meaning, each with every example, in the
+// order shown. A meaning left blank (e.g. added then not filled in) is
+// skipped rather than saved as an empty definition; same reasoning as
+// collectVocabEditSenses().
+function collectLbEditSenses(){
+  const senses = [];
+  document.querySelectorAll("#lbEditMeanings .lb-edit-meaning").forEach(row=>{
+    const useText = row.querySelector(".lb-edit-meaning-use").value.trim();
+    if(!useText) return;
+    const examples = Array.from(row.querySelectorAll(".lb-edit-example-input"))
+      .map(inp=> inp.value.trim())
+      .filter(Boolean);
+    senses.push({ use: useText, examples: examples });
+  });
+  return senses;
 }
 
 async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
@@ -40406,15 +40551,14 @@ async function saveLanguageBankEdit(categoryKey, originalItem, entryEl){
     statusEl.className = "add-status error";
     return;
   }
-  const newUse = document.getElementById("lbEditUse").value.trim();
-  const newExample = document.getElementById("lbEditExample").value.trim();
+  const newSenses = collectLbEditSenses();
   const newSyn = document.getElementById("lbEditSyn").value.split(",").map(s=>s.trim()).filter(Boolean);
   const newAnt = document.getElementById("lbEditAnt").value.split(",").map(s=>s.trim()).filter(Boolean);
   const newCategoryKey = document.getElementById("lbEditCategory").value;
 
   const updatedEntry = {
     w: newWord,
-    senses: newUse ? [{ use: newUse, examples: newExample ? [newExample] : [] }] : [],
+    senses: newSenses,
     syn: newSyn,
     ant: newAnt,
     mistake: originalItem.mistake || null,
@@ -41933,6 +42077,145 @@ function addVerbEntry(group, entry, options){
   return item;
 }
 
+/* =========================================================
+   VERBS TAB — direct "Look Up & Add" (panel-verbs' own #verbAddBox),
+   separate from the Vocab-tab-triggered flag flow above
+   (renderVerbFlagPrompt/renderVerbAddForm/saveVerbFromFlagForm target
+   #verbFlagArea on the VOCAB panel and finish with vocab-tab-specific
+   messaging) — this one targets #verbAddArea on the Verbs panel itself
+   and finishes by navigating within Verbs, so a user sitting on the
+   Verbs tab has a way to add a word without first going through Vocab.
+   Same "never guess a conjugation" rule: the online lookup here is only
+   used to confirm the word is real and preview its meaning before
+   asking for all five forms by hand.
+========================================================= */
+
+function hideVerbAddArea(){
+  const areaEl = document.getElementById("verbAddArea");
+  areaEl.style.display = "none";
+  areaEl.innerHTML = "";
+  areaEl.className = "add-status";
+}
+
+function renderVerbTabAddForm(word, previewNote){
+  const areaEl = document.getElementById("verbAddArea");
+  areaEl.style.display = "block";
+  areaEl.className = "add-status";
+  areaEl.innerHTML = `
+    ${previewNote ? `<p class="note" style="margin-bottom:8px;">${previewNote}</p>` : ""}
+    <div class="section-label">Add "${word}" to Verbs</div>
+    <p class="note" style="margin-bottom:8px;">Type every form yourself — nothing is guessed automatically, so irregular verbs stay correct.</p>
+    <label class="note" style="display:block;margin-bottom:4px;">Verb type</label>
+    <div class="seg" id="verbTabAddTypeSeg" style="margin-bottom:8px;">
+      <button class="active" data-val="regular">Regular</button>
+      <button data-val="irregular">Irregular</button>
+    </div>
+    <label class="note" style="display:block;margin-bottom:4px;">Base Form</label>
+    <input type="text" id="verbTabFormBase" autocomplete="off" value="${word}">
+    <label class="note" style="display:block;margin-bottom:4px;">3rd Person Singular (he/she/it)</label>
+    <input type="text" id="verbTabFormS" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Past Tense</label>
+    <input type="text" id="verbTabFormPast" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Past Participle</label>
+    <input type="text" id="verbTabFormPP" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Present Participle / -ing Form</label>
+    <input type="text" id="verbTabFormIng" autocomplete="off">
+    <button id="verbTabAddSaveBtn" class="add-btn">Save to Verbs</button>
+    <button id="verbTabAddCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="verbTabAddStatus" class="add-status"></div>
+  `;
+  document.querySelectorAll("#verbTabAddTypeSeg button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      document.querySelectorAll("#verbTabAddTypeSeg button").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+  document.getElementById("verbTabAddCancelBtn").addEventListener("click", hideVerbAddArea);
+  document.getElementById("verbTabAddSaveBtn").addEventListener("click", saveVerbTabAddForm);
+  bindEnterToClick(["verbTabFormBase", "verbTabFormS", "verbTabFormPast", "verbTabFormPP", "verbTabFormIng"], "verbTabAddSaveBtn");
+}
+
+async function saveVerbTabAddForm(){
+  const statusEl = document.getElementById("verbTabAddStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const group = document.querySelector("#verbTabAddTypeSeg button.active").dataset.val;
+  const base = document.getElementById("verbTabFormBase").value.trim();
+  const s = document.getElementById("verbTabFormS").value.trim();
+  const past = document.getElementById("verbTabFormPast").value.trim();
+  const pp = document.getElementById("verbTabFormPP").value.trim();
+  const ing = document.getElementById("verbTabFormIng").value.trim();
+
+  if(!base || !s || !past || !pp || !ing){
+    statusEl.textContent = "Please fill in all five forms.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  if(isKnownVerb(base)){
+    statusEl.textContent = `"${base}" is already in Verbs.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const entry = { w: base, s: s, ing: ing, past: past, pp: pp, obj: "", syn: [], ant: [], source: "online" };
+  const item = addVerbEntry(group, entry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
+  hideVerbAddArea();
+  document.getElementById("verbAddInput").value = "";
+  document.getElementById("verbAddStatus").textContent = `✅ "${base}" has been added to Verbs (${group}).`;
+  document.getElementById("verbAddStatus").className = "add-status success";
+  if(item) item.action();
+}
+
+async function addVerbEntryFromInput(){
+  const statusEl = document.getElementById("verbAddStatus");
+  const input = document.getElementById("verbAddInput");
+  const btn = document.getElementById("verbAddBtn");
+  hideVerbAddArea();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const text = input.value.trim();
+  if(!text){
+    statusEl.textContent = "Please enter a verb first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  if(isKnownVerb(text)){
+    const existing = wordIndexMap.get(normalizeWordKey(text));
+    statusEl.textContent = `"${text}" is already in the database — opening it.`;
+    statusEl.className = "add-status";
+    if(existing) navigateToEntry(existing);
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.textContent = "Looking it up online…";
+  statusEl.className = "add-status";
+
+  const result = await LookupServiceInstance.lookup(text, {cache: onlineLookupCache});
+
+  btn.disabled = false;
+  statusEl.textContent = "";
+  statusEl.className = "add-status";
+
+  const previewNote = result
+    ? `🌐 Found online: ${(result.senses[0] && result.senses[0].use) || "a definition was found, but has no preview text."}`
+    : `Couldn't find "${text}" online — you can still add it manually below.`;
+  renderVerbTabAddForm(text, previewNote);
+}
+
+document.getElementById("verbAddBtn").addEventListener("click", addVerbEntryFromInput);
+document.getElementById("verbAddInput").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") addVerbEntryFromInput();
+});
+
 const customVerbsCacheRestorePromise = VocabCache.getAllCustomVerbs({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=>{
     const group = (entry.group === "irregular") ? "irregular" : "regular";
@@ -42265,7 +42548,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addRuleEntryFromInput, addRuleEntryManualFromInput,
   addPrepEntry, addArticleEntry, addModalEntry, addCapitalEntry, addOrderEntry, addQaRuleEntry,
   ruleTabsCacheRestorePromise, addVocabEntryFromInput,
-  LookupServiceInstance, TranslationServiceInstance
+  LookupServiceInstance, TranslationServiceInstance,
+  createLbEditMeaningRow, createLbEditExampleRow, collectLbEditSenses,
+  renumberLbEditMeanings, wireLbEditGroupEvents,
+  addVerbEntryFromInput, renderVerbTabAddForm, saveVerbTabAddForm, hideVerbAddArea
 };
 </script>
 <script>

@@ -167,8 +167,8 @@ describe("Edit", () => {
     document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
 
     expect(document.getElementById("lbEditWord").value).toBe(SAMPLE_IDIOM.w);
-    expect(document.getElementById("lbEditUse").value).toBe(SAMPLE_IDIOM.senses[0].use);
-    expect(document.getElementById("lbEditExample").value).toBe(SAMPLE_IDIOM.senses[0].examples[0]);
+    expect(document.querySelector("#lbEditMeanings .lb-edit-meaning-use").value).toBe(SAMPLE_IDIOM.senses[0].use);
+    expect(document.querySelector("#lbEditMeanings .lb-edit-example-input").value).toBe(SAMPLE_IDIOM.senses[0].examples[0]);
     expect(document.getElementById("lbEditSyn").value).toBe("try it out");
     expect(document.getElementById("lbEditCategory").value).toBe("idioms");
   });
@@ -197,8 +197,8 @@ describe("Edit", () => {
     document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
 
     document.getElementById("lbEditWord").value = "test the waters carefully";
-    document.getElementById("lbEditUse").value = "(idiom) A more careful version of the original meaning.";
-    document.getElementById("lbEditExample").value = "He tested the waters carefully before investing.";
+    document.querySelector("#lbEditMeanings .lb-edit-meaning-use").value = "(idiom) A more careful version of the original meaning.";
+    document.querySelector("#lbEditMeanings .lb-edit-example-input").value = "He tested the waters carefully before investing.";
     document.getElementById("lbEditSyn").value = "feel it out, sound it out";
     document.getElementById("lbEditAnt").value = "dive in headfirst";
     document.getElementById("lbEditSaveBtn").click();
@@ -212,6 +212,129 @@ describe("Edit", () => {
     expect(updated.syn).toEqual(["feel it out", "sound it out"]);
     expect(updated.ant).toEqual(["dive in headfirst"]);
     expect(document.getElementById("idiomsEntry").querySelector(".headword").textContent).toBe("test the waters carefully");
+  });
+
+  it("pre-fills one meaning row per existing sense, and one example row per existing example, not just the first of each", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const multiSenseIdiom = {
+      w: "break the ice",
+      senses: [
+        { use: "(idiom) To ease tension in a social situation.", examples: ["He told a joke to break the ice.", "Introductions help break the ice."] },
+        { use: "(idiom) To be the first to do something.", examples: ["She broke the ice by asking the first question."] }
+      ],
+      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+    };
+    const entry = { ...multiSenseIdiom, w: "not just the first meaning" };
+    hooks.addIdiomEntry(entry, { persist: false });
+    document.getElementById("idiomsSelect").value = entry.w;
+    document.getElementById("idiomsSelect").dispatchEvent(new window.Event("change"));
+
+    document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
+
+    const meaningRows = document.querySelectorAll("#lbEditMeanings .lb-edit-meaning");
+    expect(meaningRows).toHaveLength(2);
+    expect(meaningRows[0].querySelector(".lb-edit-meaning-use").value).toBe(entry.senses[0].use);
+    expect(meaningRows[0].querySelectorAll(".lb-edit-example-input")).toHaveLength(2);
+    expect(meaningRows[0].querySelectorAll(".lb-edit-example-input")[0].value).toBe(entry.senses[0].examples[0]);
+    expect(meaningRows[0].querySelectorAll(".lb-edit-example-input")[1].value).toBe(entry.senses[0].examples[1]);
+    expect(meaningRows[1].querySelector(".lb-edit-meaning-use").value).toBe(entry.senses[1].use);
+    expect(meaningRows[1].querySelectorAll(".lb-edit-example-input")).toHaveLength(1);
+  });
+
+  it("'+ Add another meaning' adds a new blank meaning row that's saved alongside the existing ones", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addIdiomEntry(SAMPLE_IDIOM, { persist: false });
+    document.getElementById("idiomsSelect").value = SAMPLE_IDIOM.w;
+    document.getElementById("idiomsSelect").dispatchEvent(new window.Event("change"));
+    document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
+
+    document.getElementById("lbEditAddMeaningBtn").click();
+    const meaningRows = document.querySelectorAll("#lbEditMeanings .lb-edit-meaning");
+    expect(meaningRows).toHaveLength(2);
+    meaningRows[1].querySelector(".lb-edit-meaning-use").value = "(idiom) A second, unrelated meaning.";
+    meaningRows[1].querySelector(".lb-edit-example-input").value = "An example for the second meaning.";
+
+    document.getElementById("lbEditSaveBtn").click();
+    await wait(30);
+
+    const updated = hooks.idiomsData.find((p) => p.w === SAMPLE_IDIOM.w);
+    expect(updated.senses).toHaveLength(2);
+    expect(updated.senses[1].use).toBe("(idiom) A second, unrelated meaning.");
+    expect(updated.senses[1].examples).toEqual(["An example for the second meaning."]);
+  });
+
+  it("'+ Add Example' within a meaning adds another example saved alongside the first", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addIdiomEntry(SAMPLE_IDIOM, { persist: false });
+    document.getElementById("idiomsSelect").value = SAMPLE_IDIOM.w;
+    document.getElementById("idiomsSelect").dispatchEvent(new window.Event("change"));
+    document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
+
+    const meaningRow = document.querySelector("#lbEditMeanings .lb-edit-meaning");
+    meaningRow.querySelector(".lb-edit-add-example-btn").click();
+    const exampleInputs = meaningRow.querySelectorAll(".lb-edit-example-input");
+    expect(exampleInputs).toHaveLength(2);
+    exampleInputs[1].value = "A second example sentence.";
+
+    document.getElementById("lbEditSaveBtn").click();
+    await wait(30);
+
+    const updated = hooks.idiomsData.find((p) => p.w === SAMPLE_IDIOM.w);
+    expect(updated.senses[0].examples).toEqual([SAMPLE_IDIOM.senses[0].examples[0], "A second example sentence."]);
+  });
+
+  it("removing one meaning removes only that meaning, leaving the others intact", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const entry = {
+      w: "two meanings entry",
+      senses: [
+        { use: "(idiom) First meaning.", examples: ["First example."] },
+        { use: "(idiom) Second meaning.", examples: ["Second example."] }
+      ],
+      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+    };
+    hooks.addIdiomEntry(entry, { persist: false });
+    document.getElementById("idiomsSelect").value = entry.w;
+    document.getElementById("idiomsSelect").dispatchEvent(new window.Event("change"));
+    document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
+
+    document.querySelectorAll("#lbEditMeanings .lb-edit-meaning")[0].querySelector(".lb-edit-remove-meaning-btn").click();
+    expect(document.querySelectorAll("#lbEditMeanings .lb-edit-meaning")).toHaveLength(1);
+
+    document.getElementById("lbEditSaveBtn").click();
+    await wait(30);
+
+    const updated = hooks.idiomsData.find((p) => p.w === entry.w);
+    expect(updated.senses).toHaveLength(1);
+    expect(updated.senses[0].use).toBe("(idiom) Second meaning.");
+  });
+
+  it("removing one example from a meaning with several leaves the rest intact", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const entry = {
+      w: "multi example entry",
+      senses: [{ use: "(idiom) One meaning.", examples: ["Example A.", "Example B.", "Example C."] }],
+      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
+    };
+    hooks.addIdiomEntry(entry, { persist: false });
+    document.getElementById("idiomsSelect").value = entry.w;
+    document.getElementById("idiomsSelect").dispatchEvent(new window.Event("change"));
+    document.getElementById("idiomsEntry").querySelector(".lb-edit-btn").click();
+
+    const exampleRows = document.querySelectorAll("#lbEditMeanings .lb-edit-example-row");
+    expect(exampleRows).toHaveLength(3);
+    exampleRows[1].querySelector(".lb-edit-remove-example-btn").click();
+
+    document.getElementById("lbEditSaveBtn").click();
+    await wait(30);
+
+    const updated = hooks.idiomsData.find((p) => p.w === entry.w);
+    expect(updated.senses[0].examples).toEqual(["Example A.", "Example C."]);
   });
 
   it("moves the entry to a different category when Category is changed", async () => {
@@ -276,7 +399,7 @@ describe("Edit", () => {
 
     window.OwnerMode.lockOwnerMode();
 
-    document.getElementById("lbEditUse").value = "sneaky edit while locked";
+    document.querySelector("#lbEditMeanings .lb-edit-meaning-use").value = "sneaky edit while locked";
     document.getElementById("lbEditSaveBtn").click();
     await wait(20);
 
