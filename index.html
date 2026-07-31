@@ -1490,7 +1490,7 @@
       </div>
       <div class="quick-add-box owner-only" id="basicAdvancedAddBox">
         <div class="section-label">➕ Add a Basic → Advanced Word Pair</div>
-        <p class="note" style="margin-bottom:8px;">No online lookup here — type a basic word and a more advanced word you've researched yourself. An example sentence is optional.</p>
+        <p class="note" style="margin-bottom:8px;">No online lookup here — type a basic word and a more advanced word you've researched yourself. A definition and example(s) for each are optional.</p>
         <input type="text" id="basicAdvancedAddInput" placeholder="e.g. happy" autocomplete="off">
         <button id="basicAdvancedAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
         <div id="basicAdvancedAddStatus" class="add-status"></div>
@@ -1510,7 +1510,7 @@
       </div>
       <div class="quick-add-box owner-only" id="tagalogEnglishAddBox">
         <div class="section-label">➕ Add a Tagalog → English Word Pair</div>
-        <p class="note" style="margin-bottom:8px;">No online lookup here — type a Tagalog word and its English translation you've researched yourself. An example sentence is optional.</p>
+        <p class="note" style="margin-bottom:8px;">No online lookup here — type a Tagalog word and its English translation you've researched yourself. A definition and example(s) for each are optional.</p>
         <input type="text" id="tagalogEnglishAddInput" placeholder="e.g. tiyaga" autocomplete="off">
         <button id="tagalogEnglishAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
         <div id="tagalogEnglishAddStatus" class="add-status"></div>
@@ -1577,10 +1577,12 @@
 
     <div class="quick-add-box owner-only" id="correctionAddBox">
       <div class="section-label">Add to my correction log</div>
-      <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
+      <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version. File it under any existing Fixes category (e.g. you researched more on subject-verb agreement) so it shows up right there, or leave it in your general log below.</p>
+      <label class="note" style="display:block;margin-bottom:4px;">File under</label>
+      <select id="qaCategorySelect"></select>
       <input type="text" id="qaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
       <input type="text" id="qaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
-      <input type="text" id="qaWhyInput" placeholder="Why (optional, e.g. subject-verb agreement)" autocomplete="off">
+      <input type="text" id="qaWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
       <button id="qaAddBtn" class="add-btn">+ Add to my log</button>
       <button id="qaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
       <div id="qaAddStatus" class="add-status"></div>
@@ -6088,15 +6090,23 @@ function personalEntryToSense(entry){
   return CorrectionLog.personalEntryToSense(entry);
 }
 
-// Capture the 30 built-in senses ONCE, before any personal entries are
-// merged in — this is what makes editing/deleting safe: every rebuild
-// starts fresh from these 30 plus whatever is currently in storage.
+// Capture EVERY Fixes-tab category's built-in senses ONCE, before any
+// personal entries are merged in — this is what makes editing/deleting
+// safe: every rebuild starts fresh from a category's own built-ins plus
+// whatever's currently in storage FOR THAT CATEGORY. Originally this only
+// captured the one catch-all "my correction log" entry; now a personal
+// correction can be filed under any existing category (e.g. "subject-verb
+// agreement") and shows up right there instead of only in the general log.
 const CORRECTION_LOG_ENTRY = mistakeData.find(m => m.w === "my correction log (personal history)");
-const BUILTIN_LOG_SENSES = CORRECTION_LOG_ENTRY.senses.slice();
+const BUILTIN_MISTAKE_SENSES = new Map(mistakeData.map(m => [m.w, m.senses.slice()]));
 
 function rebuildCorrectionLog(){
   const saved = loadPersonalCorrections();
-  CORRECTION_LOG_ENTRY.senses = CorrectionLog.buildCorrectionSenses(BUILTIN_LOG_SENSES, saved);
+  const grouped = CorrectionLog.groupCorrectionsByCategory(saved, CORRECTION_LOG_ENTRY.w);
+  mistakeData.forEach(m=>{
+    const builtin = BUILTIN_MISTAKE_SENSES.get(m.w) || [];
+    m.senses = CorrectionLog.buildCorrectionSenses(builtin, grouped[m.w] || []);
+  });
 }
 rebuildCorrectionLog();
 
@@ -39593,14 +39603,14 @@ document.addEventListener("click", (e)=>{
 });
 
 /* Personal correction log — Add, Edit, Delete, Cancel.
-   Every action rebuilds the log entry's senses fresh from
-   (30 built-in) + (whatever's currently in localStorage), so the
-   displayed list always matches exactly what's saved. */
+   Every action rebuilds EVERY Fixes category's senses fresh from
+   (its own built-ins) + (whatever's currently saved for it), so whichever
+   category happens to be on screen — the general log OR a specific one
+   like "subject-verb agreement" — always reflects exactly what's saved. */
 function refreshMistakeUI(){
   const mistakeSelect = document.getElementById("mistakeSelect");
-  if(mistakeSelect.value === CORRECTION_LOG_ENTRY.w){
-    renderRuleEntry(CORRECTION_LOG_ENTRY, document.getElementById("mistakeEntry"), "Sentence Error");
-  }
+  const item = mistakeData.find(m => m.w === mistakeSelect.value);
+  if(item) renderRuleEntry(item, document.getElementById("mistakeEntry"), "Sentence Error");
 }
 
 /* =========================================================
@@ -39751,10 +39761,30 @@ document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
 
 updateOwnerModeUI();
 
+// "File under" — the general correction log pinned first as the default
+// option (so a plain Add keeps landing exactly where it always did),
+// followed by every OTHER Fixes-tab category alphabetically. Populated
+// once at load since mistakeData's category list is fixed and never
+// grows at runtime.
+const qaCategorySelectEl = document.getElementById("qaCategorySelect");
+(function populateQaCategorySelect(){
+  const generalOpt = document.createElement("option");
+  generalOpt.value = CORRECTION_LOG_ENTRY.w;
+  generalOpt.textContent = "General — My Correction Log (default)";
+  qaCategorySelectEl.appendChild(generalOpt);
+  sortedByLabel(mistakeData.filter(m=> m.w !== CORRECTION_LOG_ENTRY.w), m=>m.w).forEach(m=>{
+    const opt = document.createElement("option");
+    opt.value = m.w;
+    opt.textContent = m.w;
+    qaCategorySelectEl.appendChild(opt);
+  });
+})();
+
 function resetQuickAddForm(){
   document.getElementById("qaWrongInput").value = "";
   document.getElementById("qaRightInput").value = "";
   document.getElementById("qaWhyInput").value = "";
+  qaCategorySelectEl.value = CORRECTION_LOG_ENTRY.w;
   document.getElementById("qaAddBtn").textContent = "+ Add to my log";
   delete document.getElementById("qaAddBtn").dataset.editingId;
   document.getElementById("qaCancelEditBtn").classList.remove("show");
@@ -39775,6 +39805,7 @@ document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
   const wrong = wrongEl.value.trim();
   const right = rightEl.value.trim();
   const why = whyEl.value.trim();
+  const category = qaCategorySelectEl.value || CORRECTION_LOG_ENTRY.w;
 
   if(!wrong || !right){
     statusEl.textContent = "Please fill in both the wrong and corrected versions.";
@@ -39793,15 +39824,16 @@ document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
       entry.wrong = wrong;
       entry.right = right;
       entry.why = why;
+      entry.category = category;
     }
     savePersonalCorrections(saved);
     statusText = "Updated!";
     statusOk = true;
   } else {
-    saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why });
+    saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why, category: category });
     const localOk = savePersonalCorrections(saved);
     statusText = localOk
-      ? "Saved! This entry is now permanent in this file — check the dropdown above."
+      ? `Saved under "${category}"! This entry is now permanent in this file — check the dropdown above.`
       : "Added for this session, but your browser blocked permanent saving.";
     statusOk = localOk;
   }
@@ -39856,6 +39888,7 @@ document.addEventListener("click", async (e)=>{
       document.getElementById("qaWrongInput").value = entry.wrong;
       document.getElementById("qaRightInput").value = entry.right;
       document.getElementById("qaWhyInput").value = entry.why || "";
+      qaCategorySelectEl.value = entry.category || CORRECTION_LOG_ENTRY.w;
       const addBtn = document.getElementById("qaAddBtn");
       addBtn.textContent = "Update this entry";
       addBtn.dataset.editingId = id;
@@ -43819,6 +43852,33 @@ document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
   activateWordBankCategory(btn.dataset.val);
 });
 
+// Shared by both Word Bank categories — renders ONE side of a pair
+// (a headword, an optional owner-typed definition, and an optional list
+// of examples) using the exact same visual language as every other entry
+// type (.headword-row, .section-label, .sense/.ex), the same two-blocks-
+// with-a-divider shape Distinctions Words uses for its own word1/word2
+// pairs (see renderDistinctionWordBlock). Examples come in as an array —
+// each line the Owner typed into one textarea, split on save — and are
+// numbered exactly like every other module's example list.
+function renderWordBankSide(label, def, examples){
+  const defHtml = def ? `
+    <div class="section-label">Definition</div>
+    <p class="note" style="margin:0 0 8px;">${def}</p>
+  ` : "";
+  const examplesHtml = (examples && examples.length) ? `
+    <div class="section-label">Examples</div>
+    ${examples.map((ex,i)=>`<div class="sense"><span class="num">${i+1}</span><div class="body"><div class="ex">${ex}</div></div></div>`).join("")}
+  ` : "";
+  return `
+    <div class="headword-row">
+      <span class="headword" style="font-size:22px;">${label}</span>
+      ${makeListenButtonHtml()}
+    </div>
+    ${defHtml}
+    ${examplesHtml}
+  `;
+}
+
 const basicAdvancedSelect = document.getElementById("basicAdvancedSelect");
 const basicAdvancedEntryEl = document.getElementById("basicAdvancedEntry");
 
@@ -43828,13 +43888,13 @@ function isKnownBasicAdvanced(basic){
 
 function renderBasicAdvancedPair(entry){
   basicAdvancedEntryEl.innerHTML = `
-    <div class="headword-row">
-      <span class="headword">${entry.basic}</span>
-      <span class="tag">→</span>
-      <span class="headword">${entry.advanced}</span>
-    </div>
-    ${entry.example ? `<div class="section-label">Example</div><div class="example-line">${entry.example}</div>` : ""}
+    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples)}
+    <div class="distinction-divider"><span>→</span></div>
+    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples)}
   `;
+  const listenBtns = basicAdvancedEntryEl.querySelectorAll(".listen-btn");
+  if(listenBtns[0]) listenBtns[0].addEventListener("click", ()=> speakText(entry.basic));
+  if(listenBtns[1]) listenBtns[1].addEventListener("click", ()=> speakText(entry.advanced));
 }
 
 function renderBasicAdvancedSelected(){
@@ -43874,14 +43934,20 @@ function addBasicAdvancedEntry(entry, options){
 function renderBasicAdvancedAddForm(basic){
   openLookupModal({
     title: `Add "${basic}" to Word Bank`,
-    subtitleHtml: "No online lookup here — type both words yourself. An example sentence is optional.",
+    subtitleHtml: "No online lookup here — type both words yourself. A definition and example(s) for each are optional.",
     bodyHtml: `
       <label class="note" style="display:block;margin-bottom:4px;">Basic word</label>
       <input type="text" id="basicAdvancedFormBasic" autocomplete="off" value="${basic}">
+      <label class="note" style="display:block;margin-bottom:4px;">Basic word — definition (optional)</label>
+      <textarea id="basicAdvancedFormBasicDef" rows="2"></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">Basic word — example(s) (optional, one per line)</label>
+      <textarea id="basicAdvancedFormBasicExample" rows="2"></textarea>
       <label class="note" style="display:block;margin-bottom:4px;">Advanced word</label>
       <input type="text" id="basicAdvancedFormAdvanced" autocomplete="off">
-      <label class="note" style="display:block;margin-bottom:4px;">Example sentence (optional)</label>
-      <textarea id="basicAdvancedFormExample" rows="2"></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">Advanced word — definition (optional)</label>
+      <textarea id="basicAdvancedFormAdvancedDef" rows="2"></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">Advanced word — example(s) (optional, one per line)</label>
+      <textarea id="basicAdvancedFormAdvancedExample" rows="2"></textarea>
       <div id="basicAdvancedAddFormStatus" class="add-status"></div>
     `,
     actions: [
@@ -43900,8 +43966,11 @@ async function saveBasicAdvancedAddForm(){
     return;
   }
   const basic = document.getElementById("basicAdvancedFormBasic").value.trim();
+  const basicDef = document.getElementById("basicAdvancedFormBasicDef").value.trim();
+  const basicExamples = document.getElementById("basicAdvancedFormBasicExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
   const advanced = document.getElementById("basicAdvancedFormAdvanced").value.trim();
-  const example = document.getElementById("basicAdvancedFormExample").value.trim();
+  const advancedDef = document.getElementById("basicAdvancedFormAdvancedDef").value.trim();
+  const advancedExamples = document.getElementById("basicAdvancedFormAdvancedExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
 
   if(!basic || !advanced){
     statusEl.textContent = "Please fill in both the basic and advanced word.";
@@ -43914,7 +43983,7 @@ async function saveBasicAdvancedAddForm(){
     return;
   }
 
-  const entry = { basic: basic, advanced: advanced, example: example || null };
+  const entry = { basic: basic, basicDef: basicDef || null, basicExamples: basicExamples, advanced: advanced, advancedDef: advancedDef || null, advancedExamples: advancedExamples };
   const item = addBasicAdvancedEntry(entry, {persist:true});
   hideLookupModal();
   document.getElementById("basicAdvancedAddInput").value = "";
@@ -43974,13 +44043,13 @@ function isKnownTagalogEnglish(tagalog){
 
 function renderTagalogEnglishPair(entry){
   tagalogEnglishEntryEl.innerHTML = `
-    <div class="headword-row">
-      <span class="headword">${entry.tagalog}</span>
-      <span class="tag">→</span>
-      <span class="headword">${entry.english}</span>
-    </div>
-    ${entry.example ? `<div class="section-label">Example</div><div class="example-line">${entry.example}</div>` : ""}
+    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples)}
+    <div class="distinction-divider"><span>→</span></div>
+    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples)}
   `;
+  const listenBtns = tagalogEnglishEntryEl.querySelectorAll(".listen-btn");
+  if(listenBtns[0]) listenBtns[0].addEventListener("click", ()=> speakText(entry.tagalog));
+  if(listenBtns[1]) listenBtns[1].addEventListener("click", ()=> speakText(entry.english));
 }
 
 function renderTagalogEnglishSelected(){
@@ -44016,14 +44085,20 @@ function addTagalogEnglishEntry(entry, options){
 function renderTagalogEnglishAddForm(tagalog){
   openLookupModal({
     title: `Add "${tagalog}" to Word Bank`,
-    subtitleHtml: "No online lookup here — type both words yourself. An example sentence is optional.",
+    subtitleHtml: "No online lookup here — type both words yourself. A definition and example(s) for each are optional.",
     bodyHtml: `
       <label class="note" style="display:block;margin-bottom:4px;">Tagalog word</label>
       <input type="text" id="tagalogEnglishFormTagalog" autocomplete="off" value="${tagalog}">
+      <label class="note" style="display:block;margin-bottom:4px;">Tagalog word — definition (optional)</label>
+      <textarea id="tagalogEnglishFormTagalogDef" rows="2"></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">Tagalog word — example(s) (optional, one per line)</label>
+      <textarea id="tagalogEnglishFormTagalogExample" rows="2"></textarea>
       <label class="note" style="display:block;margin-bottom:4px;">English word</label>
       <input type="text" id="tagalogEnglishFormEnglish" autocomplete="off">
-      <label class="note" style="display:block;margin-bottom:4px;">Example sentence (optional)</label>
-      <textarea id="tagalogEnglishFormExample" rows="2"></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">English word — definition (optional)</label>
+      <textarea id="tagalogEnglishFormEnglishDef" rows="2"></textarea>
+      <label class="note" style="display:block;margin-bottom:4px;">English word — example(s) (optional, one per line)</label>
+      <textarea id="tagalogEnglishFormEnglishExample" rows="2"></textarea>
       <div id="tagalogEnglishAddFormStatus" class="add-status"></div>
     `,
     actions: [
@@ -44042,8 +44117,11 @@ async function saveTagalogEnglishAddForm(){
     return;
   }
   const tagalog = document.getElementById("tagalogEnglishFormTagalog").value.trim();
+  const tagalogDef = document.getElementById("tagalogEnglishFormTagalogDef").value.trim();
+  const tagalogExamples = document.getElementById("tagalogEnglishFormTagalogExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
   const english = document.getElementById("tagalogEnglishFormEnglish").value.trim();
-  const example = document.getElementById("tagalogEnglishFormExample").value.trim();
+  const englishDef = document.getElementById("tagalogEnglishFormEnglishDef").value.trim();
+  const englishExamples = document.getElementById("tagalogEnglishFormEnglishExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
 
   if(!tagalog || !english){
     statusEl.textContent = "Please fill in both the Tagalog and English word.";
@@ -44056,7 +44134,7 @@ async function saveTagalogEnglishAddForm(){
     return;
   }
 
-  const entry = { tagalog: tagalog, english: english, example: example || null };
+  const entry = { tagalog: tagalog, tagalogDef: tagalogDef || null, tagalogExamples: tagalogExamples, english: english, englishDef: englishDef || null, englishExamples: englishExamples };
   const item = addTagalogEnglishEntry(entry, {persist:true});
   hideLookupModal();
   document.getElementById("tagalogEnglishAddInput").value = "";
@@ -44362,7 +44440,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   orderData, prepVerbData, mistakeData, qaData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
-  CORRECTION_LOG_ENTRY, BUILTIN_LOG_SENSES,
+  CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,

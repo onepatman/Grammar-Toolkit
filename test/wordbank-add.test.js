@@ -1,10 +1,11 @@
-// Integration tests for the new Word Bank tab (#panel-wordbank) — two
+// Integration tests for the Word Bank tab (#panel-wordbank) — two
 // manual-only categories sharing one tab via a segmented switcher:
 // Basic → Advanced English and Tagalog → English. Same "no online
 // lookup, everything is Owner-typed" shape as Tenses' own "Add my own
-// construction" box (see tenses-add.test.js), since the whole point is
-// letting the Owner type in whatever they've already researched
-// elsewhere, with an optional example sentence.
+// construction" box (see tenses-add.test.js). Each side of a pair gets
+// its own optional definition and example(s), rendered in the same
+// two-blocks-with-a-divider shape Distinctions Words uses for its own
+// word1/word2 pairs (see distinctions.test.js / renderDistinctionEntry).
 import { describe, it, expect } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
@@ -82,9 +83,11 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(document.getElementById("lookupModal").style.display).toBe("flex");
     expect(document.getElementById("basicAdvancedFormBasic").value).toBe("happy");
     expect(document.getElementById("basicAdvancedFormAdvanced").value).toBe("");
+    expect(document.getElementById("basicAdvancedFormBasicDef")).not.toBeNull();
+    expect(document.getElementById("basicAdvancedFormAdvancedDef")).not.toBeNull();
   });
 
-  it("requires both the basic and advanced word before saving — the example stays optional", async () => {
+  it("requires both the basic and advanced word before saving — definition and examples stay optional", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     document.getElementById("basicAdvancedAddInput").value = "happy";
@@ -99,7 +102,7 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
   });
 
-  it("saves a pair without an example (null, not empty string), persists it, and navigates to it", async () => {
+  it("saves a pair with no definition/examples (null/empty array, not omitted), persists it, and navigates to it", async () => {
     const idb = new IDBFactory();
     const { window, hooks } = await loadApp({ indexedDBFactory: idb });
     const document = window.document;
@@ -114,7 +117,10 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     const saved = hooks.basicAdvancedData.find((e) => e.basic === "happy");
     expect(saved).toBeTruthy();
     expect(saved.advanced).toBe("elated");
-    expect(saved.example).toBeNull();
+    expect(saved.basicDef).toBeNull();
+    expect(saved.advancedDef).toBeNull();
+    expect(saved.basicExamples).toEqual([]);
+    expect(saved.advancedExamples).toEqual([]);
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
     expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("has been added to Word Bank");
     expect(document.getElementById("lookupModal").style.display).toBe("none");
@@ -123,27 +129,38 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(stored.advanced).toBe("elated");
   });
 
-  it("saves the optional example sentence when provided", async () => {
+  it("saves an optional definition and multiple example lines per side, and renders both blocks", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     document.getElementById("basicAdvancedAddInput").value = "happy";
     document.getElementById("basicAdvancedAddBtn").click();
     await wait(30);
 
+    document.getElementById("basicAdvancedFormBasicDef").value = "Feeling or showing pleasure.";
+    document.getElementById("basicAdvancedFormBasicExample").value = "She is happy.\nHe looked happy.";
     document.getElementById("basicAdvancedFormAdvanced").value = "elated";
-    document.getElementById("basicAdvancedFormExample").value = "She was elated by the good news.";
+    document.getElementById("basicAdvancedFormAdvancedDef").value = "Extremely happy and excited.";
+    document.getElementById("basicAdvancedFormAdvancedExample").value = "She was elated by the good news.";
     document.getElementById("basicAdvancedAddSaveBtn").click();
     await wait(30);
 
     const saved = hooks.basicAdvancedData.find((e) => e.basic === "happy");
-    expect(saved.example).toBe("She was elated by the good news.");
-    expect(document.getElementById("basicAdvancedEntry").textContent).toContain("She was elated by the good news.");
+    expect(saved.basicDef).toBe("Feeling or showing pleasure.");
+    expect(saved.basicExamples).toEqual(["She is happy.", "He looked happy."]);
+    expect(saved.advancedDef).toBe("Extremely happy and excited.");
+    expect(saved.advancedExamples).toEqual(["She was elated by the good news."]);
+
+    const entryText = document.getElementById("basicAdvancedEntry").textContent;
+    expect(entryText).toContain("Feeling or showing pleasure.");
+    expect(entryText).toContain("He looked happy.");
+    expect(entryText).toContain("Extremely happy and excited.");
+    expect(entryText).toContain("She was elated by the good news.");
   });
 
   it("does not duplicate a basic word already in Word Bank, and opens the existing pair instead", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", example: null }, { persist: false });
+    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] }, { persist: false });
 
     document.getElementById("basicAdvancedAddInput").value = "happy";
     document.getElementById("basicAdvancedAddBtn").click();
@@ -169,7 +186,7 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
   it("a saved pair is findable via global search by its basic word", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", example: null }, { persist: false });
+    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] }, { persist: false });
 
     hooks.runSearchPipeline("happy");
     const labels = Array.from(document.querySelectorAll("#searchResults .search-result-item .label")).map((el) => el.textContent.toLowerCase());
@@ -210,32 +227,39 @@ describe("Word Bank — Tagalog → English (manual-only, no online lookup)", ()
     expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 
-  it("saves a complete pair with an example, persists it, and it survives a reload", async () => {
+  it("saves a complete pair with a definition and example on each side, persists it, and it survives a reload", async () => {
     const idb = new IDBFactory();
     const first = await loadApp({ indexedDBFactory: idb });
     first.window.document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
     first.window.document.getElementById("tagalogEnglishAddBtn").click();
     await wait(30);
 
+    first.window.document.getElementById("tagalogEnglishFormTagalogDef").value = "Katatagan ng loob sa paggawa ng isang bagay.";
+    first.window.document.getElementById("tagalogEnglishFormTagalogExample").value = "Kailangan ng tiyaga para matuto ng bagong wika.";
     first.window.document.getElementById("tagalogEnglishFormEnglish").value = "perseverance";
-    first.window.document.getElementById("tagalogEnglishFormExample").value = "Kailangan ng tiyaga para matuto ng bagong wika.";
+    first.window.document.getElementById("tagalogEnglishFormEnglishDef").value = "Continued effort despite difficulty.";
+    first.window.document.getElementById("tagalogEnglishFormEnglishExample").value = "Perseverance is needed to learn a new language.";
     first.window.document.getElementById("tagalogEnglishAddSaveBtn").click();
     await wait(30);
 
     const saved = first.hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
     expect(saved.english).toBe("perseverance");
-    expect(saved.example).toBe("Kailangan ng tiyaga para matuto ng bagong wika.");
+    expect(saved.tagalogDef).toBe("Katatagan ng loob sa paggawa ng isang bagay.");
+    expect(saved.tagalogExamples).toEqual(["Kailangan ng tiyaga para matuto ng bagong wika."]);
+    expect(saved.englishDef).toBe("Continued effort despite difficulty.");
+    expect(saved.englishExamples).toEqual(["Perseverance is needed to learn a new language."]);
 
     const second = await loadApp({ indexedDBFactory: idb });
     const reloaded = second.hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
     expect(reloaded).toBeTruthy();
     expect(reloaded.english).toBe("perseverance");
+    expect(reloaded.englishDef).toBe("Continued effort despite difficulty.");
   });
 
   it("does not duplicate a Tagalog word already in Word Bank", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    hooks.addTagalogEnglishEntry({ tagalog: "tiyaga", english: "perseverance", example: null }, { persist: false });
+    hooks.addTagalogEnglishEntry({ tagalog: "tiyaga", english: "perseverance", tagalogDef: null, tagalogExamples: [], englishDef: null, englishExamples: [] }, { persist: false });
 
     document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
     document.getElementById("tagalogEnglishAddBtn").click();
