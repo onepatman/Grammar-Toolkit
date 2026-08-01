@@ -81,12 +81,16 @@ describe("locking a device that already has personal corrections", () => {
     // this same session and confirm the edit/delete controls disappear.
     const { window } = await loadApp({ ownerUnlocked: true });
     const document = window.document;
+    // A correction is added to whichever category is currently selected
+    // above — explicitly land on the general log first so this test's
+    // assertions don't depend on which category happens to sort first.
+    document.getElementById("mistakeSelect").value = "my correction log (personal history)";
+    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     document.getElementById("qaWrongInput").value = "He go";
     document.getElementById("qaRightInput").value = "He goes";
     document.getElementById("qaAddBtn").click();
     await wait();
 
-    document.getElementById("mistakeSelect").value = "my correction log (personal history)";
     document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     expect(document.querySelectorAll("#mistakeEntry .edit-correction-btn").length).toBeGreaterThan(0);
 

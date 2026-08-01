@@ -1490,7 +1490,7 @@
       </div>
       <div class="quick-add-box owner-only" id="basicAdvancedAddBox">
         <div class="section-label">➕ Add a Basic → Advanced Word Pair</div>
-        <p class="note" style="margin-bottom:8px;">No online lookup here — type a basic word and a more advanced word you've researched yourself. A definition and example(s) for each are optional.</p>
+        <p class="note" style="margin-bottom:8px;">No online lookup here — type a basic word and a more advanced word you've researched yourself. You can add an optional definition and example(s) for each afterward by editing the saved entry.</p>
         <input type="text" id="basicAdvancedAddInput" placeholder="e.g. happy" autocomplete="off">
         <button id="basicAdvancedAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
         <div id="basicAdvancedAddStatus" class="add-status"></div>
@@ -1510,7 +1510,7 @@
       </div>
       <div class="quick-add-box owner-only" id="tagalogEnglishAddBox">
         <div class="section-label">➕ Add a Tagalog → English Word Pair</div>
-        <p class="note" style="margin-bottom:8px;">No online lookup here — type a Tagalog word and its English translation you've researched yourself. A definition and example(s) for each are optional.</p>
+        <p class="note" style="margin-bottom:8px;">No online lookup here — type a Tagalog word and its English translation you've researched yourself. You can add an optional definition and example(s) for each afterward by editing the saved entry.</p>
         <input type="text" id="tagalogEnglishAddInput" placeholder="e.g. tiyaga" autocomplete="off">
         <button id="tagalogEnglishAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
         <div id="tagalogEnglishAddStatus" class="add-status"></div>
@@ -1576,14 +1576,12 @@
     </div>
 
     <div class="quick-add-box owner-only" id="correctionAddBox">
-      <div class="section-label">Add to my correction log</div>
-      <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version. File it under any existing Fixes category (e.g. you researched more on subject-verb agreement) so it shows up right there, or leave it in your general log below.</p>
-      <label class="note" style="display:block;margin-bottom:4px;">File under</label>
-      <select id="qaCategorySelect"></select>
+      <div class="section-label" id="correctionAddLabel">Add a correction example</div>
+      <p class="note" id="correctionAddNote" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version. This gets added to whichever category is selected above.</p>
       <input type="text" id="qaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
       <input type="text" id="qaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
       <input type="text" id="qaWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
-      <button id="qaAddBtn" class="add-btn">+ Add to my log</button>
+      <button id="qaAddBtn" class="add-btn">+ Add to this category</button>
       <button id="qaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
       <div id="qaAddStatus" class="add-status"></div>
     </div>
@@ -39684,6 +39682,7 @@ document.getElementById("ownerSetPinBtn").addEventListener("click", async ()=>{
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshWordBankUI();
   refreshVocabUI();
 });
 
@@ -39701,6 +39700,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshWordBankUI();
   refreshVocabUI();
 });
 
@@ -39749,6 +39749,7 @@ document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshWordBankUI();
   refreshVocabUI();
 });
 
@@ -39761,31 +39762,23 @@ document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
 
 updateOwnerModeUI();
 
-// "File under" — the general correction log pinned first as the default
-// option (so a plain Add keeps landing exactly where it always did),
-// followed by every OTHER Fixes-tab category alphabetically. Populated
-// once at load since mistakeData's category list is fixed and never
-// grows at runtime.
-const qaCategorySelectEl = document.getElementById("qaCategorySelect");
-(function populateQaCategorySelect(){
-  const generalOpt = document.createElement("option");
-  generalOpt.value = CORRECTION_LOG_ENTRY.w;
-  generalOpt.textContent = "General — My Correction Log (default)";
-  qaCategorySelectEl.appendChild(generalOpt);
-  sortedByLabel(mistakeData.filter(m=> m.w !== CORRECTION_LOG_ENTRY.w), m=>m.w).forEach(m=>{
-    const opt = document.createElement("option");
-    opt.value = m.w;
-    opt.textContent = m.w;
-    qaCategorySelectEl.appendChild(opt);
-  });
-})();
+// No separate category picker here — a correction gets added to
+// whichever category is currently selected in the mistakeSelect dropdown
+// above (same idea as the Language Bank's per-category quick-add boxes,
+// just with one shared box instead of five). The label re-reads that
+// dropdown so it's always obvious where "Add" is about to save to.
+function updateCorrectionAddLabel(){
+  const category = document.getElementById("mistakeSelect").value || CORRECTION_LOG_ENTRY.w;
+  document.getElementById("correctionAddLabel").textContent = `Add a correction to "${category}"`;
+}
+document.getElementById("mistakeSelect").addEventListener("change", updateCorrectionAddLabel);
+updateCorrectionAddLabel();
 
 function resetQuickAddForm(){
   document.getElementById("qaWrongInput").value = "";
   document.getElementById("qaRightInput").value = "";
   document.getElementById("qaWhyInput").value = "";
-  qaCategorySelectEl.value = CORRECTION_LOG_ENTRY.w;
-  document.getElementById("qaAddBtn").textContent = "+ Add to my log";
+  document.getElementById("qaAddBtn").textContent = "+ Add to this category";
   delete document.getElementById("qaAddBtn").dataset.editingId;
   document.getElementById("qaCancelEditBtn").classList.remove("show");
 }
@@ -39805,7 +39798,7 @@ document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
   const wrong = wrongEl.value.trim();
   const right = rightEl.value.trim();
   const why = whyEl.value.trim();
-  const category = qaCategorySelectEl.value || CORRECTION_LOG_ENTRY.w;
+  const category = document.getElementById("mistakeSelect").value || CORRECTION_LOG_ENTRY.w;
 
   if(!wrong || !right){
     statusEl.textContent = "Please fill in both the wrong and corrected versions.";
@@ -39888,7 +39881,6 @@ document.addEventListener("click", async (e)=>{
       document.getElementById("qaWrongInput").value = entry.wrong;
       document.getElementById("qaRightInput").value = entry.right;
       document.getElementById("qaWhyInput").value = entry.why || "";
-      qaCategorySelectEl.value = entry.category || CORRECTION_LOG_ENTRY.w;
       const addBtn = document.getElementById("qaAddBtn");
       addBtn.textContent = "Update this entry";
       addBtn.dataset.editingId = id;
@@ -40657,6 +40649,7 @@ async function signInAsOwner(email, password){
     refreshMistakeUI();
     refreshLanguageBankUI();
     refreshDistinctionsUI();
+    refreshWordBankUI();
     refreshVocabUI();
     const code = localStorage.getItem(SYNC_CODE_KEY);
     if(code) listenToSync(code);
@@ -40677,6 +40670,7 @@ async function signOutOwner(){
   refreshMistakeUI();
   refreshLanguageBankUI();
   refreshDistinctionsUI();
+  refreshWordBankUI();
   refreshVocabUI();
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(code) listenToSync(code);
@@ -42576,6 +42570,7 @@ bindEnterToClick(["distinctionsManualExample1", "distinctionsManualExample2"], "
     refreshMistakeUI();
     refreshLanguageBankUI();
     refreshDistinctionsUI();
+    refreshWordBankUI();
     refreshVocabUI();
     const statusEl = document.getElementById("syncStatus");
     statusEl.textContent = "Connected! Syncing as \"" + savedCode + "\".";
@@ -43886,15 +43881,40 @@ function isKnownBasicAdvanced(basic){
   return !!DuplicateChecker.findByKey(basicAdvancedData, e=>e.basic, basic);
 }
 
+// Edit/Delete are owner-gated the same way Distinctions Words' entries
+// are — no categoryKey plumbing needed here since Word Bank isn't a
+// renderRuleEntry() caller at all, so canManage is just isDeviceUnlocked()
+// directly, mirroring renderDistinctionEntry's own canManage.
 function renderBasicAdvancedPair(entry){
+  const canManage = isDeviceUnlocked();
+  const entryActionsHtml = canManage ? `
+    <div class="entry-actions">
+      <button class="lb-edit-btn">✎ Edit</button>
+      <button class="lb-delete-btn">🗑 Delete</button>
+    </div>` : "";
   basicAdvancedEntryEl.innerHTML = `
     ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples)}
     <div class="distinction-divider"><span>→</span></div>
     ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples)}
+    ${entryActionsHtml}
   `;
   const listenBtns = basicAdvancedEntryEl.querySelectorAll(".listen-btn");
   if(listenBtns[0]) listenBtns[0].addEventListener("click", ()=> speakText(entry.basic));
   if(listenBtns[1]) listenBtns[1].addEventListener("click", ()=> speakText(entry.advanced));
+
+  if(canManage){
+    basicAdvancedEntryEl.querySelector(".lb-edit-btn").addEventListener("click", ()=>{
+      openBasicAdvancedEditForm(entry, basicAdvancedEntryEl);
+    });
+    basicAdvancedEntryEl.querySelector(".lb-delete-btn").addEventListener("click", async ()=>{
+      const confirmed = window.confirm
+        ? window.confirm(`Delete "${entry.basic} → ${entry.advanced}" from your Word Bank? This can't be undone.`)
+        : true;
+      if(!confirmed) return;
+      await deleteBasicAdvancedEntry(entry.basic);
+      renderBasicAdvancedAfterDelete();
+    });
+  }
 }
 
 function renderBasicAdvancedSelected(){
@@ -43902,6 +43922,121 @@ function renderBasicAdvancedSelected(){
   if(entry) renderBasicAdvancedPair(entry);
 }
 basicAdvancedSelect.addEventListener("change", renderBasicAdvancedSelected);
+
+// The definition/example fields live ONLY in this edit form, not the Add
+// form — the Add box (and its modal) is deliberately kept as simple as
+// Distinctions Words' own "type two words" add box; this is where the
+// optional detail gets filled in afterward.
+function openBasicAdvancedEditForm(entry, entryEl){
+  entryEl.innerHTML = `
+    <div class="section-label">Editing this Word Bank entry</div>
+
+    <div class="section-label">Basic word</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="baEditBasic" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Definition (optional)</label>
+    <textarea id="baEditBasicDef" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example(s) (optional, one per line)</label>
+    <textarea id="baEditBasicExample" rows="2"></textarea>
+
+    <div class="section-label">Advanced word</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="baEditAdvanced" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Definition (optional)</label>
+    <textarea id="baEditAdvancedDef" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example(s) (optional, one per line)</label>
+    <textarea id="baEditAdvancedExample" rows="2"></textarea>
+
+    <button id="baEditSaveBtn" class="add-btn">Save changes</button>
+    <button id="baEditCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="baEditStatus" class="add-status"></div>
+  `;
+
+  document.getElementById("baEditBasic").value = entry.basic;
+  document.getElementById("baEditBasicDef").value = entry.basicDef || "";
+  document.getElementById("baEditBasicExample").value = (entry.basicExamples || []).join("\n");
+  document.getElementById("baEditAdvanced").value = entry.advanced;
+  document.getElementById("baEditAdvancedDef").value = entry.advancedDef || "";
+  document.getElementById("baEditAdvancedExample").value = (entry.advancedExamples || []).join("\n");
+
+  document.getElementById("baEditCancelBtn").addEventListener("click", ()=>{
+    renderBasicAdvancedPair(entry);
+  });
+  document.getElementById("baEditSaveBtn").addEventListener("click", ()=>{
+    saveBasicAdvancedEdit(entry, entryEl);
+  });
+  bindEnterToClick(["baEditBasic", "baEditAdvanced"], "baEditSaveBtn");
+}
+
+async function saveBasicAdvancedEdit(originalEntry, entryEl){
+  const statusEl = document.getElementById("baEditStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const newBasic = document.getElementById("baEditBasic").value.trim();
+  const newAdvanced = document.getElementById("baEditAdvanced").value.trim();
+  if(!newBasic || !newAdvanced){
+    statusEl.textContent = "Both the basic and advanced word are required.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const basicDef = document.getElementById("baEditBasicDef").value.trim();
+  const basicExamples = document.getElementById("baEditBasicExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const advancedDef = document.getElementById("baEditAdvancedDef").value.trim();
+  const advancedExamples = document.getElementById("baEditAdvancedExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
+
+  // Remove the OLD entry first — this also makes the duplicate check
+  // below correctly ignore "colliding with itself" when only content
+  // (not the basic word) changed, same reasoning as saveDistinctionEdit.
+  await deleteBasicAdvancedEntry(originalEntry.basic);
+
+  if(isKnownBasicAdvanced(newBasic)){
+    // Genuinely a different, still-existing entry — put the original
+    // back exactly as it was rather than losing it, then refuse.
+    addBasicAdvancedEntry(originalEntry, {persist:false});
+    statusEl.textContent = `"${newBasic}" is already used by another entry in Word Bank — choose a different basic word.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const updatedEntry = { basic: newBasic, basicDef: basicDef || null, basicExamples: basicExamples, advanced: newAdvanced, advancedDef: advancedDef || null, advancedExamples: advancedExamples };
+  const item = addBasicAdvancedEntry(updatedEntry, {persist:true});
+  activateTab("wordbank");
+  activateWordBankCategory("basicAdvanced");
+  item.action();
+}
+
+async function deleteBasicAdvancedEntry(basic){
+  const key = basic.trim().toLowerCase();
+  const idx = basicAdvancedData.findIndex(e=> e.basic.trim().toLowerCase() === key);
+  if(idx === -1) return;
+  basicAdvancedData.splice(idx, 1);
+
+  const existing = wordIndexMap.get(key);
+  if(existing && existing.cat === "Basic → Advanced"){
+    wordIndexMap.delete(key);
+    const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === key && i.cat === "Basic → Advanced");
+    if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
+  }
+
+  const optionEl = Array.from(basicAdvancedSelect.options).find(o=> o.value.trim().toLowerCase() === key);
+  if(optionEl) optionEl.remove();
+
+  await VocabCache.deleteBasicAdvanced(basic, {dbPromise: vocabDbPromise});
+}
+
+function renderBasicAdvancedAfterDelete(){
+  if(basicAdvancedData.length === 0){
+    basicAdvancedSelect.value = "";
+    basicAdvancedEntryEl.innerHTML = `<div class="headword-row"><span class="headword" style="font-size:18px;">Nothing here yet</span></div><p class="note">Add one using the box below.</p>`;
+    return;
+  }
+  const next = basicAdvancedData[0];
+  basicAdvancedSelect.value = next.basic;
+  renderBasicAdvancedPair(next);
+}
 
 // Mirrors addTenseEntry()/addFamilyEntry(): the single choke point for
 // adding an owner-typed Basic→Advanced pair, including its <option> and
@@ -43931,23 +44066,19 @@ function addBasicAdvancedEntry(entry, options){
   return item;
 }
 
+// Deliberately just the two words — same minimal shape as Distinctions
+// Words' own "Word 1 / Word 2" add box. The optional definition/examples
+// are filled in afterward via Edit (see openBasicAdvancedEditForm), not
+// collected here.
 function renderBasicAdvancedAddForm(basic){
   openLookupModal({
     title: `Add "${basic}" to Word Bank`,
-    subtitleHtml: "No online lookup here — type both words yourself. A definition and example(s) for each are optional.",
+    subtitleHtml: "No online lookup here — type both words yourself. You can add an optional definition and example(s) afterward by editing the saved entry.",
     bodyHtml: `
       <label class="note" style="display:block;margin-bottom:4px;">Basic word</label>
       <input type="text" id="basicAdvancedFormBasic" autocomplete="off" value="${basic}">
-      <label class="note" style="display:block;margin-bottom:4px;">Basic word — definition (optional)</label>
-      <textarea id="basicAdvancedFormBasicDef" rows="2"></textarea>
-      <label class="note" style="display:block;margin-bottom:4px;">Basic word — example(s) (optional, one per line)</label>
-      <textarea id="basicAdvancedFormBasicExample" rows="2"></textarea>
       <label class="note" style="display:block;margin-bottom:4px;">Advanced word</label>
       <input type="text" id="basicAdvancedFormAdvanced" autocomplete="off">
-      <label class="note" style="display:block;margin-bottom:4px;">Advanced word — definition (optional)</label>
-      <textarea id="basicAdvancedFormAdvancedDef" rows="2"></textarea>
-      <label class="note" style="display:block;margin-bottom:4px;">Advanced word — example(s) (optional, one per line)</label>
-      <textarea id="basicAdvancedFormAdvancedExample" rows="2"></textarea>
       <div id="basicAdvancedAddFormStatus" class="add-status"></div>
     `,
     actions: [
@@ -43966,11 +44097,7 @@ async function saveBasicAdvancedAddForm(){
     return;
   }
   const basic = document.getElementById("basicAdvancedFormBasic").value.trim();
-  const basicDef = document.getElementById("basicAdvancedFormBasicDef").value.trim();
-  const basicExamples = document.getElementById("basicAdvancedFormBasicExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
   const advanced = document.getElementById("basicAdvancedFormAdvanced").value.trim();
-  const advancedDef = document.getElementById("basicAdvancedFormAdvancedDef").value.trim();
-  const advancedExamples = document.getElementById("basicAdvancedFormAdvancedExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
 
   if(!basic || !advanced){
     statusEl.textContent = "Please fill in both the basic and advanced word.";
@@ -43983,11 +44110,11 @@ async function saveBasicAdvancedAddForm(){
     return;
   }
 
-  const entry = { basic: basic, basicDef: basicDef || null, basicExamples: basicExamples, advanced: advanced, advancedDef: advancedDef || null, advancedExamples: advancedExamples };
+  const entry = { basic: basic, basicDef: null, basicExamples: [], advanced: advanced, advancedDef: null, advancedExamples: [] };
   const item = addBasicAdvancedEntry(entry, {persist:true});
   hideLookupModal();
   document.getElementById("basicAdvancedAddInput").value = "";
-  document.getElementById("basicAdvancedAddStatus").textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank.`;
+  document.getElementById("basicAdvancedAddStatus").textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank. Edit it to add a definition or examples.`;
   document.getElementById("basicAdvancedAddStatus").className = "add-status success";
   if(item) item.action();
 }
@@ -44042,14 +44169,35 @@ function isKnownTagalogEnglish(tagalog){
 }
 
 function renderTagalogEnglishPair(entry){
+  const canManage = isDeviceUnlocked();
+  const entryActionsHtml = canManage ? `
+    <div class="entry-actions">
+      <button class="lb-edit-btn">✎ Edit</button>
+      <button class="lb-delete-btn">🗑 Delete</button>
+    </div>` : "";
   tagalogEnglishEntryEl.innerHTML = `
     ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples)}
     <div class="distinction-divider"><span>→</span></div>
     ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples)}
+    ${entryActionsHtml}
   `;
   const listenBtns = tagalogEnglishEntryEl.querySelectorAll(".listen-btn");
   if(listenBtns[0]) listenBtns[0].addEventListener("click", ()=> speakText(entry.tagalog));
   if(listenBtns[1]) listenBtns[1].addEventListener("click", ()=> speakText(entry.english));
+
+  if(canManage){
+    tagalogEnglishEntryEl.querySelector(".lb-edit-btn").addEventListener("click", ()=>{
+      openTagalogEnglishEditForm(entry, tagalogEnglishEntryEl);
+    });
+    tagalogEnglishEntryEl.querySelector(".lb-delete-btn").addEventListener("click", async ()=>{
+      const confirmed = window.confirm
+        ? window.confirm(`Delete "${entry.tagalog} → ${entry.english}" from your Word Bank? This can't be undone.`)
+        : true;
+      if(!confirmed) return;
+      await deleteTagalogEnglishEntry(entry.tagalog);
+      renderTagalogEnglishAfterDelete();
+    });
+  }
 }
 
 function renderTagalogEnglishSelected(){
@@ -44057,6 +44205,112 @@ function renderTagalogEnglishSelected(){
   if(entry) renderTagalogEnglishPair(entry);
 }
 tagalogEnglishSelect.addEventListener("change", renderTagalogEnglishSelected);
+
+function openTagalogEnglishEditForm(entry, entryEl){
+  entryEl.innerHTML = `
+    <div class="section-label">Editing this Word Bank entry</div>
+
+    <div class="section-label">Tagalog word</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="teEditTagalog" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Definition (optional)</label>
+    <textarea id="teEditTagalogDef" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example(s) (optional, one per line)</label>
+    <textarea id="teEditTagalogExample" rows="2"></textarea>
+
+    <div class="section-label">English word</div>
+    <label class="note" style="display:block;margin-bottom:4px;">Word</label>
+    <input type="text" id="teEditEnglish" autocomplete="off">
+    <label class="note" style="display:block;margin-bottom:4px;">Definition (optional)</label>
+    <textarea id="teEditEnglishDef" rows="2"></textarea>
+    <label class="note" style="display:block;margin-bottom:4px;">Example(s) (optional, one per line)</label>
+    <textarea id="teEditEnglishExample" rows="2"></textarea>
+
+    <button id="teEditSaveBtn" class="add-btn">Save changes</button>
+    <button id="teEditCancelBtn" class="add-btn secondary">Cancel</button>
+    <div id="teEditStatus" class="add-status"></div>
+  `;
+
+  document.getElementById("teEditTagalog").value = entry.tagalog;
+  document.getElementById("teEditTagalogDef").value = entry.tagalogDef || "";
+  document.getElementById("teEditTagalogExample").value = (entry.tagalogExamples || []).join("\n");
+  document.getElementById("teEditEnglish").value = entry.english;
+  document.getElementById("teEditEnglishDef").value = entry.englishDef || "";
+  document.getElementById("teEditEnglishExample").value = (entry.englishExamples || []).join("\n");
+
+  document.getElementById("teEditCancelBtn").addEventListener("click", ()=>{
+    renderTagalogEnglishPair(entry);
+  });
+  document.getElementById("teEditSaveBtn").addEventListener("click", ()=>{
+    saveTagalogEnglishEdit(entry, entryEl);
+  });
+  bindEnterToClick(["teEditTagalog", "teEditEnglish"], "teEditSaveBtn");
+}
+
+async function saveTagalogEnglishEdit(originalEntry, entryEl){
+  const statusEl = document.getElementById("teEditStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const newTagalog = document.getElementById("teEditTagalog").value.trim();
+  const newEnglish = document.getElementById("teEditEnglish").value.trim();
+  if(!newTagalog || !newEnglish){
+    statusEl.textContent = "Both the Tagalog and English word are required.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const tagalogDef = document.getElementById("teEditTagalogDef").value.trim();
+  const tagalogExamples = document.getElementById("teEditTagalogExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const englishDef = document.getElementById("teEditEnglishDef").value.trim();
+  const englishExamples = document.getElementById("teEditEnglishExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
+
+  await deleteTagalogEnglishEntry(originalEntry.tagalog);
+
+  if(isKnownTagalogEnglish(newTagalog)){
+    addTagalogEnglishEntry(originalEntry, {persist:false});
+    statusEl.textContent = `"${newTagalog}" is already used by another entry in Word Bank — choose a different Tagalog word.`;
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const updatedEntry = { tagalog: newTagalog, tagalogDef: tagalogDef || null, tagalogExamples: tagalogExamples, english: newEnglish, englishDef: englishDef || null, englishExamples: englishExamples };
+  const item = addTagalogEnglishEntry(updatedEntry, {persist:true});
+  activateTab("wordbank");
+  activateWordBankCategory("tagalogEnglish");
+  item.action();
+}
+
+async function deleteTagalogEnglishEntry(tagalog){
+  const key = tagalog.trim().toLowerCase();
+  const idx = tagalogEnglishData.findIndex(e=> e.tagalog.trim().toLowerCase() === key);
+  if(idx === -1) return;
+  tagalogEnglishData.splice(idx, 1);
+
+  const existing = wordIndexMap.get(key);
+  if(existing && existing.cat === "Tagalog → English"){
+    wordIndexMap.delete(key);
+    const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === key && i.cat === "Tagalog → English");
+    if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
+  }
+
+  const optionEl = Array.from(tagalogEnglishSelect.options).find(o=> o.value.trim().toLowerCase() === key);
+  if(optionEl) optionEl.remove();
+
+  await VocabCache.deleteTagalogEnglish(tagalog, {dbPromise: vocabDbPromise});
+}
+
+function renderTagalogEnglishAfterDelete(){
+  if(tagalogEnglishData.length === 0){
+    tagalogEnglishSelect.value = "";
+    tagalogEnglishEntryEl.innerHTML = `<div class="headword-row"><span class="headword" style="font-size:18px;">Nothing here yet</span></div><p class="note">Add one using the box below.</p>`;
+    return;
+  }
+  const next = tagalogEnglishData[0];
+  tagalogEnglishSelect.value = next.tagalog;
+  renderTagalogEnglishPair(next);
+}
 
 function addTagalogEnglishEntry(entry, options){
   const opts = options || {};
@@ -44085,20 +44339,12 @@ function addTagalogEnglishEntry(entry, options){
 function renderTagalogEnglishAddForm(tagalog){
   openLookupModal({
     title: `Add "${tagalog}" to Word Bank`,
-    subtitleHtml: "No online lookup here — type both words yourself. A definition and example(s) for each are optional.",
+    subtitleHtml: "No online lookup here — type both words yourself. You can add an optional definition and example(s) afterward by editing the saved entry.",
     bodyHtml: `
       <label class="note" style="display:block;margin-bottom:4px;">Tagalog word</label>
       <input type="text" id="tagalogEnglishFormTagalog" autocomplete="off" value="${tagalog}">
-      <label class="note" style="display:block;margin-bottom:4px;">Tagalog word — definition (optional)</label>
-      <textarea id="tagalogEnglishFormTagalogDef" rows="2"></textarea>
-      <label class="note" style="display:block;margin-bottom:4px;">Tagalog word — example(s) (optional, one per line)</label>
-      <textarea id="tagalogEnglishFormTagalogExample" rows="2"></textarea>
       <label class="note" style="display:block;margin-bottom:4px;">English word</label>
       <input type="text" id="tagalogEnglishFormEnglish" autocomplete="off">
-      <label class="note" style="display:block;margin-bottom:4px;">English word — definition (optional)</label>
-      <textarea id="tagalogEnglishFormEnglishDef" rows="2"></textarea>
-      <label class="note" style="display:block;margin-bottom:4px;">English word — example(s) (optional, one per line)</label>
-      <textarea id="tagalogEnglishFormEnglishExample" rows="2"></textarea>
       <div id="tagalogEnglishAddFormStatus" class="add-status"></div>
     `,
     actions: [
@@ -44117,11 +44363,7 @@ async function saveTagalogEnglishAddForm(){
     return;
   }
   const tagalog = document.getElementById("tagalogEnglishFormTagalog").value.trim();
-  const tagalogDef = document.getElementById("tagalogEnglishFormTagalogDef").value.trim();
-  const tagalogExamples = document.getElementById("tagalogEnglishFormTagalogExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
   const english = document.getElementById("tagalogEnglishFormEnglish").value.trim();
-  const englishDef = document.getElementById("tagalogEnglishFormEnglishDef").value.trim();
-  const englishExamples = document.getElementById("tagalogEnglishFormEnglishExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
 
   if(!tagalog || !english){
     statusEl.textContent = "Please fill in both the Tagalog and English word.";
@@ -44134,11 +44376,11 @@ async function saveTagalogEnglishAddForm(){
     return;
   }
 
-  const entry = { tagalog: tagalog, tagalogDef: tagalogDef || null, tagalogExamples: tagalogExamples, english: english, englishDef: englishDef || null, englishExamples: englishExamples };
+  const entry = { tagalog: tagalog, tagalogDef: null, tagalogExamples: [], english: english, englishDef: null, englishExamples: [] };
   const item = addTagalogEnglishEntry(entry, {persist:true});
   hideLookupModal();
   document.getElementById("tagalogEnglishAddInput").value = "";
-  document.getElementById("tagalogEnglishAddStatus").textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank.`;
+  document.getElementById("tagalogEnglishAddStatus").textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank. Edit it to add a definition or examples.`;
   document.getElementById("tagalogEnglishAddStatus").className = "add-status success";
   if(item) item.action();
 }
@@ -44184,6 +44426,16 @@ document.getElementById("tagalogEnglishAddInput").addEventListener("keydown", (e
 const tagalogEnglishCacheRestorePromise = VocabCache.getAllTagalogEnglish({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addTagalogEnglishEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
+// Same reasoning as refreshDistinctionsUI()/refreshVocabUI() — re-renders
+// whatever's currently on screen in BOTH Word Bank categories so their
+// Edit/Delete buttons appear/disappear immediately on lock/unlock.
+function refreshWordBankUI(){
+  const baEntry = basicAdvancedData.find(e=> e.basic === basicAdvancedSelect.value);
+  if(baEntry) renderBasicAdvancedPair(baEntry);
+  const teEntry = tagalogEnglishData.find(e=> e.tagalog === tagalogEnglishSelect.value);
+  if(teEntry) renderTagalogEnglishPair(teEntry);
+}
 
 // Online fallback — the third and last search tier, after the local
 // Vocabulary Bank and the IndexedDB cache (both already covered by the
@@ -44523,11 +44775,16 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   tenseCacheRestorePromise,
   basicAdvancedData, tagalogEnglishData, activateWordBankCategory,
   isKnownBasicAdvanced, addBasicAdvancedEntry, addBasicAdvancedEntryFromInput,
-  renderBasicAdvancedAddForm, saveBasicAdvancedAddForm,
+  renderBasicAdvancedAddForm, saveBasicAdvancedAddForm, renderBasicAdvancedPair,
+  openBasicAdvancedEditForm, saveBasicAdvancedEdit, deleteBasicAdvancedEntry,
+  renderBasicAdvancedAfterDelete,
   basicAdvancedCacheRestorePromise,
   isKnownTagalogEnglish, addTagalogEnglishEntry, addTagalogEnglishEntryFromInput,
-  renderTagalogEnglishAddForm, saveTagalogEnglishAddForm,
-  tagalogEnglishCacheRestorePromise,
+  renderTagalogEnglishAddForm, saveTagalogEnglishAddForm, renderTagalogEnglishPair,
+  openTagalogEnglishEditForm, saveTagalogEnglishEdit, deleteTagalogEnglishEntry,
+  renderTagalogEnglishAfterDelete,
+  tagalogEnglishCacheRestorePromise, refreshWordBankUI,
+  updateCorrectionAddLabel,
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
   collectChipEditorValues, wireChipEditorEvents,
   formatDuplicateDate, renderDuplicateConflictPopup, hideDuplicateConflictPopup,
