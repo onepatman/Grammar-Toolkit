@@ -135,6 +135,63 @@ describe("Tagalog → English pairs reach the shared Firestore doc", () => {
   });
 });
 
+describe("backfill: an existing shared doc that predates Word Bank sync (no basicAdvanced/tagalogEnglish field at all)", () => {
+  it("as the owner, pushes this device's existing local Word Bank content up so the field gets created", async () => {
+    const firebase = makeFirebase();
+    // No basicAdvanced/tagalogEnglish key at all — simulates a doc that
+    // was created (and has other synced content) before this feature
+    // existed, exactly like a real user's long-running shared log.
+    firebase._docs.set("syncedLogs/wb-code-9", {
+      entries: [],
+      languageBank: { phrasal: [], idioms: [], sentences: [], patterns: [], technical: [] },
+      distinctions: [], vocab: [], verbs: [],
+      favorites: []
+    });
+
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: true });
+    const document = window.document;
+
+    // This device already has a Word Bank pair from before the doc was
+    // ever connected to — the exact "one CP has many words, the other
+    // has none" scenario from the bug report.
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    addBasicAdvancedPair(document, "happy", "elated");
+    await wait();
+
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+    await hooks.connectSync("wb-code-9");
+    await wait();
+
+    const doc = firebase._docs.get("syncedLogs/wb-code-9");
+    expect(doc.basicAdvanced.some((e) => e.basic === "happy")).toBe(true);
+  });
+
+  it("a non-owner connecting to such a doc does not push local Word Bank content (no write permission)", async () => {
+    const firebase = makeFirebase();
+    firebase._docs.set("syncedLogs/wb-code-10", {
+      entries: [],
+      languageBank: { phrasal: [], idioms: [], sentences: [], patterns: [], technical: [] },
+      distinctions: [], vocab: [], verbs: [],
+      favorites: []
+    });
+
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: true });
+    const document = window.document;
+
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    addBasicAdvancedPair(document, "happy", "elated");
+    await wait();
+
+    await hooks.connectSync("wb-code-10"); // anonymous — never signed in as owner
+    await wait();
+
+    const doc = firebase._docs.get("syncedLogs/wb-code-10");
+    expect(doc.basicAdvanced).toBeUndefined();
+    // Local content is untouched either way.
+    expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(true);
+  });
+});
+
 describe("a device that connects to an already-seeded code pulls in the shared Word Bank content", () => {
   it("adds a remotely-added Basic → Advanced pair locally, searchable and browsable, even on a locked device", async () => {
     const firebase = makeFirebase();

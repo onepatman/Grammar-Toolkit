@@ -40532,6 +40532,13 @@ function listenToSync(code){
   if(!firestoreDb) return;
   if(syncUnsubscribe) syncUnsubscribe();
   const docRef = firestoreDb.collection("syncedLogs").doc(code);
+  // Set BEFORE registering the listener, not after — onSnapshot's first
+  // callback can fire synchronously (some SDK/mocks deliver an already-
+  // cached value immediately), and any pushToSync() call made from
+  // inside that very first callback (see the Word Bank backfill below)
+  // needs syncEnabled already true, not still pending on this call
+  // returning.
+  syncEnabled = true;
   syncUnsubscribe = docRef.onSnapshot((doc)=>{
     if(doc.exists){
       const data = doc.data();
@@ -40546,6 +40553,22 @@ function listenToSync(code){
       applyRemoteBasicAdvanced(data.basicAdvanced);
       applyRemoteTagalogEnglish(data.tagalogEnglish);
       applyRemoteFavorites(data.favorites);
+
+      // Backfill: a shared doc created before Word Bank sync existed has
+      // no basicAdvanced/tagalogEnglish field at ALL (not even an empty
+      // array) — applyRemote* above correctly leaves this device's local
+      // Word Bank entries untouched rather than deleting them (see their
+      // own `if(!Array.isArray(remote)) return;` guards), but that also
+      // means those entries never reach Firestore on their own. If this
+      // device is the owner and has Word Bank content the shared doc
+      // doesn't know about yet, push it now so a second device connecting
+      // to this same older doc actually gets to see it too.
+      const backfillUser = getCurrentFirebaseUser();
+      if(SyncAuth.isOwnerAuthenticated(backfillUser)){
+        const needsWordBankBackfill = (data.basicAdvanced === undefined && basicAdvancedData.length > 0)
+          || (data.tagalogEnglish === undefined && tagalogEnglishData.length > 0);
+        if(needsWordBankBackfill) pushToSync(loadPersonalCorrections());
+      }
       return;
     }
     // Nothing saved under this code yet. If we're signed in as the
@@ -40580,7 +40603,6 @@ function listenToSync(code){
       statusEl.className = "add-status error";
     }
   });
-  syncEnabled = true;
 }
 
 // Reads the synchronous favoriteRecords mirror (see its declaration
