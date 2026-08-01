@@ -43857,7 +43857,7 @@ document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
 // pairs (see renderDistinctionWordBlock). Examples come in as an array —
 // each line the Owner typed into one textarea, split on save — and are
 // numbered exactly like every other module's example list.
-function renderWordBankSide(label, def, examples){
+function renderWordBankSide(label, def, examples, tagLabel){
   const defHtml = def ? `
     <div class="section-label">Definition</div>
     <p class="note" style="margin:0 0 8px;">${def}</p>
@@ -43869,6 +43869,7 @@ function renderWordBankSide(label, def, examples){
   return `
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${label}</span>
+      <span class="tag ghost">${tagLabel}</span>
       ${makeListenButtonHtml()}
     </div>
     ${defHtml}
@@ -43895,9 +43896,9 @@ function renderBasicAdvancedPair(entry){
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
   basicAdvancedEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples)}
+    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English")}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples)}
+    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English")}
     ${entryActionsHtml}
   `;
   const listenBtns = basicAdvancedEntryEl.querySelectorAll(".listen-btn");
@@ -44137,9 +44138,9 @@ function renderTagalogEnglishPair(entry){
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
   tagalogEnglishEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples)}
+    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words")}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples)}
+    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words")}
     ${entryActionsHtml}
   `;
   const listenBtns = tagalogEnglishEntryEl.querySelectorAll(".listen-btn");
