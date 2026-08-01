@@ -134,6 +134,26 @@ describe("Vocabulary tab's direct Look Up & Add box (addVocabEntryFromInput)", (
     expect(document.getElementById("vocabAddStatus").textContent).toContain("has been added to your Vocabulary Bank");
   });
 
+  it("shows the preview's definition without the leading '(part of speech)' marker cluttering the text", async () => {
+    // Regression: the preview card used to render a sense's raw `use`
+    // text verbatim, so an online-lookup sense like SAMPLE_VOCAB_RESULT's
+    // "(noun) Material or structure..." showed the "(noun) " prefix
+    // baked right into the numbered definition — confusing, and
+    // inconsistent with the saved Vocabulary Bank view, which already
+    // strips this same prefix out via parseSensePos().
+    const { window } = await loadApp();
+    const document = window.document;
+    window.OnlineLookup.fetchOnlineDefinition = async () => SAMPLE_VOCAB_RESULT;
+
+    document.getElementById("vocabAddInput").value = "reinforcement";
+    document.getElementById("vocabAddBtn").click();
+    await wait(30);
+
+    const useEl = document.getElementById("lookupModalBody").querySelector(".use");
+    expect(useEl.textContent).toBe("Material or structure that strengthens something.");
+    expect(useEl.textContent).not.toContain("(noun)");
+  });
+
   it("Decline discards the previewed word — nothing is saved", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;

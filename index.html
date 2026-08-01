@@ -41103,9 +41103,18 @@ function hideDuplicateConflictPopup(container){
 let lookupModalOnClose = null;
 
 function buildLookupResultCardHtml(entry){
+  // Strip a leading "(part of speech) " marker off each definition
+  // before showing it — same parseSensePos() split the saved Vocabulary
+  // Bank view already uses to keep that prefix out of the readable
+  // definition text (see groupSensesByPos/renderRuleEntry). This
+  // preview card never grouped by part of speech in the first place, so
+  // the prefix used to just sit inline in the numbered list, reading as
+  // clutter rather than structure. A no-op for text that never had the
+  // prefix (built-in entries, owner-typed Language Bank/Distinctions
+  // content, etc.).
   const sensesHtml = (entry.senses || []).map((s,i)=>`
     <div class="sense"><span class="num">${i+1}</span><div class="body">
-      <div class="use">${s.use}</div>
+      <div class="use">${parseSensePos(s.use).rest}</div>
       ${(s.examples || []).map(ex=>`<div class="ex">${ex}</div>`).join("")}
     </div></div>
   `).join("");
