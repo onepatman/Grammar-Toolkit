@@ -43867,9 +43867,9 @@ function renderWordBankSide(label, def, examples, tagLabel){
     ${examples.map((ex,i)=>`<div class="sense"><span class="num">${i+1}</span><div class="body"><div class="ex">${ex}</div></div></div>`).join("")}
   ` : "";
   return `
+    <div class="tag ghost" style="display:inline-block;margin-bottom:4px;">${tagLabel}</div>
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${label}</span>
-      <span class="tag ghost">${tagLabel}</span>
       ${makeListenButtonHtml()}
     </div>
     ${defHtml}
