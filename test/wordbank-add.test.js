@@ -1,11 +1,11 @@
 // Integration tests for the Word Bank tab (#panel-wordbank) — two
 // manual-only categories sharing one tab via a segmented switcher:
 // Basic → Advanced English and Tagalog → English. The Add flow is
-// deliberately minimal (just the two words, same shape as Distinctions
-// Words' own "Word 1 / Word 2" add box) — an optional definition and
-// example(s) for each side only ever show up in the Edit form, never at
-// creation. Edit/Delete are owner-gated the same way Distinctions
-// Words' entries are.
+// direct entry, no modal — two plain inputs plus a Save button right in
+// the box, the exact same shape as Distinctions Words' own inline
+// "Word 1 / Word 2" add box. An optional definition and example(s) for
+// each side only ever show up in the Edit form, never at creation.
+// Edit/Delete are owner-gated the same way Distinctions Words' entries are.
 import { describe, it, expect } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
@@ -45,74 +45,57 @@ describe("Word Bank tab — shell and category switcher", () => {
 });
 
 describe("Word Bank — Basic → Advanced English (manual-only, no online lookup)", () => {
-  it("renders the add box", async () => {
+  it("renders the add box with two plain inputs and a Save button — no modal involved", async () => {
     const { window } = await loadApp();
     const document = window.document;
     expect(document.getElementById("basicAdvancedAddBox")).not.toBeNull();
-    expect(document.getElementById("basicAdvancedAddInput")).not.toBeNull();
+    expect(document.getElementById("basicAdvancedAddBasicInput")).not.toBeNull();
+    expect(document.getElementById("basicAdvancedAddAdvancedInput")).not.toBeNull();
     expect(document.getElementById("basicAdvancedAddBtn")).not.toBeNull();
+    expect(document.getElementById("basicAdvancedAddBtn").textContent).toContain("Save");
   });
 
-  it("shows an error when the input is empty", async () => {
+  it("shows an error when both fields are empty", async () => {
     const { window } = await loadApp();
     const document = window.document;
     document.getElementById("basicAdvancedAddBtn").click();
     await wait(10);
-    expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("Please enter");
+    expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("Please fill in");
   });
 
   it("is gated behind isDeviceUnlocked()", async () => {
     const { window, hooks } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
-    document.getElementById("basicAdvancedAddInput").value = "happy";
+    document.getElementById("basicAdvancedAddBasicInput").value = "happy";
+    document.getElementById("basicAdvancedAddAdvancedInput").value = "elated";
     document.getElementById("basicAdvancedAddBtn").click();
     await wait(30);
     expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("isn't unlocked");
     expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
   });
 
-  it("shows the manual form immediately for a new word — just the two words, no definition/example fields at this step", async () => {
-    const { window } = await loadApp();
-    const document = window.document;
-    document.getElementById("basicAdvancedAddInput").value = "happy";
-    document.getElementById("basicAdvancedAddBtn").click();
-    await wait(30);
-
-    expect(document.getElementById("lookupModal").style.display).toBe("flex");
-    expect(document.getElementById("basicAdvancedFormBasic").value).toBe("happy");
-    expect(document.getElementById("basicAdvancedFormAdvanced").value).toBe("");
-    expect(document.getElementById("basicAdvancedFormBasicDef")).toBeNull();
-    expect(document.getElementById("basicAdvancedFormAdvancedDef")).toBeNull();
-    expect(document.getElementById("basicAdvancedFormBasicExample")).toBeNull();
-  });
-
   it("requires both the basic and advanced word before saving", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    document.getElementById("basicAdvancedAddInput").value = "happy";
-    document.getElementById("basicAdvancedAddBtn").click();
-    await wait(30);
-
+    document.getElementById("basicAdvancedAddBasicInput").value = "happy";
     // Advanced word left blank.
-    document.getElementById("basicAdvancedAddSaveBtn").click();
+    document.getElementById("basicAdvancedAddBtn").click();
     await wait(10);
 
-    expect(document.getElementById("basicAdvancedAddFormStatus").textContent).toContain("Please fill in");
+    expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("Please fill in");
     expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
   });
 
-  it("saves a pair with null definitions and empty example arrays, persists it, and navigates to it", async () => {
+  it("saves directly from the two inputs — no modal ever opens, null definitions and empty example arrays, persists it, and navigates to it", async () => {
     const idb = new IDBFactory();
     const { window, hooks } = await loadApp({ indexedDBFactory: idb });
     const document = window.document;
-    document.getElementById("basicAdvancedAddInput").value = "happy";
+    document.getElementById("basicAdvancedAddBasicInput").value = "happy";
+    document.getElementById("basicAdvancedAddAdvancedInput").value = "elated";
     document.getElementById("basicAdvancedAddBtn").click();
     await wait(30);
 
-    document.getElementById("basicAdvancedFormAdvanced").value = "elated";
-    document.getElementById("basicAdvancedAddSaveBtn").click();
-    await wait(30);
-
+    expect(document.getElementById("lookupModal").style.display).toBe("none");
     const saved = hooks.basicAdvancedData.find((e) => e.basic === "happy");
     expect(saved).toBeTruthy();
     expect(saved.advanced).toBe("elated");
@@ -122,36 +105,38 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(saved.advancedExamples).toEqual([]);
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
     expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("has been added to Word Bank");
-    expect(document.getElementById("lookupModal").style.display).toBe("none");
+
+    // Inputs clear after a successful save.
+    expect(document.getElementById("basicAdvancedAddBasicInput").value).toBe("");
+    expect(document.getElementById("basicAdvancedAddAdvancedInput").value).toBe("");
 
     const stored = await VocabCache.getBasicAdvanced("happy", { indexedDB: idb });
     expect(stored.advanced).toBe("elated");
   });
 
-  it("does not duplicate a basic word already in Word Bank, and opens the existing pair instead", async () => {
+  it("submitting Enter in either input saves the pair, same as clicking the button", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("basicAdvancedAddBasicInput").value = "happy";
+    document.getElementById("basicAdvancedAddAdvancedInput").value = "elated";
+    document.getElementById("basicAdvancedAddAdvancedInput").dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter" }));
+    await wait(30);
+
+    expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(true);
+  });
+
+  it("does not duplicate a basic word already in Word Bank, and offers to view the existing pair instead", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] }, { persist: false });
 
-    document.getElementById("basicAdvancedAddInput").value = "happy";
+    document.getElementById("basicAdvancedAddBasicInput").value = "happy";
+    document.getElementById("basicAdvancedAddAdvancedInput").value = "something else";
     document.getElementById("basicAdvancedAddBtn").click();
     await wait(30);
 
     expect(document.getElementById("basicAdvancedAddStatus").textContent).toContain("already in the database");
-    expect(document.getElementById("lookupModal").style.display).toBe("none");
-  });
-
-  it("Cancel discards the pending entry — nothing is saved", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    document.getElementById("basicAdvancedAddInput").value = "happy";
-    document.getElementById("basicAdvancedAddBtn").click();
-    await wait(30);
-
-    document.getElementById("basicAdvancedAddCancelBtn").click();
-
-    expect(document.getElementById("lookupModal").style.display).toBe("none");
-    expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
+    expect(hooks.basicAdvancedData.filter((e) => e.basic === "happy")).toHaveLength(1);
   });
 
   it("a saved pair is findable via global search by its basic word", async () => {
@@ -292,65 +277,55 @@ describe("Word Bank — Basic → Advanced Edit/Delete (owner-gated)", () => {
 });
 
 describe("Word Bank — Tagalog → English (manual-only, no online lookup)", () => {
-  it("renders the add box", async () => {
+  it("renders the add box with two plain inputs and a Save button — no modal involved", async () => {
     const { window } = await loadApp();
     const document = window.document;
     expect(document.getElementById("tagalogEnglishAddBox")).not.toBeNull();
-    expect(document.getElementById("tagalogEnglishAddInput")).not.toBeNull();
+    expect(document.getElementById("tagalogEnglishAddTagalogInput")).not.toBeNull();
+    expect(document.getElementById("tagalogEnglishAddEnglishInput")).not.toBeNull();
     expect(document.getElementById("tagalogEnglishAddBtn")).not.toBeNull();
+    expect(document.getElementById("tagalogEnglishAddBtn").textContent).toContain("Save");
   });
 
   it("is gated behind isDeviceUnlocked()", async () => {
     const { window, hooks } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
-    document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
+    document.getElementById("tagalogEnglishAddTagalogInput").value = "tiyaga";
+    document.getElementById("tagalogEnglishAddEnglishInput").value = "perseverance";
     document.getElementById("tagalogEnglishAddBtn").click();
     await wait(30);
     expect(document.getElementById("tagalogEnglishAddStatus").textContent).toContain("isn't unlocked");
     expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 
-  it("shows just the two words in the add form — no definition/example fields at this step", async () => {
-    const { window } = await loadApp();
-    const document = window.document;
-    document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
-    document.getElementById("tagalogEnglishAddBtn").click();
-    await wait(30);
-
-    expect(document.getElementById("tagalogEnglishFormTagalog").value).toBe("tiyaga");
-    expect(document.getElementById("tagalogEnglishFormTagalogDef")).toBeNull();
-    expect(document.getElementById("tagalogEnglishFormEnglishDef")).toBeNull();
-  });
-
   it("requires both the Tagalog and English word before saving", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
+    document.getElementById("tagalogEnglishAddTagalogInput").value = "tiyaga";
+    // English word left blank.
     document.getElementById("tagalogEnglishAddBtn").click();
-    await wait(30);
-
-    document.getElementById("tagalogEnglishAddSaveBtn").click();
     await wait(10);
 
-    expect(document.getElementById("tagalogEnglishAddFormStatus").textContent).toContain("Please fill in");
+    expect(document.getElementById("tagalogEnglishAddStatus").textContent).toContain("Please fill in");
     expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 
-  it("saves a pair with null definitions and empty example arrays, and it survives a reload", async () => {
+  it("saves directly from the two inputs — no modal ever opens, null definitions and empty example arrays, and it survives a reload", async () => {
     const idb = new IDBFactory();
     const first = await loadApp({ indexedDBFactory: idb });
-    first.window.document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
-    first.window.document.getElementById("tagalogEnglishAddBtn").click();
+    const doc = first.window.document;
+    doc.getElementById("tagalogEnglishAddTagalogInput").value = "tiyaga";
+    doc.getElementById("tagalogEnglishAddEnglishInput").value = "perseverance";
+    doc.getElementById("tagalogEnglishAddBtn").click();
     await wait(30);
 
-    first.window.document.getElementById("tagalogEnglishFormEnglish").value = "perseverance";
-    first.window.document.getElementById("tagalogEnglishAddSaveBtn").click();
-    await wait(30);
-
+    expect(doc.getElementById("lookupModal").style.display).toBe("none");
     const saved = first.hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
     expect(saved.english).toBe("perseverance");
     expect(saved.tagalogDef).toBeNull();
     expect(saved.englishExamples).toEqual([]);
+    expect(doc.getElementById("tagalogEnglishAddTagalogInput").value).toBe("");
+    expect(doc.getElementById("tagalogEnglishAddEnglishInput").value).toBe("");
 
     const second = await loadApp({ indexedDBFactory: idb });
     const reloaded = second.hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
@@ -363,11 +338,13 @@ describe("Word Bank — Tagalog → English (manual-only, no online lookup)", ()
     const document = window.document;
     hooks.addTagalogEnglishEntry({ tagalog: "tiyaga", english: "perseverance", tagalogDef: null, tagalogExamples: [], englishDef: null, englishExamples: [] }, { persist: false });
 
-    document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
+    document.getElementById("tagalogEnglishAddTagalogInput").value = "tiyaga";
+    document.getElementById("tagalogEnglishAddEnglishInput").value = "something else";
     document.getElementById("tagalogEnglishAddBtn").click();
     await wait(30);
 
     expect(document.getElementById("tagalogEnglishAddStatus").textContent).toContain("already in the database");
+    expect(hooks.tagalogEnglishData.filter((e) => e.tagalog === "tiyaga")).toHaveLength(1);
   });
 });
 
