@@ -1,11 +1,20 @@
 // Integration tests for filing a personal correction under whichever
 // Fixes-tab category is currently selected in the mistakeSelect dropdown
-// (e.g. "subject-verb agreement") instead of only ever landing in the one
-// catch-all "my correction log" entry. There is no separate category
-// picker in the Add box — the category comes straight from mistakeSelect,
-// the same way each Language Bank category's own quick-add box operates
-// on whichever category is currently active. Loads the real index.html
-// in jsdom. See test/correction-log.test.js for the underlying pure
+// (e.g. "double negatives") instead of only ever landing in one catch-all
+// entry. There is no separate category picker in the Add box — the
+// category comes straight from mistakeSelect, the same way each Language
+// Bank category's own quick-add box operates on whichever category is
+// currently active. Loads the real index.html in jsdom.
+//
+// "subject-verb agreement" and "my correction log (personal history)"
+// used to be this file's two example categories, but both moved out of
+// the Fixes tab into the Word Bank tab (see
+// test/wordbank-sentence-fragment.test.js for their own coverage,
+// including their own quick-add boxes) — "double negatives" and "comma
+// splice / run-on sentence" (still in mistakeData) take their place here,
+// exercising the exact same generic mechanism.
+//
+// See test/correction-log.test.js for the underlying pure
 // groupCorrectionsByCategory() unit tests.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
@@ -27,21 +36,21 @@ describe("Fixes tab — Add box has no separate category picker", () => {
   });
 
   it("the Add label reflects whichever category is currently selected above, and updates when it changes", async () => {
-    const { window, hooks } = await loadApp();
+    const { window } = await loadApp();
     const document = window.document;
-    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
-    expect(document.getElementById("correctionAddLabel").textContent).toContain(hooks.CORRECTION_LOG_ENTRY.w);
+    selectMistakeCategory(window, "comma splice / run-on sentence");
+    expect(document.getElementById("correctionAddLabel").textContent).toContain("comma splice / run-on sentence");
 
-    selectMistakeCategory(window, "subject-verb agreement");
-    expect(document.getElementById("correctionAddLabel").textContent).toContain("subject-verb agreement");
+    selectMistakeCategory(window, "double negatives");
+    expect(document.getElementById("correctionAddLabel").textContent).toContain("double negatives");
   });
 });
 
 describe("Fixes tab — filing a correction under whichever category is selected", () => {
-  it("adds to the general correction log when that's the category currently selected", async () => {
+  it("adds to one category when that's the category currently selected", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
+    selectMistakeCategory(window, "comma splice / run-on sentence");
 
     document.getElementById("qaWrongInput").value = "My cousin visit us";
     document.getElementById("qaRightInput").value = "My cousin visits us";
@@ -50,14 +59,14 @@ describe("Fixes tab — filing a correction under whichever category is selected
 
     const saved = hooks.loadPersonalCorrections();
     expect(saved).toHaveLength(1);
-    expect(saved[0].category).toBe(hooks.CORRECTION_LOG_ENTRY.w);
+    expect(saved[0].category).toBe("comma splice / run-on sentence");
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin visit us");
   });
 
-  it("adds to whichever OTHER category is currently selected, and it shows up there — not the general log", async () => {
+  it("adds to whichever OTHER category is currently selected, and it shows up there — not the first one", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    selectMistakeCategory(window, "subject-verb agreement");
+    selectMistakeCategory(window, "double negatives");
 
     document.getElementById("qaWrongInput").value = "The engineer and the technician is on-site";
     document.getElementById("qaRightInput").value = "The engineer and the technician are on-site";
@@ -66,36 +75,36 @@ describe("Fixes tab — filing a correction under whichever category is selected
     await wait();
 
     const saved = hooks.loadPersonalCorrections();
-    expect(saved[0].category).toBe("subject-verb agreement");
+    expect(saved[0].category).toBe("double negatives");
 
-    // Shows up under "subject-verb agreement"...
+    // Shows up under "double negatives"...
     expect(document.getElementById("mistakeEntry").textContent).toContain("The engineer and the technician is on-site");
     expect(document.querySelectorAll("#mistakeEntry .edit-correction-btn").length).toBeGreaterThan(0);
 
-    // ...and NOT under the general correction log.
-    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
+    // ...and NOT under the other category.
+    selectMistakeCategory(window, "comma splice / run-on sentence");
     expect(document.getElementById("mistakeEntry").textContent).not.toContain("The engineer and the technician is on-site");
   });
 
   it("Edit keeps updating the SAME category the entry was already filed under", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    selectMistakeCategory(window, "subject-verb agreement");
+    selectMistakeCategory(window, "double negatives");
     document.getElementById("qaWrongInput").value = "My cousin visit us";
     document.getElementById("qaRightInput").value = "My cousin visits us";
     document.getElementById("qaAddBtn").click();
     await wait();
 
     // Edit is only reachable from within the category it's already
-    // rendered under, so mistakeSelect is already on "subject-verb
-    // agreement" here — no separate category input to worry about.
+    // rendered under, so mistakeSelect is already on "double negatives"
+    // here — no separate category input to worry about.
     document.querySelector("#mistakeEntry .edit-correction-btn").click();
     document.getElementById("qaRightInput").value = "My cousin always visits us";
     document.getElementById("qaAddBtn").click();
     await wait();
 
     const saved = hooks.loadPersonalCorrections();
-    expect(saved[0].category).toBe("subject-verb agreement");
+    expect(saved[0].category).toBe("double negatives");
     expect(saved[0].right).toBe("My cousin always visits us");
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin always visits us");
   });
@@ -111,21 +120,21 @@ describe("Fixes tab — filing a correction under whichever category is selected
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.savePersonalCorrections([
-      { id: "pc_1", wrong: "My cousin visit us", right: "My cousin visits us", why: "", category: "subject-verb agreement" }
+      { id: "pc_1", wrong: "My cousin visit us", right: "My cousin visits us", why: "", category: "double negatives" }
     ]);
     hooks.rebuildCorrectionLog();
 
-    selectMistakeCategory(window, "subject-verb agreement");
+    selectMistakeCategory(window, "double negatives");
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin visit us");
 
-    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
+    selectMistakeCategory(window, "comma splice / run-on sentence");
     expect(document.getElementById("mistakeEntry").textContent).not.toContain("My cousin visit us");
   });
 
   it("Delete removes a category-filed correction from that category's rendering", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    selectMistakeCategory(window, "subject-verb agreement");
+    selectMistakeCategory(window, "double negatives");
     document.getElementById("qaWrongInput").value = "My cousin visit us";
     document.getElementById("qaRightInput").value = "My cousin visits us";
     document.getElementById("qaAddBtn").click();

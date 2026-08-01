@@ -1545,6 +1545,8 @@
         <button class="active" data-val="basicAdvanced">Basic → Advanced</button>
         <button data-val="tagalogEnglish">Tagalog → English</button>
         <button data-val="sentenceFragment">Sentence Fragments</button>
+        <button data-val="subjectVerbAgreement">Subject-Verb Agreement</button>
+        <button data-val="correctionLog">My Correction Log</button>
       </div>
     </div>
 
@@ -1601,6 +1603,34 @@
         <button id="fragAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
         <button id="fragCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
         <div id="fragAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="wordbank-category" id="wordbank-subjectVerbAgreement" style="display:none;">
+      <div class="entry" id="subjectVerbAgreementEntry"></div>
+      <div class="quick-add-box owner-only" id="svaAddBox">
+        <div class="section-label">Add a correction to "subject-verb agreement"</div>
+        <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
+        <input type="text" id="svaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+        <input type="text" id="svaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+        <input type="text" id="svaWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
+        <button id="svaAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
+        <button id="svaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
+        <div id="svaAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="wordbank-category" id="wordbank-correctionLog" style="display:none;">
+      <div class="entry" id="correctionLogEntry"></div>
+      <div class="quick-add-box owner-only" id="logAddBox">
+        <div class="section-label">Add a correction to "my correction log (personal history)"</div>
+        <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
+        <input type="text" id="logWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+        <input type="text" id="logRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+        <input type="text" id="logWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
+        <button id="logAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
+        <button id="logCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
+        <div id="logAddStatus" class="add-status"></div>
       </div>
     </div>
   </section>
@@ -5617,152 +5647,6 @@ const prepVerbData = [
 ========================================================= */
 const mistakeData = [
   {
-    "w": "subject-verb agreement",
-    "senses": [
-      {
-        "use": "He/She/It in the simple present takes the -s/-es verb form.",
-        "examples": [
-          "✗ He <b>go</b> to the site every day. → ✓ He <b>goes</b> to the site every day.",
-          "✗ The pump <b>need</b> maintenance. → ✓ The pump <b>needs</b> maintenance."
-        ]
-      },
-      {
-        "use": "They/We/You/I take the base form, with no -s.",
-        "examples": [
-          "✗ They <b>goes</b> to the site. → ✓ They <b>go</b> to the site.",
-          "✗ We <b>checks</b> the readings daily. → ✓ We <b>check</b> the readings daily."
-        ]
-      },
-      {
-        "use": "Compound subjects joined by 'and' take a plural verb.",
-        "examples": [
-          "✗ The engineer and the technician <b>is</b> on-site. → ✓ The engineer and the technician <b>are</b> on-site.",
-          "✗ The pump and the valve <b>needs</b> checking. → ✓ The pump and the valve <b>need</b> checking."
-        ]
-      },
-      {
-        "use": "With 'or/nor,' the verb agrees with the subject closest to it.",
-        "examples": [
-          "✗ Neither the pump nor the valves <b>is</b> working. → ✓ Neither the pump nor the valves <b>are</b> working.",
-          "✗ Either the technician or the engineers <b>has</b> the key. → ✓ Either the technician or the engineers <b>have</b> the key."
-        ]
-      },
-      {
-        "use": "Indefinite pronouns (everyone, somebody, nobody, anyone) take a singular verb.",
-        "examples": [
-          "✗ Everyone <b>are</b> required to wear a hard hat. → ✓ Everyone <b>is</b> required to wear a hard hat.",
-          "✗ Somebody <b>have</b> to sign off on this. → ✓ Somebody <b>has</b> to sign off on this."
-        ]
-      },
-      {
-        "use": "Collective nouns (team, crew, company) usually take a singular verb when acting as one unit.",
-        "examples": [
-          "✗ The team <b>are</b> finishing the report. → ✓ The team <b>is</b> finishing the report.",
-          "✗ The crew <b>work</b> well together. → ✓ The crew <b>works</b> well together."
-        ]
-      },
-      {
-        "use": "'Each' and 'every' + a noun take a singular verb, even when more than one item is listed.",
-        "examples": [
-          "✗ Each valve and gauge <b>need</b> checking. → ✓ Each valve and gauge <b>needs</b> checking.",
-          "✗ Every technician and engineer <b>have</b> to attend. → ✓ Every technician and engineer <b>has</b> to attend."
-        ]
-      },
-      {
-        "use": "Titles of documents, reports, or projects are treated as one singular thing.",
-        "examples": [
-          "✗ 'Site Safety Guidelines' <b>were</b> posted. → ✓ 'Site Safety Guidelines' <b>was</b> posted.",
-          "✗ 'Standard Operating Procedures' <b>list</b> the steps. → ✓ 'Standard Operating Procedures' <b>lists</b> the steps."
-        ]
-      },
-      {
-        "use": "Amounts of money, time, or distance treated as one single unit take a singular verb.",
-        "examples": [
-          "✗ Two hundred meters of cable <b>are</b> enough. → ✓ Two hundred meters of cable <b>is</b> enough.",
-          "✗ Three hours <b>are</b> too long to wait. → ✓ Three hours <b>is</b> too long to wait."
-        ]
-      },
-      {
-        "use": "'A number of' + plural noun takes a plural verb; 'the number of' + plural noun takes a singular verb.",
-        "examples": [
-          "✗ The number of defects <b>are</b> rising. → ✓ The number of defects <b>is</b> rising.",
-          "✗ A number of valves <b>needs</b> replacing. → ✓ A number of valves <b>need</b> replacing."
-        ]
-      },
-      {
-        "use": "Phrases like 'as well as,' 'along with,' or 'together with' don't change the verb — it still agrees with the main subject.",
-        "examples": [
-          "✗ The engineer, as well as the technicians, <b>are</b> on-site. → ✓ The engineer, as well as the technicians, <b>is</b> on-site.",
-          "✗ The manager, together with his team, <b>have</b> arrived. → ✓ The manager, together with his team, <b>has</b> arrived."
-        ]
-      },
-      {
-        "use": "Words or phrases between the subject and verb don't change the agreement — find the true subject first.",
-        "examples": [
-          "✗ The list of materials <b>are</b> complete. → ✓ The list of materials <b>is</b> complete.",
-          "✗ The box of tools <b>were</b> left behind. → ✓ The box of tools <b>was</b> left behind."
-        ]
-      },
-      {
-        "use": "In 'there is/are' or 'here is/are,' the verb agrees with what comes after it, not with 'there/here.'",
-        "examples": [
-          "✗ There <b>is</b> three valves left. → ✓ There <b>are</b> three valves left.",
-          "✗ Here <b>is</b> the tools you asked for. → ✓ Here <b>are</b> the tools you asked for."
-        ]
-      },
-      {
-        "use": "In relative clauses ('who/that/which'), the verb agrees with the noun the clause describes.",
-        "examples": [
-          "✗ He is one of the engineers who <b>works</b> overtime. → ✓ He is one of the engineers who <b>work</b> overtime.",
-          "✗ This is one of the pumps that <b>needs</b> repair. → ✓ These are among the pumps that <b>need</b> repair."
-        ]
-      },
-      {
-        "use": "Fractions and percentages agree with the noun that follows 'of.'",
-        "examples": [
-          "✗ Fifty percent of the pipes <b>needs</b> replacing. → ✓ Fifty percent of the pipes <b>need</b> replacing.",
-          "✗ Half of the budget <b>were</b> spent already. → ✓ Half of the budget <b>was</b> spent already."
-        ]
-      },
-      {
-        "use": "'Either' and 'neither,' used alone without 'or/nor,' take a singular verb.",
-        "examples": [
-          "✗ Either of the pumps <b>are</b> fine. → ✓ Either of the pumps <b>is</b> fine.",
-          "✗ Neither of the readings <b>seem</b> correct. → ✓ Neither of the readings <b>seems</b> correct."
-        ]
-      },
-      {
-        "use": "Gerunds (-ing forms) and infinitives used as the subject take a singular verb.",
-        "examples": [
-          "✗ Checking the readings <b>take</b> time. → ✓ Checking the readings <b>takes</b> time.",
-          "✗ To finish both tasks <b>require</b> two days. → ✓ To finish both tasks <b>requires</b> two days."
-        ]
-      },
-      {
-        "use": "Some nouns look plural but are singular in meaning (news, mathematics, physics) and take a singular verb.",
-        "examples": [
-          "✗ The news <b>are</b> good. → ✓ The news <b>is</b> good.",
-          "✗ Mathematics <b>are</b> required for this course. → ✓ Mathematics <b>is</b> required for this course."
-        ]
-      },
-      {
-        "use": "Some nouns are always plural in form and meaning (scissors, pliers, pants) and always take a plural verb.",
-        "examples": [
-          "✗ This pliers <b>is</b> broken. → ✓ These pliers <b>are</b> broken.",
-          "✗ The scissors <b>is</b> on the table. → ✓ The scissors <b>are</b> on the table."
-        ]
-      },
-      {
-        "use": "'None' can take a singular verb (formal, meaning 'not one') or a plural verb (common, meaning 'not any') — both are accepted, just stay consistent.",
-        "examples": [
-          "Formal: None of the tools <b>was</b> damaged.",
-          "Common: None of the tools <b>were</b> damaged."
-        ]
-      }
-    ],
-    "mistake": null
-  },
-  {
     "w": "double negatives",
     "senses": [
       {
@@ -5976,7 +5860,202 @@ const mistakeData = [
       }
     ],
     "mistake": null
-  },
+  }
+];
+
+// Lives in the Word Bank tab (its own "Sentence Fragments" category),
+// not in mistakeData/the Fixes tab — moved out at the user's request,
+// but still uses the exact same personal-correction-log mechanism
+// below (entry.category === this "w" is what ties saved corrections
+// back to it).
+const sentenceFragmentEntry = {
+  "w": "sentence fragment",
+  "senses": [
+    {
+      "use": "A sentence needs its own complete subject and verb — a 'because/if/when' clause alone isn't a full sentence.",
+      "examples": [
+        "✗ Because the pump failed. → ✓ The system shut down <b>because the pump failed</b>.",
+        "✗ If the pressure drops. → ✓ <b>If the pressure drops</b>, shut off the valve."
+      ]
+    },
+    {
+      "use": "A verb-only phrase with no subject isn't a complete sentence either.",
+      "examples": [
+        "✗ Checked the wiring yesterday. → ✓ <b>We</b> checked the wiring yesterday.",
+        "✗ Finished the report already. → ✓ <b>She</b> finished the report already."
+      ]
+    },
+    {
+      "use": "Fragments that start with an '-ing' or 'to' verb need a main clause attached to be complete.",
+      "examples": [
+        "✗ Working overtime to meet the deadline. → ✓ <b>He stayed late</b>, working overtime to meet the deadline.",
+        "✗ To finish the installation on time. → ✓ <b>We need two more days</b> to finish the installation on time."
+      ]
+    }
+  ],
+  "mistake": null
+};
+const BUILTIN_FRAGMENT_SENSES = sentenceFragmentEntry.senses.slice();
+
+// Also moved out of mistakeData/the Fixes tab into the Word Bank
+// tab, same reasoning and mechanism as sentenceFragmentEntry above.
+const subjectVerbAgreementEntry =
+  {
+    "w": "subject-verb agreement",
+    "senses": [
+      {
+        "use": "He/She/It in the simple present takes the -s/-es verb form.",
+        "examples": [
+          "✗ He <b>go</b> to the site every day. → ✓ He <b>goes</b> to the site every day.",
+          "✗ The pump <b>need</b> maintenance. → ✓ The pump <b>needs</b> maintenance."
+        ]
+      },
+      {
+        "use": "They/We/You/I take the base form, with no -s.",
+        "examples": [
+          "✗ They <b>goes</b> to the site. → ✓ They <b>go</b> to the site.",
+          "✗ We <b>checks</b> the readings daily. → ✓ We <b>check</b> the readings daily."
+        ]
+      },
+      {
+        "use": "Compound subjects joined by 'and' take a plural verb.",
+        "examples": [
+          "✗ The engineer and the technician <b>is</b> on-site. → ✓ The engineer and the technician <b>are</b> on-site.",
+          "✗ The pump and the valve <b>needs</b> checking. → ✓ The pump and the valve <b>need</b> checking."
+        ]
+      },
+      {
+        "use": "With 'or/nor,' the verb agrees with the subject closest to it.",
+        "examples": [
+          "✗ Neither the pump nor the valves <b>is</b> working. → ✓ Neither the pump nor the valves <b>are</b> working.",
+          "✗ Either the technician or the engineers <b>has</b> the key. → ✓ Either the technician or the engineers <b>have</b> the key."
+        ]
+      },
+      {
+        "use": "Indefinite pronouns (everyone, somebody, nobody, anyone) take a singular verb.",
+        "examples": [
+          "✗ Everyone <b>are</b> required to wear a hard hat. → ✓ Everyone <b>is</b> required to wear a hard hat.",
+          "✗ Somebody <b>have</b> to sign off on this. → ✓ Somebody <b>has</b> to sign off on this."
+        ]
+      },
+      {
+        "use": "Collective nouns (team, crew, company) usually take a singular verb when acting as one unit.",
+        "examples": [
+          "✗ The team <b>are</b> finishing the report. → ✓ The team <b>is</b> finishing the report.",
+          "✗ The crew <b>work</b> well together. → ✓ The crew <b>works</b> well together."
+        ]
+      },
+      {
+        "use": "'Each' and 'every' + a noun take a singular verb, even when more than one item is listed.",
+        "examples": [
+          "✗ Each valve and gauge <b>need</b> checking. → ✓ Each valve and gauge <b>needs</b> checking.",
+          "✗ Every technician and engineer <b>have</b> to attend. → ✓ Every technician and engineer <b>has</b> to attend."
+        ]
+      },
+      {
+        "use": "Titles of documents, reports, or projects are treated as one singular thing.",
+        "examples": [
+          "✗ 'Site Safety Guidelines' <b>were</b> posted. → ✓ 'Site Safety Guidelines' <b>was</b> posted.",
+          "✗ 'Standard Operating Procedures' <b>list</b> the steps. → ✓ 'Standard Operating Procedures' <b>lists</b> the steps."
+        ]
+      },
+      {
+        "use": "Amounts of money, time, or distance treated as one single unit take a singular verb.",
+        "examples": [
+          "✗ Two hundred meters of cable <b>are</b> enough. → ✓ Two hundred meters of cable <b>is</b> enough.",
+          "✗ Three hours <b>are</b> too long to wait. → ✓ Three hours <b>is</b> too long to wait."
+        ]
+      },
+      {
+        "use": "'A number of' + plural noun takes a plural verb; 'the number of' + plural noun takes a singular verb.",
+        "examples": [
+          "✗ The number of defects <b>are</b> rising. → ✓ The number of defects <b>is</b> rising.",
+          "✗ A number of valves <b>needs</b> replacing. → ✓ A number of valves <b>need</b> replacing."
+        ]
+      },
+      {
+        "use": "Phrases like 'as well as,' 'along with,' or 'together with' don't change the verb — it still agrees with the main subject.",
+        "examples": [
+          "✗ The engineer, as well as the technicians, <b>are</b> on-site. → ✓ The engineer, as well as the technicians, <b>is</b> on-site.",
+          "✗ The manager, together with his team, <b>have</b> arrived. → ✓ The manager, together with his team, <b>has</b> arrived."
+        ]
+      },
+      {
+        "use": "Words or phrases between the subject and verb don't change the agreement — find the true subject first.",
+        "examples": [
+          "✗ The list of materials <b>are</b> complete. → ✓ The list of materials <b>is</b> complete.",
+          "✗ The box of tools <b>were</b> left behind. → ✓ The box of tools <b>was</b> left behind."
+        ]
+      },
+      {
+        "use": "In 'there is/are' or 'here is/are,' the verb agrees with what comes after it, not with 'there/here.'",
+        "examples": [
+          "✗ There <b>is</b> three valves left. → ✓ There <b>are</b> three valves left.",
+          "✗ Here <b>is</b> the tools you asked for. → ✓ Here <b>are</b> the tools you asked for."
+        ]
+      },
+      {
+        "use": "In relative clauses ('who/that/which'), the verb agrees with the noun the clause describes.",
+        "examples": [
+          "✗ He is one of the engineers who <b>works</b> overtime. → ✓ He is one of the engineers who <b>work</b> overtime.",
+          "✗ This is one of the pumps that <b>needs</b> repair. → ✓ These are among the pumps that <b>need</b> repair."
+        ]
+      },
+      {
+        "use": "Fractions and percentages agree with the noun that follows 'of.'",
+        "examples": [
+          "✗ Fifty percent of the pipes <b>needs</b> replacing. → ✓ Fifty percent of the pipes <b>need</b> replacing.",
+          "✗ Half of the budget <b>were</b> spent already. → ✓ Half of the budget <b>was</b> spent already."
+        ]
+      },
+      {
+        "use": "'Either' and 'neither,' used alone without 'or/nor,' take a singular verb.",
+        "examples": [
+          "✗ Either of the pumps <b>are</b> fine. → ✓ Either of the pumps <b>is</b> fine.",
+          "✗ Neither of the readings <b>seem</b> correct. → ✓ Neither of the readings <b>seems</b> correct."
+        ]
+      },
+      {
+        "use": "Gerunds (-ing forms) and infinitives used as the subject take a singular verb.",
+        "examples": [
+          "✗ Checking the readings <b>take</b> time. → ✓ Checking the readings <b>takes</b> time.",
+          "✗ To finish both tasks <b>require</b> two days. → ✓ To finish both tasks <b>requires</b> two days."
+        ]
+      },
+      {
+        "use": "Some nouns look plural but are singular in meaning (news, mathematics, physics) and take a singular verb.",
+        "examples": [
+          "✗ The news <b>are</b> good. → ✓ The news <b>is</b> good.",
+          "✗ Mathematics <b>are</b> required for this course. → ✓ Mathematics <b>is</b> required for this course."
+        ]
+      },
+      {
+        "use": "Some nouns are always plural in form and meaning (scissors, pliers, pants) and always take a plural verb.",
+        "examples": [
+          "✗ This pliers <b>is</b> broken. → ✓ These pliers <b>are</b> broken.",
+          "✗ The scissors <b>is</b> on the table. → ✓ The scissors <b>are</b> on the table."
+        ]
+      },
+      {
+        "use": "'None' can take a singular verb (formal, meaning 'not one') or a plural verb (common, meaning 'not any') — both are accepted, just stay consistent.",
+        "examples": [
+          "Formal: None of the tools <b>was</b> damaged.",
+          "Common: None of the tools <b>were</b> damaged."
+        ]
+      }
+    ],
+    "mistake": null
+  }
+;
+const BUILTIN_SVA_SENSES = subjectVerbAgreementEntry.senses.slice();
+
+// The catch-all "general log" entry — every personal correction
+// saved with no matching category (or explicitly filed here) lands
+// under this one. Also moved out of mistakeData into the Word Bank
+// tab; CORRECTION_LOG_ENTRY.w is still what groupCorrectionsByCategory()
+// below uses as its default-bucket key, so this rename-in-place is
+// purely about WHERE the object lives, not what it does.
+const CORRECTION_LOG_ENTRY =
   {
     "w": "my correction log (personal history)",
     "senses": [
@@ -6163,41 +6242,8 @@ const mistakeData = [
     ],
     "mistake": null
   }
-];
-
-// Lives in the Word Bank tab (its own "Sentence Fragments" category),
-// not in mistakeData/the Fixes tab — moved out at the user's request,
-// but still uses the exact same personal-correction-log mechanism
-// below (entry.category === this "w" is what ties saved corrections
-// back to it).
-const sentenceFragmentEntry = {
-  "w": "sentence fragment",
-  "senses": [
-    {
-      "use": "A sentence needs its own complete subject and verb — a 'because/if/when' clause alone isn't a full sentence.",
-      "examples": [
-        "✗ Because the pump failed. → ✓ The system shut down <b>because the pump failed</b>.",
-        "✗ If the pressure drops. → ✓ <b>If the pressure drops</b>, shut off the valve."
-      ]
-    },
-    {
-      "use": "A verb-only phrase with no subject isn't a complete sentence either.",
-      "examples": [
-        "✗ Checked the wiring yesterday. → ✓ <b>We</b> checked the wiring yesterday.",
-        "✗ Finished the report already. → ✓ <b>She</b> finished the report already."
-      ]
-    },
-    {
-      "use": "Fragments that start with an '-ing' or 'to' verb need a main clause attached to be complete.",
-      "examples": [
-        "✗ Working overtime to meet the deadline. → ✓ <b>He stayed late</b>, working overtime to meet the deadline.",
-        "✗ To finish the installation on time. → ✓ <b>We need two more days</b> to finish the installation on time."
-      ]
-    }
-  ],
-  "mistake": null
-};
-const BUILTIN_FRAGMENT_SENSES = sentenceFragmentEntry.senses.slice();
+;
+const BUILTIN_LOG_SENSES = CORRECTION_LOG_ENTRY.senses.slice();
 
 /* =========================================================
    PERSONAL CORRECTION LOG — persisted in this browser via
@@ -6225,12 +6271,20 @@ function personalEntryToSense(entry){
 // Capture EVERY Fixes-tab category's built-in senses ONCE, before any
 // personal entries are merged in — this is what makes editing/deleting
 // safe: every rebuild starts fresh from a category's own built-ins plus
-// whatever's currently in storage FOR THAT CATEGORY. Originally this only
-// captured the one catch-all "my correction log" entry; now a personal
-// correction can be filed under any existing category (e.g. "subject-verb
-// agreement") and shows up right there instead of only in the general log.
-const CORRECTION_LOG_ENTRY = mistakeData.find(m => m.w === "my correction log (personal history)");
+// whatever's currently in storage FOR THAT CATEGORY. A personal
+// correction can be filed under any existing category (e.g. "double
+// negatives") and shows up right there instead of only in the general log.
 const BUILTIN_MISTAKE_SENSES = new Map(mistakeData.map(m => [m.w, m.senses.slice()]));
+
+// Every standalone rule category living in the Word Bank tab (moved out
+// of mistakeData/the Fixes tab) that still uses this exact personal-
+// correction-log mechanism — rebuilt the same way as every mistakeData
+// category above, just outside that array.
+const WORDBANK_STANDALONE_RULES = [
+  { entry: sentenceFragmentEntry, builtinSenses: BUILTIN_FRAGMENT_SENSES },
+  { entry: subjectVerbAgreementEntry, builtinSenses: BUILTIN_SVA_SENSES },
+  { entry: CORRECTION_LOG_ENTRY, builtinSenses: BUILTIN_LOG_SENSES }
+];
 
 function rebuildCorrectionLog(){
   const saved = loadPersonalCorrections();
@@ -6239,7 +6293,9 @@ function rebuildCorrectionLog(){
     const builtin = BUILTIN_MISTAKE_SENSES.get(m.w) || [];
     m.senses = CorrectionLog.buildCorrectionSenses(builtin, grouped[m.w] || []);
   });
-  sentenceFragmentEntry.senses = CorrectionLog.buildCorrectionSenses(BUILTIN_FRAGMENT_SENSES, grouped[sentenceFragmentEntry.w] || []);
+  WORDBANK_STANDALONE_RULES.forEach(({entry, builtinSenses})=>{
+    entry.senses = CorrectionLog.buildCorrectionSenses(builtinSenses, grouped[entry.w] || []);
+  });
 }
 rebuildCorrectionLog();
 
@@ -38976,6 +39032,14 @@ searchIndex.push({label: sentenceFragmentEntry.w, cat:"Sentence error", action:(
   activateTab("wordbank");
   activateWordBankCategory("sentenceFragment");
 }});
+searchIndex.push({label: subjectVerbAgreementEntry.w, cat:"Sentence error", action:()=>{
+  activateTab("wordbank");
+  activateWordBankCategory("subjectVerbAgreement");
+}});
+searchIndex.push({label: CORRECTION_LOG_ENTRY.w, cat:"Sentence error", action:()=>{
+  activateTab("wordbank");
+  activateWordBankCategory("correctionLog");
+}});
 indexRuleModule(qaData, "Question starter", "qaSelect", "qaEntry", "Question Starter", "qa");
 indexRuleModule(vocabData, "Vocabulary Bank", "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 // Language Bank's 4 categories share one tab, so their action also has
@@ -40484,15 +40548,6 @@ document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
   rebuildCorrectionLog();
   refreshMistakeUI();
   resetQuickAddForm();
-
-  const idx = searchIndex.findIndex(s => s.label === CORRECTION_LOG_ENTRY.w);
-  if(idx === -1){
-    searchIndex.push({label: CORRECTION_LOG_ENTRY.w, cat:"Sentence error", action:()=>{
-      document.getElementById("mistakeSelect").value = CORRECTION_LOG_ENTRY.w;
-      renderRuleEntry(CORRECTION_LOG_ENTRY, document.getElementById("mistakeEntry"), "Sentence Error");
-      activateTab("mistakes");
-    }});
-  }
 });
 
 document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
@@ -40502,91 +40557,116 @@ document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
 });
 bindEnterToClick(["qaWrongInput", "qaRightInput", "qaWhyInput"], "qaAddBtn");
 
-// Sentence Fragments' own quick-add box (Word Bank tab) — same wrong/
-// right/why shape as the Fixes tab's shared box above, just fixed to
-// this one category and living in its own set of fields so editing a
-// fragment correction doesn't try to populate inputs on a hidden tab.
-function resetFragmentAddForm(){
-  document.getElementById("fragWrongInput").value = "";
-  document.getElementById("fragRightInput").value = "";
-  document.getElementById("fragWhyInput").value = "";
-  document.getElementById("fragAddBtn").textContent = "+ Add to this category";
-  delete document.getElementById("fragAddBtn").dataset.editingId;
-  document.getElementById("fragCancelEditBtn").classList.remove("show");
+// Every standalone Word Bank rule category (Sentence Fragments,
+// Subject-Verb Agreement, My Correction Log) gets its own quick-add
+// box — same wrong/right/why shape as the Fixes tab's shared box above,
+// just fixed to one category and living in its own set of fields so
+// editing a correction doesn't try to populate inputs on a hidden tab.
+// The add/cancel/reset wiring is identical across all three, so it's
+// written once here instead of three times.
+function setupWordBankCorrectionBox(entry, renderFn, ids){
+  function resetForm(){
+    document.getElementById(ids.wrongId).value = "";
+    document.getElementById(ids.rightId).value = "";
+    document.getElementById(ids.whyId).value = "";
+    document.getElementById(ids.addBtnId).textContent = "+ Add to this category";
+    delete document.getElementById(ids.addBtnId).dataset.editingId;
+    document.getElementById(ids.cancelBtnId).classList.remove("show");
+  }
+
+  document.getElementById(ids.addBtnId).addEventListener("click", async ()=>{
+    if(!isDeviceUnlocked()){
+      const s = document.getElementById(ids.statusId);
+      s.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+      s.className = "add-status error";
+      return;
+    }
+    const wrongEl = document.getElementById(ids.wrongId);
+    const rightEl = document.getElementById(ids.rightId);
+    const whyEl = document.getElementById(ids.whyId);
+    const statusEl = document.getElementById(ids.statusId);
+    const addBtn = document.getElementById(ids.addBtnId);
+    const wrong = wrongEl.value.trim();
+    const right = rightEl.value.trim();
+    const why = whyEl.value.trim();
+    const category = entry.w;
+
+    if(!wrong || !right){
+      statusEl.textContent = "Please fill in both the wrong and corrected versions.";
+      statusEl.className = "add-status error";
+      return;
+    }
+
+    const editingId = addBtn.dataset.editingId;
+    const previousSaved = loadPersonalCorrections();
+    const saved = previousSaved.map(s => ({...s}));
+    let statusText, statusOk;
+
+    if(editingId){
+      const e = saved.find(s => s.id === editingId);
+      if(e){
+        e.wrong = wrong;
+        e.right = right;
+        e.why = why;
+        e.category = category;
+      }
+      savePersonalCorrections(saved);
+      statusText = "Updated!";
+      statusOk = true;
+    } else {
+      saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why, category: category });
+      const localOk = savePersonalCorrections(saved);
+      statusText = localOk
+        ? "Saved! This entry is now permanent in this file."
+        : "Added for this session, but your browser blocked permanent saving.";
+      statusOk = localOk;
+    }
+
+    const pushResult = await pushToSync(saved);
+    if(!pushResult.ok){
+      savePersonalCorrections(previousSaved);
+      rebuildCorrectionLog();
+      renderFn();
+      statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
+      statusEl.className = "add-status error";
+      return;
+    }
+
+    statusEl.textContent = statusText;
+    statusEl.className = statusOk ? "add-status success" : "add-status error";
+
+    rebuildCorrectionLog();
+    renderFn();
+    resetForm();
+  });
+
+  document.getElementById(ids.cancelBtnId).addEventListener("click", ()=>{
+    resetForm();
+    document.getElementById(ids.statusId).textContent = "Edit cancelled.";
+    document.getElementById(ids.statusId).className = "add-status";
+  });
+  bindEnterToClick([ids.wrongId, ids.rightId, ids.whyId], ids.addBtnId);
+
+  return { ids: ids, reset: resetForm };
 }
 
-document.getElementById("fragAddBtn").addEventListener("click", async ()=>{
-  if(!isDeviceUnlocked()){
-    const s = document.getElementById("fragAddStatus");
-    s.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
-    s.className = "add-status error";
-    return;
-  }
-  const wrongEl = document.getElementById("fragWrongInput");
-  const rightEl = document.getElementById("fragRightInput");
-  const whyEl = document.getElementById("fragWhyInput");
-  const statusEl = document.getElementById("fragAddStatus");
-  const addBtn = document.getElementById("fragAddBtn");
-  const wrong = wrongEl.value.trim();
-  const right = rightEl.value.trim();
-  const why = whyEl.value.trim();
-  const category = sentenceFragmentEntry.w;
-
-  if(!wrong || !right){
-    statusEl.textContent = "Please fill in both the wrong and corrected versions.";
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  const editingId = addBtn.dataset.editingId;
-  const previousSaved = loadPersonalCorrections();
-  const saved = previousSaved.map(s => ({...s}));
-  let statusText, statusOk;
-
-  if(editingId){
-    const entry = saved.find(s => s.id === editingId);
-    if(entry){
-      entry.wrong = wrong;
-      entry.right = right;
-      entry.why = why;
-      entry.category = category;
-    }
-    savePersonalCorrections(saved);
-    statusText = "Updated!";
-    statusOk = true;
-  } else {
-    saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why, category: category });
-    const localOk = savePersonalCorrections(saved);
-    statusText = localOk
-      ? "Saved! This entry is now permanent in this file."
-      : "Added for this session, but your browser blocked permanent saving.";
-    statusOk = localOk;
-  }
-
-  const pushResult = await pushToSync(saved);
-  if(!pushResult.ok){
-    savePersonalCorrections(previousSaved);
-    rebuildCorrectionLog();
-    renderFragmentEntry();
-    statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  statusEl.textContent = statusText;
-  statusEl.className = statusOk ? "add-status success" : "add-status error";
-
-  rebuildCorrectionLog();
-  renderFragmentEntry();
-  resetFragmentAddForm();
+// Keyed by entry.w (the category string a saved correction is filed
+// under) so the shared edit/delete handler below can route a click to
+// whichever box actually owns that category — the Fixes tab's shared
+// box for everything else.
+const WORDBANK_CORRECTION_BOXES = {};
+WORDBANK_CORRECTION_BOXES[sentenceFragmentEntry.w] = setupWordBankCorrectionBox(sentenceFragmentEntry, renderFragmentEntry, {
+  wrongId: "fragWrongInput", rightId: "fragRightInput", whyId: "fragWhyInput",
+  addBtnId: "fragAddBtn", cancelBtnId: "fragCancelEditBtn", statusId: "fragAddStatus"
 });
-
-document.getElementById("fragCancelEditBtn").addEventListener("click", ()=>{
-  resetFragmentAddForm();
-  document.getElementById("fragAddStatus").textContent = "Edit cancelled.";
-  document.getElementById("fragAddStatus").className = "add-status";
+WORDBANK_CORRECTION_BOXES[subjectVerbAgreementEntry.w] = setupWordBankCorrectionBox(subjectVerbAgreementEntry, renderSubjectVerbAgreementEntry, {
+  wrongId: "svaWrongInput", rightId: "svaRightInput", whyId: "svaWhyInput",
+  addBtnId: "svaAddBtn", cancelBtnId: "svaCancelEditBtn", statusId: "svaAddStatus"
 });
-bindEnterToClick(["fragWrongInput", "fragRightInput", "fragWhyInput"], "fragAddBtn");
+WORDBANK_CORRECTION_BOXES[CORRECTION_LOG_ENTRY.w] = setupWordBankCorrectionBox(CORRECTION_LOG_ENTRY, renderCorrectionLogEntry, {
+  wrongId: "logWrongInput", rightId: "logRightInput", whyId: "logWhyInput",
+  addBtnId: "logAddBtn", cancelBtnId: "logCancelEditBtn", statusId: "logAddStatus"
+});
 
 document.addEventListener("click", async (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
@@ -40596,25 +40676,21 @@ document.addEventListener("click", async (e)=>{
     const saved = loadPersonalCorrections();
     const entry = saved.find(s => s.id === id);
     if(entry){
-      // A fragment correction is edited through its own box (Word Bank
-      // tab); every other category still uses the shared Fixes-tab box.
-      const isFragment = entry.category === sentenceFragmentEntry.w;
-      const wrongId = isFragment ? "fragWrongInput" : "qaWrongInput";
-      const rightId = isFragment ? "fragRightInput" : "qaRightInput";
-      const whyId = isFragment ? "fragWhyInput" : "qaWhyInput";
-      const addBtnId = isFragment ? "fragAddBtn" : "qaAddBtn";
-      const cancelBtnId = isFragment ? "fragCancelEditBtn" : "qaCancelEditBtn";
-      const statusId = isFragment ? "fragAddStatus" : "qaAddStatus";
-      document.getElementById(wrongId).value = entry.wrong;
-      document.getElementById(rightId).value = entry.right;
-      document.getElementById(whyId).value = entry.why || "";
-      const addBtn = document.getElementById(addBtnId);
+      // A correction filed under a Word Bank standalone category is
+      // edited through its own box; every other category still uses
+      // the shared Fixes-tab box.
+      const wb = WORDBANK_CORRECTION_BOXES[entry.category];
+      const ids = wb ? wb.ids : { wrongId:"qaWrongInput", rightId:"qaRightInput", whyId:"qaWhyInput", addBtnId:"qaAddBtn", cancelBtnId:"qaCancelEditBtn", statusId:"qaAddStatus" };
+      document.getElementById(ids.wrongId).value = entry.wrong;
+      document.getElementById(ids.rightId).value = entry.right;
+      document.getElementById(ids.whyId).value = entry.why || "";
+      const addBtn = document.getElementById(ids.addBtnId);
       addBtn.textContent = "Update this entry";
       addBtn.dataset.editingId = id;
-      document.getElementById(cancelBtnId).classList.add("show");
-      document.getElementById(statusId).textContent = "Editing — change the fields above and click Update.";
-      document.getElementById(statusId).className = "add-status";
-      const wrongInputEl = document.getElementById(wrongId);
+      document.getElementById(ids.cancelBtnId).classList.add("show");
+      document.getElementById(ids.statusId).textContent = "Editing — change the fields above and click Update.";
+      document.getElementById(ids.statusId).className = "add-status";
+      const wrongInputEl = document.getElementById(ids.wrongId);
       if(wrongInputEl.scrollIntoView) wrongInputEl.scrollIntoView({behavior:"smooth", block:"center"});
     }
     return;
@@ -40628,17 +40704,17 @@ document.addEventListener("click", async (e)=>{
     if(!confirmed) return;
     const previousSaved = loadPersonalCorrections();
     const target = previousSaved.find(s => s.id === id);
-    const isFragment = !!target && target.category === sentenceFragmentEntry.w;
+    const wb = target ? WORDBANK_CORRECTION_BOXES[target.category] : null;
     const saved = previousSaved.filter(s => s.id !== id);
     savePersonalCorrections(saved);
 
-    const statusEl = document.getElementById(isFragment ? "fragAddStatus" : "qaAddStatus");
+    const statusEl = document.getElementById(wb ? wb.ids.statusId : "qaAddStatus");
     const pushResult = await pushToSync(saved);
     if(!pushResult.ok){
       savePersonalCorrections(previousSaved);
       rebuildCorrectionLog();
       refreshMistakeUI();
-      renderFragmentEntry();
+      refreshAllWordBankStandaloneRules();
       statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
       statusEl.className = "add-status error";
       return;
@@ -40646,8 +40722,8 @@ document.addEventListener("click", async (e)=>{
 
     rebuildCorrectionLog();
     refreshMistakeUI();
-    renderFragmentEntry();
-    if(isFragment) resetFragmentAddForm(); else resetQuickAddForm();
+    refreshAllWordBankStandaloneRules();
+    if(wb) wb.reset(); else resetQuickAddForm();
     statusEl.textContent = "Deleted.";
     statusEl.className = "add-status success";
     return;
@@ -40786,7 +40862,7 @@ function getFavoriteRuleEntrySources(){
     // sentenceFragmentEntry moved out of mistakeData (now lives in the
     // Word Bank tab) but keeps the same "Sentence Error" cat tag, so a
     // favorite saved for it before the move still resolves here.
-    { cat: "Sentence Error", data: mistakeData.concat([sentenceFragmentEntry]) },
+    { cat: "Sentence Error", data: mistakeData.concat([sentenceFragmentEntry, subjectVerbAgreementEntry, CORRECTION_LOG_ENTRY]) },
     { cat: "Question Starter", data: qaData },
     { cat: "Verb + Preposition", data: prepVerbData },
     { cat: "Preposition", data: prepData }
@@ -44641,14 +44717,31 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
 ========================================================= */
 const basicAdvancedData = [];
 const tagalogEnglishData = [];
-const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "sentenceFragment"];
+const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog"];
 let currentWordBankCategory = "basicAdvanced";
 
-// Renders the single "sentence fragment" rule entry (moved here from the
-// Fixes tab — see sentenceFragmentEntry above) the same way the Fixes
-// tab always rendered it, just inside its own Word Bank category div.
+// Renders each single-entry standalone rule (moved here from the Fixes
+// tab — see sentenceFragmentEntry/subjectVerbAgreementEntry/
+// CORRECTION_LOG_ENTRY above) the same way the Fixes tab always rendered
+// it, just inside its own Word Bank category div.
 function renderFragmentEntry(){
   renderRuleEntry(sentenceFragmentEntry, document.getElementById("fragmentEntry"), "Sentence Error");
+}
+function renderSubjectVerbAgreementEntry(){
+  renderRuleEntry(subjectVerbAgreementEntry, document.getElementById("subjectVerbAgreementEntry"), "Sentence Error");
+}
+function renderCorrectionLogEntry(){
+  renderRuleEntry(CORRECTION_LOG_ENTRY, document.getElementById("correctionLogEntry"), "Sentence Error");
+}
+const WORDBANK_STANDALONE_RENDERERS = {
+  sentenceFragment: renderFragmentEntry,
+  subjectVerbAgreement: renderSubjectVerbAgreementEntry,
+  correctionLog: renderCorrectionLogEntry
+};
+function refreshAllWordBankStandaloneRules(){
+  renderFragmentEntry();
+  renderSubjectVerbAgreementEntry();
+  renderCorrectionLogEntry();
 }
 
 function activateWordBankCategory(key){
@@ -44658,7 +44751,7 @@ function activateWordBankCategory(key){
   WORD_BANK_CATEGORIES.forEach(k=>{
     document.getElementById("wordbank-"+k).style.display = (k===key) ? "block" : "none";
   });
-  if(key === "sentenceFragment") renderFragmentEntry();
+  if(WORDBANK_STANDALONE_RENDERERS[key]) WORDBANK_STANDALONE_RENDERERS[key]();
 }
 document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
@@ -45232,7 +45325,7 @@ function refreshWordBankUI(){
   if(baEntry) renderBasicAdvancedPair(baEntry);
   const teEntry = tagalogEnglishData.find(e=> e.tagalog === tagalogEnglishSelect.value);
   if(teEntry) renderTagalogEnglishPair(teEntry);
-  renderFragmentEntry();
+  refreshAllWordBankStandaloneRules();
 }
 
 // Cross-device sync for Word Bank — unlike vocabData/distinctionsData/
@@ -45580,9 +45673,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   orderData, prepVerbData, mistakeData, qaData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
-  CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES,
+  CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
   sentenceFragmentEntry, BUILTIN_FRAGMENT_SENSES, renderFragmentEntry,
-  WORD_BANK_CATEGORIES, activateWordBankCategory,
+  subjectVerbAgreementEntry, BUILTIN_SVA_SENSES, renderSubjectVerbAgreementEntry,
+  WORD_BANK_CATEGORIES, activateWordBankCategory, refreshAllWordBankStandaloneRules,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
