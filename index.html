@@ -1491,8 +1491,9 @@
       <div class="quick-add-box owner-only" id="basicAdvancedAddBox">
         <div class="section-label">➕ Add a Basic → Advanced Word Pair</div>
         <p class="note" style="margin-bottom:8px;">No online lookup here — type a basic word and a more advanced word you've researched yourself. You can add an optional definition and example(s) for each afterward by editing the saved entry.</p>
-        <input type="text" id="basicAdvancedAddInput" placeholder="e.g. happy" autocomplete="off">
-        <button id="basicAdvancedAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
+        <input type="text" id="basicAdvancedAddBasicInput" placeholder="Basic word (e.g. happy)" autocomplete="off">
+        <input type="text" id="basicAdvancedAddAdvancedInput" placeholder="Advanced word (e.g. elated)" autocomplete="off">
+        <button id="basicAdvancedAddBtn" class="add-btn" style="margin-top:8px;">+ Save</button>
         <div id="basicAdvancedAddStatus" class="add-status"></div>
       </div>
     </div>
@@ -1511,8 +1512,9 @@
       <div class="quick-add-box owner-only" id="tagalogEnglishAddBox">
         <div class="section-label">➕ Add a Tagalog → English Word Pair</div>
         <p class="note" style="margin-bottom:8px;">No online lookup here — type a Tagalog word and its English translation you've researched yourself. You can add an optional definition and example(s) for each afterward by editing the saved entry.</p>
-        <input type="text" id="tagalogEnglishAddInput" placeholder="e.g. tiyaga" autocomplete="off">
-        <button id="tagalogEnglishAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own word pair</button>
+        <input type="text" id="tagalogEnglishAddTagalogInput" placeholder="Tagalog word (e.g. tiyaga)" autocomplete="off">
+        <input type="text" id="tagalogEnglishAddEnglishInput" placeholder="English word (e.g. perseverance)" autocomplete="off">
+        <button id="tagalogEnglishAddBtn" class="add-btn" style="margin-top:8px;">+ Save</button>
         <div id="tagalogEnglishAddStatus" class="add-status"></div>
       </div>
     </div>
@@ -44070,72 +44072,28 @@ function addBasicAdvancedEntry(entry, options){
 // Words' own "Word 1 / Word 2" add box. The optional definition/examples
 // are filled in afterward via Edit (see openBasicAdvancedEditForm), not
 // collected here.
-function renderBasicAdvancedAddForm(basic){
-  openLookupModal({
-    title: `Add "${basic}" to Word Bank`,
-    subtitleHtml: "No online lookup here — type both words yourself. You can add an optional definition and example(s) afterward by editing the saved entry.",
-    bodyHtml: `
-      <label class="note" style="display:block;margin-bottom:4px;">Basic word</label>
-      <input type="text" id="basicAdvancedFormBasic" autocomplete="off" value="${basic}">
-      <label class="note" style="display:block;margin-bottom:4px;">Advanced word</label>
-      <input type="text" id="basicAdvancedFormAdvanced" autocomplete="off">
-      <div id="basicAdvancedAddFormStatus" class="add-status"></div>
-    `,
-    actions: [
-      { label: "Save to Word Bank", id: "basicAdvancedAddSaveBtn", closeOnClick: false, onClick: saveBasicAdvancedAddForm },
-      { label: "Cancel", id: "basicAdvancedAddCancelBtn", secondary: true }
-    ]
-  });
-  bindEnterToClick(["basicAdvancedFormBasic", "basicAdvancedFormAdvanced"], "basicAdvancedAddSaveBtn");
-}
-
-async function saveBasicAdvancedAddForm(){
-  const statusEl = document.getElementById("basicAdvancedAddFormStatus");
+// Direct entry, no modal — same idiom as Distinctions Words' own inline
+// "Word 1 / Word 2" add box: both words are typed right here and Save
+// commits immediately. The optional definition/example(s) are never
+// collected at this step; they're only ever added afterward via Edit.
+async function addBasicAdvancedEntryFromInput(){
+  const statusEl = document.getElementById("basicAdvancedAddStatus");
+  const basicInput = document.getElementById("basicAdvancedAddBasicInput");
+  const advancedInput = document.getElementById("basicAdvancedAddAdvancedInput");
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
     return;
   }
-  const basic = document.getElementById("basicAdvancedFormBasic").value.trim();
-  const advanced = document.getElementById("basicAdvancedFormAdvanced").value.trim();
-
+  const basic = basicInput.value.trim();
+  const advanced = advancedInput.value.trim();
   if(!basic || !advanced){
     statusEl.textContent = "Please fill in both the basic and advanced word.";
     statusEl.className = "add-status error";
     return;
   }
   if(isKnownBasicAdvanced(basic)){
-    statusEl.textContent = `"${basic}" is already in Word Bank.`;
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  const entry = { basic: basic, basicDef: null, basicExamples: [], advanced: advanced, advancedDef: null, advancedExamples: [] };
-  const item = addBasicAdvancedEntry(entry, {persist:true});
-  hideLookupModal();
-  document.getElementById("basicAdvancedAddInput").value = "";
-  document.getElementById("basicAdvancedAddStatus").textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank. Edit it to add a definition or examples.`;
-  document.getElementById("basicAdvancedAddStatus").className = "add-status success";
-  if(item) item.action();
-}
-
-async function addBasicAdvancedEntryFromInput(){
-  const statusEl = document.getElementById("basicAdvancedAddStatus");
-  const input = document.getElementById("basicAdvancedAddInput");
-  hideLookupModal();
-  if(!isDeviceUnlocked()){
-    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
-    statusEl.className = "add-status error";
-    return;
-  }
-  const text = input.value.trim();
-  if(!text){
-    statusEl.textContent = "Please enter the basic word first.";
-    statusEl.className = "add-status error";
-    return;
-  }
-  if(isKnownBasicAdvanced(text)){
-    const existing = wordIndexMap.get(normalizeWordKey(text));
+    const existing = wordIndexMap.get(normalizeWordKey(basic));
     if(existing){
       renderDuplicateConflictPopup(statusEl, {
         word: existing.label,
@@ -44143,19 +44101,22 @@ async function addBasicAdvancedEntryFromInput(){
         onView: ()=> navigateToEntry(existing)
       });
     } else {
-      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.textContent = `"${basic}" is already in the database.`;
       statusEl.className = "add-status";
     }
     return;
   }
-  statusEl.textContent = "";
-  statusEl.className = "add-status";
-  renderBasicAdvancedAddForm(text);
+
+  const entry = { basic: basic, basicDef: null, basicExamples: [], advanced: advanced, advancedDef: null, advancedExamples: [] };
+  const item = addBasicAdvancedEntry(entry, {persist:true});
+  basicInput.value = "";
+  advancedInput.value = "";
+  statusEl.textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank. Edit it to add a definition or examples.`;
+  statusEl.className = "add-status success";
+  if(item) item.action();
 }
 document.getElementById("basicAdvancedAddBtn").addEventListener("click", addBasicAdvancedEntryFromInput);
-document.getElementById("basicAdvancedAddInput").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") addBasicAdvancedEntryFromInput();
-});
+bindEnterToClick(["basicAdvancedAddBasicInput", "basicAdvancedAddAdvancedInput"], "basicAdvancedAddBtn");
 
 const basicAdvancedCacheRestorePromise = VocabCache.getAllBasicAdvanced({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addBasicAdvancedEntry(entry, {persist:false}));
@@ -44336,72 +44297,25 @@ function addTagalogEnglishEntry(entry, options){
   return item;
 }
 
-function renderTagalogEnglishAddForm(tagalog){
-  openLookupModal({
-    title: `Add "${tagalog}" to Word Bank`,
-    subtitleHtml: "No online lookup here — type both words yourself. You can add an optional definition and example(s) afterward by editing the saved entry.",
-    bodyHtml: `
-      <label class="note" style="display:block;margin-bottom:4px;">Tagalog word</label>
-      <input type="text" id="tagalogEnglishFormTagalog" autocomplete="off" value="${tagalog}">
-      <label class="note" style="display:block;margin-bottom:4px;">English word</label>
-      <input type="text" id="tagalogEnglishFormEnglish" autocomplete="off">
-      <div id="tagalogEnglishAddFormStatus" class="add-status"></div>
-    `,
-    actions: [
-      { label: "Save to Word Bank", id: "tagalogEnglishAddSaveBtn", closeOnClick: false, onClick: saveTagalogEnglishAddForm },
-      { label: "Cancel", id: "tagalogEnglishAddCancelBtn", secondary: true }
-    ]
-  });
-  bindEnterToClick(["tagalogEnglishFormTagalog", "tagalogEnglishFormEnglish"], "tagalogEnglishAddSaveBtn");
-}
-
-async function saveTagalogEnglishAddForm(){
-  const statusEl = document.getElementById("tagalogEnglishAddFormStatus");
+// Direct entry, no modal — same reasoning as addBasicAdvancedEntryFromInput.
+async function addTagalogEnglishEntryFromInput(){
+  const statusEl = document.getElementById("tagalogEnglishAddStatus");
+  const tagalogInput = document.getElementById("tagalogEnglishAddTagalogInput");
+  const englishInput = document.getElementById("tagalogEnglishAddEnglishInput");
   if(!isDeviceUnlocked()){
     statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
     statusEl.className = "add-status error";
     return;
   }
-  const tagalog = document.getElementById("tagalogEnglishFormTagalog").value.trim();
-  const english = document.getElementById("tagalogEnglishFormEnglish").value.trim();
-
+  const tagalog = tagalogInput.value.trim();
+  const english = englishInput.value.trim();
   if(!tagalog || !english){
     statusEl.textContent = "Please fill in both the Tagalog and English word.";
     statusEl.className = "add-status error";
     return;
   }
   if(isKnownTagalogEnglish(tagalog)){
-    statusEl.textContent = `"${tagalog}" is already in Word Bank.`;
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  const entry = { tagalog: tagalog, tagalogDef: null, tagalogExamples: [], english: english, englishDef: null, englishExamples: [] };
-  const item = addTagalogEnglishEntry(entry, {persist:true});
-  hideLookupModal();
-  document.getElementById("tagalogEnglishAddInput").value = "";
-  document.getElementById("tagalogEnglishAddStatus").textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank. Edit it to add a definition or examples.`;
-  document.getElementById("tagalogEnglishAddStatus").className = "add-status success";
-  if(item) item.action();
-}
-
-async function addTagalogEnglishEntryFromInput(){
-  const statusEl = document.getElementById("tagalogEnglishAddStatus");
-  const input = document.getElementById("tagalogEnglishAddInput");
-  hideLookupModal();
-  if(!isDeviceUnlocked()){
-    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
-    statusEl.className = "add-status error";
-    return;
-  }
-  const text = input.value.trim();
-  if(!text){
-    statusEl.textContent = "Please enter the Tagalog word first.";
-    statusEl.className = "add-status error";
-    return;
-  }
-  if(isKnownTagalogEnglish(text)){
-    const existing = wordIndexMap.get(normalizeWordKey(text));
+    const existing = wordIndexMap.get(normalizeWordKey(tagalog));
     if(existing){
       renderDuplicateConflictPopup(statusEl, {
         word: existing.label,
@@ -44409,19 +44323,22 @@ async function addTagalogEnglishEntryFromInput(){
         onView: ()=> navigateToEntry(existing)
       });
     } else {
-      statusEl.textContent = `"${text}" is already in the database.`;
+      statusEl.textContent = `"${tagalog}" is already in the database.`;
       statusEl.className = "add-status";
     }
     return;
   }
-  statusEl.textContent = "";
-  statusEl.className = "add-status";
-  renderTagalogEnglishAddForm(text);
+
+  const entry = { tagalog: tagalog, tagalogDef: null, tagalogExamples: [], english: english, englishDef: null, englishExamples: [] };
+  const item = addTagalogEnglishEntry(entry, {persist:true});
+  tagalogInput.value = "";
+  englishInput.value = "";
+  statusEl.textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank. Edit it to add a definition or examples.`;
+  statusEl.className = "add-status success";
+  if(item) item.action();
 }
 document.getElementById("tagalogEnglishAddBtn").addEventListener("click", addTagalogEnglishEntryFromInput);
-document.getElementById("tagalogEnglishAddInput").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") addTagalogEnglishEntryFromInput();
-});
+bindEnterToClick(["tagalogEnglishAddTagalogInput", "tagalogEnglishAddEnglishInput"], "tagalogEnglishAddBtn");
 
 const tagalogEnglishCacheRestorePromise = VocabCache.getAllTagalogEnglish({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addTagalogEnglishEntry(entry, {persist:false}));
@@ -44775,12 +44692,12 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   tenseCacheRestorePromise,
   basicAdvancedData, tagalogEnglishData, activateWordBankCategory,
   isKnownBasicAdvanced, addBasicAdvancedEntry, addBasicAdvancedEntryFromInput,
-  renderBasicAdvancedAddForm, saveBasicAdvancedAddForm, renderBasicAdvancedPair,
+  renderBasicAdvancedPair,
   openBasicAdvancedEditForm, saveBasicAdvancedEdit, deleteBasicAdvancedEntry,
   renderBasicAdvancedAfterDelete,
   basicAdvancedCacheRestorePromise,
   isKnownTagalogEnglish, addTagalogEnglishEntry, addTagalogEnglishEntryFromInput,
-  renderTagalogEnglishAddForm, saveTagalogEnglishAddForm, renderTagalogEnglishPair,
+  renderTagalogEnglishPair,
   openTagalogEnglishEditForm, saveTagalogEnglishEdit, deleteTagalogEnglishEntry,
   renderTagalogEnglishAfterDelete,
   tagalogEnglishCacheRestorePromise, refreshWordBankUI,
