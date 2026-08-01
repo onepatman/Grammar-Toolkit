@@ -47,6 +47,17 @@
                         are grammar constructions, not dictionary words).
                         Same generic { key, entry } shape and same
                         local-only scope as familyEntries above.
+     - notesEntries:    Research Notes — a free-form personal journal
+                        (title + body + tags), not tied to a single word,
+                        for anything the Owner is learning or researching
+                        about English. Keyed on a generated id (unlike
+                        every other store, a note has no natural unique
+                        headword), and — unlike familyEntries/tenseEntries
+                        — DOES participate in Firestore sync, since there's
+                        no built-in seed content to protect: the whole
+                        store is user data, reconciled the same
+                        remote-is-authoritative way favorites are (see
+                        applyRemoteNotes in index.html).
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -82,7 +93,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 13;
+  var DB_VERSION = 14;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -104,6 +115,7 @@
   var QA_STORE = "qaEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
+  var NOTES_STORE = "notesEntries";
   // Tracks built-in vocabData seed words the Owner has deleted, so the
   // deletion survives a reload (the hardcoded seed array itself never
   // changes) instead of the word silently reappearing. Records are just
@@ -176,6 +188,9 @@
         }
         if (!db.objectStoreNames.contains(TENSE_STORE)) {
           db.createObjectStore(TENSE_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(NOTES_STORE)) {
+          db.createObjectStore(NOTES_STORE, { keyPath: "key" });
         }
         if (!db.objectStoreNames.contains(DELETED_SEED_STORE)) {
           db.createObjectStore(DELETED_SEED_STORE, { keyPath: "key" });
@@ -442,6 +457,20 @@
   }
   function getAllTense(options) { return getAllEntries(TENSE_STORE, options); }
   function deleteTense(name, options) { return deleteEntry(TENSE_STORE, name, options); }
+
+  /* ---------- notesEntries (Research Notes — a free-form personal
+     journal, see the file-header comment above) ----------
+     Same generic { key, entry } shape, keyed on entry.id (a generated
+     id) rather than entry.w/.verb/.name — unlike every other store, a
+     note has no natural unique headword of its own. */
+
+  function getNote(id, options) { return storeGet(NOTES_STORE, normalizeKey(id), options).then(function (row) { return row ? row.entry : undefined; }); }
+  function putNote(entry, options) {
+    if (!entry || !entry.id) return Promise.resolve(false);
+    return storePut(NOTES_STORE, { key: normalizeKey(entry.id), entry: entry }, options);
+  }
+  function getAllNotes(options) { return getAllEntries(NOTES_STORE, options); }
+  function deleteNote(id, options) { return deleteEntry(NOTES_STORE, id, options); }
 
   /* ---------- deletedSeedWords (tombstones for deleted built-in
      vocabData words — see DELETED_SEED_STORE above) ---------- */
@@ -726,6 +755,11 @@
     putTense: putTense,
     getAllTense: getAllTense,
     deleteTense: deleteTense,
+    NOTES_STORE: NOTES_STORE,
+    getNote: getNote,
+    putNote: putNote,
+    getAllNotes: getAllNotes,
+    deleteNote: deleteNote,
     DELETED_SEED_STORE: DELETED_SEED_STORE,
     addDeletedSeedWord: addDeletedSeedWord,
     removeDeletedSeedWord: removeDeletedSeedWord,

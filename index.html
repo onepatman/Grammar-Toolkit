@@ -500,6 +500,31 @@
     font-size:13.5px; color:var(--ink-soft); padding:20px 4px; text-align:center;
   }
 
+  /* Research Notes tab — a list of freeform note cards, styled like
+     .favorites-list's rows but taller (title + tags + full body text +
+     owner-only actions) rather than a single-line search result. */
+  .notes-list{ display:flex; flex-direction:column; gap:10px; }
+  .note-card{
+    border:1px solid var(--rule); border-radius:var(--radius);
+    background:var(--card); padding:12px 14px;
+  }
+  .note-card-header{
+    display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .note-card-title{ font-weight:700; color:var(--teal-deep); font-size:15px; }
+  .note-card-date{ font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
+  .note-card-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .note-card-body{
+    margin-top:8px; font-size:13.5px; line-height:1.55; color:var(--ink);
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .note-card-actions{ display:flex; gap:8px; margin-top:10px; }
+  .note-card-actions button{
+    font-family:'IBM Plex Sans', sans-serif; font-size:12px; padding:5px 10px;
+    border-radius:6px; border:1px solid var(--rule); background:var(--paper); color:var(--ink); cursor:pointer;
+  }
+  .note-card-actions .note-delete-btn{ color:var(--brick); border-color:var(--brick-border); }
+
   /* ---------- Practice tab ---------- */
   .practice-source-picker{
     display:flex; flex-wrap:wrap; gap:10px;
@@ -895,6 +920,7 @@
   .chip-editor-chip.syn{ background:var(--mint-bg); border:1px solid var(--mint-border); color:var(--mint); }
   .chip-editor-chip.ant{ background:var(--brick-bg); border:1px solid var(--brick-border); color:var(--brick); }
   .chip-editor-chip.tagalog{ background:var(--warn-bg); border:1px solid var(--warn-border); color:var(--warn-text); }
+  .chip-editor-chip.tag{ background:var(--card); border:1px solid var(--teal); color:var(--teal-deep); }
   .chip-editor-remove{
     border:none; background:transparent; color:inherit; cursor:pointer;
     font-family:inherit; font-size:13px; line-height:1; padding:0 1px;
@@ -1170,6 +1196,7 @@
   </div>
   <div class="thumb-tabs">
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
+    <button class="thumb-tab" data-tab="notes">Notes<span class="n">📓</span></button>
     <button class="thumb-tab" data-tab="practice">Practice<span class="n">📝</span></button>
     <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
@@ -1644,6 +1671,24 @@
     <button class="add-btn secondary" id="exportFavoritesBtn" style="display:none; margin-bottom:10px;">📄 Export / share PDF study sheet</button>
     <div id="exportFavoritesStatus" class="add-status"></div>
     <div id="favoritesList" class="favorites-list"></div>
+  </section>
+
+  <!-- ===== RESEARCH NOTES PANEL ===== -->
+  <section id="panel-notes" style="display:none;">
+    <p class="note" style="margin-bottom:10px;">Your own space to write anything you're learning or researching about English — a grammar rule you read about, a mistake you want to remember, a whole paragraph. Free-form, not tied to a single word.</p>
+
+    <div class="quick-add-box owner-only" id="noteAddBox">
+      <div class="section-label">➕ Write a new note</div>
+      <input type="text" id="noteTitleInput" placeholder="Title (e.g. 'less vs fewer')" />
+      <textarea id="noteBodyInput" rows="5" placeholder="Write your note here..."></textarea>
+      <div class="chip-editor" id="noteTagsChips"></div>
+      <button class="add-btn" id="noteSaveBtn">+ Save note</button>
+      <div id="noteAddStatus" class="add-status"></div>
+    </div>
+
+    <input type="text" id="notesSearchInput" placeholder="🔎 Search your notes..." style="margin:14px 0 10px;" />
+    <div class="seg" id="notesTagSeg" style="margin-bottom:10px;"></div>
+    <div id="notesList" class="notes-list"></div>
   </section>
 
   <!-- ===== PRACTICE PANEL ===== -->
@@ -36939,6 +36984,328 @@ document.getElementById("favoritesCategorySeg").addEventListener("click", (e)=>{
 });
 
 /* =========================================================
+   RESEARCH NOTES — a free-form personal journal, separate from every
+   word-based tab: not tied to a single word/definition, so the Owner
+   can write anything they're learning or researching about English (a
+   grammar rule, a mistake to remember, a whole paragraph). No built-in
+   seed content — every note is something the Owner wrote — so its
+   sync reconciliation treats the remote list as fully authoritative
+   (applyRemoteNotes below), the same way applyRemoteFavorites does,
+   rather than merging into a hardcoded base like Vocab/Language Bank/
+   Distinctions do. Deliberately NOT wired into the global searchIndex/
+   wordIndexMap: a note's natural "label" is a title, not a single
+   word, and its content is meant to be found via the tab's own search
+   box (getFilteredNotes) rather than the top search bar.
+========================================================= */
+let notesData = [];
+let notesSearchQuery = "";
+let notesFilterTag = "All";
+
+function generateNoteId(){
+  return "note_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+// Low-level upsert shared by the Add box, the Edit form, sync
+// reconciliation, and IndexedDB restore-on-load — same role as
+// addDistinctionEntry/addFamilyEntry elsewhere, just without any
+// search-index wiring (see the file-header comment above).
+function addNoteEntry(entry, options){
+  const opts = options || {};
+  const now = Date.now();
+  const note = {
+    id: entry.id || generateNoteId(),
+    title: entry.title,
+    body: entry.body,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    createdAt: entry.createdAt || now,
+    modifiedAt: entry.modifiedAt || entry.createdAt || now
+  };
+  const idx = notesData.findIndex(n=> n.id === note.id);
+  if(idx === -1) notesData.push(note);
+  else notesData[idx] = note;
+  if(opts.persist) VocabCache.putNote(note, {dbPromise: vocabDbPromise});
+  return note;
+}
+
+// Gated behind isDeviceUnlocked() even if called directly, same
+// contract as deleteVocabEntry/deleteDistinctionEntry — a locked
+// device must never lose a note just because a stale click handler
+// somehow still fired.
+async function deleteNoteEntry(id, options){
+  if(!isDeviceUnlocked()) return;
+  const opts = options || {};
+  const idx = notesData.findIndex(n=> n.id === id);
+  if(idx === -1) return;
+  notesData.splice(idx, 1);
+  await VocabCache.deleteNote(id, {dbPromise: vocabDbPromise});
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
+}
+
+function getFilteredNotes(){
+  const q = notesSearchQuery.trim().toLowerCase();
+  return notesData
+    .filter(n=> notesFilterTag === "All" || (n.tags || []).includes(notesFilterTag))
+    .filter(n=> !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q) || (n.tags || []).some(t=> t.toLowerCase().includes(q)))
+    .slice()
+    .sort((a, b)=> (b.modifiedAt || 0) - (a.modifiedAt || 0));
+}
+
+function formatNoteDate(ts){
+  if(!ts) return "";
+  try{
+    return new Date(ts).toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+  }catch(e){
+    return "";
+  }
+}
+
+function renderNoteCardHtml(note){
+  const tagsHtml = (note.tags || []).map(t=> `<span class="chip-editor-chip tag" style="cursor:default;">${t}</span>`).join("");
+  const actionsHtml = isDeviceUnlocked() ? `
+    <div class="note-card-actions">
+      <button class="note-edit-btn" data-id="${note.id}">✏️ Edit</button>
+      <button class="note-delete-btn" data-id="${note.id}">🗑 Delete</button>
+    </div>` : "";
+  return `
+    <div class="note-card" data-id="${note.id}">
+      <div class="note-card-header">
+        <span class="note-card-title">${note.title}</span>
+        <span class="note-card-date">${formatNoteDate(note.modifiedAt)}</span>
+      </div>
+      ${tagsHtml ? `<div class="note-card-tags">${tagsHtml}</div>` : ""}
+      <div class="note-card-body">${note.body}</div>
+      ${actionsHtml}
+    </div>`;
+}
+
+// Built with document.createElement + .value assignments rather than
+// an innerHTML template string — same reasoning as
+// createVocabEditMeaningRow: a note's title/body is arbitrary owner-
+// typed text, so it goes into these fields as a real DOM property, not
+// interpolated into markup where a stray quote or tag could break the
+// form.
+function buildNoteEditCard(note){
+  const card = document.createElement("div");
+  card.className = "note-card note-card-editing";
+  card.dataset.id = note.id;
+
+  const label = document.createElement("div");
+  label.className = "section-label";
+  label.textContent = "Editing this note";
+  card.appendChild(label);
+
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.className = "note-edit-title";
+  titleInput.placeholder = "Title";
+  titleInput.value = note.title;
+  card.appendChild(titleInput);
+
+  const bodyInput = document.createElement("textarea");
+  bodyInput.className = "note-edit-body";
+  bodyInput.rows = 5;
+  bodyInput.placeholder = "Write your note here...";
+  bodyInput.value = note.body;
+  card.appendChild(bodyInput);
+
+  const tagsEl = document.createElement("div");
+  card.appendChild(tagsEl);
+  // renderChipEditor() overwrites container.className wholesale (see its
+  // own definition), so "note-edit-tags" is added AFTER that call rather
+  // than passed in up front — otherwise this selector class would be
+  // silently wiped the moment the chip editor renders.
+  renderChipEditor(tagsEl, note.tags, "tag");
+  tagsEl.classList.add("note-edit-tags");
+  wireChipEditorEvents(tagsEl);
+
+  const actions = document.createElement("div");
+  actions.className = "note-card-actions";
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "note-save-edit-btn";
+  saveBtn.dataset.id = note.id;
+  saveBtn.textContent = "💾 Save changes";
+  actions.appendChild(saveBtn);
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "note-cancel-edit-btn";
+  cancelBtn.textContent = "Cancel";
+  actions.appendChild(cancelBtn);
+  card.appendChild(actions);
+
+  const statusEl = document.createElement("div");
+  statusEl.className = "note-edit-status add-status";
+  card.appendChild(statusEl);
+
+  return card;
+}
+
+function renderNotesTab(){
+  const container = document.getElementById("notesList");
+  const filterSeg = document.getElementById("notesTagSeg");
+  if(!container) return;
+
+  if(notesData.length === 0){
+    if(filterSeg){ filterSeg.style.display = "none"; filterSeg.innerHTML = ""; }
+    container.innerHTML = '<div class="favorites-empty">No notes yet — write your first one above.</div>';
+    return;
+  }
+
+  const distinctTags = Array.from(new Set(notesData.flatMap(n=> n.tags || []))).sort((a, b)=> a.localeCompare(b));
+  if(notesFilterTag !== "All" && !distinctTags.includes(notesFilterTag)){
+    notesFilterTag = "All";
+  }
+  if(filterSeg){
+    if(distinctTags.length === 0){
+      filterSeg.style.display = "none"; filterSeg.innerHTML = "";
+    } else {
+      filterSeg.style.display = "";
+      const chips = ["All", ...distinctTags];
+      filterSeg.innerHTML = chips.map(t=> `<button class="${t === notesFilterTag ? "active" : ""}" data-val="${t}">${t}</button>`).join("");
+    }
+  }
+
+  const filtered = getFilteredNotes();
+  if(filtered.length === 0){
+    container.innerHTML = '<div class="favorites-empty">No notes match your search.</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(n=> renderNoteCardHtml(n)).join("");
+}
+
+function refreshNotesUI(){
+  const panel = document.getElementById("panel-notes");
+  if(panel && panel.style.display !== "none") renderNotesTab();
+}
+
+// Every note travels through sync (see file-header comment above) —
+// unlike collectOnlineDistinctions/etc., no source==="online" filter,
+// since there's no built-in seed subset to exclude.
+function collectNotesForSync(){
+  return notesData.slice();
+}
+
+// Remote is fully authoritative, same reasoning as applyRemoteFavorites:
+// there's no built-in note to protect, so whatever's in the shared doc
+// becomes the complete local picture.
+function applyRemoteNotes(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteIds = new Set(remote.map(n=> n.id));
+
+  remote.forEach(n=> addNoteEntry(n, {persist:true}));
+
+  notesData.slice().forEach(n=>{
+    if(!remoteIds.has(n.id)){
+      const idx = notesData.findIndex(x=> x.id === n.id);
+      if(idx !== -1) notesData.splice(idx, 1);
+      VocabCache.deleteNote(n.id, {dbPromise: vocabDbPromise});
+    }
+  });
+
+  refreshNotesUI();
+}
+
+renderChipEditor(document.getElementById("noteTagsChips"), [], "tag");
+wireChipEditorEvents(document.getElementById("noteTagsChips"));
+
+document.getElementById("noteSaveBtn").addEventListener("click", async ()=>{
+  if(!isDeviceUnlocked()) return;
+  const titleInput = document.getElementById("noteTitleInput");
+  const bodyInput = document.getElementById("noteBodyInput");
+  const tagsEl = document.getElementById("noteTagsChips");
+  const statusEl = document.getElementById("noteAddStatus");
+  const title = titleInput.value.trim();
+  const body = bodyInput.value.trim();
+  const tags = collectChipEditorValues(tagsEl);
+  if(!title || !body){
+    statusEl.textContent = "Please fill in both the title and the note itself.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  addNoteEntry({title, body, tags}, {persist:true});
+  titleInput.value = "";
+  bodyInput.value = "";
+  renderChipEditor(tagsEl, [], "tag");
+  const pushResult = await pushToSync(loadPersonalCorrections());
+  if(!pushResult.ok){
+    statusEl.textContent = "Saved locally, but couldn't sync: " + SyncAuth.friendlyWriteError(pushResult.error);
+    statusEl.className = "add-status error";
+  } else {
+    statusEl.textContent = "✅ Note saved.";
+    statusEl.className = "add-status success";
+  }
+  renderNotesTab();
+});
+bindEnterToClick("noteTitleInput", "noteSaveBtn");
+
+document.getElementById("notesSearchInput").addEventListener("input", (e)=>{
+  notesSearchQuery = e.target.value;
+  renderNotesTab();
+});
+
+document.getElementById("notesTagSeg").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  notesFilterTag = btn.dataset.val;
+  renderNotesTab();
+});
+
+// Single delegated listener for the whole list — cards (and their Edit/
+// Delete/Save/Cancel buttons) are re-created on every render, so this
+// avoids re-binding per card, same reasoning as
+// wireVocabEditMeaningEvents.
+document.getElementById("notesList").addEventListener("click", async (e)=>{
+  const editBtn = e.target.closest(".note-edit-btn");
+  if(editBtn){
+    if(!isDeviceUnlocked()) return;
+    const note = notesData.find(n=> n.id === editBtn.dataset.id);
+    if(!note) return;
+    editBtn.closest(".note-card").replaceWith(buildNoteEditCard(note));
+    return;
+  }
+  const deleteBtn = e.target.closest(".note-delete-btn");
+  if(deleteBtn){
+    if(!isDeviceUnlocked()) return;
+    const note = notesData.find(n=> n.id === deleteBtn.dataset.id);
+    if(!note) return;
+    const confirmed = window.confirm ? window.confirm(`Delete the note "${note.title}"? This can't be undone.`) : true;
+    if(!confirmed) return;
+    await deleteNoteEntry(note.id);
+    renderNotesTab();
+    return;
+  }
+  const cancelBtn = e.target.closest(".note-cancel-edit-btn");
+  if(cancelBtn){
+    renderNotesTab();
+    return;
+  }
+  const saveBtn = e.target.closest(".note-save-edit-btn");
+  if(saveBtn){
+    if(!isDeviceUnlocked()) return;
+    const card = saveBtn.closest(".note-card-editing");
+    const id = saveBtn.dataset.id;
+    const title = card.querySelector(".note-edit-title").value.trim();
+    const body = card.querySelector(".note-edit-body").value.trim();
+    const tags = collectChipEditorValues(card.querySelector(".note-edit-tags"));
+    const statusEl = card.querySelector(".note-edit-status");
+    if(!title || !body){
+      statusEl.textContent = "Please fill in both the title and the note itself.";
+      statusEl.className = "add-status error";
+      return;
+    }
+    const existing = notesData.find(n=> n.id === id);
+    addNoteEntry({id, title, body, tags, createdAt: existing ? existing.createdAt : Date.now(), modifiedAt: Date.now()}, {persist:true});
+    const pushResult = await pushToSync(loadPersonalCorrections());
+    if(!pushResult.ok){
+      statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
+      statusEl.className = "add-status error";
+      return;
+    }
+    renderNotesTab();
+  }
+});
+
+/* =========================================================
    STUDY MODE — a flashcard-style browser through the Favorites list.
    Each "card" is just the real entry (rendered via the same
    wordIndexMap action() every search result and favorite row already
@@ -38232,6 +38599,7 @@ function activateTab(name){
   document.querySelectorAll("main > section").forEach(sec=>sec.style.display = "none");
   document.getElementById("panel-" + name).style.display = "block";
   if(name === "favorites") renderFavoritesTab();
+  if(name === "notes") renderNotesTab();
   if(name === "practice") renderPracticeHome();
 }
 document.querySelectorAll(".thumb-tab").forEach(tab=>{
@@ -39481,6 +39849,10 @@ const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise
   entries.forEach(entry=> addDistinctionEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
+const notesCacheRestorePromise = VocabCache.getAllNotes({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addNoteEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
 // Thin wrappers over addLanguageBankEntry() for the 6 standalone rule
 // tabs — same reasoning as addPhrasalEntry/addIdiomEntry/etc. above.
 function addPrepEntry(entry, options){ return addLanguageBankEntry("preps", entry, options); }
@@ -39648,6 +40020,7 @@ document.getElementById("ownerSetPinBtn").addEventListener("click", async ()=>{
   refreshDistinctionsUI();
   refreshWordBankUI();
   refreshVocabUI();
+  refreshNotesUI();
 });
 
 document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
@@ -39666,6 +40039,7 @@ document.getElementById("ownerUnlockBtn").addEventListener("click", async ()=>{
   refreshDistinctionsUI();
   refreshWordBankUI();
   refreshVocabUI();
+  refreshNotesUI();
 });
 
 // Enter-to-submit — lets a single-line input (Add/Search/Sign-in/Connect/
@@ -39715,6 +40089,7 @@ document.getElementById("ownerLockBtn").addEventListener("click", async ()=>{
   refreshDistinctionsUI();
   refreshWordBankUI();
   refreshVocabUI();
+  refreshNotesUI();
 });
 
 document.getElementById("ownerForgotPinBtn").addEventListener("click", ()=>{
@@ -40487,6 +40862,7 @@ function listenToSync(code){
       applyRemoteBasicAdvanced(data.basicAdvanced);
       applyRemoteTagalogEnglish(data.tagalogEnglish);
       applyRemoteFavorites(data.favorites);
+      applyRemoteNotes(data.notes);
 
       // Backfill: a shared doc created before Word Bank sync existed has
       // no basicAdvanced/tagalogEnglish field at ALL (not even an empty
@@ -40526,6 +40902,7 @@ function listenToSync(code){
         basicAdvanced: collectOnlineBasicAdvanced(),
         tagalogEnglish: collectOnlineTagalogEnglish(),
         favorites: collectFavoritesForSync(),
+        notes: collectNotesForSync(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
     }
@@ -40555,13 +40932,14 @@ function collectFavoritesForSync(){
 // log didn't accept this change" means for its own UI/rollback.
 //
 // Always writes `entries`, `languageBank`, `distinctions`, `vocab`,
-// `verbs`, AND `favorites` together, even though most callers only just
-// changed one of the six — a plain Firestore .set() replaces the whole
-// document, so writing only the field that changed would silently wipe
-// out the others. Reading the current value of whichever fields didn't
-// change (loadPersonalCorrections() / collectOnlineLanguageBankEntries()
-// / collectOnlineDistinctions() / collectOnlineVocabEntries() /
-// collectOnlineVerbs() / collectFavoritesForSync()) right before every
+// `verbs`, `favorites`, AND `notes` together, even though most callers
+// only just changed one of the seven — a plain Firestore .set() replaces
+// the whole document, so writing only the field that changed would
+// silently wipe out the others. Reading the current value of whichever
+// fields didn't change (loadPersonalCorrections() /
+// collectOnlineLanguageBankEntries() / collectOnlineDistinctions() /
+// collectOnlineVocabEntries() / collectOnlineVerbs() /
+// collectFavoritesForSync() / collectNotesForSync()) right before every
 // write keeps this a single safe entry point instead of several that
 // can race.
 function pushToSync(entries){
@@ -40578,6 +40956,7 @@ function pushToSync(entries){
     basicAdvanced: collectOnlineBasicAdvanced(),
     tagalogEnglish: collectOnlineTagalogEnglish(),
     favorites: collectFavoritesForSync(),
+    notes: collectNotesForSync(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
     console.warn("Sync push failed:", e);
@@ -40676,6 +41055,7 @@ async function signInAsOwner(email, password){
     refreshDistinctionsUI();
     refreshWordBankUI();
     refreshVocabUI();
+    refreshNotesUI();
     const code = localStorage.getItem(SYNC_CODE_KEY);
     if(code) listenToSync(code);
   }catch(e){
@@ -40697,6 +41077,7 @@ async function signOutOwner(){
   refreshDistinctionsUI();
   refreshWordBankUI();
   refreshVocabUI();
+  refreshNotesUI();
   const code = localStorage.getItem(SYNC_CODE_KEY);
   if(code) listenToSync(code);
 }
@@ -42606,6 +42987,7 @@ bindEnterToClick(["distinctionsManualExample1", "distinctionsManualExample2"], "
     refreshDistinctionsUI();
     refreshWordBankUI();
     refreshVocabUI();
+    refreshNotesUI();
     const statusEl = document.getElementById("syncStatus");
     statusEl.textContent = "Connected! Syncing as \"" + savedCode + "\".";
     statusEl.className = "add-status success";
@@ -44877,7 +45259,14 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
   collectChipEditorValues, wireChipEditorEvents,
   formatDuplicateDate, renderDuplicateConflictPopup, hideDuplicateConflictPopup,
-  buildLookupResultCardHtml, openLookupModal, closeLookupModal
+  buildLookupResultCardHtml, openLookupModal, closeLookupModal,
+  notesData, addNoteEntry, deleteNoteEntry, renderNotesTab, refreshNotesUI,
+  getFilteredNotes, collectNotesForSync, applyRemoteNotes,
+  notesCacheRestorePromise, generateNoteId,
+  getNotesSearchQuery: ()=> notesSearchQuery,
+  setNotesSearchQuery: (v)=>{ notesSearchQuery = v; },
+  getNotesFilterTag: ()=> notesFilterTag,
+  setNotesFilterTag: (v)=>{ notesFilterTag = v; }
 };
 </script>
 <script>

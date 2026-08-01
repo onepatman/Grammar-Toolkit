@@ -46,7 +46,10 @@ describe("Practice tab — home view", () => {
     const { window } = await loadApp();
     const document = window.document;
     const tabs = Array.from(document.querySelectorAll(".thumb-tab")).map((t) => t.dataset.tab);
-    expect(tabs.indexOf("practice")).toBe(tabs.indexOf("favorites") + 1);
+    // Favorites, Notes, Practice sit together as the "personal tools"
+    // cluster at the front of the tab bar, ahead of every word-based tab.
+    expect(tabs.indexOf("practice")).toBeGreaterThan(tabs.indexOf("favorites"));
+    expect(tabs.indexOf("practice")).toBeLessThan(tabs.indexOf("vocab"));
 
     document.querySelector('.thumb-tab[data-tab="practice"]').click();
     expect(document.getElementById("panel-practice").style.display).toBe("block");
