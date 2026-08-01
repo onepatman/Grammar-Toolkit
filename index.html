@@ -525,6 +525,48 @@
   }
   .note-card-actions .note-delete-btn{ color:var(--brick); border-color:var(--brick-border); }
 
+  /* ---------- Progress Dashboard tab (the app's default/landing tab) ----------
+     Every chart here is plain DOM (divs, not <canvas>) — bar heights come from
+     inline style percentages and calendar-cell shading from inline
+     background-color, so the whole thing stays inspectable/testable and needs
+     no charting library, consistent with the rest of this no-build-step app. */
+  .dashboard-stats{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+    gap:10px; margin-bottom:18px;
+  }
+  .dashboard-stat-tile{
+    background:var(--card); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:12px 10px; text-align:center;
+  }
+  .dashboard-stat-value{ font-size:22px; font-weight:800; color:var(--teal-deep); font-family:'IBM Plex Mono', monospace; }
+  .dashboard-stat-label{ font-size:11px; color:var(--ink-soft); margin-top:2px; text-transform:uppercase; letter-spacing:0.03em; }
+
+  .dashboard-section{ margin-top:22px; }
+  .dashboard-empty{ font-size:13.5px; color:var(--ink-soft); padding:14px 4px; text-align:center; }
+
+  .dashboard-bar-chart{
+    display:flex; align-items:flex-end; gap:6px; height:130px;
+    overflow-x:auto; padding:4px 2px 0;
+  }
+  .dashboard-bar-col{
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+    flex:1 0 22px; min-width:22px; height:100%;
+  }
+  .dashboard-bar-value{ font-size:10px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; margin-bottom:2px; }
+  .dashboard-bar{
+    width:100%; max-width:26px; background:var(--teal); border-radius:4px 4px 0 0;
+    min-height:2px;
+  }
+  .dashboard-bar-label{ font-size:9.5px; color:var(--ink-soft); margin-top:5px; white-space:nowrap; }
+
+  .dashboard-calendar{
+    display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 13px);
+    gap:3px; overflow-x:auto; padding:4px 2px;
+  }
+  .dashboard-cal-cell{
+    width:13px; height:13px; border-radius:3px; background:var(--rule);
+  }
+
   /* ---------- Practice tab ---------- */
   .practice-source-picker{
     display:flex; flex-wrap:wrap; gap:10px;
@@ -1195,10 +1237,11 @@
     <div id="searchResults" class="search-results"></div>
   </div>
   <div class="thumb-tabs">
+    <button class="thumb-tab active" data-tab="dashboard">Dashboard<span class="n">📊</span></button>
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
     <button class="thumb-tab" data-tab="notes">Notes<span class="n">📓</span></button>
     <button class="thumb-tab" data-tab="practice">Practice<span class="n">📝</span></button>
-    <button class="thumb-tab active" data-tab="vocab">Vocab<span class="n">VB</span></button>
+    <button class="thumb-tab" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="distinctions">Distinctions Words<span class="n">DW</span></button>
@@ -1662,6 +1705,28 @@
     </div>
   </section>
 
+  <!-- ===== PROGRESS DASHBOARD PANEL (the app's default/landing tab) ===== -->
+  <section id="panel-dashboard">
+    <p class="note" style="margin-bottom:14px;">Your learning activity at a glance — words and entries you've added, your daily streak, and how your Practice sessions are trending.</p>
+    <div id="dashboardStats" class="dashboard-stats"></div>
+
+    <div class="dashboard-section">
+      <div class="section-label">📈 Entries added, last 12 weeks</div>
+      <div id="dashboardWeeklyChart" class="dashboard-bar-chart"></div>
+    </div>
+
+    <div class="dashboard-section">
+      <div class="section-label">🔥 Activity streak <span id="dashboardStreakLabel"></span></div>
+      <div id="dashboardStreakCalendar" class="dashboard-calendar"></div>
+    </div>
+
+    <div class="dashboard-section">
+      <div class="section-label">🎯 Practice accuracy, last <span id="dashboardAccuracyCount"></span> sessions</div>
+      <p class="note" id="dashboardAccuracyNote" style="margin-bottom:8px;"></p>
+      <div id="dashboardAccuracyChart" class="dashboard-bar-chart"></div>
+    </div>
+  </section>
+
   <!-- ===== FAVORITES PANEL ===== -->
   <section id="panel-favorites" style="display:none;">
     <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
@@ -1732,7 +1797,7 @@
   </section>
 
   <!-- ===== VOCABULARY UPGRADE PANEL ===== -->
-  <section id="panel-vocab">
+  <section id="panel-vocab" style="display:none;">
     <div class="controls sort-controls">
       <label for="vocabSortSelect" class="sort-label">Sort by:</label>
       <select id="vocabSortSelect">
@@ -2041,7 +2106,7 @@ const favoriteKeys = new Set();
 // test's assumption that a write following an `await connectSync(...)` /
 // button click has already landed by the next microtask flush.
 const favoriteRecords = new Map();
-VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+const favoritesCacheRestorePromise = VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
   favs.forEach(f=>{
     favoriteKeys.add(f.key);
     favoriteRecords.set(f.key, {word: f.word, cat: f.cat, addedAt: f.addedAt});
@@ -36913,6 +36978,206 @@ setupFamilyModule();
    export code) exports exactly what's currently filtered here, not
    the whole favorites list or the whole database.
 ========================================================= */
+/* =========================================================
+   PROGRESS DASHBOARD — the app's default/landing tab. Read-only:
+   aggregates data that already exists elsewhere (vocabData,
+   distinctionsData, every LANGUAGE_BANK_CONFIG category, notesData,
+   favoriteKeys, practiceHistory) into stat tiles and three small
+   charts. No owner-mode gating needed — same as Favorites/Practice,
+   it only ever reads, never writes.
+
+   Only owner-ADDED content carries a real timestamp (built-in seed
+   data across every category has none — see addedAt usage throughout
+   this file), so "entries added" activity is, by construction, only
+   ever the Owner's own activity, which is exactly what a personal
+   progress dashboard should show.
+========================================================= */
+const DASHBOARD_WEEKS_BACK = 12;
+const DASHBOARD_CALENDAR_WEEKS = 12;
+const DASHBOARD_ACCURACY_LIMIT = 20;
+const DASHBOARD_DAY_MS = 24 * 60 * 60 * 1000;
+const DASHBOARD_WEEK_MS = 7 * DASHBOARD_DAY_MS;
+
+function dashboardDateKey(date){
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+}
+
+// Every "content added" timestamp across the app, flattened into one
+// array — vocab/distinctions/every Language Bank category only count
+// owner-added (source:"online") entries, same filter
+// collectOnlineDistinctions()/collectOnlineLanguageBankEntries() use;
+// notesData has no built-in seed at all, so every note counts.
+function collectDashboardAddedEntries(){
+  const timestamps = [];
+  vocabData.forEach(e=>{ if(e.source === "online" && e.addedAt) timestamps.push(e.addedAt); });
+  distinctionsData.forEach(e=>{ if(e.source === "online" && e.addedAt) timestamps.push(e.addedAt); });
+  Object.keys(LANGUAGE_BANK_CONFIG).forEach(categoryKey=>{
+    LANGUAGE_BANK_CONFIG[categoryKey].data.forEach(e=>{
+      if(e.source === "online" && e.addedAt) timestamps.push(e.addedAt);
+    });
+  });
+  notesData.forEach(n=>{ if(n.createdAt) timestamps.push(n.createdAt); });
+  return timestamps;
+}
+
+// Groups timestamps into `weeksBack` consecutive 7-day buckets ending
+// today, oldest first — so the resulting bar chart reads left-to-right
+// in chronological order, like a real activity graph.
+function bucketTimestampsByWeek(timestamps, weeksBack){
+  const now = Date.now();
+  const buckets = new Array(weeksBack).fill(0);
+  timestamps.forEach(ts=>{
+    const weeksAgo = Math.floor((now - ts) / DASHBOARD_WEEK_MS);
+    if(weeksAgo >= 0 && weeksAgo < weeksBack) buckets[weeksBack - 1 - weeksAgo]++;
+  });
+  return buckets.map((count, idx)=>{
+    const weeksAgo = weeksBack - 1 - idx;
+    const bucketStart = new Date(now - (weeksAgo + 1) * DASHBOARD_WEEK_MS);
+    return {label: bucketStart.toLocaleDateString(undefined, {month:"short", day:"numeric"}), value: count};
+  });
+}
+
+// The last `limit` Practice sessions, oldest first, as {label, value}
+// bars — flashcards mode never writes a practiceHistory record (see
+// finishPracticeSession's early return for it), so this trend only
+// ever reflects the scored modes (MCQ, Spelling, True/False, Matching,
+// Speaking, Writing).
+function collectDashboardAccuracyTrend(practiceHistory, limit){
+  return practiceHistory
+    .slice()
+    .sort((a, b)=> (a.completedAt || 0) - (b.completedAt || 0))
+    .slice(-limit)
+    .map(r=> ({
+      label: r.completedAt ? new Date(r.completedAt).toLocaleDateString(undefined, {month:"short", day:"numeric"}) : "?",
+      value: typeof r.percentage === "number" ? r.percentage : 0
+    }));
+}
+
+// Every calendar day (local time) that saw either a content-add or a
+// finished Practice session, mapped to how many of those happened that
+// day — feeds both the streak count and the activity calendar below.
+function collectDashboardActivityDateCounts(addedTimestamps, practiceHistory){
+  const counts = new Map();
+  addedTimestamps.forEach(ts=>{
+    const key = dashboardDateKey(new Date(ts));
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  practiceHistory.forEach(r=>{
+    if(!r.completedAt) return;
+    const key = dashboardDateKey(new Date(r.completedAt));
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return counts;
+}
+
+// Counts consecutive active days ending today. If today has no
+// activity yet, starts from yesterday instead — so a streak in
+// progress doesn't read as "broken" before the day is even over.
+function computeDashboardStreak(dateCounts){
+  let cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  if(!dateCounts.has(dashboardDateKey(cursor))){
+    cursor = new Date(cursor.getTime() - DASHBOARD_DAY_MS);
+  }
+  let streak = 0;
+  while(dateCounts.has(dashboardDateKey(cursor))){
+    streak++;
+    cursor = new Date(cursor.getTime() - DASHBOARD_DAY_MS);
+  }
+  return streak;
+}
+
+// Shared renderer for both bar charts (weekly-added and accuracy
+// trend) — plain divs with inline height percentages, not <canvas>,
+// so bar values stay inspectable via data-value in tests.
+function renderDashboardBarChart(container, bars){
+  if(!container) return;
+  if(!bars.length || bars.every(b=> b.value === 0)){
+    container.innerHTML = '<div class="dashboard-empty">Nothing here yet — add a few words or finish a Practice session to see this fill in.</div>';
+    return;
+  }
+  const max = Math.max(...bars.map(b=> b.value), 1);
+  container.innerHTML = bars.map(b=>{
+    const heightPct = Math.max(2, Math.round((b.value / max) * 100));
+    return `
+      <div class="dashboard-bar-col" data-value="${b.value}">
+        <span class="dashboard-bar-value">${b.value}</span>
+        <div class="dashboard-bar" style="height:${heightPct}%"></div>
+        <span class="dashboard-bar-label">${b.label}</span>
+      </div>`;
+  }).join("");
+}
+
+function dashboardCalCellColor(count){
+  if(count <= 0) return "var(--rule)";
+  if(count === 1) return "var(--teal)";
+  return "var(--teal-deep)";
+}
+
+// GitHub-contribution-graph-style grid: 7 rows (Sun-Sat), columns flow
+// left-to-right through `weeksBack` weeks ending today. Leading blank
+// cells pad the first column so day-of-week stays aligned to its row.
+function renderDashboardCalendar(container, dateCounts, weeksBack){
+  if(!container) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const totalDays = weeksBack * 7;
+  const firstDay = new Date(today.getTime() - (totalDays - 1) * DASHBOARD_DAY_MS);
+  const leadingBlanks = firstDay.getDay();
+  let html = "";
+  for(let i = 0; i < leadingBlanks; i++){
+    html += '<div class="dashboard-cal-cell" style="background:transparent;"></div>';
+  }
+  for(let i = 0; i < totalDays; i++){
+    const d = new Date(firstDay.getTime() + i * DASHBOARD_DAY_MS);
+    const key = dashboardDateKey(d);
+    const count = dateCounts.get(key) || 0;
+    const dateLabel = d.toLocaleDateString(undefined, {month:"short", day:"numeric"});
+    const title = dateLabel + ": " + count + (count === 1 ? " activity" : " activities");
+    html += `<div class="dashboard-cal-cell" data-date="${key}" data-count="${count}" title="${title}" style="background:${dashboardCalCellColor(count)};"></div>`;
+  }
+  container.innerHTML = html;
+}
+
+async function renderDashboardTab(){
+  const statsEl = document.getElementById("dashboardStats");
+  if(!statsEl) return;
+  const weeklyEl = document.getElementById("dashboardWeeklyChart");
+  const streakEl = document.getElementById("dashboardStreakCalendar");
+  const streakLabelEl = document.getElementById("dashboardStreakLabel");
+  const accuracyEl = document.getElementById("dashboardAccuracyChart");
+  const accuracyCountEl = document.getElementById("dashboardAccuracyCount");
+  const accuracyNoteEl = document.getElementById("dashboardAccuracyNote");
+
+  const practiceHistory = await VocabCache.getAllPracticeHistory({dbPromise: vocabDbPromise});
+  const addedTimestamps = collectDashboardAddedEntries();
+  const weeklyBars = bucketTimestampsByWeek(addedTimestamps, DASHBOARD_WEEKS_BACK);
+  const activityDateCounts = collectDashboardActivityDateCounts(addedTimestamps, practiceHistory);
+  const streak = computeDashboardStreak(activityDateCounts);
+  const accuracyTrend = collectDashboardAccuracyTrend(practiceHistory, DASHBOARD_ACCURACY_LIMIT);
+  const avgAccuracy = accuracyTrend.length
+    ? Math.round(accuracyTrend.reduce((sum, b)=> sum + b.value, 0) / accuracyTrend.length)
+    : null;
+
+  const tiles = [
+    {value: vocabData.length, label: "Vocabulary words"},
+    {value: notesData.length, label: "Notes written"},
+    {value: favoriteKeys.size, label: "Favorites"},
+    {value: practiceHistory.length, label: "Practice sessions"},
+    {value: streak, label: streak === 1 ? "Day streak" : "Day streak"},
+    {value: avgAccuracy === null ? "—" : avgAccuracy + "%", label: "Avg. accuracy"}
+  ];
+  statsEl.innerHTML = tiles.map(t=> `<div class="dashboard-stat-tile"><div class="dashboard-stat-value">${t.value}</div><div class="dashboard-stat-label">${t.label}</div></div>`).join("");
+
+  renderDashboardBarChart(weeklyEl, weeklyBars);
+  renderDashboardCalendar(streakEl, activityDateCounts, DASHBOARD_CALENDAR_WEEKS);
+  if(streakLabelEl) streakLabelEl.textContent = streak > 0 ? `— ${streak} day${streak === 1 ? "" : "s"}` : "";
+
+  if(accuracyCountEl) accuracyCountEl.textContent = String(Math.min(DASHBOARD_ACCURACY_LIMIT, practiceHistory.length));
+  if(accuracyNoteEl) accuracyNoteEl.textContent = "Based on Multiple Choice, Spelling, True/False, Matching, Speaking, and Writing sessions — Flashcards mode doesn't record a score.";
+  renderDashboardBarChart(accuracyEl, accuracyTrend);
+}
+
 let favoritesFilterCat = "All";
 
 function getFilteredFavorites(favs){
@@ -38598,6 +38863,7 @@ function activateTab(name){
   document.querySelectorAll(".thumb-tab").forEach(t=>t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll("main > section").forEach(sec=>sec.style.display = "none");
   document.getElementById("panel-" + name).style.display = "block";
+  if(name === "dashboard") renderDashboardTab();
   if(name === "favorites") renderFavoritesTab();
   if(name === "notes") renderNotesTab();
   if(name === "practice") renderPracticeHome();
@@ -45152,6 +45418,21 @@ document.addEventListener("click", (e)=>{
   }
 });
 
+// Dashboard is the default/landing tab (visible without any click), but
+// its own content divs start empty — this is what actually paints it on
+// load. Waits for every relevant cache-restore promise first so the
+// first paint already reflects owner-added vocab/distinctions/Language
+// Bank entries/notes/favorites, not just the hardcoded seed data (which
+// carries no addedAt anyway, so an unaware early render would just show
+// zeros). Re-opening the tab later (activateTab) always re-renders fresh
+// regardless of this initial call.
+Promise.all([
+  vocabCacheRestorePromise, distinctionsCacheRestorePromise, notesCacheRestorePromise,
+  favoritesCacheRestorePromise, ruleTabsCacheRestorePromise,
+  phrasalCacheRestorePromise, idiomsCacheRestorePromise, sentencesCacheRestorePromise,
+  patternsCacheRestorePromise, technicalCacheRestorePromise
+]).then(()=> renderDashboardTab()).catch(()=> renderDashboardTab());
+
 // Test-only hook: exposes the (otherwise script-local `const`) data sets
 // and a few pure functions so the Vitest suite can load this real page in
 // jsdom and assert against production data/behavior without duplicating
@@ -45266,7 +45547,12 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getNotesSearchQuery: ()=> notesSearchQuery,
   setNotesSearchQuery: (v)=>{ notesSearchQuery = v; },
   getNotesFilterTag: ()=> notesFilterTag,
-  setNotesFilterTag: (v)=>{ notesFilterTag = v; }
+  setNotesFilterTag: (v)=>{ notesFilterTag = v; },
+  renderDashboardTab, collectDashboardAddedEntries, bucketTimestampsByWeek,
+  collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
+  computeDashboardStreak, dashboardDateKey,
+  renderDashboardBarChart, renderDashboardCalendar,
+  favoritesCacheRestorePromise
 };
 </script>
 <script>
