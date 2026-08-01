@@ -1470,6 +1470,16 @@
 
   <!-- ===== WORD BANK PANEL (Basic to Advanced English / Tagalog to English — manual-only, Owner-researched) ===== -->
   <section id="panel-wordbank" style="display:none;">
+    <div class="controls sort-controls">
+      <label for="wordBankSortSelect" class="sort-label">Sort by:</label>
+      <select id="wordBankSortSelect">
+        <option value="az">A–Z</option>
+        <option value="modified-desc">Recently Modified</option>
+        <option value="modified-asc">Date Modified — Oldest First</option>
+        <option value="added-desc">Recently Added</option>
+        <option value="added-asc">Date Added — Oldest First</option>
+      </select>
+    </div>
     <div class="controls">
       <div class="seg" id="wordBankCategorySeg">
         <button class="active" data-val="basicAdvanced">Basic → Advanced</button>
@@ -39341,7 +39351,7 @@ const LANGBANK_SORT_KEY = "mepf_toolkit_langbank_sort";
 const DISTINCTIONS_SORT_KEY = "mepf_toolkit_distinctions_sort";
 const DEFAULT_SORT = "az";
 
-function compareForSort(a, b, sortKey){
+function compareForSort(a, b, sortKey, keyField){
   if(sortKey === "modified-desc") return (b.modifiedAt||0) - (a.modifiedAt||0);
   if(sortKey === "modified-asc") return (a.modifiedAt||0) - (b.modifiedAt||0);
   if(sortKey === "added-desc") return (b.addedAt||0) - (a.addedAt||0);
@@ -39349,17 +39359,19 @@ function compareForSort(a, b, sortKey){
   // "az" and any unrecognized value both fall back to the original
   // default ordering, so a locked-out/older browser or a corrupted
   // localStorage value never leaves the list in a broken state.
-  return a.w.localeCompare(b.w, undefined, {sensitivity:"base"});
+  const field = keyField || "w";
+  return String(a[field]).localeCompare(String(b[field]), undefined, {sensitivity:"base"});
 }
 
-function reorderSelectBySort(selectEl, data, sortKey){
+function reorderSelectBySort(selectEl, data, sortKey, keyField){
   if(!selectEl) return;
-  const sorted = data.slice().sort((a, b)=> compareForSort(a, b, sortKey));
+  const field = keyField || "w";
+  const sorted = data.slice().sort((a, b)=> compareForSort(a, b, sortKey, field));
   const optionsByValue = new Map(Array.from(selectEl.options).map(o=> [o.value, o]));
   const prevValue = selectEl.value;
   const frag = document.createDocumentFragment();
   sorted.forEach(item=>{
-    const opt = optionsByValue.get(item.w);
+    const opt = optionsByValue.get(item[field]);
     if(opt) frag.appendChild(opt); // moves the existing node, never clones it
   });
   selectEl.appendChild(frag);
@@ -39394,6 +39406,22 @@ distinctionsSortSelect.addEventListener("change", ()=>{
   localStorage.setItem(DISTINCTIONS_SORT_KEY, distinctionsSortSelect.value);
   applyDistinctionsSort();
 });
+
+// Word Bank's two sub-categories (Basic → Advanced, Tagalog → English)
+// share one preference, same as Language Bank's categories above — each
+// is sorted by its own "first" word (basic / tagalog). The <select>
+// wiring and first applyWordBankSort() call happen later in the file,
+// right after basicAdvancedData/tagalogEnglishData and their <select>s
+// exist and have been restored from IndexedDB — those are declared
+// further down, so referencing them here would throw (temporal dead
+// zone) if applyWordBankSort() were invoked eagerly.
+const WORDBANK_SORT_KEY = "mepf_toolkit_wordbank_sort";
+function getWordBankSortPref(){ return localStorage.getItem(WORDBANK_SORT_KEY) || DEFAULT_SORT; }
+function applyWordBankSort(){
+  const sortKey = getWordBankSortPref();
+  reorderSelectBySort(basicAdvancedSelect, basicAdvancedData, sortKey, "basic");
+  reorderSelectBySort(tagalogEnglishSelect, tagalogEnglishData, sortKey, "tagalog");
+}
 
 applyLanguageBankSort();
 applyDistinctionsSort();
@@ -44038,8 +44066,9 @@ async function saveBasicAdvancedEdit(originalEntry, entryEl){
     return;
   }
 
-  const updatedEntry = { basic: newBasic, basicDef: basicDef || null, basicExamples: basicExamples, advanced: newAdvanced, advancedDef: advancedDef || null, advancedExamples: advancedExamples };
+  const updatedEntry = { basic: newBasic, basicDef: basicDef || null, basicExamples: basicExamples, advanced: newAdvanced, advancedDef: advancedDef || null, advancedExamples: advancedExamples, addedAt: originalEntry.addedAt || Date.now(), modifiedAt: Date.now() };
   const item = addBasicAdvancedEntry(updatedEntry, {persist:true});
+  applyWordBankSort();
   activateTab("wordbank");
   activateWordBankCategory("basicAdvanced");
   item.action();
@@ -44156,12 +44185,14 @@ async function addBasicAdvancedEntryFromInput(){
     return;
   }
 
-  const entry = { basic: basic, basicDef: null, basicExamples: [], advanced: advanced, advancedDef: null, advancedExamples: [] };
+  const now = Date.now();
+  const entry = { basic: basic, basicDef: null, basicExamples: [], advanced: advanced, advancedDef: null, advancedExamples: [], addedAt: now, modifiedAt: now };
   const item = addBasicAdvancedEntry(entry, {persist:true});
   basicInput.value = "";
   advancedInput.value = "";
   statusEl.textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank. Edit it to add a definition or examples.`;
   statusEl.className = "add-status success";
+  applyWordBankSort();
   if(item) item.action();
 }
 document.getElementById("basicAdvancedAddBtn").addEventListener("click", addBasicAdvancedEntryFromInput);
@@ -44285,8 +44316,9 @@ async function saveTagalogEnglishEdit(originalEntry, entryEl){
     return;
   }
 
-  const updatedEntry = { tagalog: newTagalog, tagalogDef: tagalogDef || null, tagalogExamples: tagalogExamples, english: newEnglish, englishDef: englishDef || null, englishExamples: englishExamples };
+  const updatedEntry = { tagalog: newTagalog, tagalogDef: tagalogDef || null, tagalogExamples: tagalogExamples, english: newEnglish, englishDef: englishDef || null, englishExamples: englishExamples, addedAt: originalEntry.addedAt || Date.now(), modifiedAt: Date.now() };
   const item = addTagalogEnglishEntry(updatedEntry, {persist:true});
+  applyWordBankSort();
   activateTab("wordbank");
   activateWordBankCategory("tagalogEnglish");
   item.action();
@@ -44391,12 +44423,14 @@ async function addTagalogEnglishEntryFromInput(){
     return;
   }
 
-  const entry = { tagalog: tagalog, tagalogDef: null, tagalogExamples: [], english: english, englishDef: null, englishExamples: [] };
+  const now = Date.now();
+  const entry = { tagalog: tagalog, tagalogDef: null, tagalogExamples: [], english: english, englishDef: null, englishExamples: [], addedAt: now, modifiedAt: now };
   const item = addTagalogEnglishEntry(entry, {persist:true});
   tagalogInput.value = "";
   englishInput.value = "";
   statusEl.textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank. Edit it to add a definition or examples.`;
   statusEl.className = "add-status success";
+  applyWordBankSort();
   if(item) item.action();
 }
 document.getElementById("tagalogEnglishAddBtn").addEventListener("click", addTagalogEnglishEntryFromInput);
@@ -44405,6 +44439,19 @@ bindEnterToClick(["tagalogEnglishAddTagalogInput", "tagalogEnglishAddEnglishInpu
 const tagalogEnglishCacheRestorePromise = VocabCache.getAllTagalogEnglish({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addTagalogEnglishEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
+const wordBankSortSelect = document.getElementById("wordBankSortSelect");
+wordBankSortSelect.value = getWordBankSortPref();
+wordBankSortSelect.addEventListener("change", ()=>{
+  localStorage.setItem(WORDBANK_SORT_KEY, wordBankSortSelect.value);
+  applyWordBankSort();
+});
+// Both categories' restore promises need to settle first — this only
+// reorders the <option>s that exist by then, same non-destructive
+// reasoning as applyDistinctionsSort().
+Promise.all([basicAdvancedCacheRestorePromise, tagalogEnglishCacheRestorePromise])
+  .then(applyWordBankSort)
+  .catch(()=>{});
 
 // Same reasoning as refreshDistinctionsUI()/refreshVocabUI() — re-renders
 // whatever's currently on screen in BOTH Word Bank categories so their
@@ -44681,7 +44728,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
   addLanguageBankEntry, activateLangBankCategory,
-  applyLanguageBankSort, applyDistinctionsSort,
+  applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getDistinctionsSortPref,
   compareForSort, reorderSelectBySort,
   startPractice, buildPracticeCandidates, buildPracticeSession, recordPracticeSessionUsage,
