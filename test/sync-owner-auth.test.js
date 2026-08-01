@@ -235,9 +235,11 @@ describe("a non-owner's writes are rejected and rolled back", () => {
     await wait();
 
     const document = window.document;
-    document.getElementById("mistakeSelect").value = "my correction log (personal history)";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
-    const delBtn = document.querySelector("#mistakeEntry .delete-correction-btn");
+    // "My Correction Log" now lives in the Word Bank tab, not the Fixes
+    // tab's mistakeSelect dropdown.
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    document.querySelector('#wordBankCategorySeg button[data-val="correctionLog"]').click();
+    const delBtn = document.querySelector("#correctionLogEntry .delete-correction-btn");
     expect(delBtn).toBeTruthy();
     delBtn.click();
     await wait(50);

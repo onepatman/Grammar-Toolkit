@@ -82,9 +82,9 @@ describe("locking a device that already has personal corrections", () => {
     const { window } = await loadApp({ ownerUnlocked: true });
     const document = window.document;
     // A correction is added to whichever category is currently selected
-    // above — explicitly land on the general log first so this test's
+    // above — explicitly land on a known category first so this test's
     // assertions don't depend on which category happens to sort first.
-    document.getElementById("mistakeSelect").value = "my correction log (personal history)";
+    document.getElementById("mistakeSelect").value = "double negatives";
     document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     document.getElementById("qaWrongInput").value = "He go";
     document.getElementById("qaRightInput").value = "He goes";

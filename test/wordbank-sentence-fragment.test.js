@@ -31,12 +31,12 @@ describe("Word Bank tab position — moved next to Language Bank in the tab bar"
 });
 
 describe("Word Bank tab — Sentence Fragments category", () => {
-  it("is a third segmented option, alongside Basic → Advanced and Tagalog → English", async () => {
+  it("is one of the 5 segmented options, alongside Basic → Advanced, Tagalog → English, Subject-Verb Agreement, and My Correction Log", async () => {
     const { window } = await loadApp();
     const document = window.document;
     document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
     const vals = Array.from(document.querySelectorAll("#wordBankCategorySeg button")).map((b) => b.dataset.val);
-    expect(vals).toEqual(["basicAdvanced", "tagalogEnglish", "sentenceFragment"]);
+    expect(vals).toEqual(["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog"]);
   });
 
   it("renders the built-in rule content when selected, with no select/prev-next (it's a single entry)", async () => {
