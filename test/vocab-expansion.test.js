@@ -110,7 +110,7 @@ describe("Vocabulary Bank Edit/Delete (owner-gated)", () => {
     await wait(50);
 
     const updated = hooks.vocabData.find((v) => v.w === "conundrum");
-    expect(updated.senses[0].use).toBe("(noun) An updated definition.");
+    expect(updated.senses[0].use).toBe("An updated definition.");
     expect(updated.syn).toEqual(["riddle", "mystery"]);
     hooks.runSearchPipeline("conundrum");
     expect(window.document.getElementById("searchResults").textContent).toContain("conundrum");
