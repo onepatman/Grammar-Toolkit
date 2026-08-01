@@ -40543,6 +40543,8 @@ function listenToSync(code){
       applyRemoteDeletedSeedWords(data.deletedSeedWords);
       applyRemoteVocab(data.vocab);
       applyRemoteVerbs(data.verbs);
+      applyRemoteBasicAdvanced(data.basicAdvanced);
+      applyRemoteTagalogEnglish(data.tagalogEnglish);
       applyRemoteFavorites(data.favorites);
       return;
     }
@@ -40564,6 +40566,8 @@ function listenToSync(code){
         deletedSeedWords: collectDeletedSeedWordsForSync(),
         vocab: collectOnlineVocabEntries(),
         verbs: collectOnlineVerbs(),
+        basicAdvanced: collectOnlineBasicAdvanced(),
+        tagalogEnglish: collectOnlineTagalogEnglish(),
         favorites: collectFavoritesForSync(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
@@ -40615,6 +40619,8 @@ function pushToSync(entries){
     deletedSeedWords: collectDeletedSeedWordsForSync(),
     vocab: collectOnlineVocabEntries(),
     verbs: collectOnlineVerbs(),
+    basicAdvanced: collectOnlineBasicAdvanced(),
+    tagalogEnglish: collectOnlineTagalogEnglish(),
     favorites: collectFavoritesForSync(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
@@ -44068,13 +44074,19 @@ async function saveBasicAdvancedEdit(originalEntry, entryEl){
 
   const updatedEntry = { basic: newBasic, basicDef: basicDef || null, basicExamples: basicExamples, advanced: newAdvanced, advancedDef: advancedDef || null, advancedExamples: advancedExamples, addedAt: originalEntry.addedAt || Date.now(), modifiedAt: Date.now() };
   const item = addBasicAdvancedEntry(updatedEntry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
   applyWordBankSort();
   activateTab("wordbank");
   activateWordBankCategory("basicAdvanced");
   item.action();
 }
 
-async function deleteBasicAdvancedEntry(basic){
+// options.skipSync lets an edit's delete-then-readd sequence (see
+// saveBasicAdvancedEdit above) skip this delete's own push — the final
+// push happens once, after the replacement entry is added — same
+// skipSync idiom as deleteDistinctionEntry/deleteVocabEntry.
+async function deleteBasicAdvancedEntry(basic, options){
+  const opts = options || {};
   const key = basic.trim().toLowerCase();
   const idx = basicAdvancedData.findIndex(e=> e.basic.trim().toLowerCase() === key);
   if(idx === -1) return;
@@ -44095,6 +44107,8 @@ async function deleteBasicAdvancedEntry(basic){
   if(optionEl) optionEl.remove();
 
   await VocabCache.deleteBasicAdvanced(basic, {dbPromise: vocabDbPromise});
+
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
 }
 
 function renderBasicAdvancedAfterDelete(){
@@ -44193,6 +44207,7 @@ async function addBasicAdvancedEntryFromInput(){
   statusEl.textContent = `✅ "${basic} → ${advanced}" has been added to Word Bank. Edit it to add a definition or examples.`;
   statusEl.className = "add-status success";
   applyWordBankSort();
+  await pushToSync(loadPersonalCorrections());
   if(item) item.action();
 }
 document.getElementById("basicAdvancedAddBtn").addEventListener("click", addBasicAdvancedEntryFromInput);
@@ -44318,13 +44333,16 @@ async function saveTagalogEnglishEdit(originalEntry, entryEl){
 
   const updatedEntry = { tagalog: newTagalog, tagalogDef: tagalogDef || null, tagalogExamples: tagalogExamples, english: newEnglish, englishDef: englishDef || null, englishExamples: englishExamples, addedAt: originalEntry.addedAt || Date.now(), modifiedAt: Date.now() };
   const item = addTagalogEnglishEntry(updatedEntry, {persist:true});
+  await pushToSync(loadPersonalCorrections());
   applyWordBankSort();
   activateTab("wordbank");
   activateWordBankCategory("tagalogEnglish");
   item.action();
 }
 
-async function deleteTagalogEnglishEntry(tagalog){
+// options.skipSync — same idiom as deleteBasicAdvancedEntry above.
+async function deleteTagalogEnglishEntry(tagalog, options){
+  const opts = options || {};
   const key = tagalog.trim().toLowerCase();
   const idx = tagalogEnglishData.findIndex(e=> e.tagalog.trim().toLowerCase() === key);
   if(idx === -1) return;
@@ -44345,6 +44363,8 @@ async function deleteTagalogEnglishEntry(tagalog){
   if(optionEl) optionEl.remove();
 
   await VocabCache.deleteTagalogEnglish(tagalog, {dbPromise: vocabDbPromise});
+
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
 }
 
 function renderTagalogEnglishAfterDelete(){
@@ -44431,6 +44451,7 @@ async function addTagalogEnglishEntryFromInput(){
   statusEl.textContent = `✅ "${tagalog} → ${english}" has been added to Word Bank. Edit it to add a definition or examples.`;
   statusEl.className = "add-status success";
   applyWordBankSort();
+  await pushToSync(loadPersonalCorrections());
   if(item) item.action();
 }
 document.getElementById("tagalogEnglishAddBtn").addEventListener("click", addTagalogEnglishEntryFromInput);
@@ -44461,6 +44482,81 @@ function refreshWordBankUI(){
   if(baEntry) renderBasicAdvancedPair(baEntry);
   const teEntry = tagalogEnglishData.find(e=> e.tagalog === tagalogEnglishSelect.value);
   if(teEntry) renderTagalogEnglishPair(teEntry);
+}
+
+// Cross-device sync for Word Bank — unlike vocabData/distinctionsData/
+// verbData, basicAdvancedData/tagalogEnglishData have no built-in seed
+// content at all (every pair is Owner-typed), so every entry travels
+// through sync unconditionally — no source:"online" filtering needed.
+function collectOnlineBasicAdvanced(){
+  return basicAdvancedData.slice();
+}
+
+function collectOnlineTagalogEnglish(){
+  return tagalogEnglishData.slice();
+}
+
+// Reconciles basicAdvancedData with another device's synced list, same
+// add/update/remove shape as applyRemoteVocab/applyRemoteVerbs: a pair
+// not known here yet gets added, a pair already known gets its content
+// refreshed in place (in case it was edited elsewhere), and a pair no
+// longer in the remote list gets removed from here too.
+function applyRemoteBasicAdvanced(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteKeys = new Set(remote.map(e=> e.basic.trim().toLowerCase()));
+
+  remote.forEach(entry=>{
+    if(isKnownBasicAdvanced(entry.basic)){
+      const existing = basicAdvancedData.find(e=> e.basic.trim().toLowerCase() === entry.basic.trim().toLowerCase());
+      if(existing){
+        Object.assign(existing, entry);
+        VocabCache.putBasicAdvanced(existing, {dbPromise: vocabDbPromise});
+      }
+    } else {
+      addBasicAdvancedEntry(entry, {persist:true});
+    }
+  });
+
+  let deletedSelected = false;
+  basicAdvancedData.slice().forEach(item=>{
+    if(!remoteKeys.has(item.basic.trim().toLowerCase())){
+      const wasSelected = basicAdvancedSelect.value === item.basic;
+      deleteBasicAdvancedEntry(item.basic, {skipSync:true});
+      if(wasSelected) deletedSelected = true;
+    }
+  });
+
+  if(deletedSelected) renderBasicAdvancedAfterDelete();
+  applyWordBankSort();
+}
+
+function applyRemoteTagalogEnglish(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteKeys = new Set(remote.map(e=> e.tagalog.trim().toLowerCase()));
+
+  remote.forEach(entry=>{
+    if(isKnownTagalogEnglish(entry.tagalog)){
+      const existing = tagalogEnglishData.find(e=> e.tagalog.trim().toLowerCase() === entry.tagalog.trim().toLowerCase());
+      if(existing){
+        Object.assign(existing, entry);
+        VocabCache.putTagalogEnglish(existing, {dbPromise: vocabDbPromise});
+      }
+    } else {
+      addTagalogEnglishEntry(entry, {persist:true});
+    }
+  });
+
+  let deletedSelected = false;
+  tagalogEnglishData.slice().forEach(item=>{
+    if(!remoteKeys.has(item.tagalog.trim().toLowerCase())){
+      const wasSelected = tagalogEnglishSelect.value === item.tagalog;
+      deleteTagalogEnglishEntry(item.tagalog, {skipSync:true});
+      if(wasSelected) deletedSelected = true;
+    }
+  });
+
+  if(deletedSelected) renderTagalogEnglishAfterDelete();
+  applyWordBankSort();
 }
 
 // Online fallback — the third and last search tier, after the local
@@ -44810,6 +44906,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   openTagalogEnglishEditForm, saveTagalogEnglishEdit, deleteTagalogEnglishEntry,
   renderTagalogEnglishAfterDelete,
   tagalogEnglishCacheRestorePromise, refreshWordBankUI,
+  collectOnlineBasicAdvanced, collectOnlineTagalogEnglish,
+  applyRemoteBasicAdvanced, applyRemoteTagalogEnglish,
   updateCorrectionAddLabel,
   createChipEditorChip, renderChipEditor, commitChipEditorInput,
   collectChipEditorValues, wireChipEditorEvents,
