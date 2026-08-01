@@ -847,19 +847,9 @@
     content:""; flex:1; border-top:1px dashed var(--rule);
   }
 
-  /* Vocabulary editor — one box per part-of-speech group, each holding
-     an editable list of meanings. Mirrors the read-only .pos-group/
-     .pos-heading display (renderRuleEntry) so what you see while
-     editing matches what you'll see after saving — the whole point of
-     this UI is that nothing here gets silently dropped on save. */
-  .vocab-edit-pos-group{
-    margin:14px 0; padding:12px 14px; background:var(--card);
-    border:1.5px dashed var(--rule); border-radius:var(--radius);
-  }
-  .vocab-edit-pos-header{
-    display:flex; align-items:center; gap:8px; margin-bottom:8px;
-  }
-  .vocab-edit-pos-header input{ flex:1; margin-bottom:0 !important; }
+  /* Vocabulary editor — a flat, editable list of meanings (no
+     part-of-speech grouping — see openVocabEditForm). Nothing here
+     gets silently dropped on save. */
   .vocab-edit-meaning{
     padding:10px 0; border-top:1px dashed var(--rule);
   }
@@ -38778,67 +38768,18 @@ function makeLabeledField(tag, text){
   return el;
 }
 
-// One part-of-speech box: an editable POS name plus its own list of
-// meaning rows. `group` (optional) comes from groupSensesByPos() —
-// {pos, senses:[{rest, examples, notes}]} — `rest` being the definition
-// text with the "(pos) " prefix already stripped for editing.
-function createVocabEditPosGroup(group){
-  const g = group || {pos: "", senses: []};
-  const box = document.createElement("div");
-  box.className = "vocab-edit-pos-group";
-
-  const header = document.createElement("div");
-  header.className = "vocab-edit-pos-header";
-  const posInput = document.createElement("input");
-  posInput.type = "text";
-  posInput.className = "vocab-edit-pos-input";
-  posInput.placeholder = "Part of speech (e.g. noun) — optional";
-  posInput.value = g.pos || "";
-  header.appendChild(posInput);
-  const removeGroupBtn = document.createElement("button");
-  removeGroupBtn.type = "button";
-  removeGroupBtn.className = "vocab-edit-small-btn vocab-edit-remove-group-btn";
-  removeGroupBtn.textContent = "🗑 Remove this part of speech";
-  header.appendChild(removeGroupBtn);
-  box.appendChild(header);
-
-  const meanings = document.createElement("div");
-  meanings.className = "vocab-edit-meanings";
-  const initial = (g.senses && g.senses.length) ? g.senses : [{}];
-  initial.forEach(s=>{
-    meanings.appendChild(createVocabEditMeaningRow({use: s.rest, examples: s.examples, notes: s.notes}));
-  });
-  box.appendChild(meanings);
-
-  const addMeaningBtn = document.createElement("button");
-  addMeaningBtn.type = "button";
-  addMeaningBtn.className = "add-btn secondary vocab-edit-add-meaning-btn";
-  addMeaningBtn.textContent = "+ Add another meaning to this part of speech";
-  box.appendChild(addMeaningBtn);
-
-  renumberVocabEditMeanings(box);
-  return box;
-}
-
-function renumberVocabEditMeanings(groupEl){
-  groupEl.querySelectorAll(".vocab-edit-meaning").forEach((row, i)=>{
+function renumberVocabEditMeanings(container){
+  container.querySelectorAll(".vocab-edit-meaning").forEach((row, i)=>{
     row.querySelector(".vocab-edit-meaning-label").textContent = "Meaning " + (i + 1);
   });
 }
 
-// Single delegated listener for the whole POS-groups container — add/
+// Single delegated listener for the flat meanings container — add/
 // remove buttons are created dynamically, so this avoids re-binding
 // after every add/remove (which would also risk losing focus/typed
 // text in unrelated rows on every click).
-function wireVocabEditGroupEvents(container){
+function wireVocabEditMeaningEvents(container){
   container.addEventListener("click", (e)=>{
-    const addBtn = e.target.closest(".vocab-edit-add-meaning-btn");
-    if(addBtn){
-      const group = addBtn.closest(".vocab-edit-pos-group");
-      group.querySelector(".vocab-edit-meanings").appendChild(createVocabEditMeaningRow());
-      renumberVocabEditMeanings(group);
-      return;
-    }
     const addExampleBtn = e.target.closest(".lb-edit-add-example-btn");
     if(addExampleBtn){
       addExampleBtn.closest(".vocab-edit-meaning").querySelector(".lb-edit-examples").appendChild(createLbEditExampleRow());
@@ -38851,18 +38792,8 @@ function wireVocabEditGroupEvents(container){
     }
     const removeMeaningBtn = e.target.closest(".vocab-edit-remove-meaning-btn");
     if(removeMeaningBtn){
-      const group = removeMeaningBtn.closest(".vocab-edit-pos-group");
-      const meanings = group.querySelector(".vocab-edit-meanings");
       removeMeaningBtn.closest(".vocab-edit-meaning").remove();
-      // A part of speech with no meanings left under it has nothing to
-      // save — drop the whole group rather than leaving an empty shell.
-      if(meanings.children.length === 0) group.remove();
-      else renumberVocabEditMeanings(group);
-      return;
-    }
-    const removeGroupBtn = e.target.closest(".vocab-edit-remove-group-btn");
-    if(removeGroupBtn){
-      removeGroupBtn.closest(".vocab-edit-pos-group").remove();
+      renumberVocabEditMeanings(container);
     }
   });
 }
@@ -38873,9 +38804,9 @@ function openVocabEditForm(item, entryEl){
     <label class="note" style="display:block;margin-bottom:4px;">Word</label>
     <input type="text" id="vocabEditWord" autocomplete="off">
     <div class="section-label">Definitions</div>
-    <p class="note" style="margin:-4px 0 8px;">Every part of speech and every meaning is preserved — add or remove as needed. Nothing here is silently dropped on save.</p>
-    <div id="vocabEditPosGroups"></div>
-    <button id="vocabEditAddPosBtn" type="button" class="add-btn secondary" style="margin-bottom:12px;">+ Add another part of speech</button>
+    <p class="note" style="margin:-4px 0 8px;">Every meaning is preserved — add or remove as needed. Nothing here is silently dropped on save.</p>
+    <div id="vocabEditMeanings"></div>
+    <button id="vocabEditAddMeaningBtn" type="button" class="add-btn secondary" style="margin-bottom:12px;">+ Add another meaning</button>
     <label class="note" style="display:block;margin-bottom:4px;">Synonyms</label>
     <div id="vocabEditSynChips"></div>
     <label class="note" style="display:block;margin-bottom:4px;">Antonyms</label>
@@ -38910,19 +38841,24 @@ function openVocabEditForm(item, entryEl){
   wireChipEditorEvents(tagalogContainer);
   document.getElementById("vocabEditOrigin").value = item.origin || "";
 
-  const groupsContainer = document.getElementById("vocabEditPosGroups");
-  const groups = groupSensesByPos(item.senses || []);
-  if(groups.length === 0){
-    groupsContainer.appendChild(createVocabEditPosGroup());
-  } else {
-    groups.forEach(g=> groupsContainer.appendChild(createVocabEditPosGroup(g)));
-  }
-  wireVocabEditGroupEvents(groupsContainer);
+  // Flat list of meaning rows — no part-of-speech grouping. A sense
+  // whose `use` still carries a legacy "(pos) " prefix (an older entry
+  // never touched since parseSensePos()/groupSensesByPos() were
+  // introduced) has that prefix stripped here too, same as the
+  // saved-view and Look-Up-and-Add preview already do — editing and
+  // saving such an entry drops the prefix from the underlying data for
+  // good, matching the simpler flat shape everywhere else.
+  const meaningsContainer = document.getElementById("vocabEditMeanings");
+  const initialSenses = (item.senses && item.senses.length) ? item.senses : [{}];
+  initialSenses.forEach(s=>{
+    meaningsContainer.appendChild(createVocabEditMeaningRow({use: parseSensePos(s.use).rest, examples: s.examples, notes: s.notes}));
+  });
+  renumberVocabEditMeanings(meaningsContainer);
+  wireVocabEditMeaningEvents(meaningsContainer);
 
-  document.getElementById("vocabEditAddPosBtn").addEventListener("click", ()=>{
-    const newGroup = createVocabEditPosGroup();
-    groupsContainer.appendChild(newGroup);
-    newGroup.querySelector(".vocab-edit-pos-input").focus();
+  document.getElementById("vocabEditAddMeaningBtn").addEventListener("click", ()=>{
+    meaningsContainer.appendChild(createVocabEditMeaningRow());
+    renumberVocabEditMeanings(meaningsContainer);
   });
 
   document.getElementById("vocabEditCancelBtn").addEventListener("click", ()=>{
@@ -38934,27 +38870,25 @@ function openVocabEditForm(item, entryEl){
   bindEnterToClick(["vocabEditWord", "vocabEditOrigin"], "vocabEditSaveBtn");
 }
 
-// Walks the POS-group boxes in DOM order and reconstructs the full
-// senses[] array — every part of speech, every meaning, each with the
-// same "(pos) " prefix convention groupSensesByPos()/parseSensePos()
-// already parse for display. A meaning left blank (e.g. added then not
-// filled in) is skipped rather than saved as an empty definition.
+// Walks the flat meaning rows in DOM order and reconstructs the full
+// senses[] array — no part-of-speech prefix is ever added back onto
+// `use`, so an entry saved through this editor stays plain from here
+// on, even if it started out with a legacy "(pos) " marker (see
+// openVocabEditForm's own parseSensePos() strip when pre-filling). A
+// meaning left blank (e.g. added then not filled in) is skipped rather
+// than saved as an empty definition.
 function collectVocabEditSenses(){
   const senses = [];
-  document.querySelectorAll("#vocabEditPosGroups .vocab-edit-pos-group").forEach(groupEl=>{
-    const pos = groupEl.querySelector(".vocab-edit-pos-input").value.trim().toLowerCase();
-    const prefix = pos ? "(" + pos + ") " : "";
-    groupEl.querySelectorAll(".vocab-edit-meaning").forEach(row=>{
-      const useText = row.querySelector(".vocab-edit-meaning-use").value.trim();
-      if(!useText) return;
-      const examples = Array.from(row.querySelectorAll(".lb-edit-example-input"))
-        .map(inp=> inp.value.trim())
-        .filter(Boolean);
-      const notesText = row.querySelector(".vocab-edit-meaning-notes").value.trim();
-      const sense = { use: prefix + useText, examples: examples };
-      if(notesText) sense.notes = notesText;
-      senses.push(sense);
-    });
+  document.querySelectorAll("#vocabEditMeanings .vocab-edit-meaning").forEach(row=>{
+    const useText = row.querySelector(".vocab-edit-meaning-use").value.trim();
+    if(!useText) return;
+    const examples = Array.from(row.querySelectorAll(".lb-edit-example-input"))
+      .map(inp=> inp.value.trim())
+      .filter(Boolean);
+    const notesText = row.querySelector(".vocab-edit-meaning-notes").value.trim();
+    const sense = { use: useText, examples: examples };
+    if(notesText) sense.notes = notesText;
+    senses.push(sense);
   });
   return senses;
 }
@@ -41607,9 +41541,9 @@ function renumberLbEditMeanings(container){
 }
 
 // One delegated listener for the whole flat meanings list — same
-// reasoning as wireVocabEditGroupEvents (add/remove buttons are created
-// dynamically, so re-binding per row would risk losing focus/typed text
-// in unrelated rows on every click).
+// reasoning as wireVocabEditMeaningEvents (add/remove buttons are
+// created dynamically, so re-binding per row would risk losing
+// focus/typed text in unrelated rows on every click).
 function wireLbEditGroupEvents(container){
   container.addEventListener("click", (e)=>{
     const addExampleBtn = e.target.closest(".lb-edit-add-example-btn");

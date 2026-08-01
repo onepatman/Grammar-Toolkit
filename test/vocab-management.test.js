@@ -292,10 +292,16 @@ describe("Vocabulary tab — Edit maintains timestamps", () => {
   });
 });
 
-// A multi-part-of-speech, multi-meaning online lookup result (e.g.
-// "most": noun x2, adverb x2, pronoun x1) — the exact shape of entry
-// whose edit used to collapse down to a single definition, discarding
-// everything else the moment the Owner opened Edit and clicked Save.
+// A multi-sense online lookup result whose senses span several parts
+// of speech (e.g. "most": noun x2, adverb x2, pronoun x1) — the exact
+// shape of entry whose edit used to collapse down to a single
+// definition, discarding everything else the moment the Owner opened
+// Edit and clicked Save. Its senses still carry legacy "(pos) "
+// markers on purpose: this is exactly the kind of older online-lookup
+// content the editor must silently flatten and strip on open/save (see
+// the "part of speech" regression tests below), not something a user
+// can type back in — there's no part-of-speech field in the editor at
+// all anymore.
 const MULTI_POS_ENTRY = {
   w: "most-test",
   senses: [
@@ -308,39 +314,74 @@ const MULTI_POS_ENTRY = {
   syn: [], ant: [], mistake: null, tagalog: null, source: "online"
 };
 
-describe("Vocabulary editor — preserves every part of speech and every meaning (not just the first)", () => {
-  it("opening and saving a multi-POS entry unchanged keeps every part of speech and every meaning intact", async () => {
+describe("Vocabulary editor — flat list of meanings, no part-of-speech grouping (not just the first meaning preserved)", () => {
+  it("has no part-of-speech input, 'Remove this part of speech', or 'Add another part of speech' anywhere in the editor", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "nopos-ui-test" }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "nopos-ui-test");
+
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
+
+    expect(document.querySelector("#vocabEntry .vocab-edit-pos-group")).toBeNull();
+    expect(document.querySelector("#vocabEntry .vocab-edit-pos-input")).toBeNull();
+    expect(document.getElementById("vocabEditAddPosBtn")).toBeNull();
+    expect(document.querySelector("#vocabEntry .vocab-edit-remove-group-btn")).toBeNull();
+    expect(document.getElementById("vocabEntry").textContent).not.toContain("part of speech");
+  });
+
+  it("opening a multi-sense entry flattens every meaning into one list, with any legacy '(part of speech)' marker stripped for editing", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.addVocabEntry({ ...MULTI_POS_ENTRY }, { persist: false });
     const original = hooks.vocabData.find((v) => v.w === "most-test");
 
     hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
-    // Sanity check the editor actually rendered one box per part of
-    // speech and one row per meaning, matching the read-only display.
-    expect(document.querySelectorAll("#vocabEntry .vocab-edit-pos-group").length).toBe(3); // noun, adverb, pronoun
-    expect(document.querySelectorAll("#vocabEntry .vocab-edit-meaning").length).toBe(5);
+    const meaningRows = document.querySelectorAll("#vocabEntry .vocab-edit-meaning");
+    expect(meaningRows).toHaveLength(5);
+    const useValues = Array.from(meaningRows).map((row) => row.querySelector(".vocab-edit-meaning-use").value);
+    expect(useValues).toEqual([
+      "The greatest quantity or amount.",
+      "The majority of people.",
+      "To the greatest extent.",
+      "Very.",
+      "The greatest number or part."
+    ]);
+  });
 
+  it("saving a multi-sense entry unchanged keeps every meaning, permanently dropping the legacy part-of-speech prefix from the saved data", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "most-test");
+
+    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
 
     const updated = hooks.vocabData.find((v) => v.w === "most-test");
     expect(updated.senses).toHaveLength(5);
-    expect(updated.senses.map((s) => s.use)).toEqual(MULTI_POS_ENTRY.senses.map((s) => s.use));
+    expect(updated.senses.map((s) => s.use)).toEqual([
+      "The greatest quantity or amount.",
+      "The majority of people.",
+      "To the greatest extent.",
+      "Very.",
+      "The greatest number or part."
+    ]);
     expect(updated.senses.map((s) => s.examples)).toEqual(MULTI_POS_ENTRY.senses.map((s) => s.examples));
   });
 
-  it("'+ Add another meaning to this part of speech' adds a new meaning under the SAME part of speech on save", async () => {
+  it("'+ Add another meaning' adds a new blank meaning row that's saved alongside the existing ones", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.addVocabEntry(
-      { w: "addmeaning-test", senses: [{ use: "(noun) The first sense.", examples: ["Example one."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+      { w: "addmeaning-test", senses: [{ use: "The first sense.", examples: ["Example one."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
       { persist: false }
     );
     const original = hooks.vocabData.find((v) => v.w === "addmeaning-test");
     hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
 
-    document.querySelector("#vocabEntry .vocab-edit-add-meaning-btn").click();
+    document.getElementById("vocabEditAddMeaningBtn").click();
     const meaningRows = document.querySelectorAll("#vocabEntry .vocab-edit-meaning");
     expect(meaningRows).toHaveLength(2);
     meaningRows[1].querySelector(".vocab-edit-meaning-use").value = "A second sense.";
@@ -351,98 +392,52 @@ describe("Vocabulary editor — preserves every part of speech and every meaning
 
     const updated = hooks.vocabData.find((v) => v.w === "addmeaning-test");
     expect(updated.senses).toHaveLength(2);
-    expect(updated.senses[0].use).toBe("(noun) The first sense.");
-    expect(updated.senses[1].use).toBe("(noun) A second sense.");
+    expect(updated.senses[0].use).toBe("The first sense.");
+    expect(updated.senses[1].use).toBe("A second sense.");
     expect(updated.senses[1].examples).toEqual(["Example two."]);
   });
 
-  it("'+ Add another part of speech' adds a brand-new POS group that's saved alongside the existing ones", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "addpos-test" }, { persist: false });
-    const original = hooks.vocabData.find((v) => v.w === "addpos-test");
-    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
-
-    document.getElementById("vocabEditAddPosBtn").click();
-    const groups = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group");
-    expect(groups).toHaveLength(4);
-    const newGroup = groups[groups.length - 1];
-    newGroup.querySelector(".vocab-edit-pos-input").value = "interjection";
-    newGroup.querySelector(".vocab-edit-meaning-use").value = "Used to express surprise.";
-
-    document.getElementById("vocabEditSaveBtn").click();
-    await wait();
-
-    const updated = hooks.vocabData.find((v) => v.w === "addpos-test");
-    expect(updated.senses).toHaveLength(6);
-    expect(updated.senses[5].use).toBe("(interjection) Used to express surprise.");
-  });
-
-  it("removing one meaning removes only that meaning, leaving its part of speech's other meanings intact", async () => {
+  it("removing one meaning removes only that meaning, leaving the others intact", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removemeaning-test" }, { persist: false });
     const original = hooks.vocabData.find((v) => v.w === "removemeaning-test");
     hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
 
-    // Remove the SECOND noun meaning ("The majority of people.") — the
-    // first noun group's second meaning row.
-    const nounGroup = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")[0];
-    const nounMeanings = nounGroup.querySelectorAll(".vocab-edit-meaning");
-    expect(nounMeanings).toHaveLength(2);
-    nounMeanings[1].querySelector(".vocab-edit-remove-meaning-btn").click();
-    expect(nounGroup.querySelectorAll(".vocab-edit-meaning")).toHaveLength(1);
+    // Remove the second meaning ("The majority of people.").
+    const meaningRows = document.querySelectorAll("#vocabEntry .vocab-edit-meaning");
+    expect(meaningRows).toHaveLength(5);
+    meaningRows[1].querySelector(".vocab-edit-remove-meaning-btn").click();
+    expect(document.querySelectorAll("#vocabEntry .vocab-edit-meaning")).toHaveLength(4);
 
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
 
     const updated = hooks.vocabData.find((v) => v.w === "removemeaning-test");
     expect(updated.senses).toHaveLength(4);
-    expect(updated.senses.map((s) => s.use)).not.toContain("(noun) The majority of people.");
-    expect(updated.senses.map((s) => s.use)).toContain("(noun) The greatest quantity or amount.");
-    expect(updated.senses.map((s) => s.use)).toContain("(adverb) To the greatest extent.");
+    expect(updated.senses.map((s) => s.use)).not.toContain("The majority of people.");
+    expect(updated.senses.map((s) => s.use)).toContain("The greatest quantity or amount.");
+    expect(updated.senses.map((s) => s.use)).toContain("To the greatest extent.");
   });
 
-  it("removing a part of speech's only meaning removes the whole part-of-speech group", async () => {
+  it("removing every meaning but the last one leaves a single flat meaning behind (no empty group to also remove)", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removepos-test" }, { persist: false });
-    const original = hooks.vocabData.find((v) => v.w === "removepos-test");
+    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removeall-test" }, { persist: false });
+    const original = hooks.vocabData.find((v) => v.w === "removeall-test");
     hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
 
-    // The pronoun group has exactly one meaning — removing it should
-    // drop the whole group, not leave an empty part-of-speech box.
-    const groups = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group");
-    const pronounGroup = groups[groups.length - 1];
-    expect(pronounGroup.querySelector(".vocab-edit-pos-input").value).toBe("pronoun");
-    pronounGroup.querySelector(".vocab-edit-remove-meaning-btn").click();
-    expect(document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")).toHaveLength(2);
+    document.querySelectorAll("#vocabEntry .vocab-edit-remove-meaning-btn").forEach((btn, i) => {
+      if (i > 0) btn.click(); // keep just the first row
+    });
+    expect(document.querySelectorAll("#vocabEntry .vocab-edit-meaning")).toHaveLength(1);
 
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
 
-    const updated = hooks.vocabData.find((v) => v.w === "removepos-test");
-    expect(updated.senses).toHaveLength(4);
-    expect(updated.senses.some((s) => s.use.startsWith("(pronoun)"))).toBe(false);
-  });
-
-  it("'🗑 Remove this part of speech' removes every meaning under it at once", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    hooks.addVocabEntry({ ...MULTI_POS_ENTRY, w: "removewholepos-test" }, { persist: false });
-    const original = hooks.vocabData.find((v) => v.w === "removewholepos-test");
-    hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
-
-    const nounGroup = document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")[0];
-    nounGroup.querySelector(".vocab-edit-remove-group-btn").click();
-    expect(document.querySelectorAll("#vocabEntry .vocab-edit-pos-group")).toHaveLength(2);
-
-    document.getElementById("vocabEditSaveBtn").click();
-    await wait();
-
-    const updated = hooks.vocabData.find((v) => v.w === "removewholepos-test");
-    expect(updated.senses).toHaveLength(3);
-    expect(updated.senses.some((s) => s.use.startsWith("(noun)"))).toBe(false);
+    const updated = hooks.vocabData.find((v) => v.w === "removeall-test");
+    expect(updated.senses).toHaveLength(1);
+    expect(updated.senses[0].use).toBe("The greatest quantity or amount.");
   });
 
   it("an owner-entered usage note is saved and shown under its meaning", async () => {
@@ -496,7 +491,7 @@ describe("Vocabulary editor — preserves every part of speech and every meaning
     );
     const original = hooks.vocabData.find((v) => v.w === "blankrow-test");
     hooks.openVocabEditForm(original, document.getElementById("vocabEntry"));
-    document.querySelector("#vocabEntry .vocab-edit-add-meaning-btn").click(); // left blank on purpose
+    document.getElementById("vocabEditAddMeaningBtn").click(); // left blank on purpose
 
     document.getElementById("vocabEditSaveBtn").click();
     await wait();
