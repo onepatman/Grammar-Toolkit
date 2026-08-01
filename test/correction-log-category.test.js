@@ -1,8 +1,12 @@
-// Integration tests for filing a personal correction under an existing
-// Fixes-tab category (e.g. "subject-verb agreement") instead of only ever
-// landing in the one catch-all "my correction log" entry. Loads the real
-// index.html in jsdom. See test/correction-log.test.js for the underlying
-// pure groupCorrectionsByCategory() unit tests.
+// Integration tests for filing a personal correction under whichever
+// Fixes-tab category is currently selected in the mistakeSelect dropdown
+// (e.g. "subject-verb agreement") instead of only ever landing in the one
+// catch-all "my correction log" entry. There is no separate category
+// picker in the Add box — the category comes straight from mistakeSelect,
+// the same way each Language Bank category's own quick-add box operates
+// on whichever category is currently active. Loads the real index.html
+// in jsdom. See test/correction-log.test.js for the underlying pure
+// groupCorrectionsByCategory() unit tests.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -10,24 +14,35 @@ function wait(ms = 30) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe("Fixes tab — filing a correction under an existing category", () => {
-  it("populates the 'File under' select with the general log pinned first, then every other category alphabetically", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    const select = document.getElementById("qaCategorySelect");
-    expect(select.options.length).toBe(hooks.mistakeData.length);
-    expect(select.options[0].value).toBe(hooks.CORRECTION_LOG_ENTRY.w);
-    expect(select.value).toBe(hooks.CORRECTION_LOG_ENTRY.w);
-    // Every other option present and sorted.
-    const rest = Array.from(select.options).slice(1).map((o) => o.value);
-    const sorted = rest.slice().sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-    expect(rest).toEqual(sorted);
-    expect(rest).toContain("subject-verb agreement");
+function selectMistakeCategory(window, category) {
+  const select = window.document.getElementById("mistakeSelect");
+  select.value = category;
+  select.dispatchEvent(new window.Event("change"));
+}
+
+describe("Fixes tab — Add box has no separate category picker", () => {
+  it("no qaCategorySelect element exists anymore — redundant with mistakeSelect above", async () => {
+    const { window } = await loadApp();
+    expect(window.document.getElementById("qaCategorySelect")).toBeNull();
   });
 
-  it("defaults to the general correction log when nothing else is chosen — unchanged prior behavior", async () => {
+  it("the Add label reflects whichever category is currently selected above, and updates when it changes", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
+    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
+    expect(document.getElementById("correctionAddLabel").textContent).toContain(hooks.CORRECTION_LOG_ENTRY.w);
+
+    selectMistakeCategory(window, "subject-verb agreement");
+    expect(document.getElementById("correctionAddLabel").textContent).toContain("subject-verb agreement");
+  });
+});
+
+describe("Fixes tab — filing a correction under whichever category is selected", () => {
+  it("adds to the general correction log when that's the category currently selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
+
     document.getElementById("qaWrongInput").value = "My cousin visit us";
     document.getElementById("qaRightInput").value = "My cousin visits us";
     document.getElementById("qaAddBtn").click();
@@ -36,19 +51,17 @@ describe("Fixes tab — filing a correction under an existing category", () => {
     const saved = hooks.loadPersonalCorrections();
     expect(saved).toHaveLength(1);
     expect(saved[0].category).toBe(hooks.CORRECTION_LOG_ENTRY.w);
-
-    document.getElementById("mistakeSelect").value = hooks.CORRECTION_LOG_ENTRY.w;
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin visit us");
   });
 
-  it("files a correction under a chosen category, and it shows up under THAT category, not the general log", async () => {
+  it("adds to whichever OTHER category is currently selected, and it shows up there — not the general log", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
+    selectMistakeCategory(window, "subject-verb agreement");
+
     document.getElementById("qaWrongInput").value = "The engineer and the technician is on-site";
     document.getElementById("qaRightInput").value = "The engineer and the technician are on-site";
     document.getElementById("qaWhyInput").value = "compound subjects take a plural verb";
-    document.getElementById("qaCategorySelect").value = "subject-verb agreement";
     document.getElementById("qaAddBtn").click();
     await wait();
 
@@ -56,63 +69,35 @@ describe("Fixes tab — filing a correction under an existing category", () => {
     expect(saved[0].category).toBe("subject-verb agreement");
 
     // Shows up under "subject-verb agreement"...
-    document.getElementById("mistakeSelect").value = "subject-verb agreement";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     expect(document.getElementById("mistakeEntry").textContent).toContain("The engineer and the technician is on-site");
     expect(document.querySelectorAll("#mistakeEntry .edit-correction-btn").length).toBeGreaterThan(0);
 
     // ...and NOT under the general correction log.
-    document.getElementById("mistakeSelect").value = hooks.CORRECTION_LOG_ENTRY.w;
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
+    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
     expect(document.getElementById("mistakeEntry").textContent).not.toContain("The engineer and the technician is on-site");
   });
 
-  it("Edit restores the category the entry was filed under, and Save can re-file it into a different category", async () => {
+  it("Edit keeps updating the SAME category the entry was already filed under", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
+    selectMistakeCategory(window, "subject-verb agreement");
     document.getElementById("qaWrongInput").value = "My cousin visit us";
     document.getElementById("qaRightInput").value = "My cousin visits us";
-    document.getElementById("qaCategorySelect").value = "subject-verb agreement";
     document.getElementById("qaAddBtn").click();
     await wait();
 
-    document.getElementById("mistakeSelect").value = "subject-verb agreement";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
+    // Edit is only reachable from within the category it's already
+    // rendered under, so mistakeSelect is already on "subject-verb
+    // agreement" here — no separate category input to worry about.
     document.querySelector("#mistakeEntry .edit-correction-btn").click();
-    expect(document.getElementById("qaCategorySelect").value).toBe("subject-verb agreement");
-
-    // Re-file it into the general log instead.
-    document.getElementById("qaCategorySelect").value = hooks.CORRECTION_LOG_ENTRY.w;
+    document.getElementById("qaRightInput").value = "My cousin always visits us";
     document.getElementById("qaAddBtn").click();
     await wait();
 
     const saved = hooks.loadPersonalCorrections();
-    expect(saved[0].category).toBe(hooks.CORRECTION_LOG_ENTRY.w);
-
-    document.getElementById("mistakeSelect").value = "subject-verb agreement";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
-    expect(document.getElementById("mistakeEntry").textContent).not.toContain("My cousin visit us");
-
-    document.getElementById("mistakeSelect").value = hooks.CORRECTION_LOG_ENTRY.w;
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
-    expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin visit us");
-  });
-
-  it("resets the 'File under' select back to the general log after Cancel or a successful save", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    const select = document.getElementById("qaCategorySelect");
-
-    select.value = "subject-verb agreement";
-    document.getElementById("qaCancelEditBtn").click();
-    expect(select.value).toBe(hooks.CORRECTION_LOG_ENTRY.w);
-
-    document.getElementById("qaWrongInput").value = "My cousin visit us";
-    document.getElementById("qaRightInput").value = "My cousin visits us";
-    select.value = "subject-verb agreement";
-    document.getElementById("qaAddBtn").click();
-    await wait();
-    expect(select.value).toBe(hooks.CORRECTION_LOG_ENTRY.w);
+    expect(saved[0].category).toBe("subject-verb agreement");
+    expect(saved[0].right).toBe("My cousin always visits us");
+    expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin always visits us");
   });
 
   it("re-derives category-filed senses correctly from storage on a fresh rebuild — what happens on every real page load", async () => {
@@ -130,26 +115,22 @@ describe("Fixes tab — filing a correction under an existing category", () => {
     ]);
     hooks.rebuildCorrectionLog();
 
-    document.getElementById("mistakeSelect").value = "subject-verb agreement";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
+    selectMistakeCategory(window, "subject-verb agreement");
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin visit us");
 
-    document.getElementById("mistakeSelect").value = hooks.CORRECTION_LOG_ENTRY.w;
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
+    selectMistakeCategory(window, hooks.CORRECTION_LOG_ENTRY.w);
     expect(document.getElementById("mistakeEntry").textContent).not.toContain("My cousin visit us");
   });
 
   it("Delete removes a category-filed correction from that category's rendering", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
+    selectMistakeCategory(window, "subject-verb agreement");
     document.getElementById("qaWrongInput").value = "My cousin visit us";
     document.getElementById("qaRightInput").value = "My cousin visits us";
-    document.getElementById("qaCategorySelect").value = "subject-verb agreement";
     document.getElementById("qaAddBtn").click();
     await wait();
 
-    document.getElementById("mistakeSelect").value = "subject-verb agreement";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin visit us");
 
     window.confirm = () => true;
@@ -157,8 +138,6 @@ describe("Fixes tab — filing a correction under an existing category", () => {
     await wait();
 
     expect(hooks.loadPersonalCorrections()).toHaveLength(0);
-    document.getElementById("mistakeSelect").value = "subject-verb agreement";
-    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
     expect(document.getElementById("mistakeEntry").textContent).not.toContain("My cousin visit us");
   });
 });

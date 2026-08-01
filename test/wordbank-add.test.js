@@ -1,11 +1,11 @@
 // Integration tests for the Word Bank tab (#panel-wordbank) — two
 // manual-only categories sharing one tab via a segmented switcher:
-// Basic → Advanced English and Tagalog → English. Same "no online
-// lookup, everything is Owner-typed" shape as Tenses' own "Add my own
-// construction" box (see tenses-add.test.js). Each side of a pair gets
-// its own optional definition and example(s), rendered in the same
-// two-blocks-with-a-divider shape Distinctions Words uses for its own
-// word1/word2 pairs (see distinctions.test.js / renderDistinctionEntry).
+// Basic → Advanced English and Tagalog → English. The Add flow is
+// deliberately minimal (just the two words, same shape as Distinctions
+// Words' own "Word 1 / Word 2" add box) — an optional definition and
+// example(s) for each side only ever show up in the Edit form, never at
+// creation. Edit/Delete are owner-gated the same way Distinctions
+// Words' entries are.
 import { describe, it, expect } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
@@ -24,8 +24,6 @@ describe("Word Bank tab — shell and category switcher", () => {
 
     document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
     expect(document.getElementById("panel-wordbank").style.display).toBe("block");
-    // Never explicitly set until activateWordBankCategory() runs — the
-    // static markup just relies on the div's default block display.
     expect(document.getElementById("wordbank-basicAdvanced").style.display).not.toBe("none");
     expect(document.getElementById("wordbank-tagalogEnglish").style.display).toBe("none");
     expect(document.querySelector('#wordBankCategorySeg button[data-val="basicAdvanced"]').classList.contains("active")).toBe(true);
@@ -73,7 +71,7 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
   });
 
-  it("shows the manual form immediately for a new word — no online lookup step at all", async () => {
+  it("shows the manual form immediately for a new word — just the two words, no definition/example fields at this step", async () => {
     const { window } = await loadApp();
     const document = window.document;
     document.getElementById("basicAdvancedAddInput").value = "happy";
@@ -83,11 +81,12 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(document.getElementById("lookupModal").style.display).toBe("flex");
     expect(document.getElementById("basicAdvancedFormBasic").value).toBe("happy");
     expect(document.getElementById("basicAdvancedFormAdvanced").value).toBe("");
-    expect(document.getElementById("basicAdvancedFormBasicDef")).not.toBeNull();
-    expect(document.getElementById("basicAdvancedFormAdvancedDef")).not.toBeNull();
+    expect(document.getElementById("basicAdvancedFormBasicDef")).toBeNull();
+    expect(document.getElementById("basicAdvancedFormAdvancedDef")).toBeNull();
+    expect(document.getElementById("basicAdvancedFormBasicExample")).toBeNull();
   });
 
-  it("requires both the basic and advanced word before saving — definition and examples stay optional", async () => {
+  it("requires both the basic and advanced word before saving", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     document.getElementById("basicAdvancedAddInput").value = "happy";
@@ -102,7 +101,7 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
     expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
   });
 
-  it("saves a pair with no definition/examples (null/empty array, not omitted), persists it, and navigates to it", async () => {
+  it("saves a pair with null definitions and empty example arrays, persists it, and navigates to it", async () => {
     const idb = new IDBFactory();
     const { window, hooks } = await loadApp({ indexedDBFactory: idb });
     const document = window.document;
@@ -127,34 +126,6 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
 
     const stored = await VocabCache.getBasicAdvanced("happy", { indexedDB: idb });
     expect(stored.advanced).toBe("elated");
-  });
-
-  it("saves an optional definition and multiple example lines per side, and renders both blocks", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    document.getElementById("basicAdvancedAddInput").value = "happy";
-    document.getElementById("basicAdvancedAddBtn").click();
-    await wait(30);
-
-    document.getElementById("basicAdvancedFormBasicDef").value = "Feeling or showing pleasure.";
-    document.getElementById("basicAdvancedFormBasicExample").value = "She is happy.\nHe looked happy.";
-    document.getElementById("basicAdvancedFormAdvanced").value = "elated";
-    document.getElementById("basicAdvancedFormAdvancedDef").value = "Extremely happy and excited.";
-    document.getElementById("basicAdvancedFormAdvancedExample").value = "She was elated by the good news.";
-    document.getElementById("basicAdvancedAddSaveBtn").click();
-    await wait(30);
-
-    const saved = hooks.basicAdvancedData.find((e) => e.basic === "happy");
-    expect(saved.basicDef).toBe("Feeling or showing pleasure.");
-    expect(saved.basicExamples).toEqual(["She is happy.", "He looked happy."]);
-    expect(saved.advancedDef).toBe("Extremely happy and excited.");
-    expect(saved.advancedExamples).toEqual(["She was elated by the good news."]);
-
-    const entryText = document.getElementById("basicAdvancedEntry").textContent;
-    expect(entryText).toContain("Feeling or showing pleasure.");
-    expect(entryText).toContain("He looked happy.");
-    expect(entryText).toContain("Extremely happy and excited.");
-    expect(entryText).toContain("She was elated by the good news.");
   });
 
   it("does not duplicate a basic word already in Word Bank, and opens the existing pair instead", async () => {
@@ -194,6 +165,132 @@ describe("Word Bank — Basic → Advanced English (manual-only, no online looku
   });
 });
 
+describe("Word Bank — Basic → Advanced Edit/Delete (owner-gated)", () => {
+  function seed(hooks) {
+    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] }, { persist: false });
+  }
+
+  it("shows no Edit/Delete buttons while locked", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    expect(document.querySelector("#basicAdvancedEntry .lb-edit-btn")).toBeNull();
+    expect(document.querySelector("#basicAdvancedEntry .lb-delete-btn")).toBeNull();
+  });
+
+  it("shows Edit/Delete buttons once unlocked", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    expect(document.querySelector("#basicAdvancedEntry .lb-edit-btn")).not.toBeNull();
+    expect(document.querySelector("#basicAdvancedEntry .lb-delete-btn")).not.toBeNull();
+  });
+
+  it("Edit opens a form with word + optional definition + example(s) for both sides, prefilled", async () => {
+    const { window, hooks } = await loadApp();
+    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", basicDef: "Feeling pleasure.", basicExamples: ["She is happy."], advancedDef: "Very happy.", advancedExamples: ["She was elated."] }, { persist: false });
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+
+    document.querySelector("#basicAdvancedEntry .lb-edit-btn").click();
+
+    expect(document.getElementById("baEditBasic").value).toBe("happy");
+    expect(document.getElementById("baEditBasicDef").value).toBe("Feeling pleasure.");
+    expect(document.getElementById("baEditBasicExample").value).toBe("She is happy.");
+    expect(document.getElementById("baEditAdvanced").value).toBe("elated");
+    expect(document.getElementById("baEditAdvancedDef").value).toBe("Very happy.");
+    expect(document.getElementById("baEditAdvancedExample").value).toBe("She was elated.");
+  });
+
+  it("saving the edit form adds a definition and examples that weren't set at creation", async () => {
+    const idb = new IDBFactory();
+    const { window, hooks } = await loadApp({ indexedDBFactory: idb });
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    document.querySelector("#basicAdvancedEntry .lb-edit-btn").click();
+
+    document.getElementById("baEditBasicDef").value = "Feeling or showing pleasure.";
+    document.getElementById("baEditBasicExample").value = "She is happy.\nHe looked happy.";
+    document.getElementById("baEditAdvancedDef").value = "Extremely happy.";
+    document.getElementById("baEditAdvancedExample").value = "She was elated by the news.";
+    document.getElementById("baEditSaveBtn").click();
+    await wait(30);
+
+    const saved = hooks.basicAdvancedData.find((e) => e.basic === "happy");
+    expect(saved.basicDef).toBe("Feeling or showing pleasure.");
+    expect(saved.basicExamples).toEqual(["She is happy.", "He looked happy."]);
+    expect(saved.advancedDef).toBe("Extremely happy.");
+    expect(saved.advancedExamples).toEqual(["She was elated by the news."]);
+
+    const entryText = document.getElementById("basicAdvancedEntry").textContent;
+    expect(entryText).toContain("Feeling or showing pleasure.");
+    expect(entryText).toContain("He looked happy.");
+
+    const stored = await VocabCache.getBasicAdvanced("happy", { indexedDB: idb });
+    expect(stored.basicDef).toBe("Feeling or showing pleasure.");
+  });
+
+  it("renaming the basic word to a value already used by another entry is refused, restoring the original", async () => {
+    const { window, hooks } = await loadApp();
+    hooks.addBasicAdvancedEntry({ basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] }, { persist: false });
+    hooks.addBasicAdvancedEntry({ basic: "sad", advanced: "sorrowful", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] }, { persist: false });
+    const document = window.document;
+    const happyEntry = hooks.basicAdvancedData.find((e) => e.basic === "happy");
+    hooks.renderBasicAdvancedPair(happyEntry);
+    document.querySelector("#basicAdvancedEntry .lb-edit-btn").click();
+
+    document.getElementById("baEditBasic").value = "sad";
+    document.getElementById("baEditSaveBtn").click();
+    await wait(30);
+
+    expect(document.getElementById("baEditStatus").textContent).toContain("already used");
+    expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(true);
+    expect(hooks.basicAdvancedData.filter((e) => e.basic === "sad")).toHaveLength(1);
+  });
+
+  it("Cancel discards edits and re-renders the original entry", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    document.querySelector("#basicAdvancedEntry .lb-edit-btn").click();
+
+    document.getElementById("baEditBasicDef").value = "should not be saved";
+    document.getElementById("baEditCancelBtn").click();
+
+    expect(document.getElementById("baEditBasic")).toBeNull();
+    expect(hooks.basicAdvancedData[0].basicDef).toBeNull();
+    expect(document.querySelector("#basicAdvancedEntry .lb-edit-btn")).not.toBeNull();
+  });
+
+  it("Delete removes the entry once unlocked, after confirmation", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    window.confirm = () => true;
+    document.querySelector("#basicAdvancedEntry .lb-delete-btn").click();
+    await wait(30);
+
+    expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(false);
+  });
+
+  it("Delete does nothing if the confirmation is declined", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    window.confirm = () => false;
+    document.querySelector("#basicAdvancedEntry .lb-delete-btn").click();
+    await wait(30);
+
+    expect(hooks.basicAdvancedData.some((e) => e.basic === "happy")).toBe(true);
+  });
+});
+
 describe("Word Bank — Tagalog → English (manual-only, no online lookup)", () => {
   it("renders the add box", async () => {
     const { window } = await loadApp();
@@ -213,6 +310,18 @@ describe("Word Bank — Tagalog → English (manual-only, no online lookup)", ()
     expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 
+  it("shows just the two words in the add form — no definition/example fields at this step", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
+    document.getElementById("tagalogEnglishAddBtn").click();
+    await wait(30);
+
+    expect(document.getElementById("tagalogEnglishFormTagalog").value).toBe("tiyaga");
+    expect(document.getElementById("tagalogEnglishFormTagalogDef")).toBeNull();
+    expect(document.getElementById("tagalogEnglishFormEnglishDef")).toBeNull();
+  });
+
   it("requires both the Tagalog and English word before saving", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
@@ -227,33 +336,26 @@ describe("Word Bank — Tagalog → English (manual-only, no online lookup)", ()
     expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 
-  it("saves a complete pair with a definition and example on each side, persists it, and it survives a reload", async () => {
+  it("saves a pair with null definitions and empty example arrays, and it survives a reload", async () => {
     const idb = new IDBFactory();
     const first = await loadApp({ indexedDBFactory: idb });
     first.window.document.getElementById("tagalogEnglishAddInput").value = "tiyaga";
     first.window.document.getElementById("tagalogEnglishAddBtn").click();
     await wait(30);
 
-    first.window.document.getElementById("tagalogEnglishFormTagalogDef").value = "Katatagan ng loob sa paggawa ng isang bagay.";
-    first.window.document.getElementById("tagalogEnglishFormTagalogExample").value = "Kailangan ng tiyaga para matuto ng bagong wika.";
     first.window.document.getElementById("tagalogEnglishFormEnglish").value = "perseverance";
-    first.window.document.getElementById("tagalogEnglishFormEnglishDef").value = "Continued effort despite difficulty.";
-    first.window.document.getElementById("tagalogEnglishFormEnglishExample").value = "Perseverance is needed to learn a new language.";
     first.window.document.getElementById("tagalogEnglishAddSaveBtn").click();
     await wait(30);
 
     const saved = first.hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
     expect(saved.english).toBe("perseverance");
-    expect(saved.tagalogDef).toBe("Katatagan ng loob sa paggawa ng isang bagay.");
-    expect(saved.tagalogExamples).toEqual(["Kailangan ng tiyaga para matuto ng bagong wika."]);
-    expect(saved.englishDef).toBe("Continued effort despite difficulty.");
-    expect(saved.englishExamples).toEqual(["Perseverance is needed to learn a new language."]);
+    expect(saved.tagalogDef).toBeNull();
+    expect(saved.englishExamples).toEqual([]);
 
     const second = await loadApp({ indexedDBFactory: idb });
     const reloaded = second.hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
     expect(reloaded).toBeTruthy();
     expect(reloaded.english).toBe("perseverance");
-    expect(reloaded.englishDef).toBe("Continued effort despite difficulty.");
   });
 
   it("does not duplicate a Tagalog word already in Word Bank", async () => {
@@ -266,5 +368,55 @@ describe("Word Bank — Tagalog → English (manual-only, no online lookup)", ()
     await wait(30);
 
     expect(document.getElementById("tagalogEnglishAddStatus").textContent).toContain("already in the database");
+  });
+});
+
+describe("Word Bank — Tagalog → English Edit/Delete (owner-gated)", () => {
+  function seed(hooks) {
+    hooks.addTagalogEnglishEntry({ tagalog: "tiyaga", english: "perseverance", tagalogDef: null, tagalogExamples: [], englishDef: null, englishExamples: [] }, { persist: false });
+  }
+
+  it("shows no Edit/Delete buttons while locked, and shows them once unlocked", async () => {
+    const locked = await loadApp({ ownerUnlocked: false });
+    seed(locked.hooks);
+    locked.hooks.renderTagalogEnglishPair(locked.hooks.tagalogEnglishData[0]);
+    expect(locked.window.document.querySelector("#tagalogEnglishEntry .lb-edit-btn")).toBeNull();
+
+    const unlocked = await loadApp();
+    seed(unlocked.hooks);
+    unlocked.hooks.renderTagalogEnglishPair(unlocked.hooks.tagalogEnglishData[0]);
+    expect(unlocked.window.document.querySelector("#tagalogEnglishEntry .lb-edit-btn")).not.toBeNull();
+    expect(unlocked.window.document.querySelector("#tagalogEnglishEntry .lb-delete-btn")).not.toBeNull();
+  });
+
+  it("saving the edit form adds a definition and examples that weren't set at creation", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderTagalogEnglishPair(hooks.tagalogEnglishData[0]);
+    document.querySelector("#tagalogEnglishEntry .lb-edit-btn").click();
+
+    document.getElementById("teEditTagalogDef").value = "Katatagan ng loob.";
+    document.getElementById("teEditTagalogExample").value = "Kailangan ng tiyaga.";
+    document.getElementById("teEditEnglishDef").value = "Continued effort.";
+    document.getElementById("teEditEnglishExample").value = "Perseverance pays off.";
+    document.getElementById("teEditSaveBtn").click();
+    await wait(30);
+
+    const saved = hooks.tagalogEnglishData.find((e) => e.tagalog === "tiyaga");
+    expect(saved.tagalogDef).toBe("Katatagan ng loob.");
+    expect(saved.englishExamples).toEqual(["Perseverance pays off."]);
+  });
+
+  it("Delete removes the entry once unlocked, after confirmation", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderTagalogEnglishPair(hooks.tagalogEnglishData[0]);
+    window.confirm = () => true;
+    document.querySelector("#tagalogEnglishEntry .lb-delete-btn").click();
+    await wait(30);
+
+    expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 });
