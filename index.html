@@ -1243,10 +1243,10 @@
     <button class="thumb-tab" data-tab="practice">Practice<span class="n">📝</span></button>
     <button class="thumb-tab" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
+    <button class="thumb-tab" data-tab="wordbank">Word Bank<span class="n">WB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="distinctions">Distinctions Words<span class="n">DW</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
-    <button class="thumb-tab" data-tab="wordbank">Word Bank<span class="n">WB</span></button>
     <button class="thumb-tab" data-tab="preps">Preps<span class="n">P</span></button>
     <button class="thumb-tab" data-tab="articles">Articles<span class="n">A</span></button>
     <button class="thumb-tab" data-tab="tenses">Tenses<span class="n">T</span></button>
@@ -1544,6 +1544,7 @@
       <div class="seg" id="wordBankCategorySeg">
         <button class="active" data-val="basicAdvanced">Basic → Advanced</button>
         <button data-val="tagalogEnglish">Tagalog → English</button>
+        <button data-val="sentenceFragment">Sentence Fragments</button>
       </div>
     </div>
 
@@ -1586,6 +1587,20 @@
         <input type="text" id="tagalogEnglishAddEnglishInput" placeholder="English word (e.g. perseverance)" autocomplete="off">
         <button id="tagalogEnglishAddBtn" class="add-btn" style="margin-top:8px;">+ Save</button>
         <div id="tagalogEnglishAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="wordbank-category" id="wordbank-sentenceFragment" style="display:none;">
+      <div class="entry" id="fragmentEntry"></div>
+      <div class="quick-add-box owner-only" id="fragAddBox">
+        <div class="section-label">Add a correction to "sentence fragment"</div>
+        <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
+        <input type="text" id="fragWrongInput" placeholder="Wrong version (e.g. Because the pump failed.)" autocomplete="off">
+        <input type="text" id="fragRightInput" placeholder="Corrected version (e.g. The system shut down because the pump failed.)" autocomplete="off">
+        <input type="text" id="fragWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
+        <button id="fragAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
+        <button id="fragCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
+        <div id="fragAddStatus" class="add-status"></div>
       </div>
     </div>
   </section>
@@ -5828,33 +5843,6 @@ const mistakeData = [
     "mistake": null
   },
   {
-    "w": "sentence fragment",
-    "senses": [
-      {
-        "use": "A sentence needs its own complete subject and verb — a 'because/if/when' clause alone isn't a full sentence.",
-        "examples": [
-          "✗ Because the pump failed. → ✓ The system shut down <b>because the pump failed</b>.",
-          "✗ If the pressure drops. → ✓ <b>If the pressure drops</b>, shut off the valve."
-        ]
-      },
-      {
-        "use": "A verb-only phrase with no subject isn't a complete sentence either.",
-        "examples": [
-          "✗ Checked the wiring yesterday. → ✓ <b>We</b> checked the wiring yesterday.",
-          "✗ Finished the report already. → ✓ <b>She</b> finished the report already."
-        ]
-      },
-      {
-        "use": "Fragments that start with an '-ing' or 'to' verb need a main clause attached to be complete.",
-        "examples": [
-          "✗ Working overtime to meet the deadline. → ✓ <b>He stayed late</b>, working overtime to meet the deadline.",
-          "✗ To finish the installation on time. → ✓ <b>We need two more days</b> to finish the installation on time."
-        ]
-      }
-    ],
-    "mistake": null
-  },
-  {
     "w": "its vs. it's",
     "senses": [
       {
@@ -6177,6 +6165,40 @@ const mistakeData = [
   }
 ];
 
+// Lives in the Word Bank tab (its own "Sentence Fragments" category),
+// not in mistakeData/the Fixes tab — moved out at the user's request,
+// but still uses the exact same personal-correction-log mechanism
+// below (entry.category === this "w" is what ties saved corrections
+// back to it).
+const sentenceFragmentEntry = {
+  "w": "sentence fragment",
+  "senses": [
+    {
+      "use": "A sentence needs its own complete subject and verb — a 'because/if/when' clause alone isn't a full sentence.",
+      "examples": [
+        "✗ Because the pump failed. → ✓ The system shut down <b>because the pump failed</b>.",
+        "✗ If the pressure drops. → ✓ <b>If the pressure drops</b>, shut off the valve."
+      ]
+    },
+    {
+      "use": "A verb-only phrase with no subject isn't a complete sentence either.",
+      "examples": [
+        "✗ Checked the wiring yesterday. → ✓ <b>We</b> checked the wiring yesterday.",
+        "✗ Finished the report already. → ✓ <b>She</b> finished the report already."
+      ]
+    },
+    {
+      "use": "Fragments that start with an '-ing' or 'to' verb need a main clause attached to be complete.",
+      "examples": [
+        "✗ Working overtime to meet the deadline. → ✓ <b>He stayed late</b>, working overtime to meet the deadline.",
+        "✗ To finish the installation on time. → ✓ <b>We need two more days</b> to finish the installation on time."
+      ]
+    }
+  ],
+  "mistake": null
+};
+const BUILTIN_FRAGMENT_SENSES = sentenceFragmentEntry.senses.slice();
+
 /* =========================================================
    PERSONAL CORRECTION LOG — persisted in this browser via
    localStorage, so new entries survive without needing a new
@@ -6217,6 +6239,7 @@ function rebuildCorrectionLog(){
     const builtin = BUILTIN_MISTAKE_SENSES.get(m.w) || [];
     m.senses = CorrectionLog.buildCorrectionSenses(builtin, grouped[m.w] || []);
   });
+  sentenceFragmentEntry.senses = CorrectionLog.buildCorrectionSenses(BUILTIN_FRAGMENT_SENSES, grouped[sentenceFragmentEntry.w] || []);
 }
 rebuildCorrectionLog();
 
@@ -38949,6 +38972,10 @@ prepVerbData.forEach(item=>{
   }});
 });
 indexRuleModule(mistakeData, "Sentence error", "mistakeSelect", "mistakeEntry", "Sentence Error", "mistakes");
+searchIndex.push({label: sentenceFragmentEntry.w, cat:"Sentence error", action:()=>{
+  activateTab("wordbank");
+  activateWordBankCategory("sentenceFragment");
+}});
 indexRuleModule(qaData, "Question starter", "qaSelect", "qaEntry", "Question Starter", "qa");
 indexRuleModule(vocabData, "Vocabulary Bank", "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 // Language Bank's 4 categories share one tab, so their action also has
@@ -40475,6 +40502,92 @@ document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
 });
 bindEnterToClick(["qaWrongInput", "qaRightInput", "qaWhyInput"], "qaAddBtn");
 
+// Sentence Fragments' own quick-add box (Word Bank tab) — same wrong/
+// right/why shape as the Fixes tab's shared box above, just fixed to
+// this one category and living in its own set of fields so editing a
+// fragment correction doesn't try to populate inputs on a hidden tab.
+function resetFragmentAddForm(){
+  document.getElementById("fragWrongInput").value = "";
+  document.getElementById("fragRightInput").value = "";
+  document.getElementById("fragWhyInput").value = "";
+  document.getElementById("fragAddBtn").textContent = "+ Add to this category";
+  delete document.getElementById("fragAddBtn").dataset.editingId;
+  document.getElementById("fragCancelEditBtn").classList.remove("show");
+}
+
+document.getElementById("fragAddBtn").addEventListener("click", async ()=>{
+  if(!isDeviceUnlocked()){
+    const s = document.getElementById("fragAddStatus");
+    s.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    s.className = "add-status error";
+    return;
+  }
+  const wrongEl = document.getElementById("fragWrongInput");
+  const rightEl = document.getElementById("fragRightInput");
+  const whyEl = document.getElementById("fragWhyInput");
+  const statusEl = document.getElementById("fragAddStatus");
+  const addBtn = document.getElementById("fragAddBtn");
+  const wrong = wrongEl.value.trim();
+  const right = rightEl.value.trim();
+  const why = whyEl.value.trim();
+  const category = sentenceFragmentEntry.w;
+
+  if(!wrong || !right){
+    statusEl.textContent = "Please fill in both the wrong and corrected versions.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const editingId = addBtn.dataset.editingId;
+  const previousSaved = loadPersonalCorrections();
+  const saved = previousSaved.map(s => ({...s}));
+  let statusText, statusOk;
+
+  if(editingId){
+    const entry = saved.find(s => s.id === editingId);
+    if(entry){
+      entry.wrong = wrong;
+      entry.right = right;
+      entry.why = why;
+      entry.category = category;
+    }
+    savePersonalCorrections(saved);
+    statusText = "Updated!";
+    statusOk = true;
+  } else {
+    saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why, category: category });
+    const localOk = savePersonalCorrections(saved);
+    statusText = localOk
+      ? "Saved! This entry is now permanent in this file."
+      : "Added for this session, but your browser blocked permanent saving.";
+    statusOk = localOk;
+  }
+
+  const pushResult = await pushToSync(saved);
+  if(!pushResult.ok){
+    savePersonalCorrections(previousSaved);
+    rebuildCorrectionLog();
+    renderFragmentEntry();
+    statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  statusEl.textContent = statusText;
+  statusEl.className = statusOk ? "add-status success" : "add-status error";
+
+  rebuildCorrectionLog();
+  renderFragmentEntry();
+  resetFragmentAddForm();
+});
+
+document.getElementById("fragCancelEditBtn").addEventListener("click", ()=>{
+  resetFragmentAddForm();
+  document.getElementById("fragAddStatus").textContent = "Edit cancelled.";
+  document.getElementById("fragAddStatus").className = "add-status";
+});
+bindEnterToClick(["fragWrongInput", "fragRightInput", "fragWhyInput"], "fragAddBtn");
+
 document.addEventListener("click", async (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
   if(editBtn){
@@ -40483,16 +40596,25 @@ document.addEventListener("click", async (e)=>{
     const saved = loadPersonalCorrections();
     const entry = saved.find(s => s.id === id);
     if(entry){
-      document.getElementById("qaWrongInput").value = entry.wrong;
-      document.getElementById("qaRightInput").value = entry.right;
-      document.getElementById("qaWhyInput").value = entry.why || "";
-      const addBtn = document.getElementById("qaAddBtn");
+      // A fragment correction is edited through its own box (Word Bank
+      // tab); every other category still uses the shared Fixes-tab box.
+      const isFragment = entry.category === sentenceFragmentEntry.w;
+      const wrongId = isFragment ? "fragWrongInput" : "qaWrongInput";
+      const rightId = isFragment ? "fragRightInput" : "qaRightInput";
+      const whyId = isFragment ? "fragWhyInput" : "qaWhyInput";
+      const addBtnId = isFragment ? "fragAddBtn" : "qaAddBtn";
+      const cancelBtnId = isFragment ? "fragCancelEditBtn" : "qaCancelEditBtn";
+      const statusId = isFragment ? "fragAddStatus" : "qaAddStatus";
+      document.getElementById(wrongId).value = entry.wrong;
+      document.getElementById(rightId).value = entry.right;
+      document.getElementById(whyId).value = entry.why || "";
+      const addBtn = document.getElementById(addBtnId);
       addBtn.textContent = "Update this entry";
       addBtn.dataset.editingId = id;
-      document.getElementById("qaCancelEditBtn").classList.add("show");
-      document.getElementById("qaAddStatus").textContent = "Editing — change the fields above and click Update.";
-      document.getElementById("qaAddStatus").className = "add-status";
-      const wrongInputEl = document.getElementById("qaWrongInput");
+      document.getElementById(cancelBtnId).classList.add("show");
+      document.getElementById(statusId).textContent = "Editing — change the fields above and click Update.";
+      document.getElementById(statusId).className = "add-status";
+      const wrongInputEl = document.getElementById(wrongId);
       if(wrongInputEl.scrollIntoView) wrongInputEl.scrollIntoView({behavior:"smooth", block:"center"});
     }
     return;
@@ -40505,15 +40627,18 @@ document.addEventListener("click", async (e)=>{
     const confirmed = window.confirm ? window.confirm("Delete this correction from your log? This can't be undone.") : true;
     if(!confirmed) return;
     const previousSaved = loadPersonalCorrections();
+    const target = previousSaved.find(s => s.id === id);
+    const isFragment = !!target && target.category === sentenceFragmentEntry.w;
     const saved = previousSaved.filter(s => s.id !== id);
     savePersonalCorrections(saved);
 
-    const statusEl = document.getElementById("qaAddStatus");
+    const statusEl = document.getElementById(isFragment ? "fragAddStatus" : "qaAddStatus");
     const pushResult = await pushToSync(saved);
     if(!pushResult.ok){
       savePersonalCorrections(previousSaved);
       rebuildCorrectionLog();
       refreshMistakeUI();
+      renderFragmentEntry();
       statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
       statusEl.className = "add-status error";
       return;
@@ -40521,7 +40646,8 @@ document.addEventListener("click", async (e)=>{
 
     rebuildCorrectionLog();
     refreshMistakeUI();
-    resetQuickAddForm();
+    renderFragmentEntry();
+    if(isFragment) resetFragmentAddForm(); else resetQuickAddForm();
     statusEl.textContent = "Deleted.";
     statusEl.className = "add-status success";
     return;
@@ -40657,7 +40783,10 @@ function getFavoriteRuleEntrySources(){
     { cat: "Modal Verb", data: modalData },
     { cat: "Capitalization Rule", data: capitalData },
     { cat: "Word Order Pattern", data: orderData },
-    { cat: "Sentence Error", data: mistakeData },
+    // sentenceFragmentEntry moved out of mistakeData (now lives in the
+    // Word Bank tab) but keeps the same "Sentence Error" cat tag, so a
+    // favorite saved for it before the move still resolves here.
+    { cat: "Sentence Error", data: mistakeData.concat([sentenceFragmentEntry]) },
     { cat: "Question Starter", data: qaData },
     { cat: "Verb + Preposition", data: prepVerbData },
     { cat: "Preposition", data: prepData }
@@ -44512,8 +44641,15 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
 ========================================================= */
 const basicAdvancedData = [];
 const tagalogEnglishData = [];
-const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish"];
+const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "sentenceFragment"];
 let currentWordBankCategory = "basicAdvanced";
+
+// Renders the single "sentence fragment" rule entry (moved here from the
+// Fixes tab — see sentenceFragmentEntry above) the same way the Fixes
+// tab always rendered it, just inside its own Word Bank category div.
+function renderFragmentEntry(){
+  renderRuleEntry(sentenceFragmentEntry, document.getElementById("fragmentEntry"), "Sentence Error");
+}
 
 function activateWordBankCategory(key){
   if(WORD_BANK_CATEGORIES.indexOf(key) === -1) key = "basicAdvanced";
@@ -44522,6 +44658,7 @@ function activateWordBankCategory(key){
   WORD_BANK_CATEGORIES.forEach(k=>{
     document.getElementById("wordbank-"+k).style.display = (k===key) ? "block" : "none";
   });
+  if(key === "sentenceFragment") renderFragmentEntry();
 }
 document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
@@ -45095,6 +45232,7 @@ function refreshWordBankUI(){
   if(baEntry) renderBasicAdvancedPair(baEntry);
   const teEntry = tagalogEnglishData.find(e=> e.tagalog === tagalogEnglishSelect.value);
   if(teEntry) renderTagalogEnglishPair(teEntry);
+  renderFragmentEntry();
 }
 
 // Cross-device sync for Word Bank — unlike vocabData/distinctionsData/
@@ -45443,6 +45581,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   phrasalData, idiomsData, sentencesData, patternsData, technicalData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES,
+  sentenceFragmentEntry, BUILTIN_FRAGMENT_SENSES, renderFragmentEntry,
+  WORD_BANK_CATEGORIES, activateWordBankCategory,
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
