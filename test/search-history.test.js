@@ -77,6 +77,10 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
   it("starting a new destination after going Back truncates the forward path (browser-style)", async () => {
     const { window } = await loadApp();
     const document = window.document;
+    // A first search establishes a real entry #0 to Back to — Dashboard
+    // (the app's landing tab) has no headword of its own, so a lone
+    // search only ever produces a single, un-Back-able history entry.
+    search(window, "abandon", "Vocabulary Bank");
     search(window, "above", "Vocabulary Bank");
     expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("above");
 
@@ -96,12 +100,18 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     const { window, hooks } = await loadApp();
     const document = window.document;
 
+    // A plain tab click is only recorded when there's a real "origin"
+    // entry to leave FROM (recordTopNavHopIfChanged bails out on a null
+    // origin) — Dashboard, the app's landing tab, has no headword of its
+    // own, so a search establishes that origin first, exactly like a real
+    // user's first action from the landing page would.
+    search(window, "abandon", "Vocabulary Bank");
     document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
     document.querySelector('.thumb-tab[data-tab="verbs"]').click();
 
-    // Vocab (default) -> Distinctions -> Language Bank -> Verbs, each a
-    // distinct destination, so each hop adds exactly one new entry.
+    // Vocab (from the search) -> Distinctions -> Language Bank -> Verbs,
+    // each a distinct destination, so each hop adds exactly one new entry.
     expect(hooks.getSearchHistory().map((h) => h.cat)).toEqual([
       "Vocabulary Bank", "Distinction Word", "Phrasal verb", "Verb (regular)"
     ]);
@@ -141,6 +151,11 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     const { window, hooks } = await loadApp();
     const document = window.document;
 
+    // #vocabSelect is hidden until the Vocab tab (no longer the app's
+    // default/landing tab) is actually open, and its own change-tracker
+    // needs a real "origin" to leave from too (see the earlier test) — a
+    // search gets us there the same way a real user's dropdown use would.
+    search(window, "abandon", "Vocabulary Bank");
     const vocabSelect = document.getElementById("vocabSelect");
     vocabSelect.value = "above";
     vocabSelect.dispatchEvent(new window.Event("change", { bubbles: true }));
@@ -302,8 +317,10 @@ describe("top Back/Forward supports context-aware navigation across chip clicks"
     const { window, hooks } = await loadApp();
     const document = window.document;
 
-    // Vocab (default, untracked-until-now) -> Language Bank tab click
-    // (hop 1) -> chip click (hop 2) = 3 total entries.
+    // A search establishes a real origin first (Dashboard, the app's
+    // landing tab, isn't trackable — see the earlier tests) -> Language
+    // Bank tab click (hop 1) -> chip click (hop 2) = 3 total entries.
+    search(window, "abandon", "Vocabulary Bank");
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
     const chip = document.querySelector("#phrasalEntry .word-chips .clickable");
     chip.click();

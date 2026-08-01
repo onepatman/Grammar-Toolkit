@@ -5,7 +5,7 @@ import { describe, it, expect } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import { loadApp } from "./helpers/load-app.js";
 
-function wait(ms = 20) {
+function wait(ms = 40) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 

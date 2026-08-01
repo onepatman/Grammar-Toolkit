@@ -824,11 +824,15 @@ describe("Practice tab — My Favorites as the practice source (real favoriting 
     const document = window.document;
     openVocabEntry(hooks, document, "abandon");
     document.querySelector("#vocabEntry .fav-toggle").click();
+    // The toggle's own IndexedDB write is fire-and-forget — give it a
+    // moment to land before buildPracticeSession("favorites") reads it
+    // straight back via VocabCache.getAllFavorites().
+    await wait();
 
     document.querySelector('.thumb-tab[data-tab="practice"]').click();
     expect(document.querySelector('input[name="practiceSource"]:checked').value).toBe("favorites");
     document.querySelector('.practice-mode-btn[data-mode="flashcards"]').click();
-    await wait(20);
+    await wait();
 
     expect(document.getElementById("practiceSession").style.display).toBe("block");
     const words = [];

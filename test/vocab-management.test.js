@@ -102,6 +102,7 @@ describe("Vocabulary tab's direct Look Up & Add box (addVocabEntryFromInput)", (
 
     expect(fetchCalled).toBe(false);
     expect(document.getElementById("vocabAddStatus").textContent).toContain("already in the database");
+    document.getElementById("dupConflictViewBtn").click();
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("vocab");
     expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
   });

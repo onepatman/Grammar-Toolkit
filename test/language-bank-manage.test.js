@@ -372,7 +372,7 @@ describe("Edit", () => {
 
     document.getElementById("lbEditWord").value = "   ";
     document.getElementById("lbEditSaveBtn").click();
-    await wait(20);
+    await wait();
 
     expect(document.getElementById("lbEditStatus").className).toContain("error");
     expect(hooks.idiomsData.some((p) => p.w === SAMPLE_IDIOM.w)).toBe(true);
@@ -389,7 +389,7 @@ describe("Edit", () => {
     // "break the ice" is a built-in idiom already in the database.
     document.getElementById("lbEditWord").value = "break the ice";
     document.getElementById("lbEditSaveBtn").click();
-    await wait(20);
+    await wait();
 
     expect(document.getElementById("lbEditStatus").className).toContain("error");
     expect(document.getElementById("lbEditStatus").textContent).toContain("already used");
