@@ -40090,6 +40090,39 @@ function resolveFavoriteEntryData(fav){
         syn: [], ant: [], mistake: null, tagalog: null
       };
     }
+  } else if(catLower === "basic → advanced"){
+    // Favorited per-WORD, same reasoning as Distinctions Words above —
+    // find whichever pair contains this exact word (basic or advanced
+    // side) and return just that side's own definition/examples.
+    const pair = basicAdvancedData.find(e=>
+      e.basic.trim().toLowerCase() === key || e.advanced.trim().toLowerCase() === key
+    );
+    if(pair){
+      const isBasic = pair.basic.trim().toLowerCase() === key;
+      const word = isBasic ? pair.basic : pair.advanced;
+      const def = isBasic ? pair.basicDef : pair.advancedDef;
+      const examples = (isBasic ? pair.basicExamples : pair.advancedExamples) || [];
+      return {
+        word,
+        meanings: (def || examples.length) ? [{use: def || "", examples}] : [],
+        syn: [], ant: [], mistake: null, tagalog: null
+      };
+    }
+  } else if(catLower === "tagalog → english"){
+    const pair = tagalogEnglishData.find(e=>
+      e.tagalog.trim().toLowerCase() === key || e.english.trim().toLowerCase() === key
+    );
+    if(pair){
+      const isTagalog = pair.tagalog.trim().toLowerCase() === key;
+      const word = isTagalog ? pair.tagalog : pair.english;
+      const def = isTagalog ? pair.tagalogDef : pair.englishDef;
+      const examples = (isTagalog ? pair.tagalogExamples : pair.englishExamples) || [];
+      return {
+        word,
+        meanings: (def || examples.length) ? [{use: def || "", examples}] : [],
+        syn: [], ant: [], mistake: null, tagalog: null
+      };
+    }
   } else if(catLower === "distinction word"){
     // A Distinctions Words favorite is favorited per-WORD (word1 or
     // word2 individually), not per-pair — find whichever pair contains
@@ -43857,7 +43890,7 @@ document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
 // pairs (see renderDistinctionWordBlock). Examples come in as an array —
 // each line the Owner typed into one textarea, split on save — and are
 // numbered exactly like every other module's example list.
-function renderWordBankSide(label, def, examples, tagLabel){
+function renderWordBankSide(label, def, examples, tagLabel, favCat){
   const defHtml = def ? `
     <div class="section-label">Definition</div>
     <p class="note" style="margin:0 0 8px;">${def}</p>
@@ -43871,6 +43904,7 @@ function renderWordBankSide(label, def, examples, tagLabel){
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${label}</span>
       ${makeListenButtonHtml()}
+      ${makeFavToggleHtml(label, favCat)}
     </div>
     ${defHtml}
     ${examplesHtml}
@@ -43896,9 +43930,9 @@ function renderBasicAdvancedPair(entry){
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
   basicAdvancedEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English")}
+    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English", "Basic → Advanced")}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English")}
+    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English", "Basic → Advanced")}
     ${entryActionsHtml}
   `;
   const listenBtns = basicAdvancedEntryEl.querySelectorAll(".listen-btn");
@@ -44015,14 +44049,18 @@ async function deleteBasicAdvancedEntry(basic){
   const key = basic.trim().toLowerCase();
   const idx = basicAdvancedData.findIndex(e=> e.basic.trim().toLowerCase() === key);
   if(idx === -1) return;
+  const entry = basicAdvancedData[idx];
   basicAdvancedData.splice(idx, 1);
 
-  const existing = wordIndexMap.get(key);
-  if(existing && existing.cat === "Basic → Advanced"){
-    wordIndexMap.delete(key);
-    const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === key && i.cat === "Basic → Advanced");
-    if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
-  }
+  [entry.basic, entry.advanced].forEach(w=>{
+    const k = w.trim().toLowerCase();
+    const existing = wordIndexMap.get(k);
+    if(existing && existing.cat === "Basic → Advanced"){
+      wordIndexMap.delete(k);
+      const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === k && i.cat === "Basic → Advanced");
+      if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
+    }
+  });
 
   const optionEl = Array.from(basicAdvancedSelect.options).find(o=> o.value.trim().toLowerCase() === key);
   if(optionEl) optionEl.remove();
@@ -44064,6 +44102,16 @@ function addBasicAdvancedEntry(entry, options){
   const item = {label: entry.basic, cat: "Basic → Advanced", categories: ["Basic → Advanced"], action: openThisPair};
   searchIndex.push(item);
   wordIndexMap.set(normalizeWordKey(entry.basic), item);
+
+  // Index the advanced word too (if that spelling isn't already claimed
+  // by something else) — a favorite star on either side of the pair
+  // needs to resolve back to this same entry from the Favorites tab.
+  const advancedKey = normalizeWordKey(entry.advanced);
+  if(!wordIndexMap.has(advancedKey)){
+    const advancedItem = {label: entry.advanced, cat: "Basic → Advanced", categories: ["Basic → Advanced"], action: openThisPair};
+    searchIndex.push(advancedItem);
+    wordIndexMap.set(advancedKey, advancedItem);
+  }
 
   if(opts.persist) VocabCache.putBasicAdvanced(entry, {dbPromise: vocabDbPromise});
   return item;
@@ -44138,9 +44186,9 @@ function renderTagalogEnglishPair(entry){
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
   tagalogEnglishEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words")}
+    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words", "Tagalog → English")}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words")}
+    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words", "Tagalog → English")}
     ${entryActionsHtml}
   `;
   const listenBtns = tagalogEnglishEntryEl.querySelectorAll(".listen-btn");
@@ -44248,14 +44296,18 @@ async function deleteTagalogEnglishEntry(tagalog){
   const key = tagalog.trim().toLowerCase();
   const idx = tagalogEnglishData.findIndex(e=> e.tagalog.trim().toLowerCase() === key);
   if(idx === -1) return;
+  const entry = tagalogEnglishData[idx];
   tagalogEnglishData.splice(idx, 1);
 
-  const existing = wordIndexMap.get(key);
-  if(existing && existing.cat === "Tagalog → English"){
-    wordIndexMap.delete(key);
-    const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === key && i.cat === "Tagalog → English");
-    if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
-  }
+  [entry.tagalog, entry.english].forEach(w=>{
+    const k = w.trim().toLowerCase();
+    const existing = wordIndexMap.get(k);
+    if(existing && existing.cat === "Tagalog → English"){
+      wordIndexMap.delete(k);
+      const searchIdx = searchIndex.findIndex(i=> i.label.toLowerCase() === k && i.cat === "Tagalog → English");
+      if(searchIdx !== -1) searchIndex.splice(searchIdx, 1);
+    }
+  });
 
   const optionEl = Array.from(tagalogEnglishSelect.options).find(o=> o.value.trim().toLowerCase() === key);
   if(optionEl) optionEl.remove();
@@ -44293,6 +44345,15 @@ function addTagalogEnglishEntry(entry, options){
   const item = {label: entry.tagalog, cat: "Tagalog → English", categories: ["Tagalog → English"], action: openThisPair};
   searchIndex.push(item);
   wordIndexMap.set(normalizeWordKey(entry.tagalog), item);
+
+  // Index the English word too, same reasoning as addBasicAdvancedEntry —
+  // a favorite star on either side needs to resolve back to this entry.
+  const englishKey = normalizeWordKey(entry.english);
+  if(!wordIndexMap.has(englishKey)){
+    const englishItem = {label: entry.english, cat: "Tagalog → English", categories: ["Tagalog → English"], action: openThisPair};
+    searchIndex.push(englishItem);
+    wordIndexMap.set(englishKey, englishItem);
+  }
 
   if(opts.persist) VocabCache.putTagalogEnglish(entry, {dbPromise: vocabDbPromise});
   return item;
