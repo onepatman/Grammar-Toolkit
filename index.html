@@ -372,15 +372,18 @@
      Verbs tab's 3-button .seg is untouched. The Favorites category
      filter can have just as many (or more) pills, depending on how
      many different kinds of things the user has favorited, so it gets
-     the same treatment. */
-  #langBankCategorySeg, #favoritesCategorySeg{
+     the same treatment. Word Bank's seg grew to 5 categories too
+     (Basic → Advanced, Tagalog → English, Sentence Fragments,
+     Subject-Verb Agreement, My Correction Log) once the last two
+     moved in from the Fixes tab, so it gets the same treatment. */
+  #langBankCategorySeg, #favoritesCategorySeg, #wordBankCategorySeg{
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
     flex-wrap:nowrap;
     max-width:100%;
   }
-  #langBankCategorySeg button, #favoritesCategorySeg button{
+  #langBankCategorySeg button, #favoritesCategorySeg button, #wordBankCategorySeg button{
     flex:0 0 auto;
     white-space:nowrap;
   }

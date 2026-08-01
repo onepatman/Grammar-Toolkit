@@ -39,6 +39,18 @@ describe("Word Bank tab — Sentence Fragments category", () => {
     expect(vals).toEqual(["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog"]);
   });
 
+  it("scrolls horizontally instead of wrapping, same as Language Bank's own category seg (5 categories is too many pills for a phone screen)", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    const seg = document.getElementById("wordBankCategorySeg");
+    expect(window.getComputedStyle(seg).overflowX).toBe("auto");
+    expect(window.getComputedStyle(seg).flexWrap).toBe("nowrap");
+    const lastBtn = document.querySelector('#wordBankCategorySeg button[data-val="correctionLog"]');
+    expect(window.getComputedStyle(lastBtn).flexShrink).toBe("0");
+    expect(window.getComputedStyle(lastBtn).whiteSpace).toBe("nowrap");
+  });
+
   it("renders the built-in rule content when selected, with no select/prev-next (it's a single entry)", async () => {
     const { window } = await loadApp();
     const document = window.document;
