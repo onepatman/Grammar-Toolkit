@@ -1942,6 +1942,7 @@
         <button data-val="sentences">Word Chunks</button>
         <button data-val="patterns">Sentence Patterns</button>
         <button data-val="technical">Technical Terms</button>
+        <button data-val="phraseTemplates">Phrase Templates</button>
       </div>
     </div>
     <div class="controls sort-controls">
@@ -2096,6 +2097,35 @@
           <input type="text" id="technicalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="technicalManualSaveBtn" class="add-btn">Save with my notes</button>
           <button id="technicalManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="langbank-category" id="langbank-phraseTemplates" style="display:none;">
+      <div class="controls">
+        <select id="phraseTemplatesSelect"></select>
+        <button class="nav-btn" data-target="phraseTemplatesSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="phraseTemplatesSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="phraseTemplatesEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="phraseTemplatesSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="phraseTemplatesSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="phraseTemplatesAddBox">
+        <div class="section-label">Add a phrase template</div>
+        <p class="note" style="margin-bottom:8px;">Type a short label for a ready-made professional phrase (e.g. "Email: Requesting a deadline extension") and we'll try to find an explanation online. Phrase templates don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save it as-is.</p>
+        <input type="text" id="phraseTemplatesAddInput" placeholder='A phrase template (e.g. "Email: Requesting a deadline extension")' autocomplete="off">
+        <button id="phraseTemplatesAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <div id="phraseTemplatesAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="phraseTemplatesManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">No online explanation was found for "<strong id="phraseTemplatesManualWord"></strong>". Add your own note, or just save it as-is:</p>
+          <textarea id="phraseTemplatesManualUse" placeholder="When/how it's used (optional)" rows="2"></textarea>
+          <button id="phraseTemplatesManualSaveBtn" class="add-btn">Save with my notes</button>
+          <button id="phraseTemplatesManualSkipBtn" class="add-btn secondary">Add without notes</button>
+          <button id="phraseTemplatesManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -36380,6 +36410,286 @@ const technicalData = [
 ];
 
 /* =========================================================
+   DATA — PHRASE TEMPLATES (general professional writing, not tied to
+   any one field) — ready-made phrasing for emails, memos & reports,
+   meeting minutes, and requests/follow-ups. Each headword is prefixed
+   with its group ("Email:", "Memo/Report:", "Meeting Minutes:",
+   "Request:") purely for organization — since every Language Bank
+   dropdown is alphabetically sorted, the prefix naturally clusters
+   same-group phrases together with no extra grouping UI needed.
+========================================================= */
+const phraseTemplatesData = [
+  {
+    "w": "Email: Requesting a status update",
+    "senses": [{
+      "use": "A polite way to ask for an update on something without sounding demanding.",
+      "examples": [
+        "<b>Could you please provide an update</b> on the status of the shipment?",
+        "<b>I wanted to check in</b> on the progress of the report."
+      ]
+    }],
+    "mistake": "Avoid \"Give me an update now\" in a professional email — it reads as a demand, not a request.",
+    "syn": [], "ant": []
+  },
+  {
+    "w": "Email: Following up on a previous message",
+    "senses": [{
+      "use": "Used when you haven't received a reply and want to politely remind the recipient.",
+      "examples": [
+        "<b>I'm following up on</b> my email from last week regarding the invoice.",
+        "<b>Just circling back on</b> this — have you had a chance to review it?"
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Email: Apologizing for a delay",
+    "senses": [{
+      "use": "A professional way to acknowledge a late reply or missed deadline without over-explaining.",
+      "examples": [
+        "<b>Apologies for the delay in</b> getting back to you.",
+        "<b>Sorry for the late response</b> — I was out of the office last week."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Email: Attaching a document",
+    "senses": [{
+      "use": "A standard phrase to point the reader to an attached file.",
+      "examples": [
+        "<b>Please find attached</b> the requested documents.",
+        "<b>Attached, please find</b> the revised proposal for your review."
+      ]
+    }],
+    "mistake": "\"Please find attach\" is a common error — the correct form is \"Please find attached.\"",
+    "syn": [], "ant": []
+  },
+  {
+    "w": "Email: Closing a formal email",
+    "senses": [{
+      "use": "A polite closing line before the sign-off, inviting further contact.",
+      "examples": [
+        "<b>Please let me know if you have any questions.</b>",
+        "<b>Feel free to reach out</b> if you need anything else."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Email: Introducing yourself in a first message",
+    "senses": [{
+      "use": "Used when emailing someone for the first time, to give quick context.",
+      "examples": [
+        "<b>My name is</b> Ana Cruz, and I am writing on behalf of the design team.",
+        "<b>I hope this email finds you well.</b> My name is Ana Cruz from ABC Corp."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Memo/Report: Stating the purpose of the report",
+    "senses": [{
+      "use": "An opening line that tells the reader immediately why the document exists.",
+      "examples": [
+        "<b>The purpose of this report is to</b> summarize the results of the site inspection.",
+        "<b>This memo is intended to</b> outline the proposed changes to the schedule."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Memo/Report: Presenting a recommendation",
+    "senses": [{
+      "use": "A clear, confident way to state what action you think should be taken.",
+      "examples": [
+        "<b>It is recommended that</b> the team proceed with Option B.",
+        "<b>We recommend</b> replacing the unit before the next inspection cycle."
+      ]
+    }],
+    "mistake": "Avoid vague phrasing like \"maybe we should\" in a formal recommendation — state it directly.",
+    "syn": [], "ant": []
+  },
+  {
+    "w": "Memo/Report: Summarizing findings",
+    "senses": [{
+      "use": "Used to introduce the key results before going into detail.",
+      "examples": [
+        "<b>The findings indicate that</b> the current process meets all requirements.",
+        "<b>In summary, the data shows</b> a 15% improvement over the previous quarter."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Memo/Report: Noting a limitation or risk",
+    "senses": [{
+      "use": "A professional way to flag a concern without sounding alarmist.",
+      "examples": [
+        "<b>It should be noted that</b> this estimate does not account for material delays.",
+        "<b>One limitation of this approach is</b> its dependency on third-party approval."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Memo/Report: Concluding with next steps",
+    "senses": [{
+      "use": "A closing section that tells the reader what happens after the report.",
+      "examples": [
+        "<b>Moving forward, the next steps are</b> to finalize the budget and confirm the timeline.",
+        "<b>As a next step, we will</b> schedule a follow-up review in two weeks."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Memo/Report: Referencing supporting data",
+    "senses": [{
+      "use": "Used to point the reader to evidence backing up a claim.",
+      "examples": [
+        "<b>As shown in Table 2,</b> costs decreased steadily over the year.",
+        "<b>Based on the attached data,</b> the proposed change is cost-effective."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Meeting Minutes: Recording an action item",
+    "senses": [{
+      "use": "Standard phrasing for logging a task and who owns it.",
+      "examples": [
+        "<b>Action item:</b> Maria to send the updated draft by Friday.",
+        "<b>Follow-up required:</b> Confirm budget approval with finance."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Meeting Minutes: Noting a decision made",
+    "senses": [{
+      "use": "Used to document what the group agreed on.",
+      "examples": [
+        "<b>The team agreed to</b> move the launch date to next month.",
+        "<b>It was decided that</b> the vendor contract would be renewed."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Meeting Minutes: Documenting attendance",
+    "senses": [{
+      "use": "A standard way to record who was present or absent.",
+      "examples": [
+        "<b>In attendance:</b> J. Reyes, A. Santos, M. Lim.",
+        "<b>Unable to attend:</b> R. Cruz (on leave)."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Meeting Minutes: Summarizing a discussion point",
+    "senses": [{
+      "use": "Condenses a longer conversation into one clear line for the record.",
+      "examples": [
+        "<b>The group discussed</b> the delay in permit approval and its impact on the schedule.",
+        "<b>Discussion centered on</b> whether to outsource the task or handle it in-house."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Meeting Minutes: Scheduling the next meeting",
+    "senses": [{
+      "use": "A closing line noting when the group will reconvene.",
+      "examples": [
+        "<b>The next meeting is scheduled for</b> Thursday, 2 PM.",
+        "<b>Next meeting:</b> To be confirmed pending client availability."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Meeting Minutes: Noting an open or unresolved issue",
+    "senses": [{
+      "use": "Flags something that still needs to be settled in a future meeting.",
+      "examples": [
+        "<b>Still pending:</b> approval from the client on the revised layout.",
+        "<b>Open issue:</b> supplier has not confirmed the delivery date."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Request: Asking for approval",
+    "senses": [{
+      "use": "A direct but polite way to request sign-off on something.",
+      "examples": [
+        "<b>Could you please approve</b> the attached purchase order?",
+        "<b>I would appreciate your approval on</b> the revised budget by Friday."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Request: Following up on a pending request",
+    "senses": [{
+      "use": "Used to gently remind someone about a request that hasn't been answered yet.",
+      "examples": [
+        "<b>I wanted to follow up on</b> my request for access to the shared drive.",
+        "<b>Just checking if</b> there's any update on the approval I requested last week."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Request: Requesting information or clarification",
+    "senses": [{
+      "use": "A polite way to ask for details you need before proceeding.",
+      "examples": [
+        "<b>Could you clarify</b> what format you'd like the report in?",
+        "<b>I'd like to request more information about</b> the revised deadline."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Request: Asking for an extension or deadline change",
+    "senses": [{
+      "use": "A professional way to ask for more time without sounding careless.",
+      "examples": [
+        "<b>Would it be possible to extend</b> the deadline to next Monday?",
+        "<b>I'm requesting a short extension on</b> the submission date due to pending data."
+      ]
+    }],
+    "mistake": "Avoid \"I need more time\" alone — pair it with a reason and a proposed new date.",
+    "syn": [], "ant": []
+  },
+  {
+    "w": "Request: Requesting a document or resource",
+    "senses": [{
+      "use": "Standard phrasing for asking someone to send or provide something.",
+      "examples": [
+        "<b>Could you send over</b> the latest version of the drawing?",
+        "<b>I would like to request a copy of</b> the signed contract."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  },
+  {
+    "w": "Request: Politely declining or pushing back on a request",
+    "senses": [{
+      "use": "A respectful way to say no or raise a concern about a request.",
+      "examples": [
+        "<b>Unfortunately, we are unable to</b> accommodate that timeline.",
+        "<b>I'm afraid that won't be possible</b> given the current workload, but here's an alternative."
+      ]
+    }],
+    "mistake": null, "syn": [], "ant": []
+  }
+];
+
+/* =========================================================
    DATA — WORD FAMILY (verb → noun → person → adjective)
 ========================================================= */
 const wordFamilyData = [
@@ -37061,6 +37371,7 @@ setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression",
 setupRuleModule(sentencesData, "sentencesSelect", "sentencesEntry", "Word Chunk", "sentences");
 setupRuleModule(patternsData, "patternsSelect", "patternsEntry", "Sentence Pattern", "patterns");
 setupRuleModule(technicalData, "technicalSelect", "technicalEntry", "Technical Term", "technical");
+setupRuleModule(phraseTemplatesData, "phraseTemplatesSelect", "phraseTemplatesEntry", "Phrase Template", "phraseTemplates");
 setupDistinctionsModule();
 
 /* =========================================================
@@ -39253,6 +39564,7 @@ indexLanguageBankCategory(idiomsData, "Idiom / Expression", "idioms", "idiomsSel
 indexLanguageBankCategory(sentencesData, "Word Chunk", "sentences", "sentencesSelect", "sentencesEntry", "Word Chunk");
 indexLanguageBankCategory(patternsData, "Sentence Pattern", "patterns", "patternsSelect", "patternsEntry", "Sentence Pattern");
 indexLanguageBankCategory(technicalData, "Technical Term", "technical", "technicalSelect", "technicalEntry", "Technical Term");
+indexLanguageBankCategory(phraseTemplatesData, "Phrase Template", "phraseTemplates", "phraseTemplatesSelect", "phraseTemplatesEntry", "Phrase Template");
 indexDistinctionsData(distinctionsData);
 wordFamilyData.forEach(item=>{
   searchIndex.push({label:item.verb, cat:"Word family", action:()=>{
@@ -40004,7 +40316,7 @@ const vocabCacheRestorePromise = VocabCache.getAll({dbPromise: vocabDbPromise}).
    add/restore/lookup logic itself is written once here and
    parameterized per category, instead of copy-pasted four times.
 ========================================================= */
-const LANGUAGE_BANK_CATEGORIES = ["phrasal", "idioms", "sentences", "patterns", "technical"];
+const LANGUAGE_BANK_CATEGORIES = ["phrasal", "idioms", "sentences", "patterns", "technical", "phraseTemplates"];
 let currentLangBankCategory = "phrasal";
 
 function activateLangBankCategory(key){
@@ -40093,6 +40405,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "technicalManualUse", manualExampleId: "technicalManualExample",
     manualSaveBtnId: "technicalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "technicalManualCancelBtn",
     activateFn: function(){ activateTab("langbank"); activateLangBankCategory("technical"); }
+  },
+  phraseTemplates: {
+    data: phraseTemplatesData, selectId: "phraseTemplatesSelect", entryId: "phraseTemplatesEntry", tagLabel: "Phrase Template",
+    inputId: "phraseTemplatesAddInput", btnId: "phraseTemplatesAddBtn", statusId: "phraseTemplatesAddStatus", inputNoun: "a phrase template",
+    putFn: function(entry, opts){ return VocabCache.putPhraseTemplate(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllPhraseTemplates(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deletePhraseTemplate(word, opts); },
+    requireExplanation: false, onlineLookup: true,
+    manualBoxId: "phraseTemplatesManualBox", manualWordId: "phraseTemplatesManualWord",
+    manualUseId: "phraseTemplatesManualUse", manualExampleId: null,
+    manualSaveBtnId: "phraseTemplatesManualSaveBtn", manualSkipBtnId: "phraseTemplatesManualSkipBtn", manualCancelBtnId: "phraseTemplatesManualCancelBtn",
+    activateFn: function(){ activateTab("langbank"); activateLangBankCategory("phraseTemplates"); }
   },
   // ---- Standalone grammar-rule tabs (not part of the Language Bank's
   // own category switcher, and deliberately NOT added to
@@ -40376,6 +40700,7 @@ function addIdiomEntry(entry, options){ return addLanguageBankEntry("idioms", en
 function addSentenceEntry(entry, options){ return addLanguageBankEntry("sentences", entry, options); }
 function addPatternEntry(entry, options){ return addLanguageBankEntry("patterns", entry, options); }
 function addTechnicalEntry(entry, options){ return addLanguageBankEntry("technical", entry, options); }
+function addPhraseTemplateEntry(entry, options){ return addLanguageBankEntry("phraseTemplates", entry, options); }
 
 // Restore anything cached from a previous session for each category —
 // same reasoning as vocabCacheRestorePromise above, kept as separate
@@ -40394,6 +40719,9 @@ const patternsCacheRestorePromise = VocabCache.getAllPatterns({dbPromise: vocabD
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 const technicalCacheRestorePromise = VocabCache.getAllTechnical({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addTechnicalEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+const phraseTemplatesCacheRestorePromise = VocabCache.getAllPhraseTemplates({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addPhraseTemplateEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addDistinctionEntry(entry, {persist:false}));
@@ -43756,6 +44084,7 @@ renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect")
 renderRuleEntry(sentencesData.find(x=>x.w===document.getElementById("sentencesSelect").value), document.getElementById("sentencesEntry"), "Word Chunk", "sentences");
 renderRuleEntry(patternsData.find(x=>x.w===document.getElementById("patternsSelect").value), document.getElementById("patternsEntry"), "Sentence Pattern", "patterns");
 renderRuleEntry(technicalData.find(x=>x.w===document.getElementById("technicalSelect").value), document.getElementById("technicalEntry"), "Technical Term", "technical");
+renderRuleEntry(phraseTemplatesData.find(x=>x.w===document.getElementById("phraseTemplatesSelect").value), document.getElementById("phraseTemplatesEntry"), "Phrase Template", "phraseTemplates");
 renderDistinctionEntry(distinctionsData.find(x=>x.w===document.getElementById("distinctionsSelect").value), document.getElementById("distinctionsEntry"));
 renderFamily(wordFamilyData.find(x=>x.verb===document.getElementById("familySelect").value));
 
@@ -45854,7 +46183,7 @@ Promise.all([
   vocabCacheRestorePromise, distinctionsCacheRestorePromise, notesCacheRestorePromise,
   favoritesCacheRestorePromise, ruleTabsCacheRestorePromise,
   phrasalCacheRestorePromise, idiomsCacheRestorePromise, sentencesCacheRestorePromise,
-  patternsCacheRestorePromise, technicalCacheRestorePromise
+  patternsCacheRestorePromise, technicalCacheRestorePromise, phraseTemplatesCacheRestorePromise
 ]).then(()=> renderDashboardTab()).catch(()=> renderDashboardTab());
 
 // Test-only hook: exposes the (otherwise script-local `const`) data sets
@@ -45864,7 +46193,7 @@ Promise.all([
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
   orderData, prepVerbData, mistakeData, qaData, vocabData, distinctionsData,
-  phrasalData, idiomsData, sentencesData, patternsData, technicalData,
+  phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
   sentenceFragmentEntry, BUILTIN_FRAGMENT_SENSES, renderFragmentEntry,
@@ -45878,6 +46207,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addSentenceEntry, sentencesCacheRestorePromise,
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
+  addPhraseTemplateEntry, phraseTemplatesCacheRestorePromise,
   addLanguageBankEntry, activateLangBankCategory,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getDistinctionsSortPref,

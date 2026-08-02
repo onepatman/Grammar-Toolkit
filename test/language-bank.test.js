@@ -1,7 +1,7 @@
 // Integration tests for the Language Bank tab — the renamed Phrasal
-// tab, now holding 5 categories (Phrasal Verbs, Idioms & Expressions,
-// Word Chunks, Sentence Patterns, Technical/Engineering Terms)
-// behind a segmented category switcher. See test/phrasal-add.test.js
+// tab, now holding 6 categories (Phrasal Verbs, Idioms & Expressions,
+// Word Chunks, Sentence Patterns, Technical/Engineering Terms, Phrase
+// Templates) behind a segmented category switcher. See test/phrasal-add.test.js
 // for Phrasal-Verbs-specific coverage (unchanged behavior/IDs); this
 // file covers the category switcher itself and the other categories,
 // using describe.each to exercise the shared
@@ -17,13 +17,13 @@ function wait(ms = 30) {
 }
 
 describe("Language Bank category switcher", () => {
-  it("shows Phrasal Verbs by default, with the other 3 sub-panels hidden", async () => {
+  it("shows Phrasal Verbs by default, with the other 5 sub-panels hidden", async () => {
     const { window } = await loadApp();
     const document = window.document;
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
 
     expect(document.getElementById("langbank-phrasal").style.display).not.toBe("none");
-    ["idioms", "sentences", "patterns", "technical"].forEach((key) => {
+    ["idioms", "sentences", "patterns", "technical", "phraseTemplates"].forEach((key) => {
       expect(document.getElementById(`langbank-${key}`).style.display).toBe("none");
     });
     expect(document.querySelector('#langBankCategorySeg button[data-val="phrasal"]').classList.contains("active")).toBe(true);
@@ -37,7 +37,7 @@ describe("Language Bank category switcher", () => {
     document.querySelector('#langBankCategorySeg button[data-val="idioms"]').click();
 
     expect(document.getElementById("langbank-idioms").style.display).not.toBe("none");
-    ["phrasal", "sentences", "patterns", "technical"].forEach((key) => {
+    ["phrasal", "sentences", "patterns", "technical", "phraseTemplates"].forEach((key) => {
       expect(document.getElementById(`langbank-${key}`).style.display).toBe("none");
     });
     expect(document.querySelector('#langBankCategorySeg button[data-val="idioms"]').classList.contains("active")).toBe(true);
@@ -51,11 +51,13 @@ describe("Language Bank category switcher", () => {
     const sentenceOptions = Array.from(document.getElementById("sentencesSelect").options).map((o) => o.value);
     const patternOptions = Array.from(document.getElementById("patternsSelect").options).map((o) => o.value);
     const technicalOptions = Array.from(document.getElementById("technicalSelect").options).map((o) => o.value);
+    const phraseTemplateOptions = Array.from(document.getElementById("phraseTemplatesSelect").options).map((o) => o.value);
 
     expect(idiomOptions).toContain("break the ice");
     expect(sentenceOptions.length).toBeGreaterThan(0);
     expect(patternOptions.length).toBeGreaterThan(0);
     expect(technicalOptions.length).toBeGreaterThan(0);
+    expect(phraseTemplateOptions.length).toBeGreaterThan(0);
   });
 
   it("searching for a built-in idiom navigates to the Language Bank tab, Idioms category, and the right entry", async () => {
@@ -110,6 +112,15 @@ describe.each([
     manualExampleId: "technicalManualExample", manualSaveBtnId: "technicalManualSaveBtn",
     manualCancelBtnId: "technicalManualCancelBtn", manualSkipBtnId: null,
     sample: { w: "load balancer", senses: [{ use: "(noun) A device or software that distributes network traffic across multiple servers.", examples: ["The load balancer routed requests to the healthiest servers."] }], syn: ["traffic distributor"], ant: [], mistake: null, tagalog: null, source: "online" }
+  },
+  {
+    key: "phraseTemplates", label: "Phrase Templates", inputId: "phraseTemplatesAddInput", btnId: "phraseTemplatesAddBtn",
+    statusId: "phraseTemplatesAddStatus", dataKey: "phraseTemplatesData", entryId: "phraseTemplatesEntry", tagLabel: "Phrase Template",
+    builtIn: "Email: Attaching a document", requireExplanation: false, hasManualExample: false, hasSkip: true,
+    manualBoxId: "phraseTemplatesManualBox", manualWordId: "phraseTemplatesManualWord", manualUseId: "phraseTemplatesManualUse",
+    manualExampleId: null, manualSaveBtnId: "phraseTemplatesManualSaveBtn",
+    manualCancelBtnId: "phraseTemplatesManualCancelBtn", manualSkipBtnId: "phraseTemplatesManualSkipBtn",
+    sample: { w: "Email: Confirming receipt of a message", senses: [{ use: "Lets the sender know their message arrived and was understood.", examples: ["Thank you for your email — I confirm receipt of the attached files."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
   }
 ])("$label quick-add", ({
   key, inputId, btnId, statusId, dataKey, entryId, tagLabel, builtIn, requireExplanation, hasManualExample, hasSkip,
@@ -360,15 +371,15 @@ describe.each([
 });
 
 describe("Language Bank owner-mode gating", () => {
-  it("hides all 5 category quick-add boxes when the device is locked", async () => {
+  it("hides all 6 category quick-add boxes when the device is locked", async () => {
     const { window } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
-    ["phrasalAddBox", "idiomsAddBox", "sentencesAddBox", "patternsAddBox", "technicalAddBox"].forEach((id) => {
+    ["phrasalAddBox", "idiomsAddBox", "sentencesAddBox", "patternsAddBox", "technicalAddBox", "phraseTemplatesAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).toBe("none");
     });
   });
 
-  it("reveals all 5 category quick-add boxes once unlocked", async () => {
+  it("reveals all 6 category quick-add boxes once unlocked", async () => {
     const { window } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
     document.querySelector('.thumb-tab[data-tab="mistakes"]').click();
@@ -376,14 +387,14 @@ describe("Language Bank owner-mode gating", () => {
     document.getElementById("ownerSetPinBtn").click();
     await wait(30);
 
-    ["phrasalAddBox", "idiomsAddBox", "sentencesAddBox", "patternsAddBox", "technicalAddBox"].forEach((id) => {
+    ["phrasalAddBox", "idiomsAddBox", "sentencesAddBox", "patternsAddBox", "technicalAddBox", "phraseTemplatesAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).not.toBe("none");
     });
   });
 });
 
 describe("Language Bank IndexedDB stores are independent per category", () => {
-  it("getAllIdioms/getAllSentences/getAllPatterns/getAllTechnical never see each other's entries", async () => {
+  it("getAllIdioms/getAllSentences/getAllPatterns/getAllTechnical/getAllPhraseTemplates never see each other's entries", async () => {
     const idb = new IDBFactory();
     const { hooks } = await loadApp({ indexedDBFactory: idb });
 
@@ -391,16 +402,19 @@ describe("Language Bank IndexedDB stores are independent per category", () => {
     hooks.addSentenceEntry({ w: "a sentence", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }, { persist: true });
     hooks.addPatternEntry({ w: "a pattern", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }, { persist: true });
     hooks.addTechnicalEntry({ w: "a technical term", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }, { persist: true });
+    hooks.addPhraseTemplateEntry({ w: "a phrase template", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }, { persist: true });
     await wait(50);
 
     const idioms = await VocabCache.getAllIdioms({ indexedDB: idb });
     const sentences = await VocabCache.getAllSentences({ indexedDB: idb });
     const patterns = await VocabCache.getAllPatterns({ indexedDB: idb });
     const technical = await VocabCache.getAllTechnical({ indexedDB: idb });
+    const phraseTemplates = await VocabCache.getAllPhraseTemplates({ indexedDB: idb });
 
     expect(idioms.map((e) => e.w)).toEqual(["an idiom"]);
     expect(sentences.map((e) => e.w)).toEqual(["a sentence"]);
     expect(patterns.map((e) => e.w)).toEqual(["a pattern"]);
     expect(technical.map((e) => e.w)).toEqual(["a technical term"]);
+    expect(phraseTemplates.map((e) => e.w)).toEqual(["a phrase template"]);
   });
 });
