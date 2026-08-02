@@ -93,7 +93,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 14;
+  var DB_VERSION = 15;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -102,6 +102,7 @@
   var SENTENCES_STORE = "sentenceEntries";
   var PATTERNS_STORE = "patternEntries";
   var TECHNICAL_STORE = "technicalEntries";
+  var PHRASE_TEMPLATES_STORE = "phraseTemplateEntries";
   var REVIEW_STORE = "reviewSchedule";
   var DISTINCTIONS_STORE = "distinctionsEntries";
   var CUSTOM_VERBS_STORE = "customVerbs";
@@ -162,6 +163,9 @@
         }
         if (!db.objectStoreNames.contains(TECHNICAL_STORE)) {
           db.createObjectStore(TECHNICAL_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(PHRASE_TEMPLATES_STORE)) {
+          db.createObjectStore(PHRASE_TEMPLATES_STORE, { keyPath: "key" });
         }
         if (!db.objectStoreNames.contains(REVIEW_STORE)) {
           db.createObjectStore(REVIEW_STORE, { keyPath: "key" });
@@ -377,6 +381,11 @@
   function putTechnical(entry, options) { return putEntry(TECHNICAL_STORE, entry, options); }
   function getAllTechnical(options) { return getAllEntries(TECHNICAL_STORE, options); }
   function deleteTechnical(word, options) { return deleteEntry(TECHNICAL_STORE, word, options); }
+
+  function getPhraseTemplate(word, options) { return getEntry(PHRASE_TEMPLATES_STORE, word, options); }
+  function putPhraseTemplate(entry, options) { return putEntry(PHRASE_TEMPLATES_STORE, entry, options); }
+  function getAllPhraseTemplates(options) { return getAllEntries(PHRASE_TEMPLATES_STORE, options); }
+  function deletePhraseTemplate(word, options) { return deleteEntry(PHRASE_TEMPLATES_STORE, word, options); }
 
   /* ---------- Distinctions Words (commonly confused word pairs) ----------
      Same generic { key, entry } shape as every other category — `entry.w`
@@ -707,6 +716,10 @@
     putTechnical: putTechnical,
     getAllTechnical: getAllTechnical,
     deleteTechnical: deleteTechnical,
+    getPhraseTemplate: getPhraseTemplate,
+    putPhraseTemplate: putPhraseTemplate,
+    getAllPhraseTemplates: getAllPhraseTemplates,
+    deletePhraseTemplate: deletePhraseTemplate,
     getDistinction: getDistinction,
     putDistinction: putDistinction,
     getAllDistinctions: getAllDistinctions,

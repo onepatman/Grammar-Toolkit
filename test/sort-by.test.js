@@ -120,7 +120,7 @@ describe("Sort By — Language Bank", () => {
     expect(options.indexOf("stale-idiom")).toBeLessThan(options.indexOf("fresh-idiom"));
   });
 
-  it("applies the chosen sort to ALL 5 categories, not just whichever one is on screen", async () => {
+  it("applies the chosen sort to ALL 6 categories, not just whichever one is on screen", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.addPhrasalEntry(
