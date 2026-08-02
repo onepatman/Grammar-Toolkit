@@ -503,6 +503,51 @@
     font-size:13.5px; color:var(--ink-soft); padding:20px 4px; text-align:center;
   }
 
+  /* Favorites "Summary" view — every favorite as a numbered, checkable
+     row grouped by category, for reviewing/monitoring progress rather
+     than browsing one at a time like the Cards view above. */
+  .favorites-view-toggle{ margin-bottom:10px; }
+  .favorites-progress-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    margin-bottom:12px; font-size:13px; color:var(--ink-soft);
+  }
+  .favorites-progress-row b{ color:var(--teal-deep); font-family:'IBM Plex Mono', monospace; }
+  .favorites-reset-btn{
+    font-family:'IBM Plex Sans', sans-serif; font-size:12px; font-weight:600;
+    padding:6px 12px; border-radius:999px; border:1.5px solid var(--rule);
+    background:var(--card); color:var(--ink-soft); cursor:pointer;
+  }
+  .favorites-reset-btn:hover{ border-color:var(--teal-deep); color:var(--teal-deep); }
+  .summary-cat-section{ margin-bottom:18px; }
+  .summary-cat-section:last-child{ margin-bottom:0; }
+  .summary-cat-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .summary-cat-count{ font-size:11.5px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; }
+  .summary-list{ display:flex; flex-direction:column; gap:6px; }
+  .summary-row{
+    display:flex; align-items:flex-start; gap:10px;
+    padding:9px 12px; border:1px solid var(--rule); border-radius:8px;
+    background:var(--card); cursor:pointer;
+  }
+  .summary-row .row-num{
+    flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:12px;
+    color:var(--ink-soft); min-width:18px; padding-top:1px;
+  }
+  .summary-row .row-check{
+    flex:0 0 auto; margin-top:2px; width:16px; height:16px;
+    accent-color:var(--teal-deep); cursor:pointer;
+  }
+  .summary-row .row-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .summary-row .row-word{ font-family:'Source Serif 4', serif; font-weight:700; font-size:14.5px; color:var(--ink); }
+  .summary-row .row-def{ font-size:12.5px; color:var(--ink-soft); line-height:1.4; }
+  .summary-row .row-example{ font-size:12px; color:var(--ink-soft); font-style:italic; line-height:1.4; }
+  .summary-row .row-example::before{ content:"e.g. "; }
+  .summary-row.reviewed .row-num,
+  .summary-row.reviewed .row-word,
+  .summary-row.reviewed .row-def,
+  .summary-row.reviewed .row-example{
+    text-decoration:line-through; color:var(--ink-soft);
+  }
+
   /* Research Notes tab — a list of freeform note cards, styled like
      .favorites-list's rows but taller (title + tags + full body text +
      owner-only actions) rather than a single-line search result. */
@@ -1779,11 +1824,22 @@
   <section id="panel-favorites" style="display:none;">
     <p class="note" style="margin-bottom:10px;">Tap the ☆ on any entry to bookmark it here — works for words from any tab, local or looked up online.</p>
     <div class="seg" id="favoritesCategorySeg" style="margin-bottom:10px;"></div>
+    <div class="seg favorites-view-toggle" id="favoritesViewSeg" style="display:none;">
+      <button class="active" data-val="cards">Cards</button>
+      <button data-val="summary">Summary</button>
+    </div>
     <button class="add-btn" id="studyFavoritesBtn" style="display:none; margin-bottom:10px;">🎴 Study my favorites</button>
     <div id="studyStatus" class="add-status"></div>
     <button class="add-btn secondary" id="exportFavoritesBtn" style="display:none; margin-bottom:10px;">📄 Export / share PDF study sheet</button>
     <div id="exportFavoritesStatus" class="add-status"></div>
     <div id="favoritesList" class="favorites-list"></div>
+    <div id="favoritesSummary" style="display:none;">
+      <div class="favorites-progress-row" id="favoritesProgressRow" style="display:none;">
+        <span><b id="favoritesReviewedCount">0</b> of <span id="favoritesTotalCount">0</span> reviewed</span>
+        <button class="favorites-reset-btn" id="favoritesResetReviewedBtn">↺ Reset</button>
+      </div>
+      <div id="favoritesSummaryList"></div>
+    </div>
   </section>
 
   <!-- ===== RESEARCH NOTES PANEL ===== -->
@@ -37261,25 +37317,139 @@ async function renderDashboardTab(){
 }
 
 let favoritesFilterCat = "All";
+let favoritesViewMode = "cards";
 
 function getFilteredFavorites(favs){
   return favoritesFilterCat === "All" ? favs : favs.filter(f=> f.cat === favoritesFilterCat);
 }
 
+// Reviewed state for the Summary view's checkboxes — persisted locally
+// per device (like Favorites itself) so it survives reloads, keyed by
+// category+word since the same word text could theoretically be
+// favorited under two different categories.
+const FAVORITES_REVIEWED_KEY = "mepf_toolkit_favorites_reviewed_words";
+
+function favoriteReviewKey(fav){
+  return `${fav.cat}::${fav.word}`.trim().toLowerCase();
+}
+
+function getFavoritesReviewedSet(){
+  try {
+    const raw = localStorage.getItem(FAVORITES_REVIEWED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch(e){ return new Set(); }
+}
+
+function saveFavoritesReviewedSet(set){
+  try { localStorage.setItem(FAVORITES_REVIEWED_KEY, JSON.stringify(Array.from(set))); } catch(e){ /* private mode etc. */ }
+}
+
+// Renders every (filtered) favorite as one continuously-numbered list
+// grouped by category — a monitoring/review view, distinct from the
+// browse-one-at-a-time Cards view above but sharing its same favorites
+// data, category filter, and resolveFavoriteEntryData() content source.
+function renderFavoritesSummary(favs){
+  const listEl = document.getElementById("favoritesSummaryList");
+  const progressRow = document.getElementById("favoritesProgressRow");
+  if(!listEl) return;
+
+  if(favs.length === 0){
+    if(progressRow) progressRow.style.display = "none";
+    listEl.innerHTML = '<div class="favorites-empty">No favorites yet — tap the ☆ on any entry to bookmark it here.</div>';
+    return;
+  }
+
+  const filtered = getFilteredFavorites(favs);
+  if(filtered.length === 0){
+    if(progressRow) progressRow.style.display = "none";
+    listEl.innerHTML = '<div class="favorites-empty">No favorites in this category.</div>';
+    return;
+  }
+
+  const reviewed = getFavoritesReviewedSet();
+  const byCat = new Map();
+  filtered.forEach(fav=>{
+    const list = byCat.get(fav.cat) || [];
+    list.push(fav);
+    byCat.set(fav.cat, list);
+  });
+  const cats = Array.from(byCat.keys()).sort((a,b)=> a.localeCompare(b));
+
+  let counter = 0;
+  listEl.innerHTML = cats.map(cat=>{
+    const rows = byCat.get(cat).map(fav=>{
+      counter++;
+      const data = resolveFavoriteEntryData(fav);
+      const meaning = data.meanings[0];
+      const def = meaning ? meaning.use : "";
+      const example = meaning && meaning.examples[0] ? meaning.examples[0] : "";
+      const key = favoriteReviewKey(fav);
+      const isReviewed = reviewed.has(key);
+      return `
+        <div class="summary-row${isReviewed ? " reviewed" : ""}" data-key="${key}">
+          <span class="row-num">${counter}</span>
+          <input type="checkbox" class="row-check" ${isReviewed ? "checked" : ""}>
+          <span class="row-body">
+            <span class="row-word">${data.word}</span>
+            ${def ? `<span class="row-def">${def}</span>` : ""}
+            ${example ? `<span class="row-example">${example}</span>` : ""}
+          </span>
+        </div>`;
+    }).join("");
+    return `
+      <div class="summary-cat-section">
+        <div class="summary-cat-head"><span class="tag">${cat}</span><span class="summary-cat-count">${byCat.get(cat).length}</span></div>
+        <div class="summary-list">${rows}</div>
+      </div>`;
+  }).join("");
+
+  const updateProgressCount = (set)=>{
+    document.getElementById("favoritesReviewedCount").textContent = String(
+      filtered.filter(fav=> set.has(favoriteReviewKey(fav))).length
+    );
+  };
+  if(progressRow){
+    progressRow.style.display = "";
+    document.getElementById("favoritesTotalCount").textContent = String(filtered.length);
+    updateProgressCount(reviewed);
+  }
+
+  listEl.querySelectorAll(".summary-row").forEach(row=>{
+    row.addEventListener("click", (e)=>{
+      const checkbox = row.querySelector(".row-check");
+      const checked = e.target === checkbox ? checkbox.checked : !checkbox.checked;
+      checkbox.checked = checked;
+      const set = getFavoritesReviewedSet();
+      if(checked) set.add(row.dataset.key); else set.delete(row.dataset.key);
+      saveFavoritesReviewedSet(set);
+      row.classList.toggle("reviewed", checked);
+      updateProgressCount(set);
+    });
+  });
+}
+
 function renderFavoritesTab(){
   const container = document.getElementById("favoritesList");
+  const summaryContainer = document.getElementById("favoritesSummary");
   const filterSeg = document.getElementById("favoritesCategorySeg");
+  const viewSeg = document.getElementById("favoritesViewSeg");
   VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
     const studyBtn = document.getElementById("studyFavoritesBtn");
     const exportBtn = document.getElementById("exportFavoritesBtn");
     if(studyBtn) studyBtn.style.display = favs.length > 0 ? "" : "none";
     if(exportBtn) exportBtn.style.display = favs.length > 0 ? "" : "none";
 
+    container.style.display = favoritesViewMode === "cards" ? "" : "none";
+    if(summaryContainer) summaryContainer.style.display = favoritesViewMode === "summary" ? "" : "none";
+
     if(favs.length === 0){
       if(filterSeg){ filterSeg.style.display = "none"; filterSeg.innerHTML = ""; }
+      if(viewSeg) viewSeg.style.display = "none";
       container.innerHTML = '<div class="favorites-empty">No favorites yet — tap the ☆ on any entry to bookmark it here.</div>';
+      renderFavoritesSummary(favs);
       return;
     }
+    if(viewSeg) viewSeg.style.display = "";
 
     // Only offer categories that actually have a favorite in them right
     // now, so the filter never dead-ends on an empty list. If the
@@ -37298,6 +37468,11 @@ function renderFavoritesTab(){
         const count = c === "All" ? favs.length : favs.filter(f=> f.cat === c).length;
         return `<button class="${c === favoritesFilterCat ? "active" : ""}" data-val="${c}">${c} (${count})</button>`;
       }).join("");
+    }
+
+    if(favoritesViewMode === "summary"){
+      renderFavoritesSummary(favs);
+      return;
     }
 
     const filtered = getFilteredFavorites(favs);
@@ -37327,6 +37502,21 @@ document.getElementById("favoritesCategorySeg").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
   if(!btn) return;
   favoritesFilterCat = btn.dataset.val;
+  renderFavoritesTab();
+});
+
+document.getElementById("favoritesViewSeg").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  favoritesViewMode = btn.dataset.val;
+  document.querySelectorAll("#favoritesViewSeg button").forEach(b=>
+    b.classList.toggle("active", b.dataset.val === favoritesViewMode)
+  );
+  renderFavoritesTab();
+});
+
+document.getElementById("favoritesResetReviewedBtn").addEventListener("click", ()=>{
+  saveFavoritesReviewedSet(new Set());
   renderFavoritesTab();
 });
 
@@ -45711,6 +45901,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   shareOrExportFavorites, loadJsPdf, renderFavoritesPdf, exportFavoritesPdf,
   getFavoritesFilterCat: ()=> favoritesFilterCat,
   setFavoritesFilterCat: (v)=>{ favoritesFilterCat = v; },
+  getFavoritesViewMode: ()=> favoritesViewMode,
+  setFavoritesViewMode: (v)=>{ favoritesViewMode = v; },
+  renderFavoritesSummary, favoriteReviewKey,
+  getFavoritesReviewedSet, saveFavoritesReviewedSet,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
