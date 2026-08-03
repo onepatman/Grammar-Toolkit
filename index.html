@@ -40814,6 +40814,63 @@ document.addEventListener("click", (e)=>{
   suppressTopNavTracking = false;
 });
 
+// True if `el` (and every one of its ancestors up to <body>) is NOT
+// hidden via inline style.display:"none" — every panel/sub-view in
+// this app toggles visibility that way (never a CSS class), so this
+// is the same check the app itself effectively relies on, and unlike
+// offsetParent it works in jsdom too (no real layout engine there).
+function isElementVisible(el){
+  let node = el;
+  while(node && node !== document.body){
+    if(node.style && node.style.display === "none") return false;
+    node = node.parentElement;
+  }
+  return true;
+}
+
+// Finds the currently-visible nav-btn for a given direction — either
+// among the bottom "‹ Previous / Next ›" pairs (pure list-order
+// cycling, one pair per panel) or the small top "‹ / ›" pairs
+// (universal Back/Forward through searchHistory, functionally
+// identical no matter which panel's pair is clicked).
+function findVisibleNavBtn(dir, bottomNav){
+  const selector = bottomNav
+    ? `.bottom-nav .nav-btn[data-dir="${dir}"]`
+    : `.controls:not(.bottom-nav) .nav-btn[data-dir="${dir}"]`;
+  return Array.from(document.querySelectorAll(selector)).find(isElementVisible) || null;
+}
+
+// Desktop/laptop keyboard shortcuts mirroring the on-screen nav
+// buttons, for hands-on-keyboard navigation without reaching for the
+// mouse: Right/Left = Next/Previous (bottom pair, cycles the current
+// panel's own dropdown), Up/Down = Forward/Back (top pair, walks the
+// universal browsing history). Ignored while typing/selecting in any
+// form control, while a modal is open, or with a modifier key held,
+// so it never fights normal text-editing or native <select> behavior.
+document.addEventListener("keydown", (e)=>{
+  const ARROW_KEY_NAV = {
+    ArrowRight: { dir: "next", bottomNav: true },
+    ArrowLeft: { dir: "prev", bottomNav: true },
+    ArrowUp: { dir: "next", bottomNav: false },
+    ArrowDown: { dir: "prev", bottomNav: false }
+  };
+  const mapped = ARROW_KEY_NAV[e.key];
+  if(!mapped) return;
+  if(e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
+
+  const active = document.activeElement;
+  const tag = active && active.tagName;
+  if(tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (active && active.isContentEditable)) return;
+  if(document.getElementById("appUpdateModal").style.display !== "none") return;
+  if(document.getElementById("lookupModal").style.display !== "none") return;
+
+  const btn = findVisibleNavBtn(mapped.dir, mapped.bottomNav);
+  if(btn){
+    btn.click();
+    e.preventDefault();
+  }
+});
+
 /* Personal correction log — Add, Edit, Delete, Cancel.
    Every action rebuilds EVERY Fixes category's senses fresh from
    (its own built-ins) + (whatever's currently saved for it), so whichever
@@ -46208,6 +46265,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
   addPhraseTemplateEntry, phraseTemplatesCacheRestorePromise,
+  isElementVisible, findVisibleNavBtn,
   addLanguageBankEntry, activateLangBankCategory,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getDistinctionsSortPref,
