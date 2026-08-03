@@ -1303,7 +1303,6 @@
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
     <button class="thumb-tab" data-tab="wordbank">Word Bank<span class="n">WB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
-    <button class="thumb-tab" data-tab="distinctions">Distinctions Words<span class="n">DW</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
     <button class="thumb-tab" data-tab="preps">Preps<span class="n">P</span></button>
     <button class="thumb-tab" data-tab="articles">Articles<span class="n">A</span></button>
@@ -1515,55 +1514,6 @@
     </div>
   </section>
 
-  <!-- ===== DISTINCTIONS WORDS PANEL (commonly confused/misused word pairs) ===== -->
-  <section id="panel-distinctions" style="display:none;">
-    <div class="controls sort-controls">
-      <label for="distinctionsSortSelect" class="sort-label">Sort by:</label>
-      <select id="distinctionsSortSelect">
-        <option value="az">A–Z</option>
-        <option value="modified-desc">Recently Modified</option>
-        <option value="modified-asc">Date Modified — Oldest First</option>
-        <option value="added-desc">Recently Added</option>
-        <option value="added-asc">Date Added — Oldest First</option>
-      </select>
-    </div>
-    <div class="controls">
-      <select id="distinctionsSelect"></select>
-      <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="distinctionsSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="distinctionsEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="distinctionsSelect" data-dir="next" aria-label="Next">Next ›</button>
-    </div>
-
-    <div class="quick-add-box owner-only" id="distinctionsAddBox">
-      <div class="section-label">Add a new Distinction Words pair</div>
-      <p class="note" style="margin-bottom:8px;">Type two commonly confused or easily misused words (e.g. "Affect" and "Effect") and we'll automatically look up the meaning, example sentences, synonyms, and antonyms for both from a reliable online dictionary. If a source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
-      <input type="text" id="distinctionsAddInput1" placeholder="Word 1 (e.g. Affect)" autocomplete="off">
-      <input type="text" id="distinctionsAddInput2" placeholder="Word 2 (e.g. Effect)" autocomplete="off" style="margin-top:8px;">
-      <button id="distinctionsAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
-      <div id="distinctionsAddStatus" class="add-status"></div>
-
-      <div class="manual-entry-box" id="distinctionsManualBox" style="display:none;">
-        <p class="note" style="margin-bottom:8px;">Online lookup couldn't find a definition for one or both words. Add your own notes below for whichever word needs it, or Cancel.</p>
-        <div id="distinctionsManualWord1Box" style="display:none;">
-          <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord1"></strong>":</p>
-          <textarea id="distinctionsManualUse1" placeholder='Meaning / definition (e.g. "(verb) To influence something.")' rows="2"></textarea>
-          <input type="text" id="distinctionsManualExample1" placeholder="Example sentence (optional)" autocomplete="off">
-        </div>
-        <div id="distinctionsManualWord2Box" style="display:none; margin-top:10px;">
-          <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord2"></strong>":</p>
-          <textarea id="distinctionsManualUse2" placeholder='Meaning / definition (e.g. "(noun) A result caused by something.")' rows="2"></textarea>
-          <input type="text" id="distinctionsManualExample2" placeholder="Example sentence (optional)" autocomplete="off">
-        </div>
-        <button id="distinctionsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save with my notes</button>
-        <button id="distinctionsManualCancelBtn" class="add-btn secondary">Cancel</button>
-      </div>
-    </div>
-  </section>
-
   <!-- ===== WORD FAMILY PANEL ===== -->
   <section id="panel-family" style="display:none;">
     <div class="controls">
@@ -1605,6 +1555,7 @@
         <button data-val="sentenceFragment">Sentence Fragments</button>
         <button data-val="subjectVerbAgreement">Subject-Verb Agreement</button>
         <button data-val="correctionLog">My Correction Log</button>
+        <button data-val="distinctions">Distinctions Words</button>
       </div>
     </div>
 
@@ -1704,6 +1655,44 @@
         <button id="logAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
         <button id="logCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
         <div id="logAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="wordbank-category" id="wordbank-distinctions" style="display:none;">
+      <div class="controls">
+        <select id="distinctionsSelect"></select>
+        <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="distinctionsSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="distinctionsEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="distinctionsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="distinctionsSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="distinctionsAddBox">
+        <div class="section-label">Add a new Distinction Words pair</div>
+        <p class="note" style="margin-bottom:8px;">Type two commonly confused or easily misused words (e.g. "Affect" and "Effect") and we'll automatically look up the meaning, example sentences, synonyms, and antonyms for both from a reliable online dictionary. If a source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+        <input type="text" id="distinctionsAddInput1" placeholder="Word 1 (e.g. Affect)" autocomplete="off">
+        <input type="text" id="distinctionsAddInput2" placeholder="Word 2 (e.g. Effect)" autocomplete="off" style="margin-top:8px;">
+        <button id="distinctionsAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+        <div id="distinctionsAddStatus" class="add-status"></div>
+
+        <div class="manual-entry-box" id="distinctionsManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:8px;">Online lookup couldn't find a definition for one or both words. Add your own notes below for whichever word needs it, or Cancel.</p>
+          <div id="distinctionsManualWord1Box" style="display:none;">
+            <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord1"></strong>":</p>
+            <textarea id="distinctionsManualUse1" placeholder='Meaning / definition (e.g. "(verb) To influence something.")' rows="2"></textarea>
+            <input type="text" id="distinctionsManualExample1" placeholder="Example sentence (optional)" autocomplete="off">
+          </div>
+          <div id="distinctionsManualWord2Box" style="display:none; margin-top:10px;">
+            <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord2"></strong>":</p>
+            <textarea id="distinctionsManualUse2" placeholder='Meaning / definition (e.g. "(noun) A result caused by something.")' rows="2"></textarea>
+            <input type="text" id="distinctionsManualExample2" placeholder="Example sentence (optional)" autocomplete="off">
+          </div>
+          <button id="distinctionsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save with my notes</button>
+          <button id="distinctionsManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
       </div>
     </div>
   </section>
@@ -40554,7 +40543,6 @@ const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", 
    that's the intended effect of a sort feature, not a regression.
 ========================================================= */
 const LANGBANK_SORT_KEY = "mepf_toolkit_langbank_sort";
-const DISTINCTIONS_SORT_KEY = "mepf_toolkit_distinctions_sort";
 const DEFAULT_SORT = "az";
 
 function compareForSort(a, b, sortKey, keyField){
@@ -40585,7 +40573,6 @@ function reorderSelectBySort(selectEl, data, sortKey, keyField){
 }
 
 function getLangBankSortPref(){ return localStorage.getItem(LANGBANK_SORT_KEY) || DEFAULT_SORT; }
-function getDistinctionsSortPref(){ return localStorage.getItem(DISTINCTIONS_SORT_KEY) || DEFAULT_SORT; }
 
 function applyLanguageBankSort(){
   const sortKey = getLangBankSortPref();
@@ -40595,8 +40582,12 @@ function applyLanguageBankSort(){
   });
 }
 
+// Distinctions Words now lives inside the Word Bank tab (a category
+// alongside Basic → Advanced / Tagalog → English), so it shares the
+// Word Bank tab's ONE "Sort by" control (getWordBankSortPref() below)
+// instead of having its own separate dropdown and preference key.
 function applyDistinctionsSort(){
-  reorderSelectBySort(document.getElementById("distinctionsSelect"), distinctionsData, getDistinctionsSortPref());
+  reorderSelectBySort(document.getElementById("distinctionsSelect"), distinctionsData, getWordBankSortPref());
 }
 
 const langBankSortSelect = document.getElementById("langBankSortSelect");
@@ -40606,27 +40597,21 @@ langBankSortSelect.addEventListener("change", ()=>{
   applyLanguageBankSort();
 });
 
-const distinctionsSortSelect = document.getElementById("distinctionsSortSelect");
-distinctionsSortSelect.value = getDistinctionsSortPref();
-distinctionsSortSelect.addEventListener("change", ()=>{
-  localStorage.setItem(DISTINCTIONS_SORT_KEY, distinctionsSortSelect.value);
-  applyDistinctionsSort();
-});
-
-// Word Bank's two sub-categories (Basic → Advanced, Tagalog → English)
-// share one preference, same as Language Bank's categories above — each
-// is sorted by its own "first" word (basic / tagalog). The <select>
-// wiring and first applyWordBankSort() call happen later in the file,
-// right after basicAdvancedData/tagalogEnglishData and their <select>s
-// exist and have been restored from IndexedDB — those are declared
-// further down, so referencing them here would throw (temporal dead
-// zone) if applyWordBankSort() were invoked eagerly.
+// Word Bank's categories (Basic → Advanced, Tagalog → English,
+// Distinctions Words) share one preference — each is sorted by its own
+// "first" word (basic / tagalog / the pair's own headword). The
+// <select> wiring and first applyWordBankSort() call happen later in
+// the file, right after basicAdvancedData/tagalogEnglishData and their
+// <select>s exist and have been restored from IndexedDB — those are
+// declared further down, so referencing them here would throw
+// (temporal dead zone) if applyWordBankSort() were invoked eagerly.
 const WORDBANK_SORT_KEY = "mepf_toolkit_wordbank_sort";
 function getWordBankSortPref(){ return localStorage.getItem(WORDBANK_SORT_KEY) || DEFAULT_SORT; }
 function applyWordBankSort(){
   const sortKey = getWordBankSortPref();
   reorderSelectBySort(basicAdvancedSelect, basicAdvancedData, sortKey, "basic");
   reorderSelectBySort(tagalogEnglishSelect, tagalogEnglishData, sortKey, "tagalog");
+  applyDistinctionsSort();
 }
 
 applyLanguageBankSort();
@@ -43389,7 +43374,8 @@ function indexDistinctionsData(data){
     const action = ()=>{
       document.getElementById("distinctionsSelect").value = item.w;
       renderDistinctionEntry(item, document.getElementById("distinctionsEntry"));
-      activateTab("distinctions");
+      activateTab("wordbank");
+      activateWordBankCategory("distinctions");
     };
     const key1 = normalizeWordKey(item.word1.w);
     const key2 = normalizeWordKey(item.word2.w);
@@ -43422,7 +43408,8 @@ function addDistinctionEntry(entry, options){
     return {label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
       document.getElementById("distinctionsSelect").value = existingPair.w;
       renderDistinctionEntry(existingPair, document.getElementById("distinctionsEntry"));
-      activateTab("distinctions");
+      activateTab("wordbank");
+      activateWordBankCategory("distinctions");
     }};
   }
 
@@ -43436,7 +43423,8 @@ function addDistinctionEntry(entry, options){
   const action = ()=>{
     document.getElementById("distinctionsSelect").value = entry.w;
     renderDistinctionEntry(entry, document.getElementById("distinctionsEntry"));
-    activateTab("distinctions");
+    activateTab("wordbank");
+    activateWordBankCategory("distinctions");
   };
 
   if(!wordIndexMap.has(key1)){
@@ -43592,7 +43580,8 @@ async function addDistinctionFromInputs(){
     const viewExisting = ()=> navigateToEntry({label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
       document.getElementById("distinctionsSelect").value = existingPair.w;
       renderDistinctionEntry(existingPair, document.getElementById("distinctionsEntry"));
-      activateTab("distinctions");
+      activateTab("wordbank");
+      activateWordBankCategory("distinctions");
     }});
     renderDuplicateConflictPopup(statusEl, {
       word: existingPair.w,
@@ -43643,7 +43632,8 @@ async function addDistinctionFromInputs(){
     navigateToEntry({label: existingPairAfterLookup.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
       document.getElementById("distinctionsSelect").value = existingPairAfterLookup.w;
       renderDistinctionEntry(existingPairAfterLookup, document.getElementById("distinctionsEntry"));
-      activateTab("distinctions");
+      activateTab("wordbank");
+      activateWordBankCategory("distinctions");
     }});
     return;
   }
@@ -43838,7 +43828,8 @@ async function saveDistinctionEdit(originalEntry, entryEl){
   await pushToSync(loadPersonalCorrections());
   applyDistinctionsSort();
 
-  activateTab("distinctions");
+  activateTab("wordbank");
+  activateWordBankCategory("distinctions");
   item.action();
 }
 
@@ -44284,19 +44275,26 @@ function getCurrentlyDisplayedItem(){
   // dropdown's value is the pair's own unique key ("Achieve vs Attain"),
   // completely unambiguous, so resolve straight from distinctionsData
   // instead of going anywhere near the word index for this one panel.
-  if(visibleSection.id === "panel-distinctions"){
-    const pairKey = document.getElementById("distinctionsSelect").value;
-    const pair = distinctionsData.find(x=> x.w === pairKey);
-    if(!pair) return null;
-    return {
-      label: pair.word1.w,
-      cat: DISTINCTIONS_TAG_LABEL,
-      action: ()=>{
-        document.getElementById("distinctionsSelect").value = pair.w;
-        renderDistinctionEntry(pair, document.getElementById("distinctionsEntry"));
-        activateTab("distinctions");
-      }
-    };
+  if(visibleSection.id === "panel-wordbank"){
+    let visibleWordBankCategory = null;
+    for(const sub of visibleSection.querySelectorAll(".wordbank-category")){
+      if(sub.style.display !== "none"){ visibleWordBankCategory = sub; break; }
+    }
+    if(visibleWordBankCategory && visibleWordBankCategory.id === "wordbank-distinctions"){
+      const pairKey = document.getElementById("distinctionsSelect").value;
+      const pair = distinctionsData.find(x=> x.w === pairKey);
+      if(!pair) return null;
+      return {
+        label: pair.word1.w,
+        cat: DISTINCTIONS_TAG_LABEL,
+        action: ()=>{
+          document.getElementById("distinctionsSelect").value = pair.w;
+          renderDistinctionEntry(pair, document.getElementById("distinctionsEntry"));
+          activateTab("wordbank");
+          activateWordBankCategory("distinctions");
+        }
+      };
+    }
   }
 
   // wordIndexMap only keeps the LAST-indexed entry for a given label, so
@@ -45379,7 +45377,7 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
 ========================================================= */
 const basicAdvancedData = [];
 const tagalogEnglishData = [];
-const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog"];
+const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog", "distinctions"];
 let currentWordBankCategory = "basicAdvanced";
 
 // Renders each single-entry standalone rule (moved here from the Fixes
@@ -46351,7 +46349,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn,
   addLanguageBankEntry, activateLangBankCategory,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
-  getLangBankSortPref, getDistinctionsSortPref,
+  getLangBankSortPref, getWordBankSortPref,
   compareForSort, reorderSelectBySort,
   startPractice, buildPracticeCandidates, buildPracticeSession, recordPracticeSessionUsage,
   buildFlashcardItems, buildMcqItems, buildSpellingItems, buildTrueFalseItems, buildMatchingBatches,

@@ -106,21 +106,21 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     // own, so a search establishes that origin first, exactly like a real
     // user's first action from the landing page would.
     search(window, "abandon", "Vocabulary Bank");
-    document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    document.querySelector('.thumb-tab[data-tab="preps"]').click();
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
     document.querySelector('.thumb-tab[data-tab="verbs"]').click();
 
-    // Vocab (from the search) -> Distinctions -> Language Bank -> Verbs,
+    // Vocab (from the search) -> Preps -> Language Bank -> Verbs,
     // each a distinct destination, so each hop adds exactly one new entry.
     expect(hooks.getSearchHistory().map((h) => h.cat)).toEqual([
-      "Vocabulary Bank", "Distinction Word", "Phrasal verb", "Verb (regular)"
+      "Vocabulary Bank", "Preposition", "Phrasal verb", "Verb (regular)"
     ]);
 
     document.querySelector("#panel-verbs .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("langbank");
     document.querySelector("#panel-langbank .controls .nav-btn[data-dir='prev']").click();
-    expect(activeTab(document)).toBe("distinctions");
-    document.querySelector("#panel-distinctions .controls .nav-btn[data-dir='prev']").click();
+    expect(activeTab(document)).toBe("preps");
+    document.querySelector("#panel-preps .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
   });
 
@@ -233,9 +233,10 @@ describe("bottom Previous/Next: pure list-order cycling of the current dropdown,
   it("cycles the Distinctions Words dropdown in alphabetical pair order", async () => {
     const { window } = await loadApp();
     const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').click();
     expect(document.getElementById("distinctionsSelect").value).toBe("Accept vs Except");
-    document.querySelector("#panel-distinctions .bottom-nav .nav-btn[data-dir='next']").click();
+    document.querySelector("#wordbank-distinctions .bottom-nav .nav-btn[data-dir='next']").click();
     expect(document.getElementById("distinctionsSelect").value).toBe("Achieve vs Attain");
   });
 
@@ -334,17 +335,22 @@ describe("top Back/Forward supports context-aware navigation across chip clicks"
   });
 
   // Regression coverage: getCurrentlyDisplayedItem() had no branch for
-  // panel-distinctions (added after this mechanism was built), so it
-  // silently fell through to wordIndexMap.get(key) — which can resolve
-  // to the WRONG entry when the same word exists in more than one
-  // category — corrupting the origin captured for the very first hop
-  // away from a Distinctions Words entry.
+  // the Distinctions Words category (added after this mechanism was
+  // built), so it silently fell through to wordIndexMap.get(key) — which
+  // can resolve to the WRONG entry when the same word exists in more
+  // than one category — corrupting the origin captured for the very
+  // first hop away from a Distinctions Words entry. Distinctions Words
+  // now lives inside the Word Bank tab as one of its categories, so the
+  // branch keys off the visible .wordbank-category sub-div instead of a
+  // dedicated panel id — see getCurrentlyDisplayedItem() in index.html.
   it("remembers the exact Distinctions Words pair the user came from, even when the word also exists elsewhere", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
 
-    document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
-    expect(activeTab(document)).toBe("distinctions");
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').click();
+    expect(activeTab(document)).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
     const startPair = document.getElementById("distinctionsSelect").value;
 
     // "comply" is a synonym chip on "Adhere vs Stick", and it's ALSO an
@@ -362,7 +368,8 @@ describe("top Back/Forward supports context-aware navigation across chip clicks"
 
     document.querySelector("#panel-vocab .controls .nav-btn[data-dir='prev']").click();
 
-    expect(activeTab(document)).toBe("distinctions");
+    expect(activeTab(document)).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("distinctionsSelect").value).toBe("Adhere vs Stick");
     expect(document.getElementById("distinctionsSelect").value).not.toBe(startPair);
   });

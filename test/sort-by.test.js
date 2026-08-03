@@ -186,11 +186,11 @@ describe("Sort By — Language Bank", () => {
   });
 });
 
-describe("Sort By — Distinctions Words", () => {
+describe("Sort By — Word Bank (Distinctions Words, sharing the Word Bank tab's own preference)", () => {
   it("defaults to A–Z, independent of the Language Bank preference", async () => {
     const { window, hooks } = await loadApp({ localStorage: { mepf_toolkit_langbank_sort: "added-desc" } });
     const document = window.document;
-    expect(document.getElementById("distinctionsSortSelect").value).toBe("az");
+    expect(document.getElementById("wordBankSortSelect").value).toBe("az");
   });
 
   it("Recently Added shows the newest pair first, without mutating distinctionsData's order or content", async () => {
@@ -206,7 +206,7 @@ describe("Sort By — Distinctions Words", () => {
     );
     const dataOrderBefore = hooks.distinctionsData.map((e) => e.w);
 
-    setSort(document, "distinctionsSortSelect", "added-desc");
+    setSort(document, "wordBankSortSelect", "added-desc");
 
     const options = Array.from(document.getElementById("distinctionsSelect").options).map((o) => o.value);
     expect(options[0]).toBe("Zzz vs Yyy");
@@ -233,7 +233,7 @@ describe("Sort By — Distinctions Words", () => {
     document.getElementById("distEditSaveBtn").click();
     await wait(30);
 
-    setSort(document, "distinctionsSortSelect", "modified-desc");
+    setSort(document, "wordBankSortSelect", "modified-desc");
 
     const options = Array.from(document.getElementById("distinctionsSelect").options).map((o) => o.value);
     expect(options[0]).toBe("Edited vs Pair");
@@ -250,7 +250,7 @@ describe("Sort By — Distinctions Words", () => {
       { w: "Zzz vs Nav2", word1: { w: "Zzz", senses: [], syn: [], ant: [] }, word2: { w: "Nav2", senses: [], syn: [], ant: [] }, source: "online", addedAt: 2000, modifiedAt: 2000 },
       { persist: false }
     );
-    setSort(document, "distinctionsSortSelect", "added-desc");
+    setSort(document, "wordBankSortSelect", "added-desc");
 
     document.getElementById("distinctionsSelect").value = "Zzz vs Nav2";
     document.getElementById("distinctionsSelect").dispatchEvent(new window.Event("change"));

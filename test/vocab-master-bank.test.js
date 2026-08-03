@@ -145,7 +145,8 @@ describe("the removed manual 'Check / Save a word to the Vocabulary Bank' widget
     expect(document.getElementById("langbankVocabCheckInput")).toBeNull();
     expect(document.getElementById("langbankVocabCheckResult")).toBeNull();
 
-    document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').click();
     expect(document.getElementById("distinctionsVocabCheckInput")).toBeNull();
     expect(document.getElementById("distinctionsVocabCheckResult")).toBeNull();
   });
