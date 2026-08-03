@@ -71,6 +71,47 @@ describe("personalEntryToSense", () => {
     const sense = CorrectionLog.personalEntryToSense({ id: "pc_1", wrong: "a", right: "b", why: "" });
     expect(sense.use).toBe("Personal correction — added by you.");
   });
+
+  it("shapes a group of examples into ONE sense with multiple numbered examples, like a built-in rule", () => {
+    const sense = CorrectionLog.personalEntryToSense({
+      id: "pc_7",
+      why: "subject-verb agreement in the present tense",
+      examples: [
+        { wrong: "He go to the site", right: "He goes to the site" },
+        { wrong: "She have a car", right: "She has a car" },
+        { wrong: "It don't work", right: "It doesn't work" }
+      ]
+    });
+    expect(sense).toEqual({
+      use: "subject-verb agreement in the present tense",
+      examples: [
+        "✗ He go to the site → ✓ <b>He goes to the site</b>",
+        "✗ She have a car → ✓ <b>She has a car</b>",
+        "✗ It don't work → ✓ <b>It doesn't work</b>"
+      ],
+      personal: true,
+      id: "pc_7"
+    });
+  });
+
+  it("still falls back to the old single wrong/right shape when entry.examples is absent — pre-existing saved data", () => {
+    const sense = CorrectionLog.personalEntryToSense({
+      id: "pc_old",
+      wrong: "He don't like it",
+      right: "He doesn't like it",
+      why: "old-format entry, no examples array"
+    });
+    expect(sense.examples).toEqual(["✗ He don't like it → ✓ <b>He doesn't like it</b>"]);
+  });
+
+  it("falls back to the old single-pair shape when entry.examples is an empty array", () => {
+    const sense = CorrectionLog.personalEntryToSense({
+      id: "pc_empty",
+      wrong: "a", right: "b", why: "why",
+      examples: []
+    });
+    expect(sense.examples).toEqual(["✗ a → ✓ <b>b</b>"]);
+  });
 });
 
 describe("buildCorrectionSenses", () => {

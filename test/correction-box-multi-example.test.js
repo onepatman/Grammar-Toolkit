@@ -80,7 +80,7 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     expect(hooks.loadPersonalCorrections()).toHaveLength(0);
   });
 
-  it("filling multiple rows and submitting once creates one independent correction per row, sharing the one Why", async () => {
+  it("filling multiple rows and submitting once creates ONE correction holding every example, sharing the one Why", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     prep(document);
@@ -95,13 +95,11 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     await wait();
 
     const saved = hooks.loadPersonalCorrections();
-    expect(saved).toHaveLength(3);
-    expect(new Set(saved.map((s) => s.id)).size).toBe(3); // each gets its own unique id
-    saved.forEach((s) => {
-      expect(s.category).toBe(category);
-      expect(s.why).toBe("subject-verb agreement in the present tense");
-    });
-    expect(saved.map((s) => s.wrong).sort()).toEqual(
+    expect(saved).toHaveLength(1); // one grouped entry, not three separate ones
+    expect(saved[0].category).toBe(category);
+    expect(saved[0].why).toBe("subject-verb agreement in the present tense");
+    expect(saved[0].examples).toHaveLength(3);
+    expect(saved[0].examples.map((e) => e.wrong).sort()).toEqual(
       ["He go to the site", "It don't work", "She have a car"].sort()
     );
 
@@ -157,29 +155,35 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     expect(hooks.loadPersonalCorrections()).toHaveLength(0);
   });
 
-  it("Edit mode hides '+ Add another example' and collapses back to a single row, even if extra rows were left over", async () => {
-    const { window, hooks } = await loadApp();
+  it("Edit mode loads every existing example as its own row, and keeps '+ Add another example' visible", async () => {
+    const { window } = await loadApp();
     const document = window.document;
     prep(document);
 
-    fillRow(rows(document)[0], "Original wrong", "Original right");
+    fillRow(rows(document)[0], "Original wrong one", "Original right one");
+    document.getElementById(addRowBtnId).click();
+    fillRow(rows(document)[1], "Original wrong two", "Original right two");
     document.getElementById(addBtnId).click();
     await wait();
+    expect(rows(document)).toHaveLength(1); // reset after submit
 
     // Leave a stray extra (unsubmitted) row sitting in the form...
     document.getElementById(addRowBtnId).click();
     expect(rows(document)).toHaveLength(2);
 
-    // ...then trigger Edit on the entry that was actually saved.
+    // ...then trigger Edit on the entry that was actually saved. This
+    // should REPLACE whatever was sitting in the form with the entry's
+    // own examples, not merge with the stray row.
     document.querySelector(`#${entryId} .edit-correction-btn`).click();
 
-    expect(rows(document)).toHaveLength(1);
-    expect(rows(document)[0].querySelector(".correction-wrong-input").value).toBe("Original wrong");
-    expect(document.getElementById(addRowBtnId).style.display).toBe("none");
+    expect(rows(document)).toHaveLength(2);
+    expect(rows(document)[0].querySelector(".correction-wrong-input").value).toBe("Original wrong one");
+    expect(rows(document)[1].querySelector(".correction-wrong-input").value).toBe("Original wrong two");
+    expect(document.getElementById(addRowBtnId).style.display).not.toBe("none");
     expect(document.getElementById(cancelBtnId).classList.contains("show")).toBe(true);
   });
 
-  it("Cancel edit brings back the '+ Add another example' button", async () => {
+  it("Cancel edit resets the form back to a single blank row and hides the Cancel button", async () => {
     const { window } = await loadApp();
     const document = window.document;
     prep(document);
@@ -188,32 +192,53 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     document.getElementById(addBtnId).click();
     await wait();
     document.querySelector(`#${entryId} .edit-correction-btn`).click();
-    expect(document.getElementById(addRowBtnId).style.display).toBe("none");
+    expect(document.getElementById(cancelBtnId).classList.contains("show")).toBe(true);
 
     document.getElementById(cancelBtnId).click();
 
-    expect(document.getElementById(addRowBtnId).style.display).not.toBe("none");
+    expect(rows(document)).toHaveLength(1);
+    expect(rows(document)[0].querySelector(".correction-wrong-input").value).toBe("");
+    expect(document.getElementById(cancelBtnId).classList.contains("show")).toBe(false);
   });
 
-  it("Update in edit mode only ever affects the single existing entry, even with multiple corrections already saved", async () => {
+  it("Update in edit mode only ever affects that one entry's own examples, even with multiple correction groups already saved", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     prep(document);
 
+    // First group — two examples in one submission.
     fillRow(rows(document)[0], "He go to the site", "He goes to the site");
     document.getElementById(addRowBtnId).click();
     fillRow(rows(document)[1], "She have a car", "She has a car");
     document.getElementById(addBtnId).click();
     await wait();
+
+    // Second group — a completely separate submission.
+    fillRow(rows(document)[0], "It don't work", "It doesn't work");
+    document.getElementById(addBtnId).click();
+    await wait();
+
     expect(hooks.loadPersonalCorrections()).toHaveLength(2);
 
+    // Edit the FIRST group: change one example and add a brand new one.
     document.querySelectorAll(`#${entryId} .edit-correction-btn`)[0].click();
+    expect(rows(document)).toHaveLength(2);
     fillRow(rows(document)[0], rows(document)[0].querySelector(".correction-wrong-input").value, "An updated correction");
+    document.getElementById(addRowBtnId).click();
+    fillRow(rows(document)[2], "A brand new one", "A brand new one fixed");
     document.getElementById(addBtnId).click();
     await wait();
 
     const saved = hooks.loadPersonalCorrections();
-    expect(saved).toHaveLength(2); // still exactly two, nothing duplicated
-    expect(saved.some((s) => s.right === "An updated correction")).toBe(true);
+    expect(saved).toHaveLength(2); // still exactly two groups, nothing duplicated
+
+    const editedGroup = saved.find((s) => s.examples.some((e) => e.right === "An updated correction"));
+    expect(editedGroup).toBeTruthy();
+    expect(editedGroup.examples).toHaveLength(3);
+    expect(editedGroup.examples.some((e) => e.right === "A brand new one fixed")).toBe(true);
+
+    const untouchedGroup = saved.find((s) => s !== editedGroup);
+    expect(untouchedGroup.examples).toHaveLength(1);
+    expect(untouchedGroup.examples[0].wrong).toBe("It don't work");
   });
 });

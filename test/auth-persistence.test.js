@@ -155,7 +155,7 @@ describe("autoReconnectSync — the owner's session survives a simulated page re
     document.getElementById("qaAddBtn").click();
     await wait(30);
 
-    expect(firebase._docs.get("syncedLogs/family-code").entries.some((e) => e.wrong === "He go")).toBe(true);
+    expect(firebase._docs.get("syncedLogs/family-code").entries.some((e) => e.examples && e.examples.some((ex) => ex.wrong === "He go"))).toBe(true);
   });
 });
 

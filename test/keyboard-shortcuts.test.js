@@ -208,6 +208,143 @@ describe("Arrow-key hotkeys — guards against interfering with normal typing/UI
   });
 });
 
+describe("F1 hotkey — clicks whatever favorite star is currently on screen", () => {
+  it("favorites the currently displayed entry, same as clicking its star", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="verbs"]').click();
+    const star = document.querySelector("#panel-verbs .fav-toggle");
+    expect(star.classList.contains("active")).toBe(false);
+    const word = star.dataset.word;
+
+    pressKey(window, "F1");
+
+    expect(hooks.favoriteKeys.has(word.trim().toLowerCase())).toBe(true);
+    expect(document.querySelector("#panel-verbs .fav-toggle").classList.contains("active")).toBe(true);
+  });
+
+  it("un-favorites it again on a second press, same as clicking the star twice", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="verbs"]').click();
+    const word = document.querySelector("#panel-verbs .fav-toggle").dataset.word;
+
+    pressKey(window, "F1");
+    expect(hooks.favoriteKeys.has(word.trim().toLowerCase())).toBe(true);
+    pressKey(window, "F1");
+
+    expect(hooks.favoriteKeys.has(word.trim().toLowerCase())).toBe(false);
+  });
+
+  it("operates on whichever panel is currently visible, not a hardcoded tab", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="vocab"]').click();
+    const word = document.querySelector("#panel-vocab .fav-toggle").dataset.word;
+
+    pressKey(window, "F1");
+
+    expect(hooks.favoriteKeys.has(word.trim().toLowerCase())).toBe(true);
+  });
+
+  it("does nothing when no favorite star is visible on the current panel", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+
+    // Should not throw, and should leave nothing favorited.
+    const event = pressKey(window, "F1");
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("does nothing while a modal is open", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="verbs"]').click();
+    const word = document.querySelector("#panel-verbs .fav-toggle").dataset.word;
+
+    document.getElementById("lookupModal").style.display = "flex";
+    pressKey(window, "F1");
+
+    expect(hooks.favoriteKeys.has(word.trim().toLowerCase())).toBe(false);
+  });
+});
+
+describe("Escape hotkey — clears the currently focused typing box", () => {
+  it("clears the global search box while it has focus", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    const input = document.getElementById("globalSearch");
+    input.focus();
+    input.value = "abandon";
+    input.dispatchEvent(new window.Event("input"));
+
+    pressKey(window, "Escape");
+
+    expect(input.value).toBe("");
+  });
+
+  it("clears whichever other text input currently has focus (e.g. an Add a correction box)", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    const input = document.getElementById("qaWrongInput");
+    input.focus();
+    input.value = "He go to the site";
+
+    pressKey(window, "Escape");
+
+    expect(input.value).toBe("");
+  });
+
+  it("clears a focused textarea the same way", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    const input = document.getElementById("qaWhyInput");
+    input.focus();
+    input.value = "some explanation";
+
+    pressKey(window, "Escape");
+
+    expect(input.value).toBe("");
+  });
+
+  it("does nothing when no text field has focus, leaving Escape free for other uses (e.g. closing the lookup modal)", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.body.focus();
+
+    const event = pressKey(window, "Escape");
+
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("leaves OTHER inputs on the page untouched — only the focused one is cleared", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("globalSearch").value = "should stay";
+    const input = document.getElementById("qaWrongInput");
+    input.focus();
+    input.value = "should clear";
+
+    pressKey(window, "Escape");
+
+    expect(input.value).toBe("");
+    expect(document.getElementById("globalSearch").value).toBe("should stay");
+  });
+});
+
+describe("Tab key — native browser focus-cycling is left untouched", () => {
+  it("nothing in the app intercepts Tab or prevents its default behavior", async () => {
+    const { window } = await loadApp();
+    const event = pressKey(window, "Tab");
+    // No custom handler exists for Tab (see index.html's keydown
+    // listeners) — the browser's own native focus order handles moving
+    // between the wrong/right/why fields in an "Add a correction" box,
+    // so all this hotkey layer has to do is stay out of the way.
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
+
 describe("isElementVisible() / findVisibleNavBtn() helpers", () => {
   it("isElementVisible treats an inline display:none ancestor as invisible", async () => {
     const { window, hooks } = await loadApp();

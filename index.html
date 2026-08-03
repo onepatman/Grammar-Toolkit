@@ -40870,14 +40870,65 @@ function findVisibleNavBtn(dir, bottomNav){
   return Array.from(document.querySelectorAll(selector)).find(isElementVisible) || null;
 }
 
-// Desktop/laptop keyboard shortcuts mirroring the on-screen nav
-// buttons, for hands-on-keyboard navigation without reaching for the
-// mouse: Right/Left = Next/Previous (bottom pair, cycles the current
-// panel's own dropdown), Up/Down = Forward/Back (top pair, walks the
-// universal browsing history). Ignored while typing/selecting in any
-// form control, while a modal is open, or with a modifier key held,
-// so it never fights normal text-editing or native <select> behavior.
+// The one favorite star that belongs to whatever's currently on screen —
+// scoped to the active top-level panel (section[id^="panel-"] not
+// display:none) so F1 never reaches into a panel the user isn't looking
+// at. Almost every panel renders exactly one entry (and so exactly one
+// .fav-toggle) at a time; where a panel can show more than one (a pair
+// category's two per-word stars, or the Favorites tab's own list), the
+// first visible one in document order is treated as "the" one, same as
+// pressing the star you'd see first on screen.
+function findVisibleFavToggleBtn(){
+  const panel = Array.from(document.querySelectorAll('section[id^="panel-"]')).find(isElementVisible);
+  if(!panel) return null;
+  return Array.from(panel.querySelectorAll(".fav-toggle")).find(isElementVisible) || null;
+}
+
+// Desktop/laptop keyboard shortcuts mirroring on-screen controls, for
+// hands-on-keyboard use without reaching for the mouse:
+//   Right/Left = Next/Previous (bottom pair, cycles the current panel's
+//     own dropdown), Up/Down = Forward/Back (top pair, walks the
+//     universal browsing history) — ignored while typing/selecting in
+//     any form control, so they never fight text-editing or native
+//     <select> behavior.
+//   F1 = click whatever favorite star is currently on screen, instead of
+//     reaching for the mouse. Works everywhere, including while typing,
+//     since it doesn't touch the text itself.
+//   Escape = clear the text input/textarea that currently has focus
+//     (including the global search box) — a fast "start over" without
+//     selecting-and-deleting by hand. Only acts when a text field is
+//     actually focused; otherwise Escape is left alone (e.g. to close a
+//     modal, handled by its own listener).
+// All three skip while a modal (app-update / lookup) is open, and ignore
+// modifier-key combinations so they don't hijack a browser/OS shortcut
+// that happens to share the key.
 document.addEventListener("keydown", (e)=>{
+  if(e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+
+  const appUpdateOpen = document.getElementById("appUpdateModal").style.display !== "none";
+  const lookupModalOpen = document.getElementById("lookupModal").style.display !== "none";
+
+  if(e.key === "Escape"){
+    const active = document.activeElement;
+    const tag = active && active.tagName;
+    if(tag === "INPUT" || tag === "TEXTAREA"){
+      active.value = "";
+      active.dispatchEvent(new Event("input", { bubbles: true }));
+      e.preventDefault();
+    }
+    return;
+  }
+
+  if(e.key === "F1"){
+    if(appUpdateOpen || lookupModalOpen) return;
+    const favBtn = findVisibleFavToggleBtn();
+    if(favBtn){
+      favBtn.click();
+      e.preventDefault();
+    }
+    return;
+  }
+
   const ARROW_KEY_NAV = {
     ArrowRight: { dir: "next", bottomNav: true },
     ArrowLeft: { dir: "prev", bottomNav: true },
@@ -40886,13 +40937,12 @@ document.addEventListener("keydown", (e)=>{
   };
   const mapped = ARROW_KEY_NAV[e.key];
   if(!mapped) return;
-  if(e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
+  if(e.shiftKey) return;
 
   const active = document.activeElement;
   const tag = active && active.tagName;
   if(tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (active && active.isContentEditable)) return;
-  if(document.getElementById("appUpdateModal").style.display !== "none") return;
-  if(document.getElementById("lookupModal").style.display !== "none") return;
+  if(appUpdateOpen || lookupModalOpen) return;
 
   const btn = findVisibleNavBtn(mapped.dir, mapped.bottomNav);
   if(btn){
@@ -41101,7 +41151,7 @@ updateCorrectionAddLabel();
 function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
   function rowsContainer(){ return document.getElementById(ids.rowsId); }
 
-  function makeRow(removable){
+  function makeRow(removable, wrongVal, rightVal){
     const row = document.createElement("div");
     row.className = "correction-example-row";
     row.innerHTML = `
@@ -41109,6 +41159,8 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
       <input type="text" class="correction-right-input" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
       ${removable ? '<button type="button" class="remove-example-row-btn">✕ Remove this example</button>' : ""}
     `;
+    row.querySelector(".correction-wrong-input").value = wrongVal || "";
+    row.querySelector(".correction-right-input").value = rightVal || "";
     if(removable){
       row.querySelector(".remove-example-row-btn").addEventListener("click", ()=> row.remove());
     }
@@ -41126,7 +41178,30 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
     document.getElementById(ids.addBtnId).textContent = "+ Add to this category";
     delete document.getElementById(ids.addBtnId).dataset.editingId;
     document.getElementById(ids.cancelBtnId).classList.remove("show");
-    document.getElementById(ids.addRowBtnId).style.display = "";
+  }
+
+  // Populates the box to edit an EXISTING correction group — one row per
+  // example it already has (falling back to its legacy single wrong/
+  // right fields for an entry saved before grouped examples existed),
+  // with "+ Add another example" left fully usable so more examples can
+  // be added to — or any but the first removed from — the same group.
+  function loadForEdit(entry){
+    const container = rowsContainer();
+    container.innerHTML = "";
+    const examples = (entry.examples && entry.examples.length) ? entry.examples : [{ wrong: entry.wrong, right: entry.right }];
+    examples.forEach((ex, i)=>{
+      const row = makeRow(i > 0, ex.wrong, ex.right);
+      if(i === 0){
+        row.querySelector(".correction-wrong-input").id = ids.wrongId;
+        row.querySelector(".correction-right-input").id = ids.rightId;
+      }
+      container.appendChild(row);
+    });
+    document.getElementById(ids.whyId).value = entry.why || "";
+    const addBtn = document.getElementById(ids.addBtnId);
+    addBtn.textContent = "Update this entry";
+    addBtn.dataset.editingId = entry.id;
+    document.getElementById(ids.cancelBtnId).classList.add("show");
   }
 
   document.getElementById(ids.addRowBtnId).addEventListener("click", ()=>{
@@ -41171,8 +41246,12 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
     if(editingId){
       const entry = saved.find(s => s.id === editingId);
       if(entry){
-        entry.wrong = complete[0].wrong;
-        entry.right = complete[0].right;
+        entry.examples = complete;
+        // Migrate away from the legacy single wrong/right shape the
+        // moment an old entry is edited — buildCorrectionSenses() still
+        // falls back to these for anything left un-migrated.
+        delete entry.wrong;
+        delete entry.right;
         entry.why = why;
         entry.category = category;
       }
@@ -41180,9 +41259,7 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
       statusText = "Updated!";
       statusOk = true;
     } else {
-      complete.forEach((pair, i)=>{
-        saved.push({ id: "pc_" + Date.now() + "_" + i, wrong: pair.wrong, right: pair.right, why: why, category: category });
-      });
+      saved.push({ id: "pc_" + Date.now(), why: why, category: category, examples: complete });
       const localOk = savePersonalCorrections(saved);
       statusText = localOk
         ? successMessage(category, complete.length)
@@ -41220,7 +41297,7 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
   });
   bindEnterToClick([ids.wrongId, ids.rightId, ids.whyId], ids.addBtnId);
 
-  return { ids: ids, reset: resetForm };
+  return { ids: ids, reset: resetForm, loadForEdit: loadForEdit };
 }
 
 const qaCorrectionBox = setupCorrectionBox({
@@ -41271,18 +41348,7 @@ document.addEventListener("click", async (e)=>{
       const wb = WORDBANK_CORRECTION_BOXES[entry.category];
       const box = wb || qaCorrectionBox;
       const ids = box.ids;
-      // Editing always targets exactly ONE existing wrong/right pair —
-      // reset first so any extra example rows left over from a
-      // previous fresh-add attempt don't linger into this edit.
-      box.reset();
-      document.getElementById(ids.wrongId).value = entry.wrong;
-      document.getElementById(ids.rightId).value = entry.right;
-      document.getElementById(ids.whyId).value = entry.why || "";
-      const addBtn = document.getElementById(ids.addBtnId);
-      addBtn.textContent = "Update this entry";
-      addBtn.dataset.editingId = id;
-      document.getElementById(ids.addRowBtnId).style.display = "none";
-      document.getElementById(ids.cancelBtnId).classList.add("show");
+      box.loadForEdit(entry);
       document.getElementById(ids.statusId).textContent = "Editing — change the fields above and click Update.";
       document.getElementById(ids.statusId).className = "add-status";
       const wrongInputEl = document.getElementById(ids.wrongId);
@@ -46282,7 +46348,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
   addPhraseTemplateEntry, phraseTemplatesCacheRestorePromise,
-  isElementVisible, findVisibleNavBtn,
+  isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn,
   addLanguageBankEntry, activateLangBankCategory,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getDistinctionsSortPref,
