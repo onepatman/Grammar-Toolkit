@@ -162,7 +162,7 @@ describe("the owner's writes reach the shared log", () => {
     await wait(50);
 
     const doc = firebase._docs.get("syncedLogs/team-code-4");
-    expect(doc.entries.some((e) => e.wrong === "He go")).toBe(true);
+    expect(doc.entries.some((e) => e.examples && e.examples.some((ex) => ex.wrong === "He go"))).toBe(true);
     expect(document.getElementById("qaAddStatus").textContent).toContain("Saved");
   });
 
@@ -187,7 +187,7 @@ describe("the owner's writes reach the shared log", () => {
     await wait(50);
 
     expect(hooks.loadPersonalCorrections()).toHaveLength(1);
-    expect(hooks.loadPersonalCorrections()[0].wrong).toBe("He go");
+    expect(hooks.loadPersonalCorrections()[0].examples[0].wrong).toBe("He go");
 
     // And once they connect, the owner's local entry should reach the
     // shared doc (proving sync isn't just silently broken post-sign-in).
@@ -195,7 +195,7 @@ describe("the owner's writes reach the shared log", () => {
     await wait(50);
 
     const doc = firebase._docs.get("syncedLogs/team-code-regression");
-    expect(doc.entries.some((e) => e.wrong === "He go")).toBe(true);
+    expect(doc.entries.some((e) => e.examples && e.examples.some((ex) => ex.wrong === "He go"))).toBe(true);
   });
 });
 
