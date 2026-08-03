@@ -15,6 +15,15 @@ function wait(ms = 30) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Distinctions Words now lives inside the Word Bank tab as one of its
+// categories (moved there alongside Sentence Fragments/Subject-Verb
+// Agreement/My Correction Log), so opening it takes two steps: switch to
+// the Word Bank tab, then select the "Distinctions Words" category pill.
+function openDistinctions(document) {
+  document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+  document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').click();
+}
+
 const RESULT_ARISE = {
   w: "Arise",
   senses: [{ use: "(verb) To come into being; to get up.", examples: ["A problem may arise later."] }],
@@ -43,23 +52,26 @@ function stubBothLookups(window, result1, result2) {
   };
 }
 
-describe("renamed from Upgrade to Distinctions Words", () => {
-  it("the nav tab reads 'Distinctions Words', not 'Upgrade'", async () => {
+describe("Distinctions Words lives inside the Word Bank tab", () => {
+  it("is one of Word Bank's category pills, not its own top-level nav tab", async () => {
     const { window } = await loadApp();
-    const tab = window.document.querySelector('.thumb-tab[data-tab="distinctions"]');
-    expect(tab).toBeTruthy();
-    expect(tab.textContent).toContain("Distinctions Words");
+    expect(window.document.querySelector('.thumb-tab[data-tab="distinctions"]')).toBeNull();
     expect(window.document.querySelector('.thumb-tab[data-tab="upgrade"]')).toBeNull();
+    const pill = window.document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]');
+    expect(pill).toBeTruthy();
+    expect(pill.textContent).toContain("Distinctions Words");
   });
 
-  it("has no leftover #panel-upgrade/#upgradeSelect/#upgradeEntry elements", async () => {
+  it("has no leftover #panel-upgrade/#panel-distinctions/#upgradeSelect/#upgradeEntry elements, and lives under #panel-wordbank", async () => {
     const { window } = await loadApp();
     expect(window.document.getElementById("panel-upgrade")).toBeNull();
+    expect(window.document.getElementById("panel-distinctions")).toBeNull();
     expect(window.document.getElementById("upgradeSelect")).toBeNull();
     expect(window.document.getElementById("upgradeEntry")).toBeNull();
-    expect(window.document.getElementById("panel-distinctions")).toBeTruthy();
+    expect(window.document.getElementById("wordbank-distinctions")).toBeTruthy();
     expect(window.document.getElementById("distinctionsSelect")).toBeTruthy();
     expect(window.document.getElementById("distinctionsEntry")).toBeTruthy();
+    expect(window.document.querySelector("#panel-wordbank #distinctionsEntry")).toBeTruthy();
   });
 
   it("exposes distinctionsData (not upgradeData) with the migrated Basic→Advanced pairs plus new confusable pairs", async () => {
@@ -73,7 +85,7 @@ describe("renamed from Upgrade to Distinctions Words", () => {
 
   it("renders the first entry (two headwords in one card) on load", async () => {
     const { window, hooks } = await loadApp();
-    window.document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    openDistinctions(window.document);
     const headwords = Array.from(window.document.querySelectorAll("#distinctionsEntry .headword")).map((el) => el.textContent);
     // Dropdown options are alphabetically sorted (case-insensitive), so the
     // entry shown on load is the alphabetically-first pair, not necessarily
@@ -116,7 +128,8 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     expect(added.word2.senses[0].use).toContain("move upward");
 
     // Navigates straight to the new entry.
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("distinctions");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
     const headwords = Array.from(document.querySelectorAll("#distinctionsEntry .headword")).map((el) => el.textContent);
     expect(headwords).toEqual(["Arise", "Quibblet"]);
   });
@@ -191,7 +204,8 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     // The duplicate-conflict popup replaces the old auto-navigate — the
     // Owner has to explicitly click View Existing.
     statusEl.querySelector("#dupConflictViewBtn").click();
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("distinctions");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
     expect(hooks.distinctionsData.filter((e) => e.w === "Achieve vs Attain")).toHaveLength(1);
   });
 
@@ -580,7 +594,7 @@ describe("Favorites — favoriting either word individually", () => {
   it("shows an independent ☆ star on each word's headword row", async () => {
     const { window } = await loadApp();
     const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    openDistinctions(document);
 
     const toggles = document.querySelectorAll("#distinctionsEntry .fav-toggle");
     expect(toggles.length).toBe(2);
@@ -589,7 +603,7 @@ describe("Favorites — favoriting either word individually", () => {
   it("favoriting Word 1 only stars Word 1, not Word 2", async () => {
     const { window } = await loadApp();
     const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="distinctions"]').click();
+    openDistinctions(document);
 
     const toggles = document.querySelectorAll("#distinctionsEntry .fav-toggle");
     toggles[0].click();
