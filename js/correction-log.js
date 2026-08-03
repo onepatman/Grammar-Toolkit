@@ -38,10 +38,19 @@
     }
   }
 
+  // A correction group can hold MULTIPLE wrong->right examples (added
+  // together via "+ Add another example") — those all become ONE sense
+  // with one numbered example per pair, exactly like a built-in rule's
+  // own multi-example senses. entry.examples is the current shape;
+  // entries saved before grouped examples existed only ever had a
+  // single top-level wrong/right pair, so that's the fallback.
   function personalEntryToSense(entry) {
+    var pairs = (entry.examples && entry.examples.length) ? entry.examples : [{ wrong: entry.wrong, right: entry.right }];
     return {
       use: entry.why || "Personal correction — added by you.",
-      examples: ["✗ " + entry.wrong + " → ✓ <b>" + entry.right + "</b>"],
+      examples: pairs.map(function (p) {
+        return "✗ " + p.wrong + " → ✓ <b>" + p.right + "</b>";
+      }),
       personal: true,
       id: entry.id
     };

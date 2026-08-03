@@ -105,7 +105,7 @@ describe("Fixes tab — filing a correction under whichever category is selected
 
     const saved = hooks.loadPersonalCorrections();
     expect(saved[0].category).toBe("double negatives");
-    expect(saved[0].right).toBe("My cousin always visits us");
+    expect(saved[0].examples[0].right).toBe("My cousin always visits us");
     expect(document.getElementById("mistakeEntry").textContent).toContain("My cousin always visits us");
   });
 
