@@ -1116,6 +1116,16 @@
   }
   .cancel-edit-link.show{ display:inline-block; }
 
+  /* Multi-example "Add a correction" rows — each row is one wrong/right
+     pair; .quick-add-box input already gives every input inside these
+     rows the same full-width styling as every other quick-add field. */
+  .correction-example-row{ position:relative; }
+  .correction-example-row .remove-example-row-btn{
+    display:block; margin:-4px 0 8px; font-size:12px; color:var(--brick);
+    background:none; border:none; text-decoration:underline; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; padding:0;
+  }
+
   .signals{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
   .signals span{
     font-family:'IBM Plex Mono', monospace; font-size:11.5px;
@@ -1645,8 +1655,13 @@
       <div class="quick-add-box owner-only" id="fragAddBox">
         <div class="section-label">Add a correction to "sentence fragment"</div>
         <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
-        <input type="text" id="fragWrongInput" placeholder="Wrong version (e.g. Because the pump failed.)" autocomplete="off">
-        <input type="text" id="fragRightInput" placeholder="Corrected version (e.g. The system shut down because the pump failed.)" autocomplete="off">
+        <div class="correction-example-rows" id="fragExampleRows">
+          <div class="correction-example-row">
+            <input type="text" id="fragWrongInput" class="correction-wrong-input" placeholder="Wrong version (e.g. Because the pump failed.)" autocomplete="off">
+            <input type="text" id="fragRightInput" class="correction-right-input" placeholder="Corrected version (e.g. The system shut down because the pump failed.)" autocomplete="off">
+          </div>
+        </div>
+        <button type="button" id="fragAddExampleRowBtn" class="add-btn secondary">+ Add another example</button>
         <input type="text" id="fragWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
         <button id="fragAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
         <button id="fragCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
@@ -1659,8 +1674,13 @@
       <div class="quick-add-box owner-only" id="svaAddBox">
         <div class="section-label">Add a correction to "subject-verb agreement"</div>
         <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
-        <input type="text" id="svaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
-        <input type="text" id="svaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+        <div class="correction-example-rows" id="svaExampleRows">
+          <div class="correction-example-row">
+            <input type="text" id="svaWrongInput" class="correction-wrong-input" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+            <input type="text" id="svaRightInput" class="correction-right-input" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+          </div>
+        </div>
+        <button type="button" id="svaAddExampleRowBtn" class="add-btn secondary">+ Add another example</button>
         <input type="text" id="svaWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
         <button id="svaAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
         <button id="svaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
@@ -1673,8 +1693,13 @@
       <div class="quick-add-box owner-only" id="logAddBox">
         <div class="section-label">Add a correction to "my correction log (personal history)"</div>
         <p class="note" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version.</p>
-        <input type="text" id="logWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
-        <input type="text" id="logRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+        <div class="correction-example-rows" id="logExampleRows">
+          <div class="correction-example-row">
+            <input type="text" id="logWrongInput" class="correction-wrong-input" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+            <input type="text" id="logRightInput" class="correction-right-input" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+          </div>
+        </div>
+        <button type="button" id="logAddExampleRowBtn" class="add-btn secondary">+ Add another example</button>
         <input type="text" id="logWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
         <button id="logAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
         <button id="logCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
@@ -1743,8 +1768,13 @@
     <div class="quick-add-box owner-only" id="correctionAddBox">
       <div class="section-label" id="correctionAddLabel">Add a correction example</div>
       <p class="note" id="correctionAddNote" style="margin-bottom:8px;">Saved permanently in this file — no need to wait for a new version. This gets added to whichever category is selected above.</p>
-      <input type="text" id="qaWrongInput" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
-      <input type="text" id="qaRightInput" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+      <div class="correction-example-rows" id="qaExampleRows">
+        <div class="correction-example-row">
+          <input type="text" id="qaWrongInput" class="correction-wrong-input" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+          <input type="text" id="qaRightInput" class="correction-right-input" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+        </div>
+      </div>
+      <button type="button" id="qaAddExampleRowBtn" class="add-btn secondary">+ Add another example</button>
       <input type="text" id="qaWhyInput" placeholder="Why (optional, e.g. explains the rule)" autocomplete="off">
       <button id="qaAddBtn" class="add-btn">+ Add to this category</button>
       <button id="qaCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
@@ -41048,109 +41078,60 @@ function updateCorrectionAddLabel(){
 document.getElementById("mistakeSelect").addEventListener("change", updateCorrectionAddLabel);
 updateCorrectionAddLabel();
 
-function resetQuickAddForm(){
-  document.getElementById("qaWrongInput").value = "";
-  document.getElementById("qaRightInput").value = "";
-  document.getElementById("qaWhyInput").value = "";
-  document.getElementById("qaAddBtn").textContent = "+ Add to this category";
-  delete document.getElementById("qaAddBtn").dataset.editingId;
-  document.getElementById("qaCancelEditBtn").classList.remove("show");
-}
+// Every "Add a correction" box in the app — the Fixes tab's shared box
+// (files under whatever category is currently picked in mistakeSelect)
+// and each Word Bank standalone category's own fixed-category box
+// (Sentence Fragments, Subject-Verb Agreement, My Correction Log) —
+// shares this exact same wrong/right/why shape and add/edit/delete
+// flow, so it's written once here and parameterized per box instead of
+// copy-pasted four times. getCategory() is a callback rather than a
+// fixed string specifically because the Fixes tab's box needs to read
+// its dropdown at click time, while every other box always files under
+// one fixed category.
+//
+// A single submission can log MULTIPLE wrong->right examples at once
+// (the "+ Add another example" button appends more rows) rather than
+// forcing one whole add-cycle per example — each complete row becomes
+// its own independent saved correction (sharing the one "why" and
+// category for that submission), so they still show up as separate
+// numbered examples exactly like adding them one at a time would.
+// Only the FIRST row is used while editing an existing correction
+// (there's exactly one wrong/right pair to edit), so the "add another"
+// button and any extra rows are hidden/cleared for that state.
+function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
+  function rowsContainer(){ return document.getElementById(ids.rowsId); }
 
-document.getElementById("qaAddBtn").addEventListener("click", async ()=>{
-  if(!isDeviceUnlocked()){
-    const s = document.getElementById("qaAddStatus");
-    s.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
-    s.className = "add-status error";
-    return;
-  }
-  const wrongEl = document.getElementById("qaWrongInput");
-  const rightEl = document.getElementById("qaRightInput");
-  const whyEl = document.getElementById("qaWhyInput");
-  const statusEl = document.getElementById("qaAddStatus");
-  const addBtn = document.getElementById("qaAddBtn");
-  const wrong = wrongEl.value.trim();
-  const right = rightEl.value.trim();
-  const why = whyEl.value.trim();
-  const category = document.getElementById("mistakeSelect").value || CORRECTION_LOG_ENTRY.w;
-
-  if(!wrong || !right){
-    statusEl.textContent = "Please fill in both the wrong and corrected versions.";
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  const editingId = addBtn.dataset.editingId;
-  const previousSaved = loadPersonalCorrections();
-  const saved = previousSaved.map(s => ({...s}));
-  let statusText, statusOk;
-
-  if(editingId){
-    const entry = saved.find(s => s.id === editingId);
-    if(entry){
-      entry.wrong = wrong;
-      entry.right = right;
-      entry.why = why;
-      entry.category = category;
+  function makeRow(removable){
+    const row = document.createElement("div");
+    row.className = "correction-example-row";
+    row.innerHTML = `
+      <input type="text" class="correction-wrong-input" placeholder="Wrong version (e.g. He go to the site)" autocomplete="off">
+      <input type="text" class="correction-right-input" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
+      ${removable ? '<button type="button" class="remove-example-row-btn">✕ Remove this example</button>' : ""}
+    `;
+    if(removable){
+      row.querySelector(".remove-example-row-btn").addEventListener("click", ()=> row.remove());
     }
-    savePersonalCorrections(saved);
-    statusText = "Updated!";
-    statusOk = true;
-  } else {
-    saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why, category: category });
-    const localOk = savePersonalCorrections(saved);
-    statusText = localOk
-      ? `Saved under "${category}"! This entry is now permanent in this file — check the dropdown above.`
-      : "Added for this session, but your browser blocked permanent saving.";
-    statusOk = localOk;
+    return row;
   }
 
-  // Only actually reaches Firestore when sync is connected — otherwise
-  // this resolves {ok:true, skipped:true} immediately, same as before.
-  const pushResult = await pushToSync(saved);
-  if(!pushResult.ok){
-    // The shared log rejected this write (not signed in as the real
-    // owner) — roll the local copy back so it never silently drifts
-    // from what's actually saved to the shared log.
-    savePersonalCorrections(previousSaved);
-    rebuildCorrectionLog();
-    refreshMistakeUI();
-    statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
-    statusEl.className = "add-status error";
-    return;
-  }
-
-  statusEl.textContent = statusText;
-  statusEl.className = statusOk ? "add-status success" : "add-status error";
-
-  rebuildCorrectionLog();
-  refreshMistakeUI();
-  resetQuickAddForm();
-});
-
-document.getElementById("qaCancelEditBtn").addEventListener("click", ()=>{
-  resetQuickAddForm();
-  document.getElementById("qaAddStatus").textContent = "Edit cancelled.";
-  document.getElementById("qaAddStatus").className = "add-status";
-});
-bindEnterToClick(["qaWrongInput", "qaRightInput", "qaWhyInput"], "qaAddBtn");
-
-// Every standalone Word Bank rule category (Sentence Fragments,
-// Subject-Verb Agreement, My Correction Log) gets its own quick-add
-// box — same wrong/right/why shape as the Fixes tab's shared box above,
-// just fixed to one category and living in its own set of fields so
-// editing a correction doesn't try to populate inputs on a hidden tab.
-// The add/cancel/reset wiring is identical across all three, so it's
-// written once here instead of three times.
-function setupWordBankCorrectionBox(entry, renderFn, ids){
   function resetForm(){
-    document.getElementById(ids.wrongId).value = "";
-    document.getElementById(ids.rightId).value = "";
+    const container = rowsContainer();
+    container.innerHTML = "";
+    const firstRow = makeRow(false);
+    firstRow.querySelector(".correction-wrong-input").id = ids.wrongId;
+    firstRow.querySelector(".correction-right-input").id = ids.rightId;
+    container.appendChild(firstRow);
     document.getElementById(ids.whyId).value = "";
     document.getElementById(ids.addBtnId).textContent = "+ Add to this category";
     delete document.getElementById(ids.addBtnId).dataset.editingId;
     document.getElementById(ids.cancelBtnId).classList.remove("show");
+    document.getElementById(ids.addRowBtnId).style.display = "";
   }
+
+  document.getElementById(ids.addRowBtnId).addEventListener("click", ()=>{
+    rowsContainer().appendChild(makeRow(true));
+  });
 
   document.getElementById(ids.addBtnId).addEventListener("click", async ()=>{
     if(!isDeviceUnlocked()){
@@ -41159,49 +41140,63 @@ function setupWordBankCorrectionBox(entry, renderFn, ids){
       s.className = "add-status error";
       return;
     }
-    const wrongEl = document.getElementById(ids.wrongId);
-    const rightEl = document.getElementById(ids.rightId);
-    const whyEl = document.getElementById(ids.whyId);
     const statusEl = document.getElementById(ids.statusId);
     const addBtn = document.getElementById(ids.addBtnId);
-    const wrong = wrongEl.value.trim();
-    const right = rightEl.value.trim();
-    const why = whyEl.value.trim();
-    const category = entry.w;
+    const why = document.getElementById(ids.whyId).value.trim();
+    const category = getCategory();
+    const editingId = addBtn.dataset.editingId;
 
-    if(!wrong || !right){
+    const pairs = Array.from(rowsContainer().querySelectorAll(".correction-example-row")).map(row=> ({
+      wrong: row.querySelector(".correction-wrong-input").value.trim(),
+      right: row.querySelector(".correction-right-input").value.trim()
+    }));
+    const filled = pairs.filter(p=> p.wrong || p.right);
+    const complete = filled.filter(p=> p.wrong && p.right);
+
+    if(filled.length === 0){
       statusEl.textContent = "Please fill in both the wrong and corrected versions.";
       statusEl.className = "add-status error";
       return;
     }
+    if(complete.length !== filled.length){
+      statusEl.textContent = "Please fill in both the wrong and corrected versions for every example (or remove the incomplete one).";
+      statusEl.className = "add-status error";
+      return;
+    }
 
-    const editingId = addBtn.dataset.editingId;
     const previousSaved = loadPersonalCorrections();
     const saved = previousSaved.map(s => ({...s}));
     let statusText, statusOk;
 
     if(editingId){
-      const e = saved.find(s => s.id === editingId);
-      if(e){
-        e.wrong = wrong;
-        e.right = right;
-        e.why = why;
-        e.category = category;
+      const entry = saved.find(s => s.id === editingId);
+      if(entry){
+        entry.wrong = complete[0].wrong;
+        entry.right = complete[0].right;
+        entry.why = why;
+        entry.category = category;
       }
       savePersonalCorrections(saved);
       statusText = "Updated!";
       statusOk = true;
     } else {
-      saved.push({ id: "pc_" + Date.now(), wrong: wrong, right: right, why: why, category: category });
+      complete.forEach((pair, i)=>{
+        saved.push({ id: "pc_" + Date.now() + "_" + i, wrong: pair.wrong, right: pair.right, why: why, category: category });
+      });
       const localOk = savePersonalCorrections(saved);
       statusText = localOk
-        ? "Saved! This entry is now permanent in this file."
+        ? successMessage(category, complete.length)
         : "Added for this session, but your browser blocked permanent saving.";
       statusOk = localOk;
     }
 
+    // Only actually reaches Firestore when sync is connected — otherwise
+    // this resolves {ok:true, skipped:true} immediately, same as before.
     const pushResult = await pushToSync(saved);
     if(!pushResult.ok){
+      // The shared log rejected this write (not signed in as the real
+      // owner) — roll the local copy back so it never silently drifts
+      // from what's actually saved to the shared log.
       savePersonalCorrections(previousSaved);
       rebuildCorrectionLog();
       renderFn();
@@ -41228,23 +41223,39 @@ function setupWordBankCorrectionBox(entry, renderFn, ids){
   return { ids: ids, reset: resetForm };
 }
 
+const qaCorrectionBox = setupCorrectionBox({
+  wrongId: "qaWrongInput", rightId: "qaRightInput", whyId: "qaWhyInput",
+  addBtnId: "qaAddBtn", cancelBtnId: "qaCancelEditBtn", statusId: "qaAddStatus",
+  rowsId: "qaExampleRows", addRowBtnId: "qaAddExampleRowBtn"
+}, ()=> document.getElementById("mistakeSelect").value || CORRECTION_LOG_ENTRY.w, refreshMistakeUI,
+  (category, count)=> count > 1
+    ? `Saved ${count} examples under "${category}"! These entries are now permanent in this file — check the dropdown above.`
+    : `Saved under "${category}"! This entry is now permanent in this file — check the dropdown above.`
+);
+
 // Keyed by entry.w (the category string a saved correction is filed
 // under) so the shared edit/delete handler below can route a click to
-// whichever box actually owns that category — the Fixes tab's shared
-// box for everything else.
+// whichever box actually owns that category — qaCorrectionBox handles
+// everything else (any category not one of these three fixed ones).
 const WORDBANK_CORRECTION_BOXES = {};
-WORDBANK_CORRECTION_BOXES[sentenceFragmentEntry.w] = setupWordBankCorrectionBox(sentenceFragmentEntry, renderFragmentEntry, {
+WORDBANK_CORRECTION_BOXES[sentenceFragmentEntry.w] = setupCorrectionBox({
   wrongId: "fragWrongInput", rightId: "fragRightInput", whyId: "fragWhyInput",
-  addBtnId: "fragAddBtn", cancelBtnId: "fragCancelEditBtn", statusId: "fragAddStatus"
-});
-WORDBANK_CORRECTION_BOXES[subjectVerbAgreementEntry.w] = setupWordBankCorrectionBox(subjectVerbAgreementEntry, renderSubjectVerbAgreementEntry, {
+  addBtnId: "fragAddBtn", cancelBtnId: "fragCancelEditBtn", statusId: "fragAddStatus",
+  rowsId: "fragExampleRows", addRowBtnId: "fragAddExampleRowBtn"
+}, ()=> sentenceFragmentEntry.w, renderFragmentEntry,
+  (category, count)=> count > 1 ? `Saved ${count} examples! These entries are now permanent in this file.` : "Saved! This entry is now permanent in this file.");
+WORDBANK_CORRECTION_BOXES[subjectVerbAgreementEntry.w] = setupCorrectionBox({
   wrongId: "svaWrongInput", rightId: "svaRightInput", whyId: "svaWhyInput",
-  addBtnId: "svaAddBtn", cancelBtnId: "svaCancelEditBtn", statusId: "svaAddStatus"
-});
-WORDBANK_CORRECTION_BOXES[CORRECTION_LOG_ENTRY.w] = setupWordBankCorrectionBox(CORRECTION_LOG_ENTRY, renderCorrectionLogEntry, {
+  addBtnId: "svaAddBtn", cancelBtnId: "svaCancelEditBtn", statusId: "svaAddStatus",
+  rowsId: "svaExampleRows", addRowBtnId: "svaAddExampleRowBtn"
+}, ()=> subjectVerbAgreementEntry.w, renderSubjectVerbAgreementEntry,
+  (category, count)=> count > 1 ? `Saved ${count} examples! These entries are now permanent in this file.` : "Saved! This entry is now permanent in this file.");
+WORDBANK_CORRECTION_BOXES[CORRECTION_LOG_ENTRY.w] = setupCorrectionBox({
   wrongId: "logWrongInput", rightId: "logRightInput", whyId: "logWhyInput",
-  addBtnId: "logAddBtn", cancelBtnId: "logCancelEditBtn", statusId: "logAddStatus"
-});
+  addBtnId: "logAddBtn", cancelBtnId: "logCancelEditBtn", statusId: "logAddStatus",
+  rowsId: "logExampleRows", addRowBtnId: "logAddExampleRowBtn"
+}, ()=> CORRECTION_LOG_ENTRY.w, renderCorrectionLogEntry,
+  (category, count)=> count > 1 ? `Saved ${count} examples! These entries are now permanent in this file.` : "Saved! This entry is now permanent in this file.");
 
 document.addEventListener("click", async (e)=>{
   const editBtn = e.target.closest(".edit-correction-btn");
@@ -41256,15 +41267,21 @@ document.addEventListener("click", async (e)=>{
     if(entry){
       // A correction filed under a Word Bank standalone category is
       // edited through its own box; every other category still uses
-      // the shared Fixes-tab box.
+      // the shared Fixes-tab box (qaCorrectionBox).
       const wb = WORDBANK_CORRECTION_BOXES[entry.category];
-      const ids = wb ? wb.ids : { wrongId:"qaWrongInput", rightId:"qaRightInput", whyId:"qaWhyInput", addBtnId:"qaAddBtn", cancelBtnId:"qaCancelEditBtn", statusId:"qaAddStatus" };
+      const box = wb || qaCorrectionBox;
+      const ids = box.ids;
+      // Editing always targets exactly ONE existing wrong/right pair —
+      // reset first so any extra example rows left over from a
+      // previous fresh-add attempt don't linger into this edit.
+      box.reset();
       document.getElementById(ids.wrongId).value = entry.wrong;
       document.getElementById(ids.rightId).value = entry.right;
       document.getElementById(ids.whyId).value = entry.why || "";
       const addBtn = document.getElementById(ids.addBtnId);
       addBtn.textContent = "Update this entry";
       addBtn.dataset.editingId = id;
+      document.getElementById(ids.addRowBtnId).style.display = "none";
       document.getElementById(ids.cancelBtnId).classList.add("show");
       document.getElementById(ids.statusId).textContent = "Editing — change the fields above and click Update.";
       document.getElementById(ids.statusId).className = "add-status";
@@ -41282,11 +41299,11 @@ document.addEventListener("click", async (e)=>{
     if(!confirmed) return;
     const previousSaved = loadPersonalCorrections();
     const target = previousSaved.find(s => s.id === id);
-    const wb = target ? WORDBANK_CORRECTION_BOXES[target.category] : null;
+    const box = target ? (WORDBANK_CORRECTION_BOXES[target.category] || qaCorrectionBox) : qaCorrectionBox;
     const saved = previousSaved.filter(s => s.id !== id);
     savePersonalCorrections(saved);
 
-    const statusEl = document.getElementById(wb ? wb.ids.statusId : "qaAddStatus");
+    const statusEl = document.getElementById(box.ids.statusId);
     const pushResult = await pushToSync(saved);
     if(!pushResult.ok){
       savePersonalCorrections(previousSaved);
@@ -41301,7 +41318,7 @@ document.addEventListener("click", async (e)=>{
     rebuildCorrectionLog();
     refreshMistakeUI();
     refreshAllWordBankStandaloneRules();
-    if(wb) wb.reset(); else resetQuickAddForm();
+    box.reset();
     statusEl.textContent = "Deleted.";
     statusEl.className = "add-status success";
     return;
