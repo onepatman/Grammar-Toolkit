@@ -26,6 +26,16 @@ function stubGrading(window, result) {
   window.GrammarCheck.checkText = async () => result;
 }
 
+// Same idea for the optional AI smoothness judge.
+function stubSmoothness(window, result) {
+  window.AIJudge.judgeSmoothness = async () => result;
+}
+
+async function openFixesTab(document) {
+  document.querySelector('.thumb-tab[data-tab="mistakes"]').click();
+  await wait();
+}
+
 const TWO_ERROR_RESULT = {
   ok: true,
   score: 7.4,
@@ -286,6 +296,117 @@ describe("English Journal tab — automatic grammar grading", () => {
 
     const restored = hooks.journalData.find((j) => j.title === "interrupted");
     expect(["graded", "unavailable"]).toContain(restored.grading.status);
+  });
+});
+
+describe("AI Smoothness Judge settings (Fixes tab) — Owner-supplied Claude API key", () => {
+  it("shows no key saved by default, then reflects a saved key after Save, and clears after Remove", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await openFixesTab(document);
+
+    expect(window.AIJudge.hasApiKey()).toBe(false);
+    expect(document.getElementById("aiJudgeKeyStatus").textContent).toContain("No key saved");
+
+    document.getElementById("aiJudgeApiKeyInput").value = "sk-ant-test-key";
+    document.getElementById("aiJudgeSaveKeyBtn").click();
+
+    expect(window.AIJudge.hasApiKey()).toBe(true);
+    expect(window.AIJudge.getApiKey()).toBe("sk-ant-test-key");
+    expect(document.getElementById("aiJudgeKeyStatus").textContent).toContain("saved on this device");
+    expect(document.getElementById("aiJudgeKeyStatus").className).toContain("success");
+    // The key itself is never echoed back into the (now-cleared) input.
+    expect(document.getElementById("aiJudgeApiKeyInput").value).toBe("");
+
+    document.getElementById("aiJudgeClearKeyBtn").click();
+    expect(window.AIJudge.hasApiKey()).toBe(false);
+    expect(document.getElementById("aiJudgeKeyStatus").textContent).toContain("No key saved");
+  });
+
+  it("Save/Remove are gated behind isDeviceUnlocked(), even if the buttons are somehow clicked on a locked device", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    // The box itself is owner-only (hidden via display:none — see
+    // owner-mode-ui.test.js), but the click handlers guard independently
+    // too, same defensive pattern as every other admin action in this app.
+    document.getElementById("aiJudgeApiKeyInput").value = "sk-ant-should-not-save";
+    document.getElementById("aiJudgeSaveKeyBtn").click();
+    expect(window.AIJudge.hasApiKey()).toBe(false);
+
+    window.AIJudge.setApiKey("sk-ant-preexisting");
+    document.getElementById("aiJudgeClearKeyBtn").click();
+    expect(window.AIJudge.hasApiKey()).toBe(true);
+  });
+});
+
+describe("English Journal tab — blended grammar + AI smoothness score", () => {
+  it("averages the grammar score and the AI smoothness score once a Claude API key is configured", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.AIJudge.setApiKey("sk-ant-test-key");
+    stubGrading(window, TWO_ERROR_RESULT); // grammar score 7.4
+    stubSmoothness(window, {
+      ok: true,
+      score: 9.0,
+      summary: "Reads mostly naturally, with one slightly stiff phrase.",
+      notes: ["\"a possible US Client\" sounds stiff — try \"a potential US client\"."]
+    });
+    await openJournalTab(document);
+
+    document.getElementById("journalBodyInput").value = "He go to the market to recieve his order.";
+    document.getElementById("journalSaveBtn").click();
+    await wait(20);
+
+    // (7.4 + 9.0) / 2 = 8.2
+    expect(hooks.journalData[0].grading.score).toBe(8.2);
+    expect(hooks.journalData[0].grading.grammarScore).toBe(7.4);
+    expect(hooks.journalData[0].grading.smoothnessScore).toBe(9.0);
+
+    const card = document.querySelector("#journalList .journal-card");
+    expect(card.querySelector(".journal-score-badge").textContent).toBe("8.2/10");
+    expect(card.querySelector(".journal-score-breakdown").textContent).toContain("Grammar 7.4/10");
+    expect(card.querySelector(".journal-score-breakdown").textContent).toContain("Smoothness 9.0/10");
+    expect(card.textContent).toContain("Reads mostly naturally");
+    expect(card.querySelector(".journal-smoothness-note").textContent).toContain("a potential US client");
+    // The grammar corrections still render exactly as before — the AI
+    // judge is additive, not a replacement.
+    expect(card.querySelectorAll(".journal-correction-row")).toHaveLength(2);
+  });
+
+  it("falls back to grammar-only scoring when no API key is configured — no breakdown line, no smoothness section", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    expect(window.AIJudge.hasApiKey()).toBe(false);
+    stubGrading(window, TWO_ERROR_RESULT);
+    await openJournalTab(document);
+
+    document.getElementById("journalBodyInput").value = "He go to the market to recieve his order.";
+    document.getElementById("journalSaveBtn").click();
+    await wait(20);
+
+    expect(hooks.journalData[0].grading.score).toBe(7.4);
+    expect(hooks.journalData[0].grading.smoothnessScore).toBeNull();
+    const card = document.querySelector("#journalList .journal-card");
+    expect(card.querySelector(".journal-score-breakdown")).toBeNull();
+    expect(card.querySelector(".journal-smoothness-note")).toBeNull();
+  });
+
+  it("keeps the grammar-only score and shows a failure note when a key IS configured but the AI check fails", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.AIJudge.setApiKey("sk-ant-bad-key");
+    stubGrading(window, TWO_ERROR_RESULT);
+    stubSmoothness(window, { ok: false, reason: "invalid-key" });
+    await openJournalTab(document);
+
+    document.getElementById("journalBodyInput").value = "He go to the market to recieve his order.";
+    document.getElementById("journalSaveBtn").click();
+    await wait(20);
+
+    expect(hooks.journalData[0].grading.score).toBe(7.4);
+    expect(hooks.journalData[0].grading.smoothnessScore).toBeNull();
+    const card = document.querySelector("#journalList .journal-card");
+    expect(card.querySelector(".journal-score-breakdown").textContent).toContain("AI smoothness check failed (invalid-key)");
   });
 });
 
