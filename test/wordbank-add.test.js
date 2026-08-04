@@ -397,3 +397,135 @@ describe("Word Bank — Tagalog → English Edit/Delete (owner-gated)", () => {
     expect(hooks.tagalogEnglishData.some((e) => e.tagalog === "tiyaga")).toBe(false);
   });
 });
+
+// Basic → Advanced and Tagalog → English are "pairing word" categories,
+// same as Distinctions Words — one favorite star per PAIR (not one per
+// word), saved under the pair's own unique key (entry.basic / entry.tagalog).
+// See test/distinctions-words.test.js for the equivalent Distinctions
+// Words coverage this mirrors.
+describe("Word Bank — Basic → Advanced favorites (one star per PAIR)", () => {
+  function seed(hooks) {
+    hooks.addBasicAdvancedEntry({
+      basic: "happy", advanced: "elated",
+      basicDef: "(adjective) Feeling or showing pleasure.", basicExamples: ["I am happy today."],
+      advancedDef: "(adjective) Extremely happy.", advancedExamples: ["She was elated by the news."]
+    }, { persist: false });
+  }
+
+  it("shows exactly ONE ☆ star for the whole pair, not one per word", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+
+    expect(document.querySelectorAll("#basicAdvancedEntry .fav-toggle")).toHaveLength(1);
+  });
+
+  it("favoriting saves the pair under its own key (entry.basic), not the advanced word's own spelling", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+
+    document.querySelector("#basicAdvancedEntry .fav-toggle").click();
+
+    expect(hooks.favoriteKeys.has("happy")).toBe(true);
+    expect(hooks.favoriteKeys.has("elated")).toBe(false);
+  });
+
+  it("resolveFavoriteEntryData() resolves BOTH words' own definition/examples from the pair's key", async () => {
+    const { hooks } = await loadApp();
+    seed(hooks);
+    const data = hooks.resolveFavoriteEntryData({ word: "happy", cat: "Basic → Advanced" });
+    expect(data.word).toBe("happy");
+    expect(data.meanings[0].use).toContain("pleasure");
+    expect(data.pairWord).toBe("elated");
+    expect(data.pairMeanings[0].use).toContain("Extremely happy");
+    expect(data.divider).toBe("→");
+  });
+
+  it("resolveFavoriteEntryData() also resolves correctly when queried by the advanced word alone (Practice's 'All Available Content' source)", async () => {
+    const { hooks } = await loadApp();
+    seed(hooks);
+    const data = hooks.resolveFavoriteEntryData({ word: "elated", cat: "Basic → Advanced" });
+    expect(data.word).toBe("elated");
+    expect(data.pairWord).toBe("happy");
+  });
+
+  it("isPairedFavorite() identifies a Basic → Advanced favorite as paired", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.isPairedFavorite({ cat: "Basic → Advanced" })).toBe(true);
+  });
+
+  it("shows up as ONE row in the Favorites tab labeled 'happy → elated'", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
+    document.querySelector("#basicAdvancedEntry .fav-toggle").click();
+
+    document.querySelector('.thumb-tab[data-tab="favorites"]').click();
+    await wait();
+
+    const rows = Array.from(document.querySelectorAll("#favoritesList .search-result-item"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].querySelector(".label").textContent).toBe("happy → elated");
+  });
+});
+
+describe("Word Bank — Tagalog → English favorites (one star per PAIR)", () => {
+  function seed(hooks) {
+    hooks.addTagalogEnglishEntry({
+      tagalog: "tiyaga", english: "perseverance",
+      tagalogDef: "Katatagan ng loob.", tagalogExamples: ["Kailangan ng tiyaga."],
+      englishDef: "Continued effort.", englishExamples: ["Perseverance pays off."]
+    }, { persist: false });
+  }
+
+  it("shows exactly ONE ☆ star for the whole pair, not one per word", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderTagalogEnglishPair(hooks.tagalogEnglishData[0]);
+
+    expect(document.querySelectorAll("#tagalogEnglishEntry .fav-toggle")).toHaveLength(1);
+  });
+
+  it("favoriting saves the pair under its own key (entry.tagalog), not the English word's own spelling", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderTagalogEnglishPair(hooks.tagalogEnglishData[0]);
+
+    document.querySelector("#tagalogEnglishEntry .fav-toggle").click();
+
+    expect(hooks.favoriteKeys.has("tiyaga")).toBe(true);
+    expect(hooks.favoriteKeys.has("perseverance")).toBe(false);
+  });
+
+  it("resolveFavoriteEntryData() resolves BOTH words' own definition/examples from the pair's key", async () => {
+    const { hooks } = await loadApp();
+    seed(hooks);
+    const data = hooks.resolveFavoriteEntryData({ word: "tiyaga", cat: "Tagalog → English" });
+    expect(data.word).toBe("tiyaga");
+    expect(data.meanings[0].use).toBe("Katatagan ng loob.");
+    expect(data.pairWord).toBe("perseverance");
+    expect(data.pairMeanings[0].use).toBe("Continued effort.");
+    expect(data.divider).toBe("→");
+  });
+
+  it("shows up as ONE row in the Favorites tab labeled 'tiyaga → perseverance'", async () => {
+    const { window, hooks } = await loadApp();
+    seed(hooks);
+    const document = window.document;
+    hooks.renderTagalogEnglishPair(hooks.tagalogEnglishData[0]);
+    document.querySelector("#tagalogEnglishEntry .fav-toggle").click();
+
+    document.querySelector('.thumb-tab[data-tab="favorites"]').click();
+    await wait();
+
+    const rows = Array.from(document.querySelectorAll("#favoritesList .search-result-item"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].querySelector(".label").textContent).toBe("tiyaga → perseverance");
+  });
+});
