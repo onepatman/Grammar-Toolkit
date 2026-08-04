@@ -1093,14 +1093,20 @@
     border:1.5px dashed var(--teal);
   }
   .quick-add-box input, .quick-add-box textarea,
-  .entry input, .entry textarea, .entry select{
+  .entry input, .entry textarea, .entry select,
+  .note-card-editing input, .note-card-editing textarea,
+  .journal-card-editing input, .journal-card-editing textarea,
+  #notesSearchInput, #journalSearchInput{
     width:100%; box-sizing:border-box; margin-bottom:8px;
     border:1.5px solid var(--rule); border-radius:8px; padding:9px 12px;
     font-family:'IBM Plex Sans', sans-serif; font-size:13.5px; color:var(--ink);
     background:var(--paper); resize:vertical;
   }
   .quick-add-box input:focus, .quick-add-box textarea:focus,
-  .entry input:focus, .entry textarea:focus, .entry select:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  .entry input:focus, .entry textarea:focus, .entry select:focus,
+  .note-card-editing input:focus, .note-card-editing textarea:focus,
+  .journal-card-editing input:focus, .journal-card-editing textarea:focus,
+  #notesSearchInput:focus, #journalSearchInput:focus{ outline:2px solid var(--gold); outline-offset:1px; }
   .add-btn{
     width:100%; border:none; border-radius:8px; padding:10px 12px;
     background:var(--teal-deep); color:#fff; font-weight:600; font-size:13.5px;
@@ -38383,11 +38389,42 @@ async function gradeJournalEntry(id){
   refreshJournalUI();
 }
 
+// Grading only ever gets PERSISTED once it finishes (graded/unavailable)
+// — the "checking" transition is deliberately in-memory-only (see
+// gradeJournalEntry above), since persisting every intermediate state
+// isn't worth the extra write. That means an entry whose grading was
+// interrupted mid-flight (the app closed or reloaded before the fetch
+// resolved) reloads with whatever was last actually saved — "pending",
+// or an earlier "checking" that never got followed up — and nothing
+// else would ever retry it on its own. Called after both restoring
+// from IndexedDB and reconciling a remote sync snapshot, so a saved
+// entry always ends up either graded or clearly marked "unavailable"
+// (with its own Retry button) within one page load, instead of sitting
+// invisible forever (see journalScoreBadgeHtml's "pending"/"checking"
+// branches — neither renders a score or a way to retry on its own).
+function resumeIncompleteJournalGrading(){
+  journalData.forEach(entry=>{
+    if(entry.grading && (entry.grading.status === "pending" || entry.grading.status === "checking")){
+      gradeJournalEntry(entry.id);
+    }
+  });
+}
+
 function journalScoreBadgeHtml(grading){
   if(grading.status === "checking") return `<span class="journal-grading-note">⏳ Checking your grammar…</span>`;
   if(grading.status === "unavailable"){
     return `<span class="journal-grading-note">Grammar check unavailable right now${grading.reason === "offline" ? " (you're offline)" : ""}.</span>
       <button class="journal-retry-btn" data-id="${grading.__entryId || ""}">🔄 Retry</button>`;
+  }
+  // "pending" — the grammar check for this entry never actually
+  // finished (e.g. the app was closed/reloaded mid-check before the
+  // result got persisted). resumeIncompleteJournalGrading() already
+  // re-triggers this automatically on load/sync, but this button is a
+  // visible fallback so the entry is never silently stuck with no way
+  // to grade it manually.
+  if(grading.status === "pending"){
+    return `<span class="journal-grading-note">Grammar check hasn't run for this entry yet.</span>
+      <button class="journal-retry-btn" data-id="${grading.__entryId || ""}">🔄 Check grammar now</button>`;
   }
   if(grading.status !== "graded") return "";
   const tier = grading.grade ? grading.grade.tier : "fair";
@@ -38538,6 +38575,7 @@ function applyRemoteJournal(remote){
     }
   });
 
+  resumeIncompleteJournalGrading();
   refreshJournalUI();
 }
 
@@ -41271,6 +41309,7 @@ const notesCacheRestorePromise = VocabCache.getAllNotes({dbPromise: vocabDbPromi
 
 const journalCacheRestorePromise = VocabCache.getAllJournalEntries({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addJournalEntry(entry, {persist:false}));
+  resumeIncompleteJournalGrading();
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 // Thin wrappers over addLanguageBankEntry() for the 6 standalone rule
@@ -47175,6 +47214,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   journalData, addJournalEntry, deleteJournalEntry, renderJournalTab, refreshJournalUI,
   getFilteredJournal, collectJournalForSync, applyRemoteJournal,
   journalCacheRestorePromise, generateJournalId, gradeJournalEntry,
+  resumeIncompleteJournalGrading,
   addJournalCorrectionsToFixes, formatJournalTimestamp,
   getJournalSearchQuery: ()=> journalSearchQuery,
   setJournalSearchQuery: (v)=>{ journalSearchQuery = v; },

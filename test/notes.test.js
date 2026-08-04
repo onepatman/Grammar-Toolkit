@@ -353,3 +353,19 @@ describe("Research Notes cross-device sync", () => {
     expect(hooks.notesData[0].title).toBe("untouched");
   });
 });
+
+describe("Research Notes tab — layout consistency (search box and Edit form match the Add box, not a tiny default)", () => {
+  it("the search input and the Edit form's title/body fields are full-width like every other input in the app, not the browser's tiny default", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addNoteEntry({ title: "t", body: "b" }, { persist: true });
+    await openNotesTab(document);
+
+    expect(window.getComputedStyle(document.getElementById("notesSearchInput")).width).toBe("100%");
+
+    document.querySelector("#notesList .note-edit-btn").click();
+    const editCard = document.querySelector("#notesList .note-card-editing");
+    expect(window.getComputedStyle(editCard.querySelector(".note-edit-title")).width).toBe("100%");
+    expect(window.getComputedStyle(editCard.querySelector(".note-edit-body")).width).toBe("100%");
+  });
+});
