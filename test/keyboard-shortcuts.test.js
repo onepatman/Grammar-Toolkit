@@ -4,10 +4,11 @@
 //   ArrowRight -> the bottom "Next ›" button (pure list-order cycling
 //                 of whichever panel is currently on screen)
 //   ArrowLeft  -> the bottom "‹ Previous" button
-//   ArrowDown  -> the small top "‹" button (Back through the universal
-//                 searchHistory stack — see test/search-history.test.js)
-//   ArrowUp    -> the small top "›" button (Forward through that same
-//                 stack)
+//   ArrowUp/ArrowDown are deliberately NOT intercepted — they used to
+//                 walk the top Back/Forward searchHistory stack, but
+//                 that shadowed the far more expected use of those
+//                 keys: scrolling the page. Left completely alone now,
+//                 so native scroll applies.
 // The handler is a single document-level keydown listener (see the
 // block right after the shared .nav-btn click handler in index.html)
 // that finds whichever matching button is actually visible and clicks
@@ -76,7 +77,7 @@ describe("Arrow-key hotkeys — bottom pair (Next/Previous, pure list-order cycl
   });
 });
 
-describe("Arrow-key hotkeys — top pair (Back/Forward through the universal history)", () => {
+describe("Arrow-key hotkeys — Up/Down are left alone for native page scroll", () => {
   function search(window, word, catHint) {
     const document = window.document;
     const input = document.getElementById("globalSearch");
@@ -88,32 +89,42 @@ describe("Arrow-key hotkeys — top pair (Back/Forward through the universal his
     item.click();
   }
 
-  it("ArrowDown steps Back the same as clicking the small top ‹ button", async () => {
+  it("ArrowDown no longer walks the Back/Forward history — nothing changes, nothing is prevented", async () => {
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
     search(window, "between", "Preposition");
     expect(activeTab(document)).toBe("preps");
 
-    pressKey(window, "ArrowDown");
+    const event = pressKey(window, "ArrowDown");
 
-    expect(activeTab(document)).toBe("vocab");
-    expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
+    expect(activeTab(document)).toBe("preps");
+    expect(event.defaultPrevented).toBe(false);
   });
 
-  it("ArrowUp steps Forward the same as clicking the small top › button", async () => {
+  it("ArrowUp no longer walks the Back/Forward history — nothing changes, nothing is prevented", async () => {
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
     search(window, "between", "Preposition");
 
-    pressKey(window, "ArrowDown"); // Back to abandon
-    expect(activeTab(document)).toBe("vocab");
-
-    pressKey(window, "ArrowUp"); // Forward to between again
+    const event = pressKey(window, "ArrowUp");
 
     expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("leaves ArrowUp/ArrowDown alone even while a text input has focus", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    const input = document.getElementById("globalSearch");
+    input.focus();
+
+    const downEvent = pressKey(window, "ArrowDown");
+    const upEvent = pressKey(window, "ArrowUp");
+
+    expect(downEvent.defaultPrevented).toBe(false);
+    expect(upEvent.defaultPrevented).toBe(false);
   });
 });
 
@@ -333,15 +344,94 @@ describe("Escape hotkey — clears the currently focused typing box", () => {
   });
 });
 
-describe("Tab key — native browser focus-cycling is left untouched", () => {
-  it("nothing in the app intercepts Tab or prevents its default behavior", async () => {
+describe("Tab key — confined to the typing boxes inside the current .quick-add-box", () => {
+  it("cycles Wrong → Right → Why → (wraps back to) Wrong inside 'Add a correction example', skipping buttons", async () => {
     const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="mistakes"]').click();
+    const wrong = document.getElementById("qaWrongInput");
+    const right = document.getElementById("qaRightInput");
+    const why = document.getElementById("qaWhyInput");
+
+    wrong.focus();
+    let event = pressKey(window, "Tab");
+    expect(document.activeElement).toBe(right);
+    expect(event.defaultPrevented).toBe(true);
+
+    event = pressKey(window, "Tab");
+    expect(document.activeElement).toBe(why);
+
+    event = pressKey(window, "Tab");
+    expect(document.activeElement).toBe(wrong); // wraps around, never reaching qaAddBtn
+  });
+
+  it("Shift+Tab cycles backward, wrapping from the first field to the last", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="mistakes"]').click();
+    const wrong = document.getElementById("qaWrongInput");
+    const why = document.getElementById("qaWhyInput");
+
+    wrong.focus();
+    pressKey(window, "Tab", { shiftKey: true });
+
+    expect(document.activeElement).toBe(why);
+  });
+
+  it("includes a freshly added '+ Add another example' row in the cycle immediately", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="mistakes"]').click();
+    document.getElementById("qaAddExampleRowBtn").click();
+
+    const rows = Array.from(document.querySelectorAll("#qaExampleRows .correction-example-row"));
+    expect(rows).toHaveLength(2);
+    const secondWrong = rows[1].querySelector(".correction-wrong-input");
+    const secondRight = rows[1].querySelector(".correction-right-input");
+
+    document.getElementById("qaRightInput").focus(); // end of the first (original) row
+    pressKey(window, "Tab");
+    expect(document.activeElement).toBe(secondWrong);
+
+    pressKey(window, "Tab");
+    expect(document.activeElement).toBe(secondRight);
+
+    pressKey(window, "Tab"); // continues on to Why, not straight to a button
+    expect(document.activeElement).toBe(document.getElementById("qaWhyInput"));
+  });
+
+  it("does nothing when focus isn't on a typing box inside a .quick-add-box, leaving native Tab order alone", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("globalSearch").focus();
+
     const event = pressKey(window, "Tab");
-    // No custom handler exists for Tab (see index.html's keydown
-    // listeners) — the browser's own native focus order handles moving
-    // between the wrong/right/why fields in an "Add a correction" box,
-    // so all this hotkey layer has to do is stay out of the way.
+
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("does nothing while a button inside the box has focus, since only typing boxes are cycled", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("qaAddBtn").focus();
+
+    const event = pressKey(window, "Tab");
+
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("operates on whichever .quick-add-box the user is typing in, not a hardcoded one", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    document.querySelector('#wordBankCategorySeg button[data-val="tagalogEnglish"]').click();
+    const tagalog = document.getElementById("tagalogEnglishAddTagalogInput");
+    const english = document.getElementById("tagalogEnglishAddEnglishInput");
+
+    tagalog.focus();
+    pressKey(window, "Tab");
+
+    expect(document.activeElement).toBe(english);
   });
 });
 
