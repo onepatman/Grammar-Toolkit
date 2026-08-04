@@ -21,7 +21,11 @@
      testability, the same seam fetchOnlineDefinition uses.
    - The 0-10 "clarity score" is a simple, transparent error-density
      heuristic (see scoreFromDensity) — a rough practice-progress
-     signal, not a claim of linguistic accuracy.
+     signal, not a claim of linguistic accuracy. Its inputs come from
+     LanguageTool's "picky" checking level (see checkText), which
+     covers wordiness/redundancy/register/phrasing issues on top of
+     hard grammar and spelling mistakes, so a technically-correct but
+     awkward sentence still costs points.
 ========================================================= */
 (function (root, factory) {
   var mod = factory();
@@ -98,7 +102,14 @@
     var fetchImpl = opts.fetchImpl || (typeof fetch !== "undefined" ? fetch : null);
     if (!fetchImpl) return Promise.resolve({ ok: false, reason: "no-fetch" });
 
-    var body = "text=" + encodeURIComponent(trimmed) + "&language=" + encodeURIComponent(opts.language || "en-US");
+    // "picky" (rather than LanguageTool's "default" level) additionally
+    // flags wordiness, redundancy, register, and other style/phrasing
+    // issues — not just hard grammar/spelling mistakes — so the score
+    // reflects how smoothly the writing reads, not only whether it's
+    // technically grammatical.
+    var body = "text=" + encodeURIComponent(trimmed)
+      + "&language=" + encodeURIComponent(opts.language || "en-US")
+      + "&level=" + encodeURIComponent(opts.level || "picky");
 
     return fetchImpl(API_URL, {
       method: "POST",
