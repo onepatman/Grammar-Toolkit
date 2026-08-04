@@ -225,6 +225,68 @@ describe("English Journal tab — automatic grammar grading", () => {
     expect(card.querySelector(".journal-score-badge").textContent).toBe("10.0/10");
     expect(hooks.journalData[0].grading.status).toBe("graded");
   });
+
+  it("an entry whose grading never ran (status 'pending') shows a manual 'Check grammar now' button instead of nothing, and clicking it grades it", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addJournalEntry({ title: "never checked", body: "He go to the market.", grading: { status: "pending" } }, { persist: true });
+    await openJournalTab(document);
+    stubGrading(window, TWO_ERROR_RESULT);
+
+    let card = document.querySelector("#journalList .journal-card");
+    expect(card.querySelector(".journal-score-badge")).toBeNull();
+    expect(card.textContent).toContain("hasn't run for this entry yet");
+    const btn = card.querySelector(".journal-retry-btn");
+    expect(btn.textContent).toContain("Check grammar now");
+
+    btn.click();
+    await wait(20);
+    card = document.querySelector("#journalList .journal-card");
+    expect(card.querySelector(".journal-score-badge").textContent).toBe("7.4/10");
+  });
+
+  it("resumeIncompleteJournalGrading() re-checks every entry stuck at 'pending' or 'checking', leaving already-graded entries untouched", async () => {
+    const { window, hooks } = await loadApp();
+    stubGrading(window, TWO_ERROR_RESULT);
+    hooks.addJournalEntry({ id: "j1", title: "a", body: "He go home.", grading: { status: "pending" } }, { persist: true });
+    hooks.addJournalEntry({ id: "j2", title: "b", body: "She go too.", grading: { status: "checking" } }, { persist: true });
+    hooks.addJournalEntry({ id: "j3", title: "c", body: "All good here.", grading: PERFECT_RESULT }, { persist: true });
+
+    hooks.resumeIncompleteJournalGrading();
+    await wait(20);
+
+    expect(hooks.journalData.find((j) => j.id === "j1").grading.status).toBe("graded");
+    expect(hooks.journalData.find((j) => j.id === "j2").grading.status).toBe("graded");
+    // The already-graded entry is left untouched — resuming shouldn't
+    // re-run a grammar check that already finished.
+    expect(hooks.journalData.find((j) => j.id === "j3").grading.score).toBe(10);
+  });
+
+  it("an entry whose grammar check was interrupted before finishing (still 'pending' in IndexedDB) automatically resumes on the next app load", async () => {
+    const indexedDBFactory = new IDBFactory();
+    const first = await loadApp({ indexedDBFactory });
+    // Simulates the app closing/reloading before gradeJournalEntry's
+    // fetch ever resolved — only the initial "pending" write ever made
+    // it to IndexedDB (see gradeJournalEntry: "checking" is in-memory
+    // only until the check finishes).
+    first.hooks.addJournalEntry({ title: "interrupted", body: "He go to the market.", grading: { status: "pending" } }, { persist: true });
+    await wait(50);
+
+    // journalCacheRestorePromise (and the auto-resume it triggers) can
+    // already be settled by the time loadApp() itself resolves — it
+    // isn't one of the promises loadApp() explicitly waits on — so
+    // rather than race a stub against that, this asserts the actual
+    // regression: the entry must land on SOME terminal, visible state
+    // (graded or unavailable-with-Retry) instead of staying "pending"
+    // forever with nothing shown, regardless of whether a real fetch
+    // was available in this environment.
+    const { window, hooks } = await loadApp({ indexedDBFactory });
+    await hooks.journalCacheRestorePromise;
+    await wait(20);
+
+    const restored = hooks.journalData.find((j) => j.title === "interrupted");
+    expect(["graded", "unavailable"]).toContain(restored.grading.status);
+  });
 });
 
 describe("English Journal tab — connecting corrections to the app's shared correction log", () => {
@@ -525,5 +587,21 @@ describe("English Journal cross-device sync", () => {
     hooks.applyRemoteJournal(undefined);
     expect(hooks.journalData).toHaveLength(1);
     expect(hooks.journalData[0].title).toBe("untouched");
+  });
+});
+
+describe("English Journal tab — layout consistency (search box and Edit form match the Add box, not a tiny default)", () => {
+  it("the search input and the Edit form's title/body fields are full-width like every other input in the app, not the browser's tiny default", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addJournalEntry({ title: "t", body: "b", grading: { status: "pending" } }, { persist: true });
+    await openJournalTab(document);
+
+    expect(window.getComputedStyle(document.getElementById("journalSearchInput")).width).toBe("100%");
+
+    document.querySelector("#journalList .journal-edit-btn").click();
+    const editCard = document.querySelector("#journalList .journal-card-editing");
+    expect(window.getComputedStyle(editCard.querySelector(".journal-edit-title")).width).toBe("100%");
+    expect(window.getComputedStyle(editCard.querySelector(".journal-edit-body")).width).toBe("100%");
   });
 });
