@@ -58,6 +58,14 @@
                         store is user data, reconciled the same
                         remote-is-authoritative way favorites are (see
                         applyRemoteNotes in index.html).
+     - journalEntries:  English Journal — free-write practice entries
+                        (title + body), timestamped, auto-graded for
+                        grammar via js/grammar-check.js after saving.
+                        Same generated-id keying and same
+                        remote-is-authoritative sync reconciliation as
+                        notesEntries above (see applyRemoteJournal in
+                        index.html); the only extra field is `grading`,
+                        the last grammar-check result for that entry.
 
    Loaded as a plain browser <script> (attaches window.VocabCache) and
    as a CommonJS module for tests (module.exports). No build step, no
@@ -93,7 +101,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 15;
+  var DB_VERSION = 16;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -117,6 +125,7 @@
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
   var NOTES_STORE = "notesEntries";
+  var JOURNAL_STORE = "journalEntries";
   // Tracks built-in vocabData seed words the Owner has deleted, so the
   // deletion survives a reload (the hardcoded seed array itself never
   // changes) instead of the word silently reappearing. Records are just
@@ -195,6 +204,9 @@
         }
         if (!db.objectStoreNames.contains(NOTES_STORE)) {
           db.createObjectStore(NOTES_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(JOURNAL_STORE)) {
+          db.createObjectStore(JOURNAL_STORE, { keyPath: "key" });
         }
         if (!db.objectStoreNames.contains(DELETED_SEED_STORE)) {
           db.createObjectStore(DELETED_SEED_STORE, { keyPath: "key" });
@@ -480,6 +492,19 @@
   }
   function getAllNotes(options) { return getAllEntries(NOTES_STORE, options); }
   function deleteNote(id, options) { return deleteEntry(NOTES_STORE, id, options); }
+
+  /* ---------- journalEntries (English Journal — free-write practice
+     entries, see the file-header comment above) ----------
+     Same generic { key, entry } shape, keyed on entry.id, same as
+     notesEntries above. */
+
+  function getJournalEntry(id, options) { return storeGet(JOURNAL_STORE, normalizeKey(id), options).then(function (row) { return row ? row.entry : undefined; }); }
+  function putJournalEntry(entry, options) {
+    if (!entry || !entry.id) return Promise.resolve(false);
+    return storePut(JOURNAL_STORE, { key: normalizeKey(entry.id), entry: entry }, options);
+  }
+  function getAllJournalEntries(options) { return getAllEntries(JOURNAL_STORE, options); }
+  function deleteJournalEntry(id, options) { return deleteEntry(JOURNAL_STORE, id, options); }
 
   /* ---------- deletedSeedWords (tombstones for deleted built-in
      vocabData words — see DELETED_SEED_STORE above) ---------- */
@@ -773,6 +798,11 @@
     putNote: putNote,
     getAllNotes: getAllNotes,
     deleteNote: deleteNote,
+    JOURNAL_STORE: JOURNAL_STORE,
+    getJournalEntry: getJournalEntry,
+    putJournalEntry: putJournalEntry,
+    getAllJournalEntries: getAllJournalEntries,
+    deleteJournalEntry: deleteJournalEntry,
     DELETED_SEED_STORE: DELETED_SEED_STORE,
     addDeletedSeedWord: addDeletedSeedWord,
     removeDeletedSeedWord: removeDeletedSeedWord,
