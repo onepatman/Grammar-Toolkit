@@ -573,6 +573,65 @@
   }
   .note-card-actions .note-delete-btn{ color:var(--brick); border-color:var(--brick-border); }
 
+  /* English Journal tab — reuses .notes-list for the outer layout, but
+     each card gets its own class (journal-card, not note-card) since a
+     journal entry additionally carries a grading block (score, grade
+     label, and a wrong/why/correct row per issue LanguageTool found —
+     see js/grammar-check.js and renderJournalCardHtml). */
+  .journal-word-count{ font-size:11.5px; color:var(--ink-soft); margin:-2px 0 8px; text-align:right; }
+  .journal-card{
+    border:1px solid var(--rule); border-radius:var(--radius);
+    background:var(--card); padding:12px 14px;
+  }
+  .journal-card-header{
+    display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .journal-card-title{ font-weight:700; color:var(--teal-deep); font-size:15px; }
+  .journal-card-date{
+    font-size:11.5px; color:var(--ink-soft); white-space:nowrap;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .journal-card-body{
+    margin-top:8px; font-size:13.5px; line-height:1.6; color:var(--ink);
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .journal-card-actions{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .journal-card-actions button{
+    font-family:'IBM Plex Sans', sans-serif; font-size:12px; padding:5px 10px;
+    border-radius:6px; border:1px solid var(--rule); background:var(--paper); color:var(--ink); cursor:pointer;
+  }
+  .journal-card-actions .journal-delete-btn{ color:var(--brick); border-color:var(--brick-border); }
+  .journal-card-actions .journal-add-fixes-btn{ color:var(--teal-deep); border-color:var(--teal-deep); }
+  .journal-card-actions .journal-add-fixes-btn:disabled{
+    color:var(--ink-soft); border-color:var(--rule); cursor:default;
+  }
+
+  .journal-grading{ margin-top:12px; padding-top:12px; border-top:1.5px dashed var(--rule); }
+  .journal-grading-header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .journal-score-badge{
+    font-family:'IBM Plex Mono', monospace; font-weight:800; font-size:14.5px;
+    padding:4px 11px; border-radius:999px; white-space:nowrap;
+  }
+  .journal-score-badge.excellent{ background:var(--mint-bg); color:var(--mint); border:1px solid var(--mint-border); }
+  .journal-score-badge.good{ background:var(--sky-bg); color:var(--sky-deep); border:1px solid var(--sky-border); }
+  .journal-score-badge.fair{ background:var(--warn-bg); color:var(--warn-text); border:1px solid var(--warn-border); }
+  .journal-score-badge.needs-practice{ background:var(--brick-bg); color:var(--brick); border:1px solid var(--brick-border); }
+  .journal-grade-label{ font-weight:600; font-size:12.5px; color:var(--ink-soft); }
+  .journal-grading-note{ font-size:12.5px; color:var(--ink-soft); font-style:italic; }
+  .journal-corrections{ display:flex; flex-direction:column; gap:8px; }
+  .journal-correction-row{
+    border-left:3px solid var(--brick); background:var(--brick-bg);
+    border-radius:0 8px 8px 0; padding:8px 12px;
+  }
+  .journal-correction-fix{ font-size:13px; }
+  .journal-correction-wrong{ color:var(--brick); text-decoration:line-through; }
+  .journal-correction-right{ color:var(--mint); font-weight:700; }
+  .journal-correction-why{ font-size:12px; color:var(--ink-soft); margin-top:3px; line-height:1.45; }
+  .journal-perfect-row{
+    border-left:3px solid var(--mint); background:var(--mint-bg);
+    border-radius:0 8px 8px 0; padding:8px 12px; font-size:13px; color:var(--mint); font-weight:600;
+  }
+
   /* ---------- Progress Dashboard tab (the app's default/landing tab) ----------
      Every chart here is plain DOM (divs, not <canvas>) — bar heights come from
      inline style percentages and calendar-cell shading from inline
@@ -1298,6 +1357,7 @@
     <button class="thumb-tab active" data-tab="dashboard">Dashboard<span class="n">📊</span></button>
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
     <button class="thumb-tab" data-tab="notes">Notes<span class="n">📓</span></button>
+    <button class="thumb-tab" data-tab="journal">Journal<span class="n">🖊️</span></button>
     <button class="thumb-tab" data-tab="practice">Practice<span class="n">📝</span></button>
     <button class="thumb-tab" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
@@ -1879,6 +1939,23 @@
     <div id="notesList" class="notes-list"></div>
   </section>
 
+  <!-- ===== ENGLISH JOURNAL PANEL ===== -->
+  <section id="panel-journal" style="display:none;">
+    <p class="note" style="margin-bottom:10px;">Practice writing in English. Save an entry and it's automatically checked for grammar — your score, and any corrections with a plain explanation of why, appear right below it. Unlimited entries.</p>
+
+    <div class="quick-add-box owner-only" id="journalAddBox">
+      <div class="section-label">🖊️ Write a new journal entry</div>
+      <input type="text" id="journalTitleInput" placeholder="Title (optional, e.g. 'My weekend')" />
+      <textarea id="journalBodyInput" rows="8" placeholder="Write freely in English. Don't worry about mistakes — that's exactly what this is for..."></textarea>
+      <div id="journalWordCount" class="journal-word-count">0 words</div>
+      <button class="add-btn" id="journalSaveBtn">+ Save &amp; Check Entry</button>
+      <div id="journalAddStatus" class="add-status"></div>
+    </div>
+
+    <input type="text" id="journalSearchInput" placeholder="🔎 Search your journal..." style="margin:14px 0 10px;" />
+    <div id="journalList" class="notes-list"></div>
+  </section>
+
   <!-- ===== PRACTICE PANEL ===== -->
   <section id="panel-practice" style="display:none;">
     <div id="practiceHome">
@@ -2175,6 +2252,7 @@
 
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
+<script src="js/grammar-check.js"></script>
 <script src="js/tagalog-lookup.js"></script>
 <script src="js/lookup-service.js"></script>
 <script src="js/duplicate-checker.js"></script>
@@ -37630,6 +37708,7 @@ async function renderDashboardTab(){
   const tiles = [
     {value: vocabData.length, label: "Vocabulary words"},
     {value: notesData.length, label: "Notes written"},
+    {value: journalData.length, label: "Journal entries"},
     {value: favoriteKeys.size, label: "Favorites"},
     {value: practiceHistory.length, label: "Practice sessions"},
     {value: streak, label: streak === 1 ? "Day streak" : "Day streak"},
@@ -38189,6 +38268,419 @@ document.getElementById("notesList").addEventListener("click", async (e)=>{
       return;
     }
     renderNotesTab();
+  }
+});
+
+/* =========================================================
+   ENGLISH JOURNAL — free-write practice entries (title + body),
+   timestamped on save (date + 12-hour time), then automatically
+   graded for grammar via js/grammar-check.js (LanguageTool's public
+   API). Structurally the closest sibling to RESEARCH NOTES just
+   above — same generated-id keying, same IndexedDB store shape, same
+   remote-is-authoritative sync reconciliation — with one addition:
+   every entry also carries a `grading` block (score + a wrong/why/
+   correct row per issue found), and each correction can optionally
+   be filed into the app's shared personal correction log — the same
+   log the Word Bank tab's "My Correction Log" category and the Fixes
+   tab both draw from (see addJournalCorrectionsToFixes below) — so
+   the SAME mistake found here
+   shows up wherever the Owner already reviews grammar mistakes,
+   instead of living only inside this one tab.
+========================================================= */
+let journalData = [];
+let journalSearchQuery = "";
+
+function generateJournalId(){
+  return "journal_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+// Low-level upsert shared by the Add box, the Edit form, sync
+// reconciliation, and IndexedDB restore-on-load — same role as
+// addNoteEntry above. `grading` defaults to a fresh "not checked yet"
+// block rather than null, so every render call site can assume the
+// field always exists.
+function addJournalEntry(entry, options){
+  const opts = options || {};
+  const now = Date.now();
+  const journalEntry = {
+    id: entry.id || generateJournalId(),
+    title: entry.title || "",
+    body: entry.body,
+    createdAt: entry.createdAt || now,
+    modifiedAt: entry.modifiedAt || entry.createdAt || now,
+    grading: entry.grading || { status: "pending" }
+  };
+  const idx = journalData.findIndex(j=> j.id === journalEntry.id);
+  if(idx === -1) journalData.push(journalEntry);
+  else journalData[idx] = journalEntry;
+  if(opts.persist) VocabCache.putJournalEntry(journalEntry, {dbPromise: vocabDbPromise});
+  return journalEntry;
+}
+
+// Gated behind isDeviceUnlocked() even if called directly, same
+// contract as deleteNoteEntry — a locked device must never lose a
+// journal entry just because a stale click handler somehow still fired.
+async function deleteJournalEntry(id, options){
+  if(!isDeviceUnlocked()) return;
+  const opts = options || {};
+  const idx = journalData.findIndex(j=> j.id === id);
+  if(idx === -1) return;
+  journalData.splice(idx, 1);
+  await VocabCache.deleteJournalEntry(id, {dbPromise: vocabDbPromise});
+  if(!opts.skipSync) await pushToSync(loadPersonalCorrections());
+}
+
+function getFilteredJournal(){
+  const q = journalSearchQuery.trim().toLowerCase();
+  return journalData
+    .filter(j=> !q || j.title.toLowerCase().includes(q) || j.body.toLowerCase().includes(q))
+    .slice()
+    .sort((a, b)=> (b.modifiedAt || 0) - (a.modifiedAt || 0));
+}
+
+// Date + 12-hour time, e.g. "Aug 4, 2026 · 3:45 PM" — what gets
+// recorded the moment an entry is saved (entry.createdAt), shown on
+// every journal card so practice frequency/history is visible at a
+// glance.
+function formatJournalTimestamp(ts){
+  if(!ts) return "";
+  try{
+    const d = new Date(ts);
+    const datePart = d.toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+    const timePart = d.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit", hour12:true});
+    return datePart + " · " + timePart;
+  }catch(e){
+    return "";
+  }
+}
+
+// Runs (or re-runs) the grammar check for one saved entry and persists
+// the result. Always strips the entry body's own <b> markup (added by
+// mdBold on save — see index.html's markdown-bold feature) before
+// sending it to GrammarCheck, so the offsets LanguageTool returns line
+// up with the plain text actually being checked instead of getting
+// thrown off by HTML tags the API never asked to see.
+async function gradeJournalEntry(id){
+  const entry = journalData.find(j=> j.id === id);
+  if(!entry) return;
+  entry.grading = { status: "checking" };
+  refreshJournalUI();
+  const result = await GrammarCheck.checkText(stripHtmlTags(entry.body));
+  if(result.ok){
+    entry.grading = {
+      status: "graded",
+      score: result.score,
+      grade: result.grade,
+      wordCount: result.wordCount,
+      corrections: result.corrections,
+      checkedAt: Date.now(),
+      addedToFixes: false
+    };
+  } else {
+    entry.grading = { status: "unavailable", reason: result.reason, checkedAt: Date.now() };
+  }
+  VocabCache.putJournalEntry(entry, {dbPromise: vocabDbPromise});
+  refreshJournalUI();
+}
+
+function journalScoreBadgeHtml(grading){
+  if(grading.status === "checking") return `<span class="journal-grading-note">⏳ Checking your grammar…</span>`;
+  if(grading.status === "unavailable"){
+    return `<span class="journal-grading-note">Grammar check unavailable right now${grading.reason === "offline" ? " (you're offline)" : ""}.</span>
+      <button class="journal-retry-btn" data-id="${grading.__entryId || ""}">🔄 Retry</button>`;
+  }
+  if(grading.status !== "graded") return "";
+  const tier = grading.grade ? grading.grade.tier : "fair";
+  const label = grading.grade ? grading.grade.label : "";
+  return `<span class="journal-score-badge ${tier}">${grading.score.toFixed(1)}/10</span>
+    <span class="journal-grade-label">${label} · ${grading.wordCount} word${grading.wordCount === 1 ? "" : "s"} checked</span>`;
+}
+
+function journalCorrectionsHtml(entry){
+  const grading = entry.grading;
+  if(grading.status !== "graded") return "";
+  if(!grading.corrections || grading.corrections.length === 0){
+    return `<div class="journal-perfect-row">🎉 No grammar issues found — great job!</div>`;
+  }
+  const rows = grading.corrections.map(c=> `
+    <div class="journal-correction-row">
+      <div class="journal-correction-fix">✗ <span class="journal-correction-wrong">${c.wrong}</span>${c.right ? ` → ✓ <span class="journal-correction-right">${c.right}</span>` : ""}</div>
+      <div class="journal-correction-why">${c.why}</div>
+    </div>`).join("");
+  const addFixesBtn = grading.addedToFixes
+    ? `<button class="journal-add-fixes-btn" disabled>✓ Added to my Correction Log</button>`
+    : `<button class="journal-add-fixes-btn" data-id="${entry.id}">➕ Add these to my Correction Log</button>`;
+  return `<div class="journal-corrections">${rows}</div>
+    <div class="journal-card-actions">${addFixesBtn}</div>`;
+}
+
+function renderJournalCardHtml(entry){
+  // Stash the id on the grading block so journalScoreBadgeHtml's Retry
+  // button (built from grading alone, not the whole entry) can still
+  // find its way back to gradeJournalEntry(id).
+  entry.grading.__entryId = entry.id;
+  const actionsHtml = isDeviceUnlocked() ? `
+    <div class="journal-card-actions">
+      <button class="journal-edit-btn" data-id="${entry.id}">✏️ Edit</button>
+      <button class="journal-delete-btn" data-id="${entry.id}">🗑 Delete</button>
+    </div>` : "";
+  return `
+    <div class="journal-card" data-id="${entry.id}">
+      <div class="journal-card-header">
+        <span class="journal-card-title">${entry.title || "Untitled entry"}</span>
+        <span class="journal-card-date">${formatJournalTimestamp(entry.createdAt)}</span>
+      </div>
+      <div class="journal-card-body">${entry.body}</div>
+      <div class="journal-grading">
+        <div class="journal-grading-header">${journalScoreBadgeHtml(entry.grading)}</div>
+        ${journalCorrectionsHtml(entry)}
+      </div>
+      ${actionsHtml}
+    </div>`;
+}
+
+// Built with document.createElement + .value assignments rather than
+// an innerHTML template string — same reasoning as buildNoteEditCard:
+// a journal entry's title/body is arbitrary Owner-typed text, so it
+// goes into these fields as a real DOM property, not interpolated
+// into markup.
+function buildJournalEditCard(entry){
+  const card = document.createElement("div");
+  card.className = "journal-card journal-card-editing";
+  card.dataset.id = entry.id;
+
+  const label = document.createElement("div");
+  label.className = "section-label";
+  label.textContent = "Editing this entry";
+  card.appendChild(label);
+
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.className = "journal-edit-title";
+  titleInput.placeholder = "Title (optional)";
+  titleInput.value = entry.title;
+  card.appendChild(titleInput);
+
+  const bodyInput = document.createElement("textarea");
+  bodyInput.className = "journal-edit-body";
+  bodyInput.rows = 8;
+  bodyInput.placeholder = "Write freely in English...";
+  bodyInput.value = entry.body;
+  card.appendChild(bodyInput);
+
+  const note = document.createElement("div");
+  note.className = "journal-grading-note";
+  note.textContent = "Saving changes will re-check your grammar.";
+  card.appendChild(note);
+
+  const actions = document.createElement("div");
+  actions.className = "journal-card-actions";
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "journal-save-edit-btn";
+  saveBtn.dataset.id = entry.id;
+  saveBtn.textContent = "💾 Save changes";
+  actions.appendChild(saveBtn);
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "journal-cancel-edit-btn";
+  cancelBtn.textContent = "Cancel";
+  actions.appendChild(cancelBtn);
+  card.appendChild(actions);
+
+  const statusEl = document.createElement("div");
+  statusEl.className = "journal-edit-status add-status";
+  card.appendChild(statusEl);
+
+  return card;
+}
+
+function renderJournalTab(){
+  const container = document.getElementById("journalList");
+  if(!container) return;
+
+  if(journalData.length === 0){
+    container.innerHTML = '<div class="favorites-empty">No journal entries yet — write your first one above.</div>';
+    return;
+  }
+
+  const filtered = getFilteredJournal();
+  if(filtered.length === 0){
+    container.innerHTML = '<div class="favorites-empty">No entries match your search.</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(j=> renderJournalCardHtml(j)).join("");
+}
+
+function refreshJournalUI(){
+  const panel = document.getElementById("panel-journal");
+  if(panel && panel.style.display !== "none") renderJournalTab();
+}
+
+// Every journal entry travels through sync, same reasoning as
+// collectNotesForSync — no built-in seed content to exclude.
+function collectJournalForSync(){
+  return journalData.slice();
+}
+
+// Remote is fully authoritative, same reasoning as applyRemoteNotes.
+function applyRemoteJournal(remote){
+  if(!Array.isArray(remote)) return;
+  const remoteIds = new Set(remote.map(j=> j.id));
+
+  remote.forEach(j=> addJournalEntry(j, {persist:true}));
+
+  journalData.slice().forEach(j=>{
+    if(!remoteIds.has(j.id)){
+      const idx = journalData.findIndex(x=> x.id === j.id);
+      if(idx !== -1) journalData.splice(idx, 1);
+      VocabCache.deleteJournalEntry(j.id, {dbPromise: vocabDbPromise});
+    }
+  });
+
+  refreshJournalUI();
+}
+
+// The one place a Journal correction crosses over into the app's
+// shared personal correction log — reuses the exact {id, why,
+// category, examples} shape setupCorrectionBox already writes (see
+// CorrectionLog.savePersonalCorrections), filed under the same
+// general "my correction log (personal history)" catch-all category
+// every other unclassified personal correction lands in (see
+// CORRECTION_LOG_ENTRY), so it shows up immediately under Word Bank ->
+// My Correction Log — the same place a manually-typed correction from
+// that box would — not in a new category no UI yet points to.
+async function addJournalCorrectionsToFixes(id){
+  if(!isDeviceUnlocked()) return;
+  const entry = journalData.find(j=> j.id === id);
+  if(!entry || !entry.grading || entry.grading.status !== "graded" || entry.grading.addedToFixes) return;
+  const corrections = entry.grading.corrections || [];
+  if(corrections.length === 0) return;
+
+  const existing = loadPersonalCorrections();
+  const newEntries = corrections.map((c, i)=> ({
+    id: "pc_" + Date.now() + "_" + i,
+    why: c.why,
+    category: CORRECTION_LOG_ENTRY.w,
+    examples: [{ wrong: c.wrong, right: c.right || c.wrong }]
+  }));
+  savePersonalCorrections(existing.concat(newEntries));
+  rebuildCorrectionLog();
+  refreshMistakeUI();
+
+  entry.grading.addedToFixes = true;
+  VocabCache.putJournalEntry(entry, {dbPromise: vocabDbPromise});
+  await pushToSync(loadPersonalCorrections());
+  refreshJournalUI();
+}
+
+document.getElementById("journalBodyInput").addEventListener("input", (e)=>{
+  const wordCountEl = document.getElementById("journalWordCount");
+  const count = GrammarCheck.countWords(e.target.value);
+  wordCountEl.textContent = count + (count === 1 ? " word" : " words");
+});
+
+document.getElementById("journalSaveBtn").addEventListener("click", async ()=>{
+  if(!isDeviceUnlocked()) return;
+  const titleInput = document.getElementById("journalTitleInput");
+  const bodyInput = document.getElementById("journalBodyInput");
+  const statusEl = document.getElementById("journalAddStatus");
+  const title = mdBold(titleInput.value.trim());
+  const body = mdBold(bodyInput.value.trim());
+  if(!body){
+    statusEl.textContent = "Please write something before saving.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const saved = addJournalEntry({title, body}, {persist:true});
+  titleInput.value = "";
+  bodyInput.value = "";
+  document.getElementById("journalWordCount").textContent = "0 words";
+  const pushResult = await pushToSync(loadPersonalCorrections());
+  if(!pushResult.ok){
+    statusEl.textContent = "Saved locally, but couldn't sync: " + SyncAuth.friendlyWriteError(pushResult.error);
+    statusEl.className = "add-status error";
+  } else {
+    statusEl.textContent = "✅ Entry saved — checking your grammar now...";
+    statusEl.className = "add-status success";
+  }
+  renderJournalTab();
+  gradeJournalEntry(saved.id);
+});
+bindEnterToClick("journalTitleInput", "journalSaveBtn");
+
+document.getElementById("journalSearchInput").addEventListener("input", (e)=>{
+  journalSearchQuery = e.target.value;
+  renderJournalTab();
+});
+
+// Single delegated listener for the whole list, same reasoning as
+// notesList's — cards are re-created on every render.
+document.getElementById("journalList").addEventListener("click", async (e)=>{
+  const editBtn = e.target.closest(".journal-edit-btn");
+  if(editBtn){
+    if(!isDeviceUnlocked()) return;
+    const entry = journalData.find(j=> j.id === editBtn.dataset.id);
+    if(!entry) return;
+    editBtn.closest(".journal-card").replaceWith(buildJournalEditCard(entry));
+    return;
+  }
+  const deleteBtn = e.target.closest(".journal-delete-btn");
+  if(deleteBtn){
+    if(!isDeviceUnlocked()) return;
+    const entry = journalData.find(j=> j.id === deleteBtn.dataset.id);
+    if(!entry) return;
+    const confirmed = window.confirm ? window.confirm("Delete this journal entry? This can't be undone.") : true;
+    if(!confirmed) return;
+    await deleteJournalEntry(entry.id);
+    renderJournalTab();
+    return;
+  }
+  const cancelBtn = e.target.closest(".journal-cancel-edit-btn");
+  if(cancelBtn){
+    renderJournalTab();
+    return;
+  }
+  const retryBtn = e.target.closest(".journal-retry-btn");
+  if(retryBtn){
+    gradeJournalEntry(retryBtn.dataset.id);
+    return;
+  }
+  const addFixesBtn = e.target.closest(".journal-add-fixes-btn");
+  if(addFixesBtn && !addFixesBtn.disabled){
+    if(!isDeviceUnlocked()) return;
+    await addJournalCorrectionsToFixes(addFixesBtn.dataset.id);
+    return;
+  }
+  const saveBtn = e.target.closest(".journal-save-edit-btn");
+  if(saveBtn){
+    if(!isDeviceUnlocked()) return;
+    const card = saveBtn.closest(".journal-card-editing");
+    const id = saveBtn.dataset.id;
+    const title = mdBold(card.querySelector(".journal-edit-title").value.trim());
+    const body = mdBold(card.querySelector(".journal-edit-body").value.trim());
+    const statusEl = card.querySelector(".journal-edit-status");
+    if(!body){
+      statusEl.textContent = "Please write something before saving.";
+      statusEl.className = "add-status error";
+      return;
+    }
+    const existing = journalData.find(j=> j.id === id);
+    const bodyChanged = existing && existing.body !== body;
+    addJournalEntry({
+      id, title, body,
+      createdAt: existing ? existing.createdAt : Date.now(),
+      modifiedAt: Date.now(),
+      grading: bodyChanged ? { status: "pending" } : (existing ? existing.grading : { status: "pending" })
+    }, {persist:true});
+    const pushResult = await pushToSync(loadPersonalCorrections());
+    if(!pushResult.ok){
+      statusEl.textContent = SyncAuth.friendlyWriteError(pushResult.error);
+      statusEl.className = "add-status error";
+      return;
+    }
+    renderJournalTab();
+    if(bodyChanged) gradeJournalEntry(id);
   }
 });
 
@@ -39498,6 +39990,7 @@ function activateTab(name){
   if(name === "dashboard") renderDashboardTab();
   if(name === "favorites") renderFavoritesTab();
   if(name === "notes") renderNotesTab();
+  if(name === "journal") renderJournalTab();
   if(name === "practice") renderPracticeHome();
 }
 document.querySelectorAll(".thumb-tab").forEach(tab=>{
@@ -40774,6 +41267,10 @@ const distinctionsCacheRestorePromise = VocabCache.getAllDistinctions({dbPromise
 
 const notesCacheRestorePromise = VocabCache.getAllNotes({dbPromise: vocabDbPromise}).then(entries=>{
   entries.forEach(entry=> addNoteEntry(entry, {persist:false}));
+}).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
+
+const journalCacheRestorePromise = VocabCache.getAllJournalEntries({dbPromise: vocabDbPromise}).then(entries=>{
+  entries.forEach(entry=> addJournalEntry(entry, {persist:false}));
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 // Thin wrappers over addLanguageBankEntry() for the 6 standalone rule
@@ -42188,6 +42685,7 @@ function listenToSync(code){
       applyRemoteTagalogEnglish(data.tagalogEnglish);
       applyRemoteFavorites(data.favorites);
       applyRemoteNotes(data.notes);
+      applyRemoteJournal(data.journal);
 
       // Backfill: a shared doc created before Word Bank sync existed has
       // no basicAdvanced/tagalogEnglish field at ALL (not even an empty
@@ -42228,6 +42726,7 @@ function listenToSync(code){
         tagalogEnglish: collectOnlineTagalogEnglish(),
         favorites: collectFavoritesForSync(),
         notes: collectNotesForSync(),
+        journal: collectJournalForSync(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }).catch((e)=> console.warn("Sync seed failed:", e));
     }
@@ -42282,6 +42781,7 @@ function pushToSync(entries){
     tagalogEnglish: collectOnlineTagalogEnglish(),
     favorites: collectFavoritesForSync(),
     notes: collectNotesForSync(),
+    journal: collectJournalForSync(),
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).then(()=> ({ok:true})).catch((e)=>{
     console.warn("Sync push failed:", e);
@@ -46541,6 +47041,7 @@ document.addEventListener("click", (e)=>{
 // regardless of this initial call.
 Promise.all([
   vocabCacheRestorePromise, distinctionsCacheRestorePromise, notesCacheRestorePromise,
+  journalCacheRestorePromise,
   favoritesCacheRestorePromise, ruleTabsCacheRestorePromise,
   phrasalCacheRestorePromise, idiomsCacheRestorePromise, sentencesCacheRestorePromise,
   patternsCacheRestorePromise, technicalCacheRestorePromise, phraseTemplatesCacheRestorePromise
@@ -46671,6 +47172,12 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   setNotesSearchQuery: (v)=>{ notesSearchQuery = v; },
   getNotesFilterTag: ()=> notesFilterTag,
   setNotesFilterTag: (v)=>{ notesFilterTag = v; },
+  journalData, addJournalEntry, deleteJournalEntry, renderJournalTab, refreshJournalUI,
+  getFilteredJournal, collectJournalForSync, applyRemoteJournal,
+  journalCacheRestorePromise, generateJournalId, gradeJournalEntry,
+  addJournalCorrectionsToFixes, formatJournalTimestamp,
+  getJournalSearchQuery: ()=> journalSearchQuery,
+  setJournalSearchQuery: (v)=>{ journalSearchQuery = v; },
   renderDashboardTab, collectDashboardAddedEntries, bucketTimestampsByWeek,
   collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
   computeDashboardStreak, dashboardDateKey,

@@ -22,7 +22,7 @@ describe("Progress Dashboard is the app's default/landing tab", () => {
     await hooks.notesCacheRestorePromise;
     await wait(30);
     const document = window.document;
-    expect(document.querySelectorAll("#dashboardStats .dashboard-stat-tile").length).toBe(6);
+    expect(document.querySelectorAll("#dashboardStats .dashboard-stat-tile").length).toBe(7);
     expect(document.getElementById("dashboardStreakCalendar").children.length).toBeGreaterThan(0);
   });
 
@@ -34,7 +34,7 @@ describe("Progress Dashboard is the app's default/landing tab", () => {
     document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
     await wait(30);
     expect(document.getElementById("panel-dashboard").style.display).not.toBe("none");
-    expect(document.querySelectorAll("#dashboardStats .dashboard-stat-tile").length).toBe(6);
+    expect(document.querySelectorAll("#dashboardStats .dashboard-stat-tile").length).toBe(7);
   });
 });
 
