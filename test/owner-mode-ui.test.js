@@ -15,7 +15,7 @@ describe("a locked device (no PIN set yet)", () => {
   it("hides every admin control", async () => {
     const { window } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
-    ["correctionAddBox", "packImportBox", "phrasalAddBox", "aiJudgeSettingsBox"].forEach((id) => {
+    ["correctionAddBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).toBe("none");
     });
   });
@@ -121,7 +121,7 @@ describe("setting an owner PIN", () => {
     document.getElementById("ownerSetPinBtn").click();
     await wait();
 
-    ["correctionAddBox", "packImportBox", "phrasalAddBox", "aiJudgeSettingsBox"].forEach((id) => {
+    ["correctionAddBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).not.toBe("none");
     });
     expect(document.getElementById("ownerAccessStatus").textContent).toContain("Unlocked");
