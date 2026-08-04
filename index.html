@@ -38101,8 +38101,8 @@ document.getElementById("noteSaveBtn").addEventListener("click", async ()=>{
   const bodyInput = document.getElementById("noteBodyInput");
   const tagsEl = document.getElementById("noteTagsChips");
   const statusEl = document.getElementById("noteAddStatus");
-  const title = titleInput.value.trim();
-  const body = bodyInput.value.trim();
+  const title = mdBold(titleInput.value.trim());
+  const body = mdBold(bodyInput.value.trim());
   const tags = collectChipEditorValues(tagsEl);
   if(!title || !body){
     statusEl.textContent = "Please fill in both the title and the note itself.";
@@ -38171,8 +38171,8 @@ document.getElementById("notesList").addEventListener("click", async (e)=>{
     if(!isDeviceUnlocked()) return;
     const card = saveBtn.closest(".note-card-editing");
     const id = saveBtn.dataset.id;
-    const title = card.querySelector(".note-edit-title").value.trim();
-    const body = card.querySelector(".note-edit-body").value.trim();
+    const title = mdBold(card.querySelector(".note-edit-title").value.trim());
+    const body = mdBold(card.querySelector(".note-edit-body").value.trim());
     const tags = collectChipEditorValues(card.querySelector(".note-edit-tags"));
     const statusEl = card.querySelector(".note-edit-status");
     if(!title || !body){
@@ -40159,12 +40159,12 @@ function openVocabEditForm(item, entryEl){
 function collectVocabEditSenses(){
   const senses = [];
   document.querySelectorAll("#vocabEditMeanings .vocab-edit-meaning").forEach(row=>{
-    const useText = row.querySelector(".vocab-edit-meaning-use").value.trim();
+    const useText = mdBold(row.querySelector(".vocab-edit-meaning-use").value.trim());
     if(!useText) return;
     const examples = Array.from(row.querySelectorAll(".lb-edit-example-input"))
-      .map(inp=> inp.value.trim())
+      .map(inp=> mdBold(inp.value.trim()))
       .filter(Boolean);
-    const notesText = row.querySelector(".vocab-edit-meaning-notes").value.trim();
+    const notesText = mdBold(row.querySelector(".vocab-edit-meaning-notes").value.trim());
     const sense = { use: useText, examples: examples };
     if(notesText) sense.notes = notesText;
     senses.push(sense);
@@ -40201,7 +40201,7 @@ async function saveVocabEdit(originalItem, entryEl){
   // stays independently searchable, not just the first one.
   const newTagalogList = collectChipEditorValues(document.getElementById("vocabEditTagalogChips"));
   const newTagalog = newTagalogList.join(" / ");
-  const newOrigin = document.getElementById("vocabEditOrigin").value.trim();
+  const newOrigin = mdBold(document.getElementById("vocabEditOrigin").value.trim());
 
   const updatedEntry = {
     w: newWord,
@@ -41271,13 +41271,13 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
     }
     const statusEl = document.getElementById(ids.statusId);
     const addBtn = document.getElementById(ids.addBtnId);
-    const why = document.getElementById(ids.whyId).value.trim();
+    const why = mdBold(document.getElementById(ids.whyId).value.trim());
     const category = getCategory();
     const editingId = addBtn.dataset.editingId;
 
     const pairs = Array.from(rowsContainer().querySelectorAll(".correction-example-row")).map(row=> ({
-      wrong: row.querySelector(".correction-wrong-input").value.trim(),
-      right: row.querySelector(".correction-right-input").value.trim()
+      wrong: mdBold(row.querySelector(".correction-wrong-input").value.trim()),
+      right: mdBold(row.querySelector(".correction-right-input").value.trim())
     }));
     const filled = pairs.filter(p=> p.wrong || p.right);
     const complete = filled.filter(p=> p.wrong && p.right);
@@ -41557,6 +41557,20 @@ function sanitizeSyncCode(code){
 // markup for on-screen bolding — meaningless (and ugly) in plain text.
 function stripHtmlTags(text){
   return String(text || "").replace(/<[^>]+>/g, "");
+}
+
+// Lightweight markdown-style bold — the plain <input>/<textarea> boxes
+// throughout this app can't show live rich-text formatting (there's no
+// contenteditable/toolbar), so **word** typed by the Owner is converted
+// to real <b>...</b> markup at save time instead, reusing every render
+// function's EXISTING support for literal <b> markup (see
+// stripHtmlTags above, which already strips it back out for plain-text
+// export) — no render function anywhere needs to change. Only ever
+// applied to genuinely free-text fields (definitions, examples,
+// explanations) — never headwords/keys, which must stay byte-for-byte
+// exact for search/sync/duplicate-detection.
+function mdBold(text){
+  return String(text || "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 }
 
 // Most favoritable things (Vocabulary Bank, all 5 Language Bank
@@ -43054,14 +43068,14 @@ async function saveLanguageBankManualEntry(categoryKey){
   const text = languageBankPendingManual[categoryKey];
   if(!text) return; // manual box shouldn't be actionable without a pending word
 
-  const useText = document.getElementById(config.manualUseId).value.trim();
+  const useText = mdBold(document.getElementById(config.manualUseId).value.trim());
   if(config.requireExplanation && !useText){
     statusEl.textContent = "Please enter a meaning or explanation, or Cancel to try a different word.";
     statusEl.className = "add-status error";
     return;
   }
 
-  const exampleText = config.manualExampleId ? document.getElementById(config.manualExampleId).value.trim() : "";
+  const exampleText = config.manualExampleId ? mdBold(document.getElementById(config.manualExampleId).value.trim()) : "";
   const entry = {
     w: text,
     senses: useText ? [{ use: useText, examples: exampleText ? [exampleText] : [] }] : [],
@@ -43325,10 +43339,10 @@ function openLanguageBankEditForm(categoryKey, item, entryEl, tagLabel){
 function collectLbEditSenses(){
   const senses = [];
   document.querySelectorAll("#lbEditMeanings .lb-edit-meaning").forEach(row=>{
-    const useText = row.querySelector(".lb-edit-meaning-use").value.trim();
+    const useText = mdBold(row.querySelector(".lb-edit-meaning-use").value.trim());
     if(!useText) return;
     const examples = Array.from(row.querySelectorAll(".lb-edit-example-input"))
-      .map(inp=> inp.value.trim())
+      .map(inp=> mdBold(inp.value.trim()))
       .filter(Boolean);
     senses.push({ use: useText, examples: examples });
   });
@@ -43861,23 +43875,23 @@ async function saveDistinctionsManualEntry(){
   let result2 = pending.result2;
 
   if(box1Visible){
-    const useText = document.getElementById("distinctionsManualUse1").value.trim();
+    const useText = mdBold(document.getElementById("distinctionsManualUse1").value.trim());
     if(!useText){
       statusEl.textContent = `Please enter a meaning for "${pending.text1}", or Cancel.`;
       statusEl.className = "add-status error";
       return;
     }
-    const exampleText = document.getElementById("distinctionsManualExample1").value.trim();
+    const exampleText = mdBold(document.getElementById("distinctionsManualExample1").value.trim());
     result1 = { w: pending.text1, senses: [{use: useText, examples: exampleText ? [exampleText] : []}], syn: [], ant: [], mistake: null, tagalog: null, phonetic: null, source: "online" };
   }
   if(box2Visible){
-    const useText = document.getElementById("distinctionsManualUse2").value.trim();
+    const useText = mdBold(document.getElementById("distinctionsManualUse2").value.trim());
     if(!useText){
       statusEl.textContent = `Please enter a meaning for "${pending.text2}", or Cancel.`;
       statusEl.className = "add-status error";
       return;
     }
-    const exampleText = document.getElementById("distinctionsManualExample2").value.trim();
+    const exampleText = mdBold(document.getElementById("distinctionsManualExample2").value.trim());
     result2 = { w: pending.text2, senses: [{use: useText, examples: exampleText ? [exampleText] : []}], syn: [], ant: [], mistake: null, tagalog: null, phonetic: null, source: "online" };
   }
 
@@ -43985,15 +43999,15 @@ async function saveDistinctionEdit(originalEntry, entryEl){
     return;
   }
 
-  const use1 = document.getElementById("distEditUse1").value.trim();
-  const example1 = document.getElementById("distEditExample1").value.trim();
+  const use1 = mdBold(document.getElementById("distEditUse1").value.trim());
+  const example1 = mdBold(document.getElementById("distEditExample1").value.trim());
   commitChipEditorInput(document.getElementById("distEditSynChips1"));
   commitChipEditorInput(document.getElementById("distEditAntChips1"));
   const syn1 = collectChipEditorValues(document.getElementById("distEditSynChips1"));
   const ant1 = collectChipEditorValues(document.getElementById("distEditAntChips1"));
 
-  const use2 = document.getElementById("distEditUse2").value.trim();
-  const example2 = document.getElementById("distEditExample2").value.trim();
+  const use2 = mdBold(document.getElementById("distEditUse2").value.trim());
+  const example2 = mdBold(document.getElementById("distEditExample2").value.trim());
   commitChipEditorInput(document.getElementById("distEditSynChips2"));
   commitChipEditorInput(document.getElementById("distEditAntChips2"));
   const syn2 = collectChipEditorValues(document.getElementById("distEditSynChips2"));
@@ -45278,8 +45292,8 @@ async function saveFamilyTabAddForm(){
   const noun = document.getElementById("familyFormNoun").value.trim();
   const person = document.getElementById("familyFormPerson").value.trim();
   const adj = document.getElementById("familyFormAdj").value.trim();
-  const exNoun = document.getElementById("familyFormExNoun").value.trim();
-  const exAdj = document.getElementById("familyFormExAdj").value.trim();
+  const exNoun = mdBold(document.getElementById("familyFormExNoun").value.trim());
+  const exAdj = mdBold(document.getElementById("familyFormExAdj").value.trim());
 
   if(!verb || !noun || !adj || !exNoun){
     statusEl.textContent = "Please fill in the Verb, Noun form, Adjective form, and a noun-form example sentence.";
@@ -45488,12 +45502,12 @@ async function saveTenseAddForm(){
   }
   const name = document.getElementById("tenseFormName").value.trim();
   const group = document.querySelector("#tenseFormGroupSeg button.active").dataset.val;
-  const formula = document.getElementById("tenseFormFormula").value.trim();
-  const uses = document.getElementById("tenseFormUses").value.split("\n").map(u=>u.trim()).filter(Boolean);
+  const formula = mdBold(document.getElementById("tenseFormFormula").value.trim());
+  const uses = document.getElementById("tenseFormUses").value.split("\n").map(u=>mdBold(u.trim())).filter(Boolean);
   const signals = document.getElementById("tenseFormSignals").value.split(",").map(s=>s.trim()).filter(Boolean);
-  const exPos = document.getElementById("tenseFormExPos").value.trim();
-  const exNeg = document.getElementById("tenseFormExNeg").value.trim();
-  const exQ = document.getElementById("tenseFormExQ").value.trim();
+  const exPos = mdBold(document.getElementById("tenseFormExPos").value.trim());
+  const exNeg = mdBold(document.getElementById("tenseFormExNeg").value.trim());
+  const exQ = mdBold(document.getElementById("tenseFormExQ").value.trim());
 
   if(!name || !formula || uses.length === 0 || !exPos || !exNeg || !exQ){
     statusEl.textContent = "Please fill in the Name, Formula, at least one use, and all three examples.";
@@ -45760,10 +45774,10 @@ async function saveBasicAdvancedEdit(originalEntry, entryEl){
     statusEl.className = "add-status error";
     return;
   }
-  const basicDef = document.getElementById("baEditBasicDef").value.trim();
-  const basicExamples = document.getElementById("baEditBasicExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
-  const advancedDef = document.getElementById("baEditAdvancedDef").value.trim();
-  const advancedExamples = document.getElementById("baEditAdvancedExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const basicDef = mdBold(document.getElementById("baEditBasicDef").value.trim());
+  const basicExamples = document.getElementById("baEditBasicExample").value.split("\n").map(s=>mdBold(s.trim())).filter(Boolean);
+  const advancedDef = mdBold(document.getElementById("baEditAdvancedDef").value.trim());
+  const advancedExamples = document.getElementById("baEditAdvancedExample").value.split("\n").map(s=>mdBold(s.trim())).filter(Boolean);
 
   // Remove the OLD entry first — this also makes the duplicate check
   // below correctly ignore "colliding with itself" when only content
@@ -46028,10 +46042,10 @@ async function saveTagalogEnglishEdit(originalEntry, entryEl){
     statusEl.className = "add-status error";
     return;
   }
-  const tagalogDef = document.getElementById("teEditTagalogDef").value.trim();
-  const tagalogExamples = document.getElementById("teEditTagalogExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
-  const englishDef = document.getElementById("teEditEnglishDef").value.trim();
-  const englishExamples = document.getElementById("teEditEnglishExample").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const tagalogDef = mdBold(document.getElementById("teEditTagalogDef").value.trim());
+  const tagalogExamples = document.getElementById("teEditTagalogExample").value.split("\n").map(s=>mdBold(s.trim())).filter(Boolean);
+  const englishDef = mdBold(document.getElementById("teEditEnglishDef").value.trim());
+  const englishExamples = document.getElementById("teEditEnglishExample").value.split("\n").map(s=>mdBold(s.trim())).filter(Boolean);
 
   await deleteTagalogEnglishEntry(originalEntry.tagalog);
 
@@ -46554,7 +46568,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
   addPhraseTemplateEntry, phraseTemplatesCacheRestorePromise,
-  isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn,
+  isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn, mdBold,
   addLanguageBankEntry, activateLangBankCategory,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getWordBankSortPref,
