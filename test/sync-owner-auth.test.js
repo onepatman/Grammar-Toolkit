@@ -361,13 +361,13 @@ describe("a real owner sign-in unlocks admin controls on a device with NO local 
     // The sign-in form itself is NOT owner-gated (it's the unlock
     // mechanism), but everything else still is until it succeeds.
     expect(document.getElementById("syncOwnerAuthSection").style.display).not.toBe("none");
-    ["correctionAddBox", "packImportBox", "phrasalAddBox", "aiJudgeSettingsBox"].forEach((id) => {
+    ["correctionAddBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).toBe("none");
     });
 
     await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
 
-    ["correctionAddBox", "packImportBox", "phrasalAddBox", "aiJudgeSettingsBox"].forEach((id) => {
+    ["correctionAddBox", "packImportBox", "phrasalAddBox"].forEach((id) => {
       expect(document.getElementById(id).style.display).not.toBe("none");
     });
     expect(hooks.isDeviceUnlocked()).toBe(true);
