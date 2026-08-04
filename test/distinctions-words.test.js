@@ -590,34 +590,84 @@ describe("Distinctions Words persistence (real IndexedDB, not mocked)", () => {
   });
 });
 
-describe("Favorites — favoriting either word individually", () => {
-  it("shows an independent ☆ star on each word's headword row", async () => {
+describe("Favorites — one star per PAIR, not one per word", () => {
+  it("shows exactly ONE ☆ star for the whole pair, not one per word", async () => {
     const { window } = await loadApp();
     const document = window.document;
     openDistinctions(document);
 
     const toggles = document.querySelectorAll("#distinctionsEntry .fav-toggle");
-    expect(toggles.length).toBe(2);
+    expect(toggles.length).toBe(1);
   });
 
-  it("favoriting Word 1 only stars Word 1, not Word 2", async () => {
-    const { window } = await loadApp();
+  it("the star saves the pair under its own unique key (entry.w), not either word's own spelling", async () => {
+    const { window, hooks } = await loadApp();
     const document = window.document;
     openDistinctions(document);
+    const pairKey = document.getElementById("distinctionsSelect").value;
+    const pair = hooks.distinctionsData.find((e) => e.w === pairKey);
 
-    const toggles = document.querySelectorAll("#distinctionsEntry .fav-toggle");
-    toggles[0].click();
+    document.querySelector("#distinctionsEntry .fav-toggle").click();
 
-    expect(toggles[0].classList.contains("active")).toBe(true);
-    expect(toggles[1].classList.contains("active")).toBe(false);
+    expect(hooks.favoriteKeys.has(pair.w.trim().toLowerCase())).toBe(true);
+    expect(hooks.favoriteKeys.has(pair.word1.w.trim().toLowerCase())).toBe(false);
+    expect(hooks.favoriteKeys.has(pair.word2.w.trim().toLowerCase())).toBe(false);
   });
 
-  it("resolveFavoriteEntryData() finds the right word within its pair for the Favorites PDF export", async () => {
+  it("resolveFavoriteEntryData() resolves BOTH words' own content from the pair's key", async () => {
     const { hooks } = await loadApp();
     const first = hooks.distinctionsData[0];
-    const data = hooks.resolveFavoriteEntryData({ word: first.word2.w, cat: "Distinction Word" });
-    expect(data.word).toBe(first.word2.w);
+    const data = hooks.resolveFavoriteEntryData({ word: first.w, cat: "Distinction Word" });
+    expect(data.word).toBe(first.word1.w);
     expect(data.meanings[0].use).toBeTruthy();
+    expect(data.pairWord).toBe(first.word2.w);
+    expect(data.pairMeanings[0].use).toBeTruthy();
+    expect(data.divider).toBe("vs");
+  });
+
+  it("resolveFavoriteEntryData() also still resolves correctly when queried by either individual word (used by Practice's 'All Available Content' source)", async () => {
+    const { hooks } = await loadApp();
+    const first = hooks.distinctionsData[0];
+    const byWord1 = hooks.resolveFavoriteEntryData({ word: first.word1.w, cat: "Distinction Word" });
+    expect(byWord1.word).toBe(first.word1.w);
+    expect(byWord1.pairWord).toBe(first.word2.w);
+
+    const byWord2 = hooks.resolveFavoriteEntryData({ word: first.word2.w, cat: "Distinction Word" });
+    expect(byWord2.word).toBe(first.word2.w);
+    expect(byWord2.pairWord).toBe(first.word1.w);
+  });
+
+  it("isPairedFavorite() identifies a Distinction Word favorite as paired", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.isPairedFavorite({ cat: "Distinction Word" })).toBe(true);
+    expect(hooks.isPairedFavorite({ cat: "Vocabulary Bank" })).toBe(false);
+  });
+
+  it("shows up as ONE row in the Favorites tab, labeled 'Word1 vs Word2', and clicking it navigates back to the pair", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    openDistinctions(document);
+    const pairKey = document.getElementById("distinctionsSelect").value;
+    const pair = hooks.distinctionsData.find((e) => e.w === pairKey);
+    document.querySelector("#distinctionsEntry .fav-toggle").click();
+
+    document.querySelector('.thumb-tab[data-tab="favorites"]').click();
+    await wait();
+
+    const rows = Array.from(document.querySelectorAll("#favoritesList .search-result-item"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].querySelector(".label").textContent).toBe(`${pair.word1.w} vs ${pair.word2.w}`);
+    expect(document.querySelectorAll("#favoritesList .fav-toggle")).toHaveLength(1);
+
+    // Switch away, then click the row to navigate back.
+    document.querySelector('.thumb-tab[data-tab="vocab"]').click();
+    document.querySelector('.thumb-tab[data-tab="favorites"]').click();
+    await wait();
+    document.querySelector("#favoritesList .search-result-item .label").click();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("distinctionsSelect").value).toBe(pairKey);
   });
 });
 

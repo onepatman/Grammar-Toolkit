@@ -37715,14 +37715,21 @@ function renderFavoritesSummary(favs){
       const example = meaning && meaning.examples[0] ? meaning.examples[0] : "";
       const key = favoriteReviewKey(fav);
       const isReviewed = reviewed.has(key);
+      const isPaired = !!data.pairWord;
+      const wordLabel = isPaired ? `${data.word} ${data.divider} ${data.pairWord}` : data.word;
+      const pairMeaning = isPaired ? data.pairMeanings[0] : null;
+      const pairDef = pairMeaning ? pairMeaning.use : "";
+      const pairExample = pairMeaning && pairMeaning.examples[0] ? pairMeaning.examples[0] : "";
       return `
         <div class="summary-row${isReviewed ? " reviewed" : ""}" data-key="${key}">
           <span class="row-num">${counter}</span>
           <input type="checkbox" class="row-check" ${isReviewed ? "checked" : ""}>
           <span class="row-body">
-            <span class="row-word">${data.word}</span>
-            ${def ? `<span class="row-def">${def}</span>` : ""}
+            <span class="row-word">${wordLabel}</span>
+            ${def ? `<span class="row-def">${isPaired ? data.word + ": " : ""}${def}</span>` : ""}
             ${example ? `<span class="row-example">${example}</span>` : ""}
+            ${pairDef ? `<span class="row-def">${data.pairWord}: ${pairDef}</span>` : ""}
+            ${pairExample ? `<span class="row-example">${pairExample}</span>` : ""}
           </span>
         </div>`;
     }).join("");
@@ -37810,15 +37817,28 @@ function renderFavoritesTab(){
       container.innerHTML = '<div class="favorites-empty">No favorites in this category.</div>';
       return;
     }
-    container.innerHTML = filtered.map(f=>`
-      <div class="search-result-item" data-word="${f.word}">
-        <span class="label">${f.word}</span>
+    container.innerHTML = filtered.map(f=>{
+      let label = f.word;
+      if(isPairedFavorite(f)){
+        const data = resolveFavoriteEntryData(f);
+        label = `${data.word} ${data.divider} ${data.pairWord}`;
+      }
+      return `
+      <div class="search-result-item" data-word="${f.word}" data-cat="${f.cat}">
+        <span class="label">${label}</span>
         <span class="cat">${f.cat}</span>
         ${makeFavToggleHtml(f.word, f.cat)}
-      </div>`).join("");
+      </div>`;
+    }).join("");
     container.querySelectorAll(".search-result-item").forEach(row=>{
       row.addEventListener("click", (e)=>{
         if(e.target.closest(".fav-toggle")) return; // the star's own handler manages removal
+        const favLike = {word: row.dataset.word, cat: row.dataset.cat};
+        if(isPairedFavorite(favLike)){
+          const action = findPairedFavoriteAction(favLike);
+          if(action) navigateToEntry({label: row.dataset.word, cat: row.dataset.cat, action});
+          return;
+        }
         const key = row.dataset.word.trim().toLowerCase();
         const item = wordIndexMap.get(key);
         if(!item) return;
@@ -38311,21 +38331,31 @@ function buildPracticeCandidates(source){
   return getPracticeSourcePool(source).then(pool=>{
     const seen = new Set();
     const candidates = [];
-    pool.forEach(fav=>{
-      const key = normalizeWordKey(fav.word);
-      if(!key || seen.has(key)) return;
+    // One favorite/"pushCandidate" call per WORD, not per record — a
+    // paired favorite (Distinctions/Basic → Advanced/Tagalog → English)
+    // is ONE record but represents two real words, and both deserve
+    // their own practice item instead of only ever quizzing the first.
+    const pushCandidate = (word, use, meanings, syn, ant)=>{
+      const key = normalizeWordKey(word);
+      if(!key || seen.has(key) || !use) return; // no usable definition — never fabricated, just skipped
       seen.add(key);
-      const data = resolveFavoriteEntryData(fav);
-      const use = data.meanings[0] && data.meanings[0].use;
-      if(!use) return; // no usable definition — never fabricated, just skipped
       // Every sense's examples, not just meanings[0] — a word with
       // multiple senses (e.g. "contract") already has multiple real
       // sentences sitting in the data; pooling them all here is what lets
       // getPracticeShadowTarget() pick a different one each time instead
       // of always the same first sentence.
       const examples = [];
-      data.meanings.forEach(m=> (m.examples || []).forEach(ex=>{ if(ex && !examples.includes(ex)) examples.push(ex); }));
-      candidates.push({ key, word: data.word, use, examples, syn: data.syn || [], ant: data.ant || [] });
+      meanings.forEach(m=> (m.examples || []).forEach(ex=>{ if(ex && !examples.includes(ex)) examples.push(ex); }));
+      candidates.push({ key, word, use, examples, syn: syn || [], ant: ant || [] });
+    };
+    pool.forEach(fav=>{
+      const data = resolveFavoriteEntryData(fav);
+      const use = data.meanings[0] && data.meanings[0].use;
+      pushCandidate(data.word, use, data.meanings, data.syn, data.ant);
+      if(data.pairWord){
+        const pairUse = data.pairMeanings[0] && data.pairMeanings[0].use;
+        pushCandidate(data.pairWord, pairUse, data.pairMeanings, data.pairSyn, data.pairAnt);
+      }
     });
     return candidates;
   });
@@ -41545,57 +41575,109 @@ function resolveFavoriteEntryData(fav){
       };
     }
   } else if(catLower === "basic → advanced"){
-    // Favorited per-WORD, same reasoning as Distinctions Words above —
-    // find whichever pair contains this exact word (basic or advanced
-    // side) and return just that side's own definition/examples.
+    // Favorited per-PAIR now (one star for the whole pair, saved under
+    // its unique key — entry.basic) — resolve BOTH sides' own
+    // definition/examples so a Basic → Advanced favorite shows the same
+    // pair content everywhere it's favorited per-word categories do,
+    // just for two words at once. See the "pairWord"/"divider" fields:
+    // every downstream consumer (Favorites tab, Summary, PDF/text
+    // export) checks for `pairWord` to know this is a paired favorite.
+    // Matches the pair's own key (a real favorite's fav.word) OR either
+    // individual side (a Practice-tab "All Available Content" candidate
+    // sourced from wordIndexMap, which only ever knows a single word).
     const pair = basicAdvancedData.find(e=>
       e.basic.trim().toLowerCase() === key || e.advanced.trim().toLowerCase() === key
     );
     if(pair){
-      const isBasic = pair.basic.trim().toLowerCase() === key;
-      const word = isBasic ? pair.basic : pair.advanced;
-      const def = isBasic ? pair.basicDef : pair.advancedDef;
-      const examples = (isBasic ? pair.basicExamples : pair.advancedExamples) || [];
+      // A favorite's own key is always the basic side (fav.word ===
+      // entry.basic), but an "All Available Content" Practice candidate
+      // sourced from wordIndexMap may query by the advanced side alone
+      // — the SIDE THAT MATCHED must come back as the primary word/
+      // meanings, or that candidate would silently show the wrong
+      // word's definition.
+      const isAdvancedSide = pair.advanced.trim().toLowerCase() === key;
+      const primary = isAdvancedSide
+        ? { word: pair.advanced, def: pair.advancedDef, examples: pair.advancedExamples }
+        : { word: pair.basic, def: pair.basicDef, examples: pair.basicExamples };
+      const other = isAdvancedSide
+        ? { word: pair.basic, def: pair.basicDef, examples: pair.basicExamples }
+        : { word: pair.advanced, def: pair.advancedDef, examples: pair.advancedExamples };
       return {
-        word,
-        meanings: (def || examples.length) ? [{use: def || "", examples}] : [],
-        syn: [], ant: [], mistake: null, tagalog: null
+        word: primary.word,
+        meanings: (primary.def || (primary.examples||[]).length) ? [{use: primary.def || "", examples: primary.examples||[]}] : [],
+        syn: [], ant: [], mistake: null, tagalog: null,
+        pairWord: other.word,
+        pairMeanings: (other.def || (other.examples||[]).length) ? [{use: other.def || "", examples: other.examples||[]}] : [],
+        pairSyn: [], pairAnt: [], pairMistake: null, pairTagalog: null,
+        divider: "→"
       };
     }
   } else if(catLower === "tagalog → english"){
+    // Same per-pair resolution as Basic → Advanced above.
+    // Same reasoning as Basic → Advanced above: match the pair's own key
+    // or either individual side.
     const pair = tagalogEnglishData.find(e=>
       e.tagalog.trim().toLowerCase() === key || e.english.trim().toLowerCase() === key
     );
     if(pair){
-      const isTagalog = pair.tagalog.trim().toLowerCase() === key;
-      const word = isTagalog ? pair.tagalog : pair.english;
-      const def = isTagalog ? pair.tagalogDef : pair.englishDef;
-      const examples = (isTagalog ? pair.tagalogExamples : pair.englishExamples) || [];
+      // Same side-detection reasoning as Basic → Advanced above.
+      const isEnglishSide = pair.english.trim().toLowerCase() === key;
+      const primary = isEnglishSide
+        ? { word: pair.english, def: pair.englishDef, examples: pair.englishExamples }
+        : { word: pair.tagalog, def: pair.tagalogDef, examples: pair.tagalogExamples };
+      const other = isEnglishSide
+        ? { word: pair.tagalog, def: pair.tagalogDef, examples: pair.tagalogExamples }
+        : { word: pair.english, def: pair.englishDef, examples: pair.englishExamples };
       return {
-        word,
-        meanings: (def || examples.length) ? [{use: def || "", examples}] : [],
-        syn: [], ant: [], mistake: null, tagalog: null
+        word: primary.word,
+        meanings: (primary.def || (primary.examples||[]).length) ? [{use: primary.def || "", examples: primary.examples||[]}] : [],
+        syn: [], ant: [], mistake: null, tagalog: null,
+        pairWord: other.word,
+        pairMeanings: (other.def || (other.examples||[]).length) ? [{use: other.def || "", examples: other.examples||[]}] : [],
+        pairSyn: [], pairAnt: [], pairMistake: null, pairTagalog: null,
+        divider: "→"
       };
     }
   } else if(catLower === "distinction word"){
-    // A Distinctions Words favorite is favorited per-WORD (word1 or
-    // word2 individually), not per-pair — find whichever pair contains
-    // this exact word and return just that word's own content.
+    // Favorited per-PAIR now, saved under the pair's own unique key
+    // (entry.w, e.g. "Achieve vs Attain") — resolve BOTH word1 and
+    // word2's own content, same reasoning as the two Word Bank
+    // categories above.
+    // Matches the pair's own key (a real favorite's fav.word) OR either
+    // individual word (a Practice-tab "All Available Content" candidate
+    // sourced from wordIndexMap, which only ever knows a single word).
     const pair = distinctionsData.find(e=>
-      e.word1.w.trim().toLowerCase() === key || e.word2.w.trim().toLowerCase() === key
+      e.w.trim().toLowerCase() === key ||
+      e.word1.w.trim().toLowerCase() === key ||
+      e.word2.w.trim().toLowerCase() === key
     );
-    const word = pair && (pair.word1.w.trim().toLowerCase() === key ? pair.word1 : pair.word2);
-    if(word){
+    if(pair){
+      const toMeanings = (word)=> (word.senses || []).map(sense=> ({
+        use: stripHtmlTags(sense.use),
+        examples: (sense.examples || []).map(ex=> stripHtmlTags(ex))
+      }));
+      // A favorite's own key is the pair's key (matches neither word1
+      // nor word2 directly), so it falls through to word1-primary below
+      // — but an "All Available Content" Practice candidate sourced
+      // from wordIndexMap may query by word2's own spelling alone, and
+      // that side must come back as the primary word/meanings.
+      const isWord2Side = pair.word2.w.trim().toLowerCase() === key;
+      const primary = isWord2Side ? pair.word2 : pair.word1;
+      const other = isWord2Side ? pair.word1 : pair.word2;
       return {
-        word: word.w,
-        meanings: (word.senses || []).map(sense=> ({
-          use: stripHtmlTags(sense.use),
-          examples: (sense.examples || []).map(ex=> stripHtmlTags(ex))
-        })),
-        syn: word.syn || [],
-        ant: word.ant || [],
-        mistake: word.mistake ? stripHtmlTags(word.mistake) : null,
-        tagalog: word.tagalog || null
+        word: primary.w,
+        meanings: toMeanings(primary),
+        syn: primary.syn || [],
+        ant: primary.ant || [],
+        mistake: primary.mistake ? stripHtmlTags(primary.mistake) : null,
+        tagalog: primary.tagalog || null,
+        pairWord: other.w,
+        pairMeanings: toMeanings(other),
+        pairSyn: other.syn || [],
+        pairAnt: other.ant || [],
+        pairMistake: other.mistake ? stripHtmlTags(other.mistake) : null,
+        pairTagalog: other.tagalog || null,
+        divider: "vs"
       };
     }
   } else {
@@ -41621,6 +41703,61 @@ function resolveFavoriteEntryData(fav){
   // category, rather than silently dropping out of a sheet the user
   // explicitly built from their own selections.
   return { word: fav.word, meanings: [], syn: [], ant: [], mistake: null, tagalog: null };
+}
+
+// The 3 "pairing word" categories — Distinctions Words, Basic →
+// Advanced, Tagalog → English — each favorite as ONE star per pair
+// (see makeFavToggleHtml call sites in renderDistinctionEntry/
+// renderBasicAdvancedPair/renderTagalogEnglishPair), so anything that
+// lists favorites needs to know which category tags mean "this
+// favorite resolves to two words, not one."
+const PAIRED_FAVORITE_CATEGORIES = new Set(["distinction word", "basic → advanced", "tagalog → english"]);
+function isPairedFavorite(fav){
+  return PAIRED_FAVORITE_CATEGORIES.has(String(fav.cat || "").trim().toLowerCase());
+}
+
+// A paired favorite's own `word` is the PAIR's unique key (entry.w /
+// entry.basic / entry.tagalog), not a spelling wordIndexMap knows about
+// — the generic Favorites-tab-row click path (wordIndexMap.get(key))
+// can't navigate to it. This builds the same kind of {label, cat,
+// action} object navigateToEntry() expects everywhere else, so a
+// paired favorite's row click behaves identically to every other
+// favorite's.
+function findPairedFavoriteAction(fav){
+  const key = String(fav.word || "").trim().toLowerCase();
+  const catLower = String(fav.cat || "").trim().toLowerCase();
+
+  if(catLower === "distinction word"){
+    const pair = distinctionsData.find(e=> e.w.trim().toLowerCase() === key);
+    if(!pair) return null;
+    return ()=>{
+      document.getElementById("distinctionsSelect").value = pair.w;
+      renderDistinctionEntry(pair, document.getElementById("distinctionsEntry"));
+      activateTab("wordbank");
+      activateWordBankCategory("distinctions");
+    };
+  }
+  if(catLower === "basic → advanced"){
+    const pair = basicAdvancedData.find(e=> e.basic.trim().toLowerCase() === key);
+    if(!pair) return null;
+    return ()=>{
+      basicAdvancedSelect.value = pair.basic;
+      renderBasicAdvancedPair(pair);
+      activateTab("wordbank");
+      activateWordBankCategory("basicAdvanced");
+    };
+  }
+  if(catLower === "tagalog → english"){
+    const pair = tagalogEnglishData.find(e=> e.tagalog.trim().toLowerCase() === key);
+    if(!pair) return null;
+    return ()=>{
+      tagalogEnglishSelect.value = pair.tagalog;
+      renderTagalogEnglishPair(pair);
+      activateTab("wordbank");
+      activateWordBankCategory("tagalogEnglish");
+    };
+  }
+  return null;
 }
 
 // Same content as the text export, but shaped for layout (a list of
@@ -41660,16 +41797,25 @@ function buildFavoritesStudySheet(favs){
     lines.push(rule, title, rule, "");
 
     section.entries.forEach((entry, i)=>{
-      lines.push(`${i + 1}. ${entry.word}`);
-      entry.meanings.forEach((m, mi)=>{
-        const prefix = entry.meanings.length > 1 ? `   ${mi + 1}) ` : "   ";
-        lines.push(`${prefix}${m.use}`);
-        m.examples.forEach(ex=> lines.push(`      e.g. ${ex}`));
-      });
-      if(entry.syn.length) lines.push(`   Synonyms: ${entry.syn.join(", ")}`);
-      if(entry.ant.length) lines.push(`   Antonyms: ${entry.ant.join(", ")}`);
-      if(entry.mistake) lines.push(`   Common mistake: ${entry.mistake}`);
-      if(entry.tagalog) lines.push(`   Tagalog: ${entry.tagalog}`);
+      const isPaired = !!entry.pairWord;
+      lines.push(`${i + 1}. ${entry.word}${isPaired ? ` ${entry.divider} ${entry.pairWord}` : ""}`);
+      const writeWordBlock = (label, meanings, syn, ant, mistake, tagalog)=>{
+        if(label) lines.push(`   ${label}:`);
+        const indent = label ? "     " : "   ";
+        meanings.forEach((m, mi)=>{
+          const prefix = meanings.length > 1 ? `${indent}${mi + 1}) ` : indent;
+          lines.push(`${prefix}${m.use}`);
+          m.examples.forEach(ex=> lines.push(`${indent}   e.g. ${ex}`));
+        });
+        if(syn.length) lines.push(`${indent}Synonyms: ${syn.join(", ")}`);
+        if(ant.length) lines.push(`${indent}Antonyms: ${ant.join(", ")}`);
+        if(mistake) lines.push(`${indent}Common mistake: ${mistake}`);
+        if(tagalog) lines.push(`${indent}Tagalog: ${tagalog}`);
+      };
+      writeWordBlock(isPaired ? entry.word : "", entry.meanings, entry.syn, entry.ant, entry.mistake, entry.tagalog);
+      if(isPaired){
+        writeWordBlock(entry.pairWord, entry.pairMeanings, entry.pairSyn, entry.pairAnt, entry.pairMistake, entry.pairTagalog);
+      }
       lines.push("");
     });
   });
@@ -41810,16 +41956,25 @@ function renderFavoritesPdf(pdfData){
 
     section.entries.forEach((entry, i)=>{
       ensureSpace(16);
-      writeLine(`${i + 1}. ${entry.word}`, { bold: true, size: PDF_SIZE_HEADWORD, lineHeight: 15 });
-      entry.meanings.forEach((m, mi)=>{
-        const prefix = entry.meanings.length > 1 ? `${mi + 1}) ` : "";
-        writeLine(prefix + m.use, { indent: 14 });
-        m.examples.forEach(ex=> writeLine("e.g. " + ex, { indent: 26 }));
-      });
-      if(entry.syn.length) writeLine("Synonyms: " + entry.syn.join(", "), { indent: 14 });
-      if(entry.ant.length) writeLine("Antonyms: " + entry.ant.join(", "), { indent: 14 });
-      if(entry.mistake) writeLine("Common mistake: " + entry.mistake, { indent: 14 });
-      if(entry.tagalog) writeLine("Tagalog: " + entry.tagalog, { indent: 14 });
+      const isPaired = !!entry.pairWord;
+      writeLine(`${i + 1}. ${entry.word}${isPaired ? ` ${entry.divider} ${entry.pairWord}` : ""}`, { bold: true, size: PDF_SIZE_HEADWORD, lineHeight: 15 });
+      const writeWordBlock = (label, meanings, syn, ant, mistake, tagalog)=>{
+        if(label) writeLine(label + ":", { indent: 14, bold: true });
+        const indent = label ? 24 : 14;
+        meanings.forEach((m, mi)=>{
+          const prefix = meanings.length > 1 ? `${mi + 1}) ` : "";
+          writeLine(prefix + m.use, { indent });
+          m.examples.forEach(ex=> writeLine("e.g. " + ex, { indent: indent + 12 }));
+        });
+        if(syn.length) writeLine("Synonyms: " + syn.join(", "), { indent });
+        if(ant.length) writeLine("Antonyms: " + ant.join(", "), { indent });
+        if(mistake) writeLine("Common mistake: " + mistake, { indent });
+        if(tagalog) writeLine("Tagalog: " + tagalog, { indent });
+      };
+      writeWordBlock(isPaired ? entry.word : "", entry.meanings, entry.syn, entry.ant, entry.mistake, entry.tagalog);
+      if(isPaired){
+        writeWordBlock(entry.pairWord, entry.pairMeanings, entry.pairSyn, entry.pairAnt, entry.pairMistake, entry.pairTagalog);
+      }
       y += 6;
     });
     y += 10;
@@ -43267,7 +43422,7 @@ RULE_TAB_CATEGORIES.forEach(categoryKey=>{
    the single-word original this is adapted from.
 ========================================================= */
 
-function renderDistinctionWordBlock(word){
+function renderDistinctionWordBlock(word, favToggleHtml){
   const sensesHtml = (word.senses || []).map((s,i)=>{
     return `
     <div class="sense"><span class="num">${i+1}</span><div class="body">
@@ -43301,7 +43456,7 @@ function renderDistinctionWordBlock(word){
       ${makePhoneticHtml(word.phonetic)}
       <span class="tag ghost">${DISTINCTIONS_TAG_LABEL}</span>
       ${makeListenButtonHtml()}
-      ${makeFavToggleHtml(word.w, DISTINCTIONS_TAG_LABEL)}
+      ${favToggleHtml || ""}
     </div>
     ${ruleUsageHtml}
     ${mistakeHtml}
@@ -43318,10 +43473,16 @@ function renderDistinctionEntry(entry, entryEl){
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
 
+  // One favorite star per PAIR, not one per word — favoriting the pair
+  // saves it under its own unique key (entry.w, e.g. "Achieve vs
+  // Attain"), which resolveFavoriteEntryData() then resolves back into
+  // BOTH words' own content wherever favorites are shown.
+  const favToggleHtml = makeFavToggleHtml(entry.w, DISTINCTIONS_TAG_LABEL);
+
   entryEl.innerHTML = `
-    ${renderDistinctionWordBlock(entry.word1)}
+    ${renderDistinctionWordBlock(entry.word1, favToggleHtml)}
     <div class="distinction-divider"><span>vs</span></div>
-    ${renderDistinctionWordBlock(entry.word2)}
+    ${renderDistinctionWordBlock(entry.word2, "")}
     ${entryActionsHtml}
   `;
 
@@ -45427,7 +45588,7 @@ document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
 // pairs (see renderDistinctionWordBlock). Examples come in as an array —
 // each line the Owner typed into one textarea, split on save — and are
 // numbered exactly like every other module's example list.
-function renderWordBankSide(label, def, examples, tagLabel, favCat){
+function renderWordBankSide(label, def, examples, tagLabel, favToggleHtml){
   const defHtml = def ? `
     <div class="section-label">Definition</div>
     <p class="note" style="margin:0 0 8px;">${def}</p>
@@ -45441,7 +45602,7 @@ function renderWordBankSide(label, def, examples, tagLabel, favCat){
     <div class="headword-row">
       <span class="headword" style="font-size:22px;">${label}</span>
       ${makeListenButtonHtml()}
-      ${makeFavToggleHtml(label, favCat)}
+      ${favToggleHtml || ""}
     </div>
     ${defHtml}
     ${examplesHtml}
@@ -45466,10 +45627,14 @@ function renderBasicAdvancedPair(entry){
       <button class="lb-edit-btn">✎ Edit</button>
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
+  // One favorite star per PAIR, saved under the pair's own unique key
+  // (entry.basic, which findByKey already enforces as unique) — same
+  // reasoning as Distinctions Words' single per-pair star.
+  const favToggleHtml = makeFavToggleHtml(entry.basic, "Basic → Advanced");
   basicAdvancedEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English", "Basic → Advanced")}
+    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English", favToggleHtml)}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English", "Basic → Advanced")}
+    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English", "")}
     ${entryActionsHtml}
   `;
   const listenBtns = basicAdvancedEntryEl.querySelectorAll(".listen-btn");
@@ -45734,10 +45899,14 @@ function renderTagalogEnglishPair(entry){
       <button class="lb-edit-btn">✎ Edit</button>
       <button class="lb-delete-btn">🗑 Delete</button>
     </div>` : "";
+  // One favorite star per PAIR, saved under the pair's own unique key
+  // (entry.tagalog, which findByKey already enforces as unique) — same
+  // reasoning as Distinctions Words' single per-pair star.
+  const favToggleHtml = makeFavToggleHtml(entry.tagalog, "Tagalog → English");
   tagalogEnglishEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words", "Tagalog → English")}
+    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words", favToggleHtml)}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words", "Tagalog → English")}
+    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words", "")}
     ${entryActionsHtml}
   `;
   const listenBtns = tagalogEnglishEntryEl.querySelectorAll(".listen-btn");
@@ -46367,6 +46536,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
   getCurrentTheme, setTheme, toggleTheme,
   resolveFavoriteEntryData, buildFavoritesPdfData, buildFavoritesStudySheet,
+  isPairedFavorite, findPairedFavoriteAction, PAIRED_FAVORITE_CATEGORIES,
   shareOrExportFavorites, loadJsPdf, renderFavoritesPdf, exportFavoritesPdf,
   getFavoritesFilterCat: ()=> favoritesFilterCat,
   setFavoritesFilterCat: (v)=>{ favoritesFilterCat = v; },
