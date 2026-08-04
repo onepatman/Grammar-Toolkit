@@ -139,9 +139,19 @@ describe("GrammarCheck.checkText", () => {
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: "text=" + encodeURIComponent("He go to the site.") + "&language=en-US"
+        body: "text=" + encodeURIComponent("He go to the site.") + "&language=en-US&level=picky"
       })
     );
+  });
+
+  it("defaults to LanguageTool's 'picky' level (catches wordiness/style, not just hard grammar errors), overridable via opts.level", async () => {
+    const fetchImpl = vi.fn(() => jsonResponse({ matches: [] }));
+    await GrammarCheck.checkText("Some text.", { fetchImpl, isOnline: true, level: "default" });
+    expect(fetchImpl.mock.calls[0][1].body).toContain("level=default");
+
+    fetchImpl.mockClear();
+    await GrammarCheck.checkText("Some text.", { fetchImpl, isOnline: true });
+    expect(fetchImpl.mock.calls[0][1].body).toContain("level=picky");
   });
 
   it("resolves a full graded result on a successful response", async () => {
