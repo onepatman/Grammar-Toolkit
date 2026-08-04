@@ -631,6 +631,14 @@
     border-left:3px solid var(--mint); background:var(--mint-bg);
     border-radius:0 8px 8px 0; padding:8px 12px; font-size:13px; color:var(--mint); font-weight:600;
   }
+  .journal-score-breakdown{ font-size:11.5px; color:var(--ink-soft); width:100%; margin-top:2px; }
+  .journal-smoothness{ margin-top:10px; }
+  .journal-smoothness-summary{ font-size:13px; color:var(--ink); font-style:italic; margin-bottom:8px; }
+  .journal-smoothness-note{
+    border-left:3px solid var(--sky); background:var(--sky-bg);
+    border-radius:0 8px 8px 0; padding:8px 12px; font-size:13px; color:var(--ink); margin-bottom:8px;
+  }
+  .journal-smoothness-note:last-child{ margin-bottom:0; }
 
   /* ---------- Progress Dashboard tab (the app's default/landing tab) ----------
      Every chart here is plain DOM (divs, not <canvas>) — bar heights come from
@@ -1851,6 +1859,15 @@
       <input type="file" id="packImportInput" accept="application/json,.json">
       <div id="packImportStatus" class="add-status"></div>
     </div>
+
+    <div class="quick-add-box owner-only" id="aiJudgeSettingsBox">
+      <div class="section-label">🤖 AI Smoothness Judge (Journal tab)</div>
+      <p class="note" style="margin-bottom:8px;">Optional: add your own Claude API key so the Journal tab's grading also judges how natural and understandable your writing sounds, not just grammar rules. Stored only in this browser — never included in the shared sync log, and every check is billed to your own Anthropic account.</p>
+      <div id="aiJudgeKeyStatus" class="add-status"></div>
+      <input type="password" id="aiJudgeApiKeyInput" placeholder="Claude API key (sk-ant-...)" autocomplete="off">
+      <button id="aiJudgeSaveKeyBtn" class="add-btn">Save key</button>
+      <button id="aiJudgeClearKeyBtn" class="add-btn secondary">Remove saved key</button>
+    </div>
   </section>
 
   <!-- ===== QUESTION → ANSWER STARTERS PANEL ===== -->
@@ -2259,6 +2276,7 @@
 <script src="js/correction-log.js"></script>
 <script src="js/online-lookup.js"></script>
 <script src="js/grammar-check.js"></script>
+<script src="js/ai-judge.js"></script>
 <script src="js/tagalog-lookup.js"></script>
 <script src="js/lookup-service.js"></script>
 <script src="js/duplicate-checker.js"></script>
@@ -38366,25 +38384,45 @@ function formatJournalTimestamp(ts){
 // sending it to GrammarCheck, so the offsets LanguageTool returns line
 // up with the plain text actually being checked instead of getting
 // thrown off by HTML tags the API never asked to see.
+// Grammar (LanguageTool, always available) and smoothness (Claude, only
+// when the Owner has saved their own API key — see the "AI Smoothness
+// Judge" box) are two independent checks that answer different
+// questions: is this technically correct, vs. does this actually read
+// naturally to a human. When both ran, the displayed score is their
+// average — a technically-correct-but-awkward entry can no longer
+// score a perfect 10 just because LanguageTool found nothing wrong.
 async function gradeJournalEntry(id){
   const entry = journalData.find(j=> j.id === id);
   if(!entry) return;
   entry.grading = { status: "checking" };
   refreshJournalUI();
-  const result = await GrammarCheck.checkText(stripHtmlTags(entry.body));
-  if(result.ok){
-    entry.grading = {
-      status: "graded",
-      score: result.score,
-      grade: result.grade,
-      wordCount: result.wordCount,
-      corrections: result.corrections,
-      checkedAt: Date.now(),
-      addedToFixes: false
-    };
-  } else {
-    entry.grading = { status: "unavailable", reason: result.reason, checkedAt: Date.now() };
+  const plainText = stripHtmlTags(entry.body);
+  const grammarResult = await GrammarCheck.checkText(plainText);
+  if(!grammarResult.ok){
+    entry.grading = { status: "unavailable", reason: grammarResult.reason, checkedAt: Date.now() };
+    VocabCache.putJournalEntry(entry, {dbPromise: vocabDbPromise});
+    refreshJournalUI();
+    return;
   }
+  const smoothness = AIJudge.hasApiKey() ? await AIJudge.judgeSmoothness(plainText) : null;
+  const smoothnessOk = !!(smoothness && smoothness.ok);
+  const combinedScore = smoothnessOk
+    ? Math.round(((grammarResult.score + smoothness.score) / 2) * 10) / 10
+    : grammarResult.score;
+  entry.grading = {
+    status: "graded",
+    score: combinedScore,
+    grade: GrammarCheck.gradeLabel(combinedScore),
+    wordCount: grammarResult.wordCount,
+    corrections: grammarResult.corrections,
+    grammarScore: grammarResult.score,
+    smoothnessScore: smoothnessOk ? smoothness.score : null,
+    smoothnessSummary: smoothnessOk ? smoothness.summary : "",
+    smoothnessNotes: smoothnessOk ? smoothness.notes : [],
+    smoothnessUnavailableReason: (smoothness && !smoothness.ok) ? smoothness.reason : null,
+    checkedAt: Date.now(),
+    addedToFixes: false
+  };
   VocabCache.putJournalEntry(entry, {dbPromise: vocabDbPromise});
   refreshJournalUI();
 }
@@ -38429,8 +38467,22 @@ function journalScoreBadgeHtml(grading){
   if(grading.status !== "graded") return "";
   const tier = grading.grade ? grading.grade.tier : "fair";
   const label = grading.grade ? grading.grade.label : "";
+  const breakdown = (typeof grading.smoothnessScore === "number")
+    ? `<div class="journal-score-breakdown">Grammar ${grading.grammarScore.toFixed(1)}/10 · Smoothness ${grading.smoothnessScore.toFixed(1)}/10</div>`
+    : (grading.smoothnessUnavailableReason && grading.smoothnessUnavailableReason !== "no-api-key")
+      ? `<div class="journal-score-breakdown">Grammar ${grading.grammarScore.toFixed(1)}/10 · AI smoothness check failed (${grading.smoothnessUnavailableReason})</div>`
+      : "";
   return `<span class="journal-score-badge ${tier}">${grading.score.toFixed(1)}/10</span>
-    <span class="journal-grade-label">${label} · ${grading.wordCount} word${grading.wordCount === 1 ? "" : "s"} checked</span>`;
+    <span class="journal-grade-label">${label} · ${grading.wordCount} word${grading.wordCount === 1 ? "" : "s"} checked</span>
+    ${breakdown}`;
+}
+
+function journalSmoothnessHtml(grading){
+  if(grading.status !== "graded" || typeof grading.smoothnessScore !== "number") return "";
+  const summaryHtml = grading.smoothnessSummary ? `<div class="journal-smoothness-summary">🤖 ${grading.smoothnessSummary}</div>` : "";
+  const notesHtml = (grading.smoothnessNotes || []).map(n=> `<div class="journal-smoothness-note">${n}</div>`).join("");
+  if(!summaryHtml && !notesHtml) return "";
+  return `<div class="journal-smoothness">${summaryHtml}${notesHtml}</div>`;
 }
 
 function journalCorrectionsHtml(entry){
@@ -38471,6 +38523,7 @@ function renderJournalCardHtml(entry){
       <div class="journal-grading">
         <div class="journal-grading-header">${journalScoreBadgeHtml(entry.grading)}</div>
         ${journalCorrectionsHtml(entry)}
+        ${journalSmoothnessHtml(entry.grading)}
       </div>
       ${actionsHtml}
     </div>`;
@@ -38721,6 +38774,40 @@ document.getElementById("journalList").addEventListener("click", async (e)=>{
     if(bodyChanged) gradeJournalEntry(id);
   }
 });
+
+// AI Smoothness Judge settings (Fixes tab, Owner access box) — see
+// js/ai-judge.js's file-header comment for why this is a Owner-
+// supplied key stored only in this browser rather than a shared
+// secret baked into the app: there is no backend here to hold one
+// safely. Deliberately shows only whether a key IS saved, never the
+// key itself, once it's been entered.
+function refreshAiJudgeSettingsUI(){
+  const statusEl = document.getElementById("aiJudgeKeyStatus");
+  if(!statusEl) return;
+  if(AIJudge.hasApiKey()){
+    statusEl.textContent = "✅ A Claude API key is saved on this device — Journal entries will also get an AI smoothness check.";
+    statusEl.className = "add-status success";
+  } else {
+    statusEl.textContent = "No key saved yet — Journal grading will use grammar checking only.";
+    statusEl.className = "add-status";
+  }
+}
+document.getElementById("aiJudgeSaveKeyBtn").addEventListener("click", ()=>{
+  if(!isDeviceUnlocked()) return;
+  const input = document.getElementById("aiJudgeApiKeyInput");
+  const key = input.value.trim();
+  if(!key) return;
+  AIJudge.setApiKey(key);
+  input.value = "";
+  refreshAiJudgeSettingsUI();
+});
+document.getElementById("aiJudgeClearKeyBtn").addEventListener("click", ()=>{
+  if(!isDeviceUnlocked()) return;
+  AIJudge.clearApiKey();
+  document.getElementById("aiJudgeApiKeyInput").value = "";
+  refreshAiJudgeSettingsUI();
+});
+refreshAiJudgeSettingsUI();
 
 /* =========================================================
    STUDY MODE — a flashcard-style browser through the Favorites list.
@@ -47214,7 +47301,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   journalData, addJournalEntry, deleteJournalEntry, renderJournalTab, refreshJournalUI,
   getFilteredJournal, collectJournalForSync, applyRemoteJournal,
   journalCacheRestorePromise, generateJournalId, gradeJournalEntry,
-  resumeIncompleteJournalGrading,
+  resumeIncompleteJournalGrading, refreshAiJudgeSettingsUI,
   addJournalCorrectionsToFixes, formatJournalTimestamp,
   getJournalSearchQuery: ()=> journalSearchQuery,
   setJournalSearchQuery: (v)=>{ journalSearchQuery = v; },
