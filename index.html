@@ -40902,10 +40902,10 @@ function findVisibleFavToggleBtn(){
 // Desktop/laptop keyboard shortcuts mirroring on-screen controls, for
 // hands-on-keyboard use without reaching for the mouse:
 //   Right/Left = Next/Previous (bottom pair, cycles the current panel's
-//     own dropdown), Up/Down = Forward/Back (top pair, walks the
-//     universal browsing history) — ignored while typing/selecting in
-//     any form control, so they never fight text-editing or native
-//     <select> behavior.
+//     own dropdown) — ignored while typing/selecting in any form
+//     control, so it never fights text-editing or native <select>
+//     behavior. Up/Down are deliberately left alone (see below) so the
+//     browser's own page-scroll keeps working.
 //   F1 = click whatever favorite star is currently on screen, instead of
 //     reaching for the mouse. Works everywhere, including while typing,
 //     since it doesn't touch the text itself.
@@ -40917,6 +40917,11 @@ function findVisibleFavToggleBtn(){
 // All three skip while a modal (app-update / lookup) is open, and ignore
 // modifier-key combinations so they don't hijack a browser/OS shortcut
 // that happens to share the key.
+//
+// ArrowUp/ArrowDown used to walk the top Back/Forward history stack, but
+// that shadowed the far more expected use of those keys: scrolling the
+// page. They're no longer intercepted at all here, so the browser's own
+// native scroll behavior applies.
 document.addEventListener("keydown", (e)=>{
   if(e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
 
@@ -40946,9 +40951,7 @@ document.addEventListener("keydown", (e)=>{
 
   const ARROW_KEY_NAV = {
     ArrowRight: { dir: "next", bottomNav: true },
-    ArrowLeft: { dir: "prev", bottomNav: true },
-    ArrowUp: { dir: "next", bottomNav: false },
-    ArrowDown: { dir: "prev", bottomNav: false }
+    ArrowLeft: { dir: "prev", bottomNav: true }
   };
   const mapped = ARROW_KEY_NAV[e.key];
   if(!mapped) return;
@@ -40964,6 +40967,42 @@ document.addEventListener("keydown", (e)=>{
     btn.click();
     e.preventDefault();
   }
+});
+
+// Tab key: confined to the typing boxes (input/textarea — never a
+// button) inside whichever "add" box (.quick-add-box — Add a
+// correction, Look Up & Add, etc.) the user is currently typing in.
+// Without this, native Tab order marches straight out of a 2-field box
+// like "Add a correction example" into whatever control happens to sit
+// next in the page's DOM order — the next quick-add box, a tab button,
+// anything — which is disorienting when you're just trying to move
+// between Wrong/Right/Why (or however many rows "+ Add another
+// example" has produced). Re-querying the box's fields on every
+// keypress (rather than caching them) means a freshly added example row
+// is included immediately, with no extra wiring needed.
+function tabbableFieldsIn(container){
+  return Array.from(container.querySelectorAll('input[type="text"], input:not([type]), textarea'))
+    .filter(el=> isElementVisible(el) && !el.disabled);
+}
+document.addEventListener("keydown", (e)=>{
+  if(e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+
+  const active = document.activeElement;
+  const tag = active && active.tagName;
+  if(tag !== "INPUT" && tag !== "TEXTAREA") return;
+
+  const box = active.closest(".quick-add-box");
+  if(!box) return;
+
+  const fields = tabbableFieldsIn(box);
+  const idx = fields.indexOf(active);
+  if(idx === -1) return;
+
+  const nextIdx = e.shiftKey
+    ? (idx - 1 + fields.length) % fields.length
+    : (idx + 1) % fields.length;
+  fields[nextIdx].focus();
+  e.preventDefault();
 });
 
 /* Personal correction log — Add, Edit, Delete, Cancel.
