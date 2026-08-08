@@ -25,16 +25,17 @@
                         the same way the Language Bank categories are.
      - prepEntries, articleEntries, modalEntries, capitalEntries,
        orderEntries, qaEntries, posEntries, tenseMasteryEntries,
-       conditionalsEntries, activePassiveEntries, reportedSpeechEntries:
-                        eleven grammar-rule categories, sharing the same
+       conditionalsEntries, activePassiveEntries, reportedSpeechEntries,
+       relativeClausesEntries:
+                        twelve grammar-rule categories, sharing the same
                         generic { key, entry } shape as the Language Bank
                         stores, added via each category's own quick-add
                         box. Capitalization and Question Starters are
                         still standalone top-level tabs; Prepositions,
                         Articles, Modals, Word Order, Parts of Speech,
                         Tense Mastery, Conditionals, Active/Passive
-                        Voice, and Reported Speech all live nested
-                        inside the Course tab instead (see
+                        Voice, Reported Speech, and Relative Clauses all
+                        live nested inside the Course tab instead (see
                         COURSE_LOCAL_CATEGORIES in index.html).
                         Local-only: unlike vocabEntries/phrasalEntries/etc.
                         these don't currently participate in Firestore
@@ -108,7 +109,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 21;
+  var DB_VERSION = 22;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -134,6 +135,7 @@
   var CONDITIONALS_STORE = "conditionalsEntries";
   var ACTIVE_PASSIVE_STORE = "activePassiveEntries";
   var REPORTED_SPEECH_STORE = "reportedSpeechEntries";
+  var RELATIVE_CLAUSES_STORE = "relativeClausesEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
   var NOTES_STORE = "notesEntries";
@@ -203,7 +205,7 @@
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
-        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE].forEach(function (name) {
+        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE, RELATIVE_CLAUSES_STORE].forEach(function (name) {
           if (!db.objectStoreNames.contains(name)) {
             db.createObjectStore(name, { keyPath: "key" });
           }
@@ -489,6 +491,11 @@
   function putReportedSpeech(entry, options) { return putEntry(REPORTED_SPEECH_STORE, entry, options); }
   function getAllReportedSpeech(options) { return getAllEntries(REPORTED_SPEECH_STORE, options); }
   function deleteReportedSpeech(word, options) { return deleteEntry(REPORTED_SPEECH_STORE, word, options); }
+
+  function getRelativeClauses(word, options) { return getEntry(RELATIVE_CLAUSES_STORE, word, options); }
+  function putRelativeClauses(entry, options) { return putEntry(RELATIVE_CLAUSES_STORE, entry, options); }
+  function getAllRelativeClauses(options) { return getAllEntries(RELATIVE_CLAUSES_STORE, options); }
+  function deleteRelativeClauses(word, options) { return deleteEntry(RELATIVE_CLAUSES_STORE, word, options); }
 
   /* ---------- familyEntries (Owner-added Word Family entries) ----------
      Same generic { key, entry } shape as customVerbs/the six grammar-rule
@@ -840,6 +847,10 @@
     putReportedSpeech: putReportedSpeech,
     getAllReportedSpeech: getAllReportedSpeech,
     deleteReportedSpeech: deleteReportedSpeech,
+    getRelativeClauses: getRelativeClauses,
+    putRelativeClauses: putRelativeClauses,
+    getAllRelativeClauses: getAllRelativeClauses,
+    deleteRelativeClauses: deleteRelativeClauses,
     FAMILY_STORE: FAMILY_STORE,
     getFamily: getFamily,
     putFamily: putFamily,
