@@ -238,6 +238,14 @@ describe.each([
     manualUseId: "collocationsManualUse", manualExampleId: "collocationsManualExample",
     manualSaveBtnId: "collocationsManualSaveBtn", manualCancelBtnId: "collocationsManualCancelBtn",
     courseCategory: "collocations"
+  },
+  {
+    key: "writingTemplates", label: "Writing Templates", inputId: "writingTemplatesAddInput", btnId: "writingTemplatesAddBtn",
+    statusId: "writingTemplatesAddStatus", dataKey: "writingTemplatesData", entryId: "writingTemplatesEntry",
+    builtIn: "IELTS Writing Task 2 Essay Structure: Four Paragraphs", manualBoxId: "writingTemplatesManualBox", manualWordId: "writingTemplatesManualWord",
+    manualUseId: "writingTemplatesManualUse", manualExampleId: "writingTemplatesManualExample",
+    manualSaveBtnId: "writingTemplatesManualSaveBtn", manualCancelBtnId: "writingTemplatesManualCancelBtn",
+    courseCategory: "writingTemplates"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,

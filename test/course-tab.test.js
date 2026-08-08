@@ -1,28 +1,29 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts fifteen nested categories — Parts of Speech, Modal Verbs,
+// hosts sixteen nested categories — Parts of Speech, Modal Verbs,
 // Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
 // Speech, Relative Clauses, Complex Sentence Building, Cohesive
-// Devices, Nominalization, Collocations & Paraphrasing, Prepositions,
-// Word Order, and Articles — all living inside panel-course as
-// .course-category divs (mirroring Language Bank's own
-// category-switcher pattern; the chip row scrolls horizontally past 5
-// categories, same treatment as Word Bank's own category seg). Modal
-// Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
-// top-level tabs that a chip merely linked out to; they're merged in
-// here now, so nothing redundant is left outside the Course tab, and
-// their old panel-modals/panel-tenses/panel-preps/panel-order/
-// panel-articles sections and thumb-tab buttons no longer exist. Tense
-// Mastery, Conditionals, Active/Passive Voice, Reported Speech,
+// Devices, Nominalization, Collocations & Paraphrasing, Writing
+// Templates, Prepositions, Word Order, and Articles — all living
+// inside panel-course as .course-category divs (mirroring Language
+// Bank's own category-switcher pattern; the chip row scrolls
+// horizontally past 5 categories, same treatment as Word Bank's own
+// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
+// used to be separate top-level tabs that a chip merely linked out to;
+// they're merged in here now, so nothing redundant is left outside the
+// Course tab, and their old panel-modals/panel-tenses/panel-preps/
+// panel-order/panel-articles sections and thumb-tab buttons no longer
+// exist. Tense Mastery, Conditionals, Active/Passive Voice, Reported
+// Speech, Relative Clauses, Complex Sentence Building, Cohesive
+// Devices, Nominalization, Collocations & Paraphrasing, and Writing
+// Templates are brand-new — none of them ever had a standalone tab.
+// Their own add/edit/delete/CRUD behavior is still covered by
+// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
+// focuses on the Course tab shell/category-switcher, Parts of Speech,
+// Tense Mastery, Conditionals, Active/Passive Voice, Reported Speech,
 // Relative Clauses, Complex Sentence Building, Cohesive Devices,
-// Nominalization, and Collocations & Paraphrasing are brand-new — none
-// of them ever had a standalone tab. Their own add/edit/delete/CRUD
-// behavior is still covered by test/rule-tabs-add.test.js and
-// test/tenses-add.test.js — this file focuses on the Course tab
-// shell/category-switcher, Parts of Speech, Tense Mastery,
-// Conditionals, Active/Passive Voice, Reported Speech, Relative
-// Clauses, Complex Sentence Building, Cohesive Devices, Nominalization,
-// and Collocations & Paraphrasing content.
+// Nominalization, Collocations & Paraphrasing, and Writing Templates
+// content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -62,6 +63,7 @@ describe("Course tab — shell and category switcher", () => {
     ["cohesiveDevices", "cohesiveDevicesSelect", "Addition Linkers: Furthermore, Moreover, In Addition"],
     ["nominalization", "nominalizationSelect", "What Is Nominalization?"],
     ["collocations", "collocationsSelect", "What Are Collocations?"],
+    ["writingTemplates", "writingTemplatesSelect", "IELTS Writing Task 2 Essay Structure: Four Paragraphs"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -853,6 +855,77 @@ describe("Course tab — Collocations & Paraphrasing (natural word pairings and 
   });
 });
 
+describe("Course tab — Writing Templates (IELTS/Cambridge-style Task 1 & 2 essay structure)", () => {
+  it("covers essay structure, introduction/body/conclusion templates, Task 1 overview, opinion vs discussion essays, and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.writingTemplatesData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "IELTS Writing Task 2 Essay Structure: Four Paragraphs",
+      "Introduction Paragraph Template",
+      "Body Paragraph Template: Point, Explain, Example (PEE)",
+      "Conclusion Paragraph Template",
+      "Task 1 Overview Statement Template (Graphs & Charts)",
+      "Opinion Essay vs Discussion Essay Templates",
+      "Common Writing Template Mistakes"
+    ]));
+  });
+
+  it("the conclusion template lesson flags introducing a new idea in the conclusion as a mistake", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.writingTemplatesData.find((c) => c.w === "Conclusion Paragraph Template");
+    expect(lesson.mistake).toMatch(/new argument|new idea/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("writingTemplatesAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("writingTemplatesAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("writingTemplatesAddInput").value = "Advantages/Disadvantages Essay Template";
+    document.getElementById("writingTemplatesAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("writingTemplatesAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.writingTemplatesData.some((c) => c.w === "Advantages/Disadvantages Essay Template")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Writing Templates category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("writingTemplatesAddInput").value = "Advantages/Disadvantages Essay Template";
+    document.getElementById("writingTemplatesAddBtn").click();
+    await wait(30);
+
+    document.getElementById("writingTemplatesManualUse").value = "Body 1 covers advantages, Body 2 covers disadvantages, then a balanced conclusion.";
+    document.getElementById("writingTemplatesManualExample").value = "One advantage is X. On the other hand, a disadvantage is Y.";
+    document.getElementById("writingTemplatesManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.writingTemplatesData.some((c) => c.w === "Advantages/Disadvantages Essay Template")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="writingTemplates"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("writingTemplatesEntry").querySelector(".headword").textContent).toBe("Advantages/Disadvantages Essay Template");
+    expect(document.getElementById("writingTemplatesEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("writingTemplatesSelect").value = "IELTS Writing Task 2 Essay Structure: Four Paragraphs";
+    hooks.renderRuleEntry(
+      hooks.writingTemplatesData.find((c) => c.w === "IELTS Writing Task 2 Essay Structure: Four Paragraphs"),
+      document.getElementById("writingTemplatesEntry"), "Writing Templates Rule", "writingTemplates"
+    );
+    expect(document.getElementById("writingTemplatesEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -1021,6 +1094,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="collocations"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("collocationsEntry").querySelector(".headword").textContent).toBe("Common Collocation & Paraphrasing Mistakes");
+  });
+
+  it("indexes every Writing Templates lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "IELTS Writing Task 2 Essay Structure: Four Paragraphs" && item.cat === "Writing templates");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Writing Templates search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Common Writing Template Mistakes" && item.cat === "Writing templates");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="writingTemplates"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("writingTemplatesEntry").querySelector(".headword").textContent).toBe("Common Writing Template Mistakes");
   });
 });
 

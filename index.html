@@ -1837,6 +1837,7 @@
         <button data-val="cohesiveDevices">Cohesive Devices</button>
         <button data-val="nominalization">Nominalization</button>
         <button data-val="collocations">Collocations & Paraphrasing</button>
+        <button data-val="writingTemplates">Writing Templates</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2253,6 +2254,34 @@
           <input type="text" id="collocationsManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="collocationsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="collocationsManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-writingTemplates" style="display:none;">
+      <div class="controls">
+        <select id="writingTemplatesSelect"></select>
+        <button class="nav-btn" data-target="writingTemplatesSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="writingTemplatesSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="writingTemplatesEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="writingTemplatesSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="writingTemplatesSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="writingTemplatesAddBox">
+        <div class="section-label">➕ Add a Writing Templates rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Opinion Essay Template"), then add your own explanation and an example below.</p>
+        <input type="text" id="writingTemplatesAddInput" placeholder="Rule name (e.g. Despite / in spite of)" autocomplete="off">
+        <button id="writingTemplatesAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="writingTemplatesAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="writingTemplatesManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="writingTemplatesManualWord"></strong>":</p>
+          <textarea id="writingTemplatesManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="writingTemplatesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="writingTemplatesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="writingTemplatesManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5916,6 +5945,35 @@ const collocationsData = [
       {use:"Over-paraphrasing every single word, including proper nouns, technical terms, and numbers that shouldn't be changed, produces an awkward or even inaccurate version of the original.", examples:["Original: 'In 2020, Apple released a new product.'","Over-paraphrased (wrong): 'During the year following 2019, a technology corporation launched a fresh item.' (needlessly vague and stilted)"]},
       {use:"Copying long strings of the original text unchanged — real paraphrasing changes enough of the vocabulary and structure that it counts as your own restatement, not a near-copy.", examples:["Merely swapping one or two words in an otherwise identical sentence is not genuine paraphrasing and is penalized in IELTS Writing and Speaking for lack of range."]}
     ], mistake:"In IELTS Speaking and Writing, using the exact same collocation or phrase as the question/prompt without any variation signals a narrower vocabulary range than the test is trying to measure — paraphrasing the prompt itself, not just quoting it back, is expected."}
+];
+
+/* =========================================================
+   DATA — WRITING TEMPLATES (IELTS/Cambridge-style Task 1 & 2
+   essay structure)
+========================================================= */
+const writingTemplatesData = [
+  {w:"IELTS Writing Task 2 Essay Structure: Four Paragraphs", senses:[
+      {use:"A well-organized Task 2 essay follows a predictable four-paragraph shape: Introduction, Body Paragraph 1, Body Paragraph 2, Conclusion — examiners reward this clear, logical structure under Coherence and Cohesion.", examples:["Introduction: paraphrase the question + state your position/thesis.","Body 1: first main idea + explanation + example.","Body 2: second main idea + explanation + example.","Conclusion: summarize both ideas + restate your position."]}
+    ], mistake:null},
+  {w:"Introduction Paragraph Template", senses:[
+      {use:"Two sentences are usually enough: one paraphrasing the essay question in your own words, and one stating your thesis or overall position — never copy the question verbatim.", examples:["Question: 'Some people think technology has made children less social. Discuss both views and give your opinion.'","Paraphrase + thesis: '<b>It is often argued that modern devices have reduced children's face-to-face interaction.</b> While there is some truth to this claim, <b>I believe technology has created new, equally valuable forms of social connection.</b>'"]}
+    ], mistake:"Copying the question word-for-word as the opening sentence — this is flagged by examiners and doesn't demonstrate paraphrasing ability."},
+  {w:"Body Paragraph Template: Point, Explain, Example (PEE)", senses:[
+      {use:"Each body paragraph should open with a clear topic sentence stating the main idea, follow with an explanation of why/how it's true, and close with a specific example that supports it.", examples:["<b>Point:</b> 'One major advantage of remote work is improved work-life balance.'","<b>Explain:</b> 'Employees save the time they would otherwise spend commuting, allowing more time for family and personal interests.'","<b>Example:</b> 'For instance, a 2022 survey found that remote workers reported an extra 5 hours per week for personal activities.'"]}
+    ], mistake:null},
+  {w:"Conclusion Paragraph Template", senses:[
+      {use:"A strong conclusion briefly summarizes the two main points made in the body paragraphs and restates your position — it should never introduce a brand-new idea that wasn't discussed in the essay.", examples:["'In conclusion, while <b>[summary of point 1]</b> and <b>[summary of point 2]</b> both have merit, <b>[restated opinion]</b> remains the stronger view overall.'"]}
+    ], mistake:"Introducing a new argument or example in the conclusion that was never mentioned in the body paragraphs — the conclusion should only summarize what's already there."},
+  {w:"Task 1 Overview Statement Template (Graphs & Charts)", senses:[
+      {use:"IELTS Academic Task 1 requires a short 'overview' paragraph that identifies the two or three most significant overall trends or features — written BEFORE the detailed data description, not mixed in with it.", examples:["'<b>Overall</b>, the number of visitors increased steadily over the period, while the proportion arriving by car declined sharply.' (states the big picture before any specific numbers are given)"]}
+    ], mistake:null},
+  {w:"Opinion Essay vs Discussion Essay Templates", senses:[
+      {use:"'To what extent do you agree?' (opinion essay) needs your view stated clearly throughout; 'Discuss both views and give your opinion' (discussion essay) needs a paragraph for EACH side before your own opinion.", examples:["Opinion essay body: Body 1 = reason 1 for your view, Body 2 = reason 2 for your view.","Discussion essay body: Body 1 = the first view (with explanation), Body 2 = the second view (with explanation), then your opinion woven throughout or stated clearly in the conclusion."]}
+    ], mistake:"Using a pure opinion-essay structure (only arguing one side) for a 'discuss both views' question — this fails to address the actual task and is penalized under Task Achievement/Response."},
+  {w:"Common Writing Template Mistakes", senses:[
+      {use:"Memorizing an entire template sentence-for-sentence and reusing it in every essay, regardless of the actual question, produces generic writing that doesn't directly answer the specific prompt.", examples:["A memorized opening like 'Nowadays, this issue has become a hot topic of discussion in society' fits almost any question, which is exactly why examiners recognize it as unoriginal, formulaic language."]},
+      {use:"Following the structure so rigidly that natural transitions and cohesive devices between paragraphs get sacrificed — the shape is a guide for organizing ideas, not a rigid fill-in-the-blank form.", examples:["Templates should shape your OWN ideas about the specific question, not replace them with generic filler."]}
+    ], mistake:"Relying entirely on a memorized template without adapting the content to the specific question asked results in an essay that reads as rehearsed rather than a genuine response — examiners are trained to notice and penalize this under Task Achievement."}
 ];
 
 /* =========================================================
@@ -38104,6 +38162,7 @@ setupRuleModule(complexSentencesData, "complexSentencesSelect", "complexSentence
 setupRuleModule(cohesiveDevicesData, "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
 setupRuleModule(nominalizationData, "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
 setupRuleModule(collocationsData, "collocationsSelect", "collocationsEntry", "Collocations & Paraphrasing Rule", "collocations");
+setupRuleModule(writingTemplatesData, "writingTemplatesSelect", "writingTemplatesEntry", "Writing Templates Rule", "writingTemplates");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40764,6 +40823,7 @@ indexCourseCategoryRuleModule(complexSentencesData, "Complex sentences", "comple
 indexCourseCategoryRuleModule(cohesiveDevicesData, "Cohesive devices", "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
 indexCourseCategoryRuleModule(nominalizationData, "Nominalization", "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
 indexCourseCategoryRuleModule(collocationsData, "Collocations and paraphrasing", "collocationsSelect", "collocationsEntry", "Collocations & Paraphrasing Rule", "collocations");
+indexCourseCategoryRuleModule(writingTemplatesData, "Writing templates", "writingTemplatesSelect", "writingTemplatesEntry", "Writing Templates Rule", "writingTemplates");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41599,7 +41659,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41899,6 +41959,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "collocationsManualUse", manualExampleId: "collocationsManualExample",
     manualSaveBtnId: "collocationsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "collocationsManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("collocations"); }
+  },
+  writingTemplates: {
+    data: writingTemplatesData, selectId: "writingTemplatesSelect", entryId: "writingTemplatesEntry", tagLabel: "Writing Templates Rule",
+    inputId: "writingTemplatesAddInput", btnId: "writingTemplatesAddBtn", statusId: "writingTemplatesAddStatus", inputNoun: "a writing templates rule",
+    putFn: function(entry, opts){ return VocabCache.putWritingTemplates(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllWritingTemplates(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteWritingTemplates(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "writingTemplatesManualBox", manualWordId: "writingTemplatesManualWord",
+    manualUseId: "writingTemplatesManualUse", manualExampleId: "writingTemplatesManualExample",
+    manualSaveBtnId: "writingTemplatesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "writingTemplatesManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("writingTemplates"); }
   }
 };
 
@@ -41915,7 +41987,7 @@ const LANGUAGE_BANK_CONFIG = {
 // Course tab's own local lesson categories — same generic machinery as
 // the others, just surfaced inside the Course tab's category switcher
 // instead of getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations"];
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42967,7 +43039,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Complex Sentences Rule", data: complexSentencesData },
     { cat: "Cohesive Devices Rule", data: cohesiveDevicesData },
     { cat: "Nominalization Rule", data: nominalizationData },
-    { cat: "Collocations & Paraphrasing Rule", data: collocationsData }
+    { cat: "Collocations & Paraphrasing Rule", data: collocationsData },
+    { cat: "Writing Templates Rule", data: writingTemplatesData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45809,6 +45882,7 @@ renderRuleEntry(complexSentencesData.find(x=>x.w===document.getElementById("comp
 renderRuleEntry(cohesiveDevicesData.find(x=>x.w===document.getElementById("cohesiveDevicesSelect").value), document.getElementById("cohesiveDevicesEntry"), "Cohesive Devices Rule", "cohesiveDevices");
 renderRuleEntry(nominalizationData.find(x=>x.w===document.getElementById("nominalizationSelect").value), document.getElementById("nominalizationEntry"), "Nominalization Rule", "nominalization");
 renderRuleEntry(collocationsData.find(x=>x.w===document.getElementById("collocationsSelect").value), document.getElementById("collocationsEntry"), "Collocations & Paraphrasing Rule", "collocations");
+renderRuleEntry(writingTemplatesData.find(x=>x.w===document.getElementById("writingTemplatesSelect").value), document.getElementById("writingTemplatesEntry"), "Writing Templates Rule", "writingTemplates");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47954,7 +48028,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, writingTemplatesData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
