@@ -792,6 +792,14 @@
     margin-top:10px; font-size:12.5px; color:var(--ink-soft);
   }
 
+  .practice-speaking-diff{
+    margin-top:8px; padding:10px 12px; border-radius:10px; font-size:14px;
+    line-height:1.8; background:var(--card); border:1px solid var(--rule);
+  }
+  .speaking-diff-word{ display:inline-block; margin:0 3px 2px 0; padding:1px 4px; border-radius:4px; }
+  .speaking-diff-word.matched{ color:var(--mint); background:var(--mint-bg); }
+  .speaking-diff-word.missed{ color:var(--brick); background:var(--brick-bg); text-decoration:line-through; }
+
   .practice-dictation-hidden-hint{
     font-size:13px; color:var(--ink-soft); font-style:italic;
   }
@@ -40047,6 +40055,52 @@ function isCloseTextMatch(input, target){
   return distance <= maxDistance;
 }
 
+// isCloseTextMatch() only answers correct-or-not for the sentence as a
+// whole — it can't tell a learner WHICH word(s) actually threw off the
+// match. This does a word-level LCS (the same alignment idea as a
+// classic text diff, just over words instead of characters) between the
+// normalized heard/target word lists, then maps the result back onto
+// the target's own original words (case/spelling preserved) so the
+// feedback UI can show exactly which words came through and which
+// didn't — rather than only ever seeing the target sentence restated in
+// full regardless of how close the attempt actually was.
+function diffSpeakingWords(heardText, targetText){
+  const targetWords = (targetText || "").split(/\s+/).filter(Boolean);
+  if(!targetWords.length) return [];
+  const targetNorm = normalizeForSpeechCompare(targetText).split(" ").filter(Boolean);
+  const heardNorm = normalizeForSpeechCompare(heardText).split(" ").filter(Boolean);
+  const m = targetNorm.length, n = heardNorm.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for(let i = 1; i <= m; i++){
+    for(let j = 1; j <= n; j++){
+      dp[i][j] = targetNorm[i - 1] === heardNorm[j - 1]
+        ? dp[i - 1][j - 1] + 1
+        : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const matched = new Array(m).fill(false);
+  let i = m, j = n;
+  while(i > 0 && j > 0){
+    if(targetNorm[i - 1] === heardNorm[j - 1]){ matched[i - 1] = true; i--; j--; }
+    else if(dp[i - 1][j] >= dp[i][j - 1]) i--;
+    else j--;
+  }
+  return targetWords.map((word, idx) => ({ word, matched: !!matched[idx] }));
+}
+
+// Renders diffSpeakingWords() as inline highlighted spans — matched
+// words in green, missed/mismatched words struck through in red —
+// giving a learner a quick visual read on exactly what to fix, instead
+// of just a pass/fail plus the full target sentence restated.
+function renderSpeakingWordDiffHtml(heardText, targetText){
+  const diff = diffSpeakingWords(heardText, targetText);
+  if(!diff.length) return "";
+  const spans = diff.map((d) =>
+    `<span class="speaking-diff-word ${d.matched ? "matched" : "missed"}">${d.word}</span>`
+  ).join(" ");
+  return `<div class="practice-speaking-diff">${spans}</div>`;
+}
+
 let practiceRecognition = null; // the in-flight SpeechRecognition instance, if any
 let practiceRecognitionTimeout = null;
 
@@ -40176,9 +40230,10 @@ function submitSpeakingAnswer(transcript){
   if(statusEl) statusEl.textContent = "";
   const feedback = document.getElementById("practiceSpeakingFeedback");
   if(feedback){
-    feedback.innerHTML = correct
+    const diffHtml = heard ? renderSpeakingWordDiffHtml(heard, item.shadowText) : "";
+    feedback.innerHTML = (correct
       ? `<div class="practice-feedback correct">✅ Nice! We heard: "${heard || "(nothing)"}"</div>`
-      : `<div class="practice-feedback incorrect">❌ We heard: "${heard || "(nothing)"}"<br>Target: ${item.shadowText}</div>`;
+      : `<div class="practice-feedback incorrect">❌ We heard: "${heard || "(nothing)"}"<br>Target: ${item.shadowText}</div>`) + diffHtml;
   }
   practiceState.results.push({ correct, word: item.word, question: `Repeat: "${item.shadowText}"`, userAnswer: heard || "(nothing heard)", correctAnswer: item.shadowText });
   document.getElementById("practiceQuestionArea").insertAdjacentHTML("beforeend", nextQuestionButtonHtml());
@@ -48127,6 +48182,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   startPractice, buildPracticeCandidates, buildPracticeSession, recordPracticeSessionUsage,
   buildFlashcardItems, buildMcqItems, buildSpellingItems, buildTrueFalseItems, buildMatchingBatches,
   buildSpeakingItems, isSpeechRecognitionSupported, isCloseTextMatch,
+  diffSpeakingWords, renderSpeakingWordDiffHtml,
   getPracticeShadowTarget, startSpeakingRecognition, submitSpeakingAnswer,
   maybeEnhanceSpeakingSentenceOnline, onlineLookupCache,
   getPracticeRecognition: ()=> practiceRecognition,

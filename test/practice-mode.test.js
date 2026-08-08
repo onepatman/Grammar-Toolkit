@@ -464,6 +464,62 @@ describe("Practice tab — Speaking mode (shadowing)", () => {
     expect(feedback).toContain(item.shadowText);
   });
 
+  it("diffSpeakingWords() marks every target word matched for an exact transcript", async () => {
+    const { hooks } = await loadApp();
+    const diff = hooks.diffSpeakingWords("The quick brown fox jumps.", "The quick brown fox jumps.");
+    expect(diff.map((d) => d.word)).toEqual(["The", "quick", "brown", "fox", "jumps."]);
+    expect(diff.every((d) => d.matched)).toBe(true);
+  });
+
+  it("diffSpeakingWords() flags only the word(s) that actually diverged, not the whole sentence", async () => {
+    const { hooks } = await loadApp();
+    const diff = hooks.diffSpeakingWords("The quick brown cat jumps.", "The quick brown fox jumps.");
+    expect(diff.map((d) => d.matched)).toEqual([true, true, true, false, true]);
+    expect(diff.find((d) => d.word === "fox").matched).toBe(false);
+  });
+
+  it("diffSpeakingWords() marks every target word unmatched when nothing at all was heard", async () => {
+    const { hooks } = await loadApp();
+    const diff = hooks.diffSpeakingWords("", "The quick brown fox jumps.");
+    expect(diff.every((d) => !d.matched)).toBe(true);
+  });
+
+  it("shows word-level diff highlighting in the feedback panel for a wrong-but-partial transcript", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    const state = hooks.getPracticeState();
+    const item = state.items[state.index];
+    const targetWords = item.shadowText.split(/\s+/);
+    const misheard = ["totally", ...targetWords.slice(1)].join(" ");
+
+    listenThenRecord(document);
+    hooks.getPracticeRecognition().onresult({ results: [[{ transcript: misheard }]] });
+
+    const diffEl = document.querySelector(".practice-speaking-diff");
+    expect(diffEl).toBeTruthy();
+    const missedWords = Array.from(diffEl.querySelectorAll(".speaking-diff-word.missed")).map((el) => el.textContent);
+    const matchedWords = Array.from(diffEl.querySelectorAll(".speaking-diff-word.matched")).map((el) => el.textContent);
+    expect(missedWords).toContain(targetWords[0]);
+    expect(matchedWords).toEqual(expect.arrayContaining(targetWords.slice(1)));
+  });
+
+  it("shows no diff panel at all when nothing was heard (there's nothing useful to highlight)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    listenThenRecord(document);
+    hooks.getPracticeRecognition().onresult({ results: [[{ transcript: "" }]] });
+
+    expect(document.querySelector(".practice-speaking-diff")).toBeNull();
+  });
+
   it("a recognition error re-enables the Record button instead of leaving the learner stuck", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
