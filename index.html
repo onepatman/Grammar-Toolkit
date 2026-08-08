@@ -1834,6 +1834,7 @@
         <button data-val="reportedSpeech">Reported Speech</button>
         <button data-val="relativeClauses">Relative Clauses</button>
         <button data-val="complexSentences">Complex Sentences</button>
+        <button data-val="cohesiveDevices">Cohesive Devices</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2166,6 +2167,34 @@
           <input type="text" id="complexSentencesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="complexSentencesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="complexSentencesManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-cohesiveDevices" style="display:none;">
+      <div class="controls">
+        <select id="cohesiveDevicesSelect"></select>
+        <button class="nav-btn" data-target="cohesiveDevicesSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="cohesiveDevicesSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="cohesiveDevicesEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="cohesiveDevicesSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="cohesiveDevicesSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="cohesiveDevicesAddBox">
+        <div class="section-label">➕ Add a Cohesive Devices rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Concession linkers"), then add your own explanation and an example below.</p>
+        <input type="text" id="cohesiveDevicesAddInput" placeholder="Rule name (e.g. Despite / in spite of)" autocomplete="off">
+        <button id="cohesiveDevicesAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="cohesiveDevicesAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="cohesiveDevicesManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="cohesiveDevicesManualWord"></strong>":</p>
+          <textarea id="cohesiveDevicesManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="cohesiveDevicesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="cohesiveDevicesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="cohesiveDevicesManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5741,6 +5770,37 @@ const complexSentencesData = [
       {use:"Band 7+ grammatical range comes from a genuine MIX of simple, compound, and complex sentences — not from maximizing complexity in every sentence.", examples:["A short simple sentence after a long complex one can emphasize a point effectively: 'Although the evidence is mixed, one trend is undeniable: costs are rising.'"]},
       {use:"An overly long sentence stacking multiple subordinate clauses often becomes harder to follow, which actually hurts a coherence/clarity score even if the grammar is technically correct.", examples:["Overloaded: Although the results, which were collected over several months and reviewed by multiple engineers who had varying levels of experience, suggested improvement, the client remained skeptical because previous reports had also claimed progress. (hard to follow — better split into two sentences)"]}
     ], mistake:"Chasing complexity for its own sake — stacking clause after clause — often reads as trying too hard rather than as genuinely advanced writing; controlled variety beats maximal complexity."}
+];
+
+/* =========================================================
+   DATA — COHESIVE DEVICES (linking words that connect ideas
+   across sentences — a major IELTS Coherence and Cohesion
+   scoring criterion, distinct from grammar itself)
+========================================================= */
+const cohesiveDevicesData = [
+  {w:"Addition Linkers: Furthermore, Moreover, In Addition", senses:[
+      {use:"Use these formal linkers to add a second, supporting point that strengthens the same argument — always at the start of a new sentence, followed by a comma.", examples:["The design reduces cost. <b>Furthermore</b>, it simplifies maintenance.","<b>Moreover</b>, the material is more durable than the original."]}
+    ], mistake:null},
+  {w:"Contrast Linkers: However, Nevertheless, On the Other Hand, Whereas", senses:[
+      {use:"'However' and 'nevertheless' are sentence adverbs — they start a new independent sentence, followed by a comma.", examples:["The budget was tight. <b>However</b>, the team delivered on time."]},
+      {use:"'Whereas' is a subordinating conjunction — it joins two clauses directly within ONE sentence, not two separate sentences.", examples:["The old design was heavy, <b>whereas</b> the new one is compact. (one sentence, not two)"]}
+    ], mistake:"Punctuating 'whereas' like 'however' — 'The old design was heavy. Whereas the new one is compact.' — creates a fragment, since 'whereas' needs to stay attached to an independent clause."},
+  {w:"Cause-Effect Linkers: Therefore, Consequently, As a Result", senses:[
+      {use:"These formal linkers show that what follows is a direct result of what came before — used at the start of a new sentence, followed by a comma.", examples:["The pump failed. <b>Therefore</b>, production stopped.","The site was unsafe; <b>consequently</b>, work was halted.","<b>As a result</b>, the client requested a full inspection."]}
+    ], mistake:null},
+  {w:"Sequencing Linkers: Firstly, Subsequently, Finally", senses:[
+      {use:"Use sequencing linkers to organize a multi-step explanation, process, or essay structure clearly for the reader.", examples:["<b>Firstly</b>, the site was inspected. <b>Subsequently</b>, a report was filed. <b>Finally</b>, repairs began."]}
+    ], mistake:null},
+  {w:"Reference Words: This/These/Such + Noun", senses:[
+      {use:"Instead of repeating a full idea from the previous sentence, refer back to it briefly using 'this/these/such' + a summarizing noun.", examples:["The team missed the deadline due to a supply shortage. <b>This delay</b> affected three other projects. (not 'The missing of the deadline due to a supply shortage')"]}
+    ], mistake:"A vague 'this' with no noun after it can leave the reader unsure exactly what it refers to — 'This affected three other projects' is weaker and less precise than 'This delay affected three other projects.'"},
+  {w:"Substitution: One, Do So, Ones (Avoiding Repetition)", senses:[
+      {use:"'One/ones' replaces a previously mentioned countable noun; 'do so' replaces a previously mentioned verb phrase, to avoid clunky repetition.", examples:["We needed a new sensor, so we ordered <b>one</b>. (= a new sensor)","If the client wants a redesign, the engineer will <b>do so</b> immediately. (= redesign it)"]}
+    ], mistake:null},
+  {w:"Common Cohesive Device Mistakes", senses:[
+      {use:"Overusing linkers — starting nearly every sentence with 'Furthermore' or 'Moreover' — makes writing feel mechanical rather than genuinely connected.", examples:["Overused: Furthermore, the cost is low. Furthermore, it is durable. Furthermore, it is easy to install. (repetitive and robotic)"]},
+      {use:"Using the wrong linker for the actual logical relationship — e.g. a contrast word where an addition or result was meant.", examples:["Wrong: The design is efficient. <b>However</b>, it is also cost-effective. (no real contrast here — 'furthermore' fits better)"]}
+    ], mistake:"A high frequency of linking words does not automatically raise a Coherence and Cohesion score — examiners specifically penalize mechanical or inaccurate use over natural, varied connection between ideas."}
 ];
 
 /* =========================================================
@@ -37926,6 +37986,7 @@ setupRuleModule(activePassiveData, "activePassiveSelect", "activePassiveEntry", 
 setupRuleModule(reportedSpeechData, "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
 setupRuleModule(relativeClausesData, "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
 setupRuleModule(complexSentencesData, "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
+setupRuleModule(cohesiveDevicesData, "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40583,6 +40644,7 @@ indexCourseCategoryRuleModule(activePassiveData, "Active/passive voice", "active
 indexCourseCategoryRuleModule(reportedSpeechData, "Reported speech", "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
 indexCourseCategoryRuleModule(relativeClausesData, "Relative clauses", "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
 indexCourseCategoryRuleModule(complexSentencesData, "Complex sentences", "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
+indexCourseCategoryRuleModule(cohesiveDevicesData, "Cohesive devices", "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41418,7 +41480,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41682,6 +41744,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "complexSentencesManualUse", manualExampleId: "complexSentencesManualExample",
     manualSaveBtnId: "complexSentencesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "complexSentencesManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("complexSentences"); }
+  },
+  cohesiveDevices: {
+    data: cohesiveDevicesData, selectId: "cohesiveDevicesSelect", entryId: "cohesiveDevicesEntry", tagLabel: "Cohesive Devices Rule",
+    inputId: "cohesiveDevicesAddInput", btnId: "cohesiveDevicesAddBtn", statusId: "cohesiveDevicesAddStatus", inputNoun: "a cohesive devices rule",
+    putFn: function(entry, opts){ return VocabCache.putCohesiveDevices(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllCohesiveDevices(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteCohesiveDevices(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "cohesiveDevicesManualBox", manualWordId: "cohesiveDevicesManualWord",
+    manualUseId: "cohesiveDevicesManualUse", manualExampleId: "cohesiveDevicesManualExample",
+    manualSaveBtnId: "cohesiveDevicesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "cohesiveDevicesManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("cohesiveDevices"); }
   }
 };
 
@@ -41693,12 +41767,12 @@ const LANGUAGE_BANK_CONFIG = {
 // sync payload. "pos" (Parts of Speech), "tenseMastery" (Tense
 // Mastery), "conditionals" (Conditionals), "activePassive"
 // (Active/Passive Voice), "reportedSpeech" (Reported Speech),
-// "relativeClauses" (Relative Clauses), and "complexSentences"
-// (Complex Sentence Building) are the Course tab's own local lesson
-// categories — same generic machinery as the others, just surfaced
-// inside the Course tab's category switcher instead of getting their
-// own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences"];
+// "relativeClauses" (Relative Clauses), "complexSentences" (Complex
+// Sentence Building), and "cohesiveDevices" (Cohesive Devices) are the
+// Course tab's own local lesson categories — same generic machinery as
+// the others, just surfaced inside the Course tab's category switcher
+// instead of getting their own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42747,7 +42821,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Active/Passive Voice Rule", data: activePassiveData },
     { cat: "Reported Speech Rule", data: reportedSpeechData },
     { cat: "Relative Clauses Rule", data: relativeClausesData },
-    { cat: "Complex Sentences Rule", data: complexSentencesData }
+    { cat: "Complex Sentences Rule", data: complexSentencesData },
+    { cat: "Cohesive Devices Rule", data: cohesiveDevicesData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45586,6 +45661,7 @@ renderRuleEntry(activePassiveData.find(x=>x.w===document.getElementById("activeP
 renderRuleEntry(reportedSpeechData.find(x=>x.w===document.getElementById("reportedSpeechSelect").value), document.getElementById("reportedSpeechEntry"), "Reported Speech Rule", "reportedSpeech");
 renderRuleEntry(relativeClausesData.find(x=>x.w===document.getElementById("relativeClausesSelect").value), document.getElementById("relativeClausesEntry"), "Relative Clauses Rule", "relativeClauses");
 renderRuleEntry(complexSentencesData.find(x=>x.w===document.getElementById("complexSentencesSelect").value), document.getElementById("complexSentencesEntry"), "Complex Sentences Rule", "complexSentences");
+renderRuleEntry(cohesiveDevicesData.find(x=>x.w===document.getElementById("cohesiveDevicesSelect").value), document.getElementById("cohesiveDevicesEntry"), "Cohesive Devices Rule", "cohesiveDevices");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47731,7 +47807,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
