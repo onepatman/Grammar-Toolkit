@@ -1836,6 +1836,7 @@
         <button data-val="complexSentences">Complex Sentences</button>
         <button data-val="cohesiveDevices">Cohesive Devices</button>
         <button data-val="nominalization">Nominalization</button>
+        <button data-val="collocations">Collocations & Paraphrasing</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2224,6 +2225,34 @@
           <input type="text" id="nominalizationManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="nominalizationManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="nominalizationManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-collocations" style="display:none;">
+      <div class="controls">
+        <select id="collocationsSelect"></select>
+        <button class="nav-btn" data-target="collocationsSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="collocationsSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="collocationsEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="collocationsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="collocationsSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="collocationsAddBox">
+        <div class="section-label">➕ Add a Collocations & Paraphrasing rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Make vs Do"), then add your own explanation and an example below.</p>
+        <input type="text" id="collocationsAddInput" placeholder="Rule name (e.g. Despite / in spite of)" autocomplete="off">
+        <button id="collocationsAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="collocationsAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="collocationsManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="collocationsManualWord"></strong>":</p>
+          <textarea id="collocationsManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="collocationsManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="collocationsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="collocationsManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5859,6 +5888,34 @@ const nominalizationData = [
       {use:"Using the wrong suffix or an invented noun form that doesn't exist in English.", examples:["Wrong: 'The informations were useful.' ('information' is uncountable — no plural, no article needed for the general sense)","Wrong: 'The company showed a big improvement-ness.' → Correct: 'The company showed a big <b>improvement</b>.'"]},
       {use:"Forgetting to adjust the article or determiner once a verb becomes a countable noun.", examples:["Wrong: 'Decision was made quickly.' → Correct: '<b>A</b> decision was made quickly.' or '<b>The</b> decision was made quickly.'"]}
     ], mistake:"Nominalizing every single verb in a paragraph, including ones that read naturally as verbs, produces stiff, overly formal writing — reserve nominalization for the sentence's main topic or argument, not every action."}
+];
+
+/* =========================================================
+   DATA — COLLOCATIONS & PARAPHRASING
+========================================================= */
+const collocationsData = [
+  {w:"What Are Collocations?", senses:[
+      {use:"A collocation is a pair (or group) of words that native speakers habitually use together — the individual words are correct English, but only one specific combination actually sounds natural.", examples:["Natural: 'make a decision.' Unnatural, though grammatically parsable: 'do a decision.'","Natural: 'heavy rain.' Unnatural: 'strong rain' (even though 'strong' is a perfectly good adjective elsewhere)."]}
+    ], mistake:null},
+  {w:"Verb + Noun Collocations: Make, Do, Take, Have", senses:[
+      {use:"'Make,' 'do,' 'take,' and 'have' each pair with specific nouns by convention, not logic — they have to be learned as fixed chunks.", examples:["<b>make</b> a decision, <b>make</b> progress, <b>make</b> an effort, <b>make</b> a mistake","<b>do</b> homework, <b>do</b> research, <b>do</b> damage, <b>do</b> a favor","<b>take</b> a break, <b>take</b> a risk, <b>take</b> responsibility, <b>take</b> action","<b>have</b> an impact, <b>have</b> a conversation, <b>have</b> difficulty"]}
+    ], mistake:"Swapping these verbs — 'make homework' or 'do a decision' — is one of the most common non-native errors, since the logic of 'make = create, do = perform' doesn't reliably predict the correct pairing."},
+  {w:"Adjective + Noun Collocations", senses:[
+      {use:"Certain adjectives conventionally pair with certain nouns to intensify or describe them — a near-synonym adjective often sounds wrong in the same slot.", examples:["<b>heavy</b> traffic / <b>heavy</b> rain (not 'strong traffic')","<b>strong</b> coffee / <b>strong</b> accent (not 'heavy coffee')","<b>high</b> risk / <b>high</b> demand (not 'tall risk')","<b>major</b> problem / <b>major</b> decision (not 'big' in formal writing, though 'big' is fine informally)"]}
+    ], mistake:null},
+  {w:"Paraphrasing Strategy 1: Synonym Substitution", senses:[
+      {use:"Replace key content words with accurate synonyms while keeping the sentence's grammar and meaning intact — the simplest paraphrasing technique, but risky if the synonym doesn't fit the exact context.", examples:["Original: 'The company increased its profits significantly.'","Paraphrase: 'The company <b>boosted</b> its <b>earnings considerably</b>.'"]}
+    ], mistake:"Choosing a synonym that's technically correct in a dictionary but wrong for this specific context — e.g. replacing 'big' with 'obese' just because a thesaurus lists it as a synonym for 'large.'"},
+  {w:"Paraphrasing Strategy 2: Changing Word Form (Part of Speech)", senses:[
+      {use:"Rewrite the sentence using a different part of speech for the same core idea — often pairs naturally with nominalization.", examples:["Original: 'Researchers <b>discovered</b> that the drug was effective.'","Paraphrase: 'Researchers made a <b>discovery</b> about the drug's <b>effectiveness</b>.' (verb → noun, adjective → noun)"]}
+    ], mistake:null},
+  {w:"Paraphrasing Strategy 3: Changing Sentence Structure", senses:[
+      {use:"Reorder clauses, switch between active and passive voice, or combine/split sentences while preserving the original meaning.", examples:["Original: 'The government introduced the policy because unemployment was rising.'","Paraphrase: '<b>Due to rising unemployment</b>, the policy was <b>introduced by the government</b>.' (reordered + passive voice)"]}
+    ], mistake:null},
+  {w:"Common Collocation & Paraphrasing Mistakes", senses:[
+      {use:"Over-paraphrasing every single word, including proper nouns, technical terms, and numbers that shouldn't be changed, produces an awkward or even inaccurate version of the original.", examples:["Original: 'In 2020, Apple released a new product.'","Over-paraphrased (wrong): 'During the year following 2019, a technology corporation launched a fresh item.' (needlessly vague and stilted)"]},
+      {use:"Copying long strings of the original text unchanged — real paraphrasing changes enough of the vocabulary and structure that it counts as your own restatement, not a near-copy.", examples:["Merely swapping one or two words in an otherwise identical sentence is not genuine paraphrasing and is penalized in IELTS Writing and Speaking for lack of range."]}
+    ], mistake:"In IELTS Speaking and Writing, using the exact same collocation or phrase as the question/prompt without any variation signals a narrower vocabulary range than the test is trying to measure — paraphrasing the prompt itself, not just quoting it back, is expected."}
 ];
 
 /* =========================================================
@@ -38046,6 +38103,7 @@ setupRuleModule(relativeClausesData, "relativeClausesSelect", "relativeClausesEn
 setupRuleModule(complexSentencesData, "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
 setupRuleModule(cohesiveDevicesData, "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
 setupRuleModule(nominalizationData, "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
+setupRuleModule(collocationsData, "collocationsSelect", "collocationsEntry", "Collocations & Paraphrasing Rule", "collocations");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40705,6 +40763,7 @@ indexCourseCategoryRuleModule(relativeClausesData, "Relative clauses", "relative
 indexCourseCategoryRuleModule(complexSentencesData, "Complex sentences", "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
 indexCourseCategoryRuleModule(cohesiveDevicesData, "Cohesive devices", "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
 indexCourseCategoryRuleModule(nominalizationData, "Nominalization", "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
+indexCourseCategoryRuleModule(collocationsData, "Collocations and paraphrasing", "collocationsSelect", "collocationsEntry", "Collocations & Paraphrasing Rule", "collocations");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41540,7 +41599,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41828,6 +41887,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "nominalizationManualUse", manualExampleId: "nominalizationManualExample",
     manualSaveBtnId: "nominalizationManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "nominalizationManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("nominalization"); }
+  },
+  collocations: {
+    data: collocationsData, selectId: "collocationsSelect", entryId: "collocationsEntry", tagLabel: "Collocations & Paraphrasing Rule",
+    inputId: "collocationsAddInput", btnId: "collocationsAddBtn", statusId: "collocationsAddStatus", inputNoun: "a collocations & paraphrasing rule",
+    putFn: function(entry, opts){ return VocabCache.putCollocations(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllCollocations(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteCollocations(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "collocationsManualBox", manualWordId: "collocationsManualWord",
+    manualUseId: "collocationsManualUse", manualExampleId: "collocationsManualExample",
+    manualSaveBtnId: "collocationsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "collocationsManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("collocations"); }
   }
 };
 
@@ -41844,7 +41915,7 @@ const LANGUAGE_BANK_CONFIG = {
 // Course tab's own local lesson categories — same generic machinery as
 // the others, just surfaced inside the Course tab's category switcher
 // instead of getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization"];
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42895,7 +42966,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Relative Clauses Rule", data: relativeClausesData },
     { cat: "Complex Sentences Rule", data: complexSentencesData },
     { cat: "Cohesive Devices Rule", data: cohesiveDevicesData },
-    { cat: "Nominalization Rule", data: nominalizationData }
+    { cat: "Nominalization Rule", data: nominalizationData },
+    { cat: "Collocations & Paraphrasing Rule", data: collocationsData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45736,6 +45808,7 @@ renderRuleEntry(relativeClausesData.find(x=>x.w===document.getElementById("relat
 renderRuleEntry(complexSentencesData.find(x=>x.w===document.getElementById("complexSentencesSelect").value), document.getElementById("complexSentencesEntry"), "Complex Sentences Rule", "complexSentences");
 renderRuleEntry(cohesiveDevicesData.find(x=>x.w===document.getElementById("cohesiveDevicesSelect").value), document.getElementById("cohesiveDevicesEntry"), "Cohesive Devices Rule", "cohesiveDevices");
 renderRuleEntry(nominalizationData.find(x=>x.w===document.getElementById("nominalizationSelect").value), document.getElementById("nominalizationEntry"), "Nominalization Rule", "nominalization");
+renderRuleEntry(collocationsData.find(x=>x.w===document.getElementById("collocationsSelect").value), document.getElementById("collocationsEntry"), "Collocations & Paraphrasing Rule", "collocations");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47881,7 +47954,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,

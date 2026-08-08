@@ -230,6 +230,14 @@ describe.each([
     manualUseId: "nominalizationManualUse", manualExampleId: "nominalizationManualExample",
     manualSaveBtnId: "nominalizationManualSaveBtn", manualCancelBtnId: "nominalizationManualCancelBtn",
     courseCategory: "nominalization"
+  },
+  {
+    key: "collocations", label: "Collocations & Paraphrasing", inputId: "collocationsAddInput", btnId: "collocationsAddBtn",
+    statusId: "collocationsAddStatus", dataKey: "collocationsData", entryId: "collocationsEntry",
+    builtIn: "What Are Collocations?", manualBoxId: "collocationsManualBox", manualWordId: "collocationsManualWord",
+    manualUseId: "collocationsManualUse", manualExampleId: "collocationsManualExample",
+    manualSaveBtnId: "collocationsManualSaveBtn", manualCancelBtnId: "collocationsManualCancelBtn",
+    courseCategory: "collocations"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
