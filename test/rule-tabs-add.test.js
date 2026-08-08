@@ -190,6 +190,14 @@ describe.each([
     manualUseId: "activePassiveManualUse", manualExampleId: "activePassiveManualExample",
     manualSaveBtnId: "activePassiveManualSaveBtn", manualCancelBtnId: "activePassiveManualCancelBtn",
     courseCategory: "activePassive"
+  },
+  {
+    key: "reportedSpeech", label: "Reported Speech", inputId: "reportedSpeechAddInput", btnId: "reportedSpeechAddBtn",
+    statusId: "reportedSpeechAddStatus", dataKey: "reportedSpeechData", entryId: "reportedSpeechEntry",
+    builtIn: "Backshift: Present to Past in Reported Statements", manualBoxId: "reportedSpeechManualBox", manualWordId: "reportedSpeechManualWord",
+    manualUseId: "reportedSpeechManualUse", manualExampleId: "reportedSpeechManualExample",
+    manualSaveBtnId: "reportedSpeechManualSaveBtn", manualCancelBtnId: "reportedSpeechManualCancelBtn",
+    courseCategory: "reportedSpeech"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
