@@ -1828,6 +1828,7 @@
         <button class="active" data-val="partsOfSpeech">Parts of Speech</button>
         <button data-val="modals">Modal Verbs</button>
         <button data-val="tenses">Tenses</button>
+        <button data-val="tenseMastery">Tense Mastery</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -1992,6 +1993,34 @@
           <input type="text" id="articleManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="articleManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="articleManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-tenseMastery" style="display:none;">
+      <div class="controls">
+        <select id="tenseMasterySelect"></select>
+        <button class="nav-btn" data-target="tenseMasterySelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="tenseMasterySelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="tenseMasteryEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="tenseMasterySelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="tenseMasterySelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="tenseMasteryAddBox">
+        <div class="section-label">➕ Add a Tense Mastery rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Past Perfect vs. Simple Past"), then add your own explanation and an example below.</p>
+        <input type="text" id="tenseMasteryAddInput" placeholder="Rule name (e.g. Present Simple vs. Present Continuous)" autocomplete="off">
+        <button id="tenseMasteryAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="tenseMasteryAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="tenseMasteryManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="tenseMasteryManualWord"></strong>":</p>
+          <textarea id="tenseMasteryManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="tenseMasteryManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="tenseMasteryManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="tenseMasteryManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5359,6 +5388,41 @@ const partsOfSpeechData = [
   {w:"Conjunction", senses:[
       {use:"A coordinating conjunction (and, but, or, so, for, nor, yet — FANBOYS) joins two equal, independent parts and is preceded by a comma when it joins two full sentences.", examples:["The pump failed<b>, so</b> we shut down the line.","He checked the wiring <b>and</b> tested the breaker."]},
       {use:"A subordinating conjunction (because, although, since, if, when) joins a dependent clause to an independent one. A comma follows the dependent clause only when it comes first.", examples:["<b>Because</b> the pressure dropped, we stopped the test.","We stopped the test <b>because</b> the pressure dropped."]}
+    ], mistake:null}
+];
+
+/* =========================================================
+   DATA — TENSE MASTERY (Course: mixed-tense usage, the most
+   common Band 6.0 grammar-range weakness — going beyond knowing
+   each of the 12 tenses in isolation to choosing correctly
+   between closely related ones and staying consistent across a
+   whole paragraph)
+========================================================= */
+const tenseMasteryData = [
+  {w:"Simple Past vs. Present Perfect", senses:[
+      {use:"Use Simple Past for a finished action at a specific, stated past time (yesterday, last week, in 2020, when I checked).", examples:["I <b>checked</b> the pump <b>yesterday</b>.","The generator <b>failed</b> last month."]},
+      {use:"Use Present Perfect when the exact time isn't stated, or when a past action still matters right now — its result, or a duration with 'for/since'.", examples:["I <b>have checked</b> the pump. (it's ready now — no specific time given)","We <b>have worked</b> here <b>for</b> five years."]}
+    ], mistake:"Never combine Present Perfect with a specific past time word — 'I have checked it yesterday' is wrong. Once you name the specific time, switch to Simple Past: 'I checked it yesterday.'"},
+  {w:"Simple Past vs. Past Continuous", senses:[
+      {use:"Past Continuous sets the ongoing background scene; Simple Past marks the shorter action that interrupts it.", examples:["<b>While I was checking</b> the pump, the alarm <b>went off</b>.","The lights <b>were flickering</b> when the technician <b>arrived</b>."]},
+      {use:"Two Past Continuous actions can also run side by side, showing they happened at the same time.", examples:["I <b>was inspecting</b> the panel while she <b>was reviewing</b> the drawings."]}
+    ], mistake:"Don't use Past Continuous for the shorter, interrupting action — 'While I was checking the pump, the alarm was going off' loses the sense that the alarm was a single sudden event."},
+  {w:"Present Perfect vs. Present Perfect Continuous", senses:[
+      {use:"Present Perfect emphasizes completion or result — what's done, and how much/many.", examples:["I <b>have finished</b> the report.","He <b>has fixed</b> three valves this week."]},
+      {use:"Present Perfect Continuous emphasizes the ongoing activity itself, often still continuing, with focus on duration rather than the result.", examples:["I <b>have been writing</b> the report all morning. (still not necessarily done)","He <b>has been fixing</b> that valve for an hour. (may still be working on it)"]}
+    ], mistake:null},
+  {w:"Past Perfect: the extra step back", senses:[
+      {use:"Only reach for Past Perfect when you need to make one past event clearly happen BEFORE another past event, and the order isn't already obvious from context or a connector like 'before/after.'", examples:["When the inspector arrived, we <b>had</b> already <b>fixed</b> the leak. (fixed first, arrival second)","The machine <b>had been running</b> for six hours before it overheated."]},
+      {use:"If a connector like 'before' or 'after' already makes the sequence clear, plain Simple Past is often enough and reads more naturally.", examples:["We fixed the leak <b>before</b> the inspector arrived."]}
+    ], mistake:"Overusing Past Perfect for every past-before-past situation makes writing feel heavy — reserve it for when the order would otherwise be unclear."},
+  {w:"Tense Consistency Within a Paragraph", senses:[
+      {use:"Pick one main, 'anchor' tense for a paragraph or story — usually Simple Past for something that happened, or Simple Present for general facts/routines — and stay in it unless the timeline genuinely shifts.", examples:["<b>Inconsistent:</b> 'I checked the pump. It works fine.' (jumps from past to present with no reason)","<b>Consistent:</b> 'I checked the pump. It worked fine.'"]},
+      {use:"A real timeline shift needs a signal — a time word, a connector, or a clear reason — not a silent, unexplained tense switch.", examples:["I inspected the site last week. <b>Now</b>, the client <b>wants</b> a follow-up visit. (the shift to present is signaled by 'now')"]}
+    ], mistake:"This is the single biggest grammar-range weakness at IELTS 6.0 — writing that drifts between past and present sentence to sentence with no signal, even though each sentence is grammatically correct on its own."},
+  {w:"Future Forms: will vs. going to vs. Present Continuous", senses:[
+      {use:"'Will' is for a decision made at the moment of speaking, or a prediction with no real evidence.", examples:["The phone's ringing — I<b>'ll</b> get it.","I think it <b>will</b> rain later."]},
+      {use:"'Going to' is for a plan or intention decided before now, or a prediction based on present evidence.", examples:["We<b>'re going to</b> replace the motor next week. (already decided)","Look at those clouds — it<b>'s going to</b> rain."]},
+      {use:"Present Continuous is for a fixed arrangement — something already scheduled, often with a time or date.", examples:["I<b>'m meeting</b> the client at 3 PM tomorrow."]}
     ], mistake:null}
 ];
 
@@ -37539,6 +37603,7 @@ setupRuleModule(orderData, "orderSelect", "orderEntry", "Word Order Pattern", "o
 setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
 setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter", "qa");
 setupRuleModule(partsOfSpeechData, "posSelect", "posEntry", "Part of Speech", "pos");
+setupRuleModule(tenseMasteryData, "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40190,6 +40255,7 @@ function indexCourseCategoryRuleModule(data, cat, selectId, entryId, tagLabel, c
 indexCourseCategoryRuleModule(modalData, "Modal verb", "modalSelect", "modalEntry", "Modal Verb", "modals");
 indexCourseCategoryRuleModule(orderData, "Word order", "orderSelect", "orderEntry", "Word Order Pattern", "order");
 indexCourseCategoryRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "Article Rule", "articles");
+indexCourseCategoryRuleModule(tenseMasteryData, "Tense mastery", "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41025,7 +41091,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41217,18 +41283,31 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "posManualUse", manualExampleId: "posManualExample",
     manualSaveBtnId: "posManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "posManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("partsOfSpeech"); }
+  },
+  tenseMastery: {
+    data: tenseMasteryData, selectId: "tenseMasterySelect", entryId: "tenseMasteryEntry", tagLabel: "Tense Mastery Rule",
+    inputId: "tenseMasteryAddInput", btnId: "tenseMasteryAddBtn", statusId: "tenseMasteryAddStatus", inputNoun: "a tense mastery rule",
+    putFn: function(entry, opts){ return VocabCache.putTenseMastery(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllTenseMastery(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteTenseMastery(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "tenseMasteryManualBox", manualWordId: "tenseMasteryManualWord",
+    manualUseId: "tenseMasteryManualUse", manualExampleId: "tenseMasteryManualExample",
+    manualSaveBtnId: "tenseMasteryManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "tenseMasteryManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("tenseMastery"); }
   }
 };
 
-// The 7 standalone grammar-rule tabs above, kept as their own list
+// The 8 standalone grammar-rule categories above, kept as their own list
 // (mirroring LANGUAGE_BANK_CATEGORIES) so restore-on-load, add-button
 // wiring, and owner-mode re-render loops can iterate just these — never
 // merged into LANGUAGE_BANK_CATEGORIES itself, which drives the
 // Language Bank tab's own category switcher and Firestore sync payload.
-// "pos" (Parts of Speech) is the Course tab's own local lesson category —
-// same generic machinery as the other six, just surfaced inside the
-// Course tab's category switcher instead of getting its own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos"];
+// "pos" (Parts of Speech) and "tenseMastery" (Tense Mastery) are the
+// Course tab's own local lesson categories — same generic machinery as
+// the others, just surfaced inside the Course tab's category switcher
+// instead of getting their own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42271,7 +42350,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Question Starter", data: qaData },
     { cat: "Verb + Preposition", data: prepVerbData },
     { cat: "Preposition", data: prepData },
-    { cat: "Part of Speech", data: partsOfSpeechData }
+    { cat: "Part of Speech", data: partsOfSpeechData },
+    { cat: "Tense Mastery Rule", data: tenseMasteryData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45104,6 +45184,7 @@ renderRuleEntry(orderData.find(x=>x.w===document.getElementById("orderSelect").v
 renderRuleEntry(mistakeData.find(x=>x.w===document.getElementById("mistakeSelect").value), document.getElementById("mistakeEntry"), "Sentence Error");
 renderRuleEntry(qaData.find(x=>x.w===document.getElementById("qaSelect").value), document.getElementById("qaEntry"), "Question Starter");
 renderRuleEntry(partsOfSpeechData.find(x=>x.w===document.getElementById("posSelect").value), document.getElementById("posEntry"), "Part of Speech", "pos");
+renderRuleEntry(tenseMasteryData.find(x=>x.w===document.getElementById("tenseMasterySelect").value), document.getElementById("tenseMasteryEntry"), "Tense Mastery Rule", "tenseMastery");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47249,7 +47330,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,

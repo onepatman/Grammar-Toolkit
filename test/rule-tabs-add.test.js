@@ -166,6 +166,14 @@ describe.each([
     builtIn: "Have you...?", manualBoxId: "qaRuleManualBox", manualWordId: "qaRuleManualWord",
     manualUseId: "qaRuleManualUse", manualExampleId: "qaRuleManualExample",
     manualSaveBtnId: "qaRuleManualSaveBtn", manualCancelBtnId: "qaRuleManualCancelBtn"
+  },
+  {
+    key: "tenseMastery", label: "Tense Mastery", inputId: "tenseMasteryAddInput", btnId: "tenseMasteryAddBtn",
+    statusId: "tenseMasteryAddStatus", dataKey: "tenseMasteryData", entryId: "tenseMasteryEntry",
+    builtIn: "Simple Past vs. Present Perfect", manualBoxId: "tenseMasteryManualBox", manualWordId: "tenseMasteryManualWord",
+    manualUseId: "tenseMasteryManualUse", manualExampleId: "tenseMasteryManualExample",
+    manualSaveBtnId: "tenseMasteryManualSaveBtn", manualCancelBtnId: "tenseMasteryManualCancelBtn",
+    courseCategory: "tenseMastery"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
