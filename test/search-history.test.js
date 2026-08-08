@@ -41,36 +41,37 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     search(window, "abandon", "Vocabulary Bank");
     expect(activeTab(document)).toBe("vocab");
 
-    // Articles (a standalone top-level tab) rather than Prepositions,
-    // which now lives nested inside the Course tab (see
-    // test/course-tab.test.js for that navigation instead).
-    search(window, "an", "Article rule");
-    expect(activeTab(document)).toBe("articles");
-    expect(document.getElementById("articleEntry").querySelector(".headword").textContent).toBe("an");
+    // Capitalization (a standalone top-level tab) rather than
+    // Prepositions/Articles/etc., which now live nested inside the
+    // Course tab (see test/course-tab.test.js for that navigation
+    // instead).
+    search(window, "days", "Capitalization");
+    expect(activeTab(document)).toBe("capital");
+    expect(document.getElementById("capitalEntry").querySelector(".headword").textContent).toBe("days, months, holidays");
 
     search(window, "worked");
     expect(activeTab(document)).toBe("verbs");
 
     document.querySelector("#panel-verbs .controls .nav-btn[data-dir='prev']").click();
-    expect(activeTab(document)).toBe("articles");
-    expect(document.getElementById("articleEntry").querySelector(".headword").textContent).toBe("an");
+    expect(activeTab(document)).toBe("capital");
+    expect(document.getElementById("capitalEntry").querySelector(".headword").textContent).toBe("days, months, holidays");
 
-    document.querySelector("#panel-articles .controls .nav-btn[data-dir='prev']").click();
+    document.querySelector("#panel-capital .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
     expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
 
     document.querySelector("#panel-vocab .controls .nav-btn[data-dir='next']").click();
-    expect(activeTab(document)).toBe("articles");
-    expect(document.getElementById("articleEntry").querySelector(".headword").textContent).toBe("an");
+    expect(activeTab(document)).toBe("capital");
+    expect(document.getElementById("capitalEntry").querySelector(".headword").textContent).toBe("days, months, holidays");
   });
 
   it("does not go past the oldest or newest entry (no wraparound)", async () => {
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
-    search(window, "an", "Article rule");
+    search(window, "days", "Capitalization");
 
-    document.querySelector("#panel-articles .controls .nav-btn[data-dir='prev']").click();
+    document.querySelector("#panel-capital .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
     document.querySelector("#panel-vocab .controls .nav-btn[data-dir='prev']").click();
     // Still on the oldest entry — clicking prev again is a no-op, not a wrap to the newest.
@@ -109,21 +110,21 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     // own, so a search establishes that origin first, exactly like a real
     // user's first action from the landing page would.
     search(window, "abandon", "Vocabulary Bank");
-    document.querySelector('.thumb-tab[data-tab="articles"]').click();
+    document.querySelector('.thumb-tab[data-tab="capital"]').click();
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
     document.querySelector('.thumb-tab[data-tab="verbs"]').click();
 
-    // Vocab (from the search) -> Articles -> Language Bank -> Verbs,
+    // Vocab (from the search) -> Capitalization -> Language Bank -> Verbs,
     // each a distinct destination, so each hop adds exactly one new entry.
     expect(hooks.getSearchHistory().map((h) => h.cat)).toEqual([
-      "Vocabulary Bank", "Article rule", "Phrasal verb", "Verb (regular)"
+      "Vocabulary Bank", "Capitalization", "Phrasal verb", "Verb (regular)"
     ]);
 
     document.querySelector("#panel-verbs .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("langbank");
     document.querySelector("#panel-langbank .controls .nav-btn[data-dir='prev']").click();
-    expect(activeTab(document)).toBe("articles");
-    document.querySelector("#panel-articles .controls .nav-btn[data-dir='prev']").click();
+    expect(activeTab(document)).toBe("capital");
+    document.querySelector("#panel-capital .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
   });
 

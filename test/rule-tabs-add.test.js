@@ -6,14 +6,14 @@
 // LANGUAGE_BANK_CONFIG-driven machinery (addLanguageBankEntry,
 // openLanguageBankEditForm, deleteLanguageBankEntry,
 // findLanguageBankDuplicate) that Language Bank already uses — see
-// addRuleEntryFromInput's dispatch in index.html. Modals, Word Order, and
-// Prepositions now live inside the Course tab as nested categories
-// (course-modals/course-order/course-preps) rather than their own
-// top-level tabs — see test/course-tab.test.js for the Course-tab
-// shell/switcher itself; Articles/Capitalization/Question Starters are
-// still standalone top-level tabs, unaffected by that merge. Loads the
-// real index.html in jsdom and dispatches real DOM interactions, same as
-// every other integration test in this repo.
+// addRuleEntryFromInput's dispatch in index.html. Modals, Word Order,
+// Prepositions, and Articles now live inside the Course tab as nested
+// categories (course-modals/course-order/course-preps/course-articles)
+// rather than their own top-level tabs — see test/course-tab.test.js for
+// the Course-tab shell/switcher itself; Capitalization/Question Starters
+// are still standalone top-level tabs, unaffected by that merge. Loads
+// the real index.html in jsdom and dispatches real DOM interactions,
+// same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -134,7 +134,8 @@ describe.each([
     statusId: "articleAddStatus", dataKey: "articleData", entryId: "articleEntry",
     builtIn: "a", manualBoxId: "articleManualBox", manualWordId: "articleManualWord",
     manualUseId: "articleManualUse", manualExampleId: "articleManualExample",
-    manualSaveBtnId: "articleManualSaveBtn", manualCancelBtnId: "articleManualCancelBtn"
+    manualSaveBtnId: "articleManualSaveBtn", manualCancelBtnId: "articleManualCancelBtn",
+    courseCategory: "articles"
   },
   {
     key: "modals", label: "Modals", inputId: "modalAddInput", btnId: "modalAddBtn",
