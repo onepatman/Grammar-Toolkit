@@ -174,6 +174,66 @@ describe("Dashboard practice-accuracy chart", () => {
   });
 });
 
+describe("Dashboard error patterns (Personal Error Pattern Tracker)", () => {
+  it("shows the empty-state message when nothing has been missed yet", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    await wait(30);
+    expect(document.getElementById("dashboardErrorPatterns").textContent).toContain("No recurring mistakes yet");
+  });
+
+  it("shows the empty-state message when a word was only missed once (not yet a 'pattern')", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await window.VocabCache.addErrorLogEntry(
+      { word: "affect", mode: "spelling", source: "vocab", question: "Spell it", userAnswer: "efect", correctAnswer: "affect", timestamp: Date.now() },
+      { dbPromise: hooks.vocabDbPromise }
+    );
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    await wait(30);
+    expect(document.getElementById("dashboardErrorPatterns").textContent).toContain("No recurring mistakes yet");
+  });
+
+  it("lists a word missed more than once, with its total miss count, ranked highest first", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const addMiss = (word, ts) => window.VocabCache.addErrorLogEntry(
+      { word, mode: "spelling", source: "vocab", question: "Spell it", userAnswer: "x", correctAnswer: word, timestamp: ts },
+      { dbPromise: hooks.vocabDbPromise }
+    );
+    await addMiss("affect", Date.now() - 3000);
+    await addMiss("affect", Date.now() - 2000);
+    await addMiss("affect", Date.now() - 1000);
+    await addMiss("effect", Date.now());
+
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    await wait(30);
+
+    const rows = Array.from(document.querySelectorAll("#dashboardErrorPatterns .dashboard-error-row"));
+    expect(rows.length).toBe(1);
+    expect(rows[0].dataset.word).toBe("affect");
+    expect(rows[0].querySelector(".dashboard-error-count").textContent).toContain("3");
+  });
+
+  it("treats the same word case-insensitively as one recurring pattern", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const addMiss = (word) => window.VocabCache.addErrorLogEntry(
+      { word, mode: "mcq", source: "vocab", question: "q", userAnswer: "x", correctAnswer: word, timestamp: Date.now() },
+      { dbPromise: hooks.vocabDbPromise }
+    );
+    await addMiss("Affect");
+    await addMiss("affect");
+
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    await wait(30);
+
+    const rows = document.querySelectorAll("#dashboardErrorPatterns .dashboard-error-row");
+    expect(rows.length).toBe(1);
+    expect(rows[0].querySelector(".dashboard-error-count").textContent).toContain("2");
+  });
+});
+
 describe("Dashboard pure aggregation helpers", () => {
   it("collectDashboardAddedEntries only counts owner-added content, never built-in seed data", async () => {
     const { hooks } = await loadApp();
@@ -209,5 +269,42 @@ describe("Dashboard pure aggregation helpers", () => {
     expect(bars).toHaveLength(12);
     expect(bars[11].value).toBe(1);
     expect(bars.slice(0, 11).every((b) => b.value === 0)).toBe(true);
+  });
+
+  it("collectTopErrorPatterns groups by normalized word, counts misses, and sorts by count desc then most-recent", async () => {
+    const { hooks } = await loadApp();
+    const log = [
+      { word: "affect", mode: "spelling", timestamp: 1000 },
+      { word: "Affect", mode: "mcq", timestamp: 2000 },
+      { word: "effect", mode: "spelling", timestamp: 500 },
+      { word: "effect", mode: "spelling", timestamp: 1500 },
+      { word: "effect", mode: "spelling", timestamp: 3000 },
+    ];
+    const patterns = hooks.collectTopErrorPatterns(log, 10, 1);
+    expect(patterns[0]).toEqual({ word: "effect", count: 3, lastMissedAt: 3000, modes: ["spelling"] });
+    expect(patterns[1].word).toBe("affect");
+    expect(patterns[1].count).toBe(2);
+    expect(patterns[1].modes.sort()).toEqual(["mcq", "spelling"]);
+  });
+
+  it("collectTopErrorPatterns respects the minCount filter (default excludes one-off misses when called with 2)", async () => {
+    const { hooks } = await loadApp();
+    const log = [
+      { word: "once", mode: "mcq", timestamp: 1000 },
+      { word: "twice", mode: "mcq", timestamp: 1000 },
+      { word: "twice", mode: "mcq", timestamp: 2000 },
+    ];
+    const patterns = hooks.collectTopErrorPatterns(log, 10, 2);
+    expect(patterns.map((p) => p.word)).toEqual(["twice"]);
+  });
+
+  it("collectTopErrorPatterns respects the limit cap", async () => {
+    const { hooks } = await loadApp();
+    const log = Array.from({ length: 5 }, (_, i) => ([
+      { word: `word${i}`, mode: "mcq", timestamp: 1000 },
+      { word: `word${i}`, mode: "mcq", timestamp: 2000 }
+    ])).flat();
+    const patterns = hooks.collectTopErrorPatterns(log, 3, 1);
+    expect(patterns).toHaveLength(3);
   });
 });

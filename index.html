@@ -674,6 +674,14 @@
     width:13px; height:13px; border-radius:3px; background:var(--rule);
   }
 
+  .dashboard-error-patterns{ display:flex; flex-direction:column; gap:6px; }
+  .dashboard-error-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 12px; border-radius:8px; background:var(--brick-bg); border:1px solid var(--brick-border);
+  }
+  .dashboard-error-word{ font-weight:700; color:var(--ink); font-size:14px; }
+  .dashboard-error-count{ font-size:12px; color:var(--brick); font-family:'IBM Plex Mono', monospace; white-space:nowrap; }
+
   /* ---------- Practice tab ---------- */
   .practice-source-picker{
     display:flex; flex-wrap:wrap; gap:10px;
@@ -1767,6 +1775,12 @@
       <div class="section-label">🎯 Practice accuracy, last <span id="dashboardAccuracyCount"></span> sessions</div>
       <p class="note" id="dashboardAccuracyNote" style="margin-bottom:8px;"></p>
       <div id="dashboardAccuracyChart" class="dashboard-bar-chart"></div>
+    </div>
+
+    <div class="dashboard-section">
+      <div class="section-label">🔁 Your recurring error patterns</div>
+      <p class="note" style="margin-bottom:8px;">Words you've missed more than once across Practice sessions — the ones worth reviewing first.</p>
+      <div id="dashboardErrorPatterns" class="dashboard-error-patterns"></div>
     </div>
   </section>
 
@@ -38367,6 +38381,33 @@ function collectDashboardAccuracyTrend(practiceHistory, limit){
     }));
 }
 
+// Personal Error Pattern Tracker: groups the raw errorLog (one row per
+// WRONG Practice-session answer, see VocabCache.addErrorLogEntry) by
+// normalized word, so a word missed across several different sessions —
+// possibly under different practice modes — surfaces as ONE recurring
+// pattern with a total miss count, rather than being lost among
+// one-off individual mistakes. Sorted by miss count (most trouble
+// first), tie-broken by most recent, then capped to `limit`.
+function collectTopErrorPatterns(errorLog, limit, minCount = 1){
+  const byWord = new Map();
+  errorLog.forEach(entry=>{
+    const key = normalizeWordKey(entry.word || "");
+    if(!key) return;
+    if(!byWord.has(key)){
+      byWord.set(key, { word: entry.word, count: 0, lastMissedAt: 0, modes: new Set() });
+    }
+    const bucket = byWord.get(key);
+    bucket.count++;
+    if(entry.mode) bucket.modes.add(entry.mode);
+    if((entry.timestamp || 0) > bucket.lastMissedAt) bucket.lastMissedAt = entry.timestamp || 0;
+  });
+  return Array.from(byWord.values())
+    .filter(b=> b.count >= minCount)
+    .sort((a, b)=> b.count - a.count || b.lastMissedAt - a.lastMissedAt)
+    .slice(0, limit)
+    .map(b=> ({ word: b.word, count: b.count, lastMissedAt: b.lastMissedAt, modes: Array.from(b.modes) }));
+}
+
 // Every calendar day (local time) that saw either a content-add or a
 // finished Practice session, mapped to how many of those happened that
 // day — feeds both the streak count and the activity calendar below.
@@ -38453,6 +38494,26 @@ function renderDashboardCalendar(container, dateCounts, weeksBack){
   container.innerHTML = html;
 }
 
+const DASHBOARD_ERROR_PATTERNS_LIMIT = 10;
+
+// Renders collectTopErrorPatterns() as a ranked list — the highest
+// miss-count word first — same empty-state treatment as
+// renderDashboardBarChart() when there's nothing recurring yet (every
+// miss so far was only a one-off, or Practice hasn't been used yet).
+function renderDashboardErrorPatterns(container, patterns){
+  if(!container) return;
+  if(!patterns.length){
+    container.innerHTML = '<div class="dashboard-empty">No recurring mistakes yet — miss the same word twice in Practice and it\'ll show up here.</div>';
+    return;
+  }
+  container.innerHTML = patterns.map(p=> `
+    <div class="dashboard-error-row" data-word="${p.word}" data-count="${p.count}">
+      <span class="dashboard-error-word">${p.word}</span>
+      <span class="dashboard-error-count">${p.count}&times; missed</span>
+    </div>
+  `).join("");
+}
+
 async function renderDashboardTab(){
   const statsEl = document.getElementById("dashboardStats");
   if(!statsEl) return;
@@ -38462,8 +38523,10 @@ async function renderDashboardTab(){
   const accuracyEl = document.getElementById("dashboardAccuracyChart");
   const accuracyCountEl = document.getElementById("dashboardAccuracyCount");
   const accuracyNoteEl = document.getElementById("dashboardAccuracyNote");
+  const errorPatternsEl = document.getElementById("dashboardErrorPatterns");
 
   const practiceHistory = await VocabCache.getAllPracticeHistory({dbPromise: vocabDbPromise});
+  const errorLog = await VocabCache.getAllErrorLogEntries({dbPromise: vocabDbPromise});
   const addedTimestamps = collectDashboardAddedEntries();
   const weeklyBars = bucketTimestampsByWeek(addedTimestamps, DASHBOARD_WEEKS_BACK);
   const activityDateCounts = collectDashboardActivityDateCounts(addedTimestamps, practiceHistory);
@@ -38491,6 +38554,9 @@ async function renderDashboardTab(){
   if(accuracyCountEl) accuracyCountEl.textContent = String(Math.min(DASHBOARD_ACCURACY_LIMIT, practiceHistory.length));
   if(accuracyNoteEl) accuracyNoteEl.textContent = "Based on Multiple Choice, Spelling, True/False, Matching, Speaking, and Writing sessions — Flashcards mode doesn't record a score.";
   renderDashboardBarChart(accuracyEl, accuracyTrend);
+
+  const errorPatterns = collectTopErrorPatterns(errorLog, DASHBOARD_ERROR_PATTERNS_LIMIT, 2);
+  renderDashboardErrorPatterns(errorPatternsEl, errorPatterns);
 }
 
 let favoritesFilterCat = "All";
@@ -40491,6 +40557,15 @@ function finishPracticeSession(){
     mode: state.mode, source: state.source, completedAt: Date.now(),
     correct, total, percentage, rating
   }, { dbPromise: vocabDbPromise });
+
+  const missedAt = Date.now();
+  state.results.filter(r=> !r.correct).forEach(r=>{
+    VocabCache.addErrorLogEntry({
+      word: r.word, mode: state.mode, source: state.source,
+      question: r.question, userAnswer: r.userAnswer, correctAnswer: r.correctAnswer,
+      timestamp: missedAt
+    }, { dbPromise: vocabDbPromise });
+  });
 
   renderPracticeResults(correct, total, percentage, rating);
 }
@@ -48289,6 +48364,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
   computeDashboardStreak, dashboardDateKey,
   renderDashboardBarChart, renderDashboardCalendar,
+  collectTopErrorPatterns, renderDashboardErrorPatterns,
   favoritesCacheRestorePromise
 };
 </script>
