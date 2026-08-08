@@ -104,6 +104,118 @@ describe("Course tab — shell and category switcher", () => {
   });
 });
 
+// "Mark as Done" progress tracking — per-device localStorage state (same
+// precedent as the Self-Check Checklist and Favorites "reviewed" set),
+// letting a learner check off which of the 17 Course categories they've
+// finished. Not synced across devices, not tied to any actual content
+// interaction — it's an honor-system habit tracker, same spirit as a
+// paper textbook's table-of-contents checkboxes.
+describe("Course tab — 'Mark as Done' progress tracking", () => {
+  it("starts with 0 / 17 lessons completed and an unchecked Mark as Done button", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+    expect(document.getElementById("courseProgressSummary").textContent).toBe("0 / 17 lessons completed");
+    const btn = document.getElementById("courseMarkDoneBtn");
+    expect(btn.textContent).toBe("Mark as Done");
+    expect(btn.classList.contains("done")).toBe(false);
+    expect(document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').classList.contains("course-chip-done")).toBe(false);
+  });
+
+  it("clicking Mark as Done marks the currently active category complete and updates the summary + chip", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+
+    document.getElementById("courseMarkDoneBtn").click();
+
+    expect(document.getElementById("courseProgressSummary").textContent).toBe("1 / 17 lessons completed");
+    const btn = document.getElementById("courseMarkDoneBtn");
+    expect(btn.textContent).toContain("Completed");
+    expect(btn.classList.contains("done")).toBe(true);
+    expect(document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').classList.contains("course-chip-done")).toBe(true);
+  });
+
+  it("clicking Mark as Done again on the same category undoes it", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+
+    const btn = document.getElementById("courseMarkDoneBtn");
+    btn.click();
+    btn.click();
+
+    expect(document.getElementById("courseProgressSummary").textContent).toBe("0 / 17 lessons completed");
+    expect(btn.textContent).toBe("Mark as Done");
+    expect(btn.classList.contains("done")).toBe(false);
+  });
+
+  it("marking one category done doesn't affect another category's state, and the button reflects whichever is active", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+
+    document.getElementById("courseMarkDoneBtn").click(); // marks partsOfSpeech done
+    document.querySelector('#courseCategorySeg button[data-val="tenseMastery"]').click();
+
+    const btn = document.getElementById("courseMarkDoneBtn");
+    expect(btn.textContent).toBe("Mark as Done"); // tenseMastery is NOT done
+    expect(btn.classList.contains("done")).toBe(false);
+    expect(document.getElementById("courseProgressSummary").textContent).toBe("1 / 17 lessons completed");
+    expect(document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').classList.contains("course-chip-done")).toBe(true);
+    expect(document.querySelector('#courseCategorySeg button[data-val="tenseMastery"]').classList.contains("course-chip-done")).toBe(false);
+
+    document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').click();
+    expect(document.getElementById("courseMarkDoneBtn").textContent).toContain("Completed");
+  });
+
+  it("persists across a re-render (switching tabs and back)", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+    document.getElementById("courseMarkDoneBtn").click();
+
+    document.querySelector('.thumb-tab[data-tab="vocab"]').click();
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+
+    expect(document.getElementById("courseProgressSummary").textContent).toBe("1 / 17 lessons completed");
+    expect(document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').classList.contains("course-chip-done")).toBe(true);
+  });
+
+  it("persists across a full page reload (localStorage, not IndexedDB)", async () => {
+    const first = await loadApp();
+    first.window.document.querySelector('.thumb-tab[data-tab="course"]').click();
+    first.window.document.getElementById("courseMarkDoneBtn").click();
+    first.window.document.querySelector('#courseCategorySeg button[data-val="conditionals"]').click();
+    first.window.document.getElementById("courseMarkDoneBtn").click();
+
+    const second = await loadApp({
+      localStorage: { mepf_toolkit_course_progress: first.window.localStorage.getItem("mepf_toolkit_course_progress") }
+    });
+    second.window.document.querySelector('.thumb-tab[data-tab="course"]').click();
+
+    expect(second.window.document.getElementById("courseProgressSummary").textContent).toBe("2 / 17 lessons completed");
+    expect(second.window.document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').classList.contains("course-chip-done")).toBe(true);
+    expect(second.window.document.querySelector('#courseCategorySeg button[data-val="conditionals"]').classList.contains("course-chip-done")).toBe(true);
+  });
+
+  it("getCourseProgressState/saveCourseProgressState/toggleActiveCourseCategoryDone are exposed as pure test hooks", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="course"]').click();
+
+    expect(hooks.getCourseProgressState().partsOfSpeech).toBe(false);
+    expect(hooks.getActiveCourseCategoryKey()).toBe("partsOfSpeech");
+
+    hooks.saveCourseProgressState({ ...hooks.getCourseProgressState(), partsOfSpeech: true });
+    hooks.renderCourseProgressUI();
+    expect(document.getElementById("courseProgressSummary").textContent).toBe("1 / 17 lessons completed");
+
+    hooks.toggleActiveCourseCategoryDone();
+    expect(hooks.getCourseProgressState().partsOfSpeech).toBe(false);
+  });
+});
+
 describe("Course tab — Parts of Speech (owner-only add, manual-only, no online lookup)", () => {
   it("shows the built-in lessons (Noun, Verb, Adjective, Adverb, Preposition, Conjunction)", async () => {
     const { hooks } = await loadApp();
