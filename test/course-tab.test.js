@@ -1,26 +1,26 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts thirteen nested categories — Parts of Speech, Modal Verbs,
+// hosts fourteen nested categories — Parts of Speech, Modal Verbs,
 // Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
 // Speech, Relative Clauses, Complex Sentence Building, Cohesive
-// Devices, Prepositions, Word Order, and Articles — all living inside
-// panel-course as .course-category divs (mirroring Language Bank's own
-// category-switcher pattern; the chip row scrolls horizontally past 5
-// categories, same treatment as Word Bank's own category seg). Modal
-// Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
-// top-level tabs that a chip merely linked out to; they're merged in
-// here now, so nothing redundant is left outside the Course tab, and
-// their old panel-modals/panel-tenses/panel-preps/panel-order/
-// panel-articles sections and thumb-tab buttons no longer exist. Tense
-// Mastery, Conditionals, Active/Passive Voice, Reported Speech,
-// Relative Clauses, Complex Sentence Building, and Cohesive Devices
-// are brand-new — none of them ever had a standalone tab. Their own
-// add/edit/delete/CRUD behavior is still covered by
-// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
-// focuses on the Course tab shell/category-switcher, Parts of Speech,
-// Tense Mastery, Conditionals, Active/Passive Voice, Reported Speech,
-// Relative Clauses, Complex Sentence Building, and Cohesive Devices
-// content.
+// Devices, Nominalization, Prepositions, Word Order, and Articles — all
+// living inside panel-course as .course-category divs (mirroring
+// Language Bank's own category-switcher pattern; the chip row scrolls
+// horizontally past 5 categories, same treatment as Word Bank's own
+// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
+// used to be separate top-level tabs that a chip merely linked out to;
+// they're merged in here now, so nothing redundant is left outside the
+// Course tab, and their old panel-modals/panel-tenses/panel-preps/
+// panel-order/panel-articles sections and thumb-tab buttons no longer
+// exist. Tense Mastery, Conditionals, Active/Passive Voice, Reported
+// Speech, Relative Clauses, Complex Sentence Building, Cohesive
+// Devices, and Nominalization are brand-new — none of them ever had a
+// standalone tab. Their own add/edit/delete/CRUD behavior is still
+// covered by test/rule-tabs-add.test.js and test/tenses-add.test.js —
+// this file focuses on the Course tab shell/category-switcher, Parts
+// of Speech, Tense Mastery, Conditionals, Active/Passive Voice,
+// Reported Speech, Relative Clauses, Complex Sentence Building,
+// Cohesive Devices, and Nominalization content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -58,6 +58,7 @@ describe("Course tab — shell and category switcher", () => {
     ["relativeClauses", "relativeClausesSelect", "Defining vs Non-Defining Relative Clauses"],
     ["complexSentences", "complexSentencesSelect", "Sentence Types: Simple, Compound, Complex, Compound-Complex"],
     ["cohesiveDevices", "cohesiveDevicesSelect", "Addition Linkers: Furthermore, Moreover, In Addition"],
+    ["nominalization", "nominalizationSelect", "What Is Nominalization?"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -706,6 +707,78 @@ describe("Course tab — Cohesive Devices (addition/contrast/cause-effect/sequen
   });
 });
 
+describe("Course tab — Nominalization (turning verbs/adjectives into nouns for formal register)", () => {
+  it("covers what nominalization is, common suffixes, academic register, structure changes, irregular forms, overuse, and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.nominalizationData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "What Is Nominalization?",
+      "Common Nominalization Suffixes: -tion, -sion, -ment, -ness, -ity, -ance/-ence",
+      "Nominalization for Academic/Formal Register (IELTS Writing Task 2)",
+      "Nominalization Changes Sentence Structure",
+      "Irregular Noun Forms",
+      "Overusing Nominalization",
+      "Common Nominalization Mistakes"
+    ]));
+  });
+
+  it("the irregular forms lesson flags 'choice' (not 'choosement') as the correct noun form of 'choose'", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.nominalizationData.find((c) => c.w === "Irregular Noun Forms");
+    const allExamples = lesson.senses.flatMap((s) => s.examples).join(" ");
+    expect(allExamples).toMatch(/choice/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("nominalizationAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("nominalizationAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("nominalizationAddInput").value = "Prevent / prevention";
+    document.getElementById("nominalizationAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("nominalizationAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.nominalizationData.some((c) => c.w === "Prevent / prevention")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Nominalization category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("nominalizationAddInput").value = "Prevent / prevention";
+    document.getElementById("nominalizationAddBtn").click();
+    await wait(30);
+
+    document.getElementById("nominalizationManualUse").value = "The verb 'prevent' becomes the noun 'prevention' by adding -ion.";
+    document.getElementById("nominalizationManualExample").value = "The new policy aims at the prevention of accidents.";
+    document.getElementById("nominalizationManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.nominalizationData.some((c) => c.w === "Prevent / prevention")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="nominalization"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("nominalizationEntry").querySelector(".headword").textContent).toBe("Prevent / prevention");
+    expect(document.getElementById("nominalizationEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("nominalizationSelect").value = "What Is Nominalization?";
+    hooks.renderRuleEntry(
+      hooks.nominalizationData.find((c) => c.w === "What Is Nominalization?"),
+      document.getElementById("nominalizationEntry"), "Nominalization Rule", "nominalization"
+    );
+    expect(document.getElementById("nominalizationEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -840,6 +913,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="cohesiveDevices"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("cohesiveDevicesEntry").querySelector(".headword").textContent).toBe("Common Cohesive Device Mistakes");
+  });
+
+  it("indexes every Nominalization lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "What Is Nominalization?" && item.cat === "Nominalization");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Nominalization search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Common Nominalization Mistakes" && item.cat === "Nominalization");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="nominalization"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("nominalizationEntry").querySelector(".headword").textContent).toBe("Common Nominalization Mistakes");
   });
 });
 
