@@ -1,29 +1,30 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts sixteen nested categories — Parts of Speech, Modal Verbs,
+// hosts seventeen nested categories — Parts of Speech, Modal Verbs,
 // Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
 // Speech, Relative Clauses, Complex Sentence Building, Cohesive
 // Devices, Nominalization, Collocations & Paraphrasing, Writing
-// Templates, Prepositions, Word Order, and Articles — all living
-// inside panel-course as .course-category divs (mirroring Language
-// Bank's own category-switcher pattern; the chip row scrolls
-// horizontally past 5 categories, same treatment as Word Bank's own
-// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
-// used to be separate top-level tabs that a chip merely linked out to;
-// they're merged in here now, so nothing redundant is left outside the
-// Course tab, and their old panel-modals/panel-tenses/panel-preps/
-// panel-order/panel-articles sections and thumb-tab buttons no longer
-// exist. Tense Mastery, Conditionals, Active/Passive Voice, Reported
-// Speech, Relative Clauses, Complex Sentence Building, Cohesive
-// Devices, Nominalization, Collocations & Paraphrasing, and Writing
-// Templates are brand-new — none of them ever had a standalone tab.
-// Their own add/edit/delete/CRUD behavior is still covered by
-// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
-// focuses on the Course tab shell/category-switcher, Parts of Speech,
-// Tense Mastery, Conditionals, Active/Passive Voice, Reported Speech,
-// Relative Clauses, Complex Sentence Building, Cohesive Devices,
-// Nominalization, Collocations & Paraphrasing, and Writing Templates
-// content.
+// Templates, Spoken Fluency & Register, Prepositions, Word Order, and
+// Articles — all living inside panel-course as .course-category divs
+// (mirroring Language Bank's own category-switcher pattern; the chip
+// row scrolls horizontally past 5 categories, same treatment as Word
+// Bank's own category seg). Modal Verbs/Tenses/Prepositions/Word
+// Order/Articles used to be separate top-level tabs that a chip
+// merely linked out to; they're merged in here now, so nothing
+// redundant is left outside the Course tab, and their old
+// panel-modals/panel-tenses/panel-preps/panel-order/panel-articles
+// sections and thumb-tab buttons no longer exist. Tense Mastery,
+// Conditionals, Active/Passive Voice, Reported Speech, Relative
+// Clauses, Complex Sentence Building, Cohesive Devices,
+// Nominalization, Collocations & Paraphrasing, Writing Templates, and
+// Spoken Fluency & Register are brand-new — none of them ever had a
+// standalone tab. Their own add/edit/delete/CRUD behavior is still
+// covered by test/rule-tabs-add.test.js and test/tenses-add.test.js —
+// this file focuses on the Course tab shell/category-switcher, Parts
+// of Speech, Tense Mastery, Conditionals, Active/Passive Voice,
+// Reported Speech, Relative Clauses, Complex Sentence Building,
+// Cohesive Devices, Nominalization, Collocations & Paraphrasing,
+// Writing Templates, and Spoken Fluency & Register content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -64,6 +65,7 @@ describe("Course tab — shell and category switcher", () => {
     ["nominalization", "nominalizationSelect", "What Is Nominalization?"],
     ["collocations", "collocationsSelect", "What Are Collocations?"],
     ["writingTemplates", "writingTemplatesSelect", "IELTS Writing Task 2 Essay Structure: Four Paragraphs"],
+    ["spokenFluency", "spokenFluencySelect", "What Is Register?"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -926,6 +928,78 @@ describe("Course tab — Writing Templates (IELTS/Cambridge-style Task 1 & 2 ess
   });
 });
 
+describe("Course tab — Spoken Fluency & Register (formal/informal language choice for natural speech)", () => {
+  it("covers register, formal/informal vocabulary, contractions, fillers, discourse markers, register mismatches, and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.spokenFluencyData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "What Is Register?",
+      "Formal vs Informal Vocabulary",
+      "Contractions: When to Use / Avoid Them",
+      "Filler Words & Hesitation Devices for Natural Fluency",
+      "Discourse Markers for Spoken Fluency",
+      "Register Mismatches",
+      "Common Register/Fluency Mistakes"
+    ]));
+  });
+
+  it("the common mistakes lesson flags overusing filler words as replacing actual content", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.spokenFluencyData.find((c) => c.w === "Common Register/Fluency Mistakes");
+    const allExamples = lesson.senses.flatMap((s) => s.examples).join(" ");
+    expect(allExamples).toMatch(/um|like, um/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("spokenFluencyAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("spokenFluencyAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("spokenFluencyAddInput").value = "Formal vs Casual Greetings";
+    document.getElementById("spokenFluencyAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("spokenFluencyAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.spokenFluencyData.some((c) => c.w === "Formal vs Casual Greetings")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Spoken Fluency category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("spokenFluencyAddInput").value = "Formal vs Casual Greetings";
+    document.getElementById("spokenFluencyAddBtn").click();
+    await wait(30);
+
+    document.getElementById("spokenFluencyManualUse").value = "'Good afternoon' is formal; 'hey' or 'what's up' is casual.";
+    document.getElementById("spokenFluencyManualExample").value = "Good afternoon, everyone. vs Hey, what's up?";
+    document.getElementById("spokenFluencyManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.spokenFluencyData.some((c) => c.w === "Formal vs Casual Greetings")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="spokenFluency"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("spokenFluencyEntry").querySelector(".headword").textContent).toBe("Formal vs Casual Greetings");
+    expect(document.getElementById("spokenFluencyEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("spokenFluencySelect").value = "What Is Register?";
+    hooks.renderRuleEntry(
+      hooks.spokenFluencyData.find((c) => c.w === "What Is Register?"),
+      document.getElementById("spokenFluencyEntry"), "Spoken Fluency & Register Rule", "spokenFluency"
+    );
+    expect(document.getElementById("spokenFluencyEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -1111,6 +1185,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="writingTemplates"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("writingTemplatesEntry").querySelector(".headword").textContent).toBe("Common Writing Template Mistakes");
+  });
+
+  it("indexes every Spoken Fluency & Register lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "What Is Register?" && item.cat === "Spoken fluency and register");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Spoken Fluency & Register search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Common Register/Fluency Mistakes" && item.cat === "Spoken fluency and register");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="spokenFluency"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("spokenFluencyEntry").querySelector(".headword").textContent).toBe("Common Register/Fluency Mistakes");
   });
 });
 

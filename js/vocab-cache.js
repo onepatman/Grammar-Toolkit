@@ -28,8 +28,8 @@
        conditionalsEntries, activePassiveEntries, reportedSpeechEntries,
        relativeClausesEntries, complexSentencesEntries,
        cohesiveDevicesEntries, nominalizationEntries, collocationsEntries,
-       writingTemplatesEntries:
-                        seventeen grammar-rule categories, sharing the
+       writingTemplatesEntries, spokenFluencyEntries:
+                        eighteen grammar-rule categories, sharing the
                         same generic { key, entry } shape as the
                         Language Bank stores, added via each category's
                         own quick-add box. Capitalization and Question
@@ -39,13 +39,13 @@
                         Active/Passive Voice, Reported Speech, Relative
                         Clauses, Complex Sentence Building, Cohesive
                         Devices, Nominalization, Collocations &
-                        Paraphrasing, and Writing Templates all live
-                        nested inside the Course tab instead (see
-                        COURSE_LOCAL_CATEGORIES in index.html).
-                        Local-only: unlike vocabEntries/phrasalEntries/etc.
-                        these don't currently participate in Firestore
-                        cross-device sync (see LANGUAGE_BANK_CATEGORIES in
-                        index.html).
+                        Paraphrasing, Writing Templates, and Spoken
+                        Fluency & Register all live nested inside the
+                        Course tab instead (see COURSE_LOCAL_CATEGORIES
+                        in index.html). Local-only: unlike
+                        vocabEntries/phrasalEntries/etc. these don't
+                        currently participate in Firestore cross-device
+                        sync (see LANGUAGE_BANK_CATEGORIES in index.html).
      - familyEntries:   Owner-added Word Family entries (verb -> noun/
                         person/adjective forms + example sentences),
                         added via the Family tab's own quick-add box.
@@ -114,7 +114,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 27;
+  var DB_VERSION = 28;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -146,6 +146,7 @@
   var NOMINALIZATION_STORE = "nominalizationEntries";
   var COLLOCATIONS_STORE = "collocationsEntries";
   var WRITING_TEMPLATES_STORE = "writingTemplatesEntries";
+  var SPOKEN_FLUENCY_STORE = "spokenFluencyEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
   var NOTES_STORE = "notesEntries";
@@ -215,7 +216,7 @@
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
-        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE, RELATIVE_CLAUSES_STORE, COMPLEX_SENTENCES_STORE, COHESIVE_DEVICES_STORE, NOMINALIZATION_STORE, COLLOCATIONS_STORE, WRITING_TEMPLATES_STORE].forEach(function (name) {
+        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE, RELATIVE_CLAUSES_STORE, COMPLEX_SENTENCES_STORE, COHESIVE_DEVICES_STORE, NOMINALIZATION_STORE, COLLOCATIONS_STORE, WRITING_TEMPLATES_STORE, SPOKEN_FLUENCY_STORE].forEach(function (name) {
           if (!db.objectStoreNames.contains(name)) {
             db.createObjectStore(name, { keyPath: "key" });
           }
@@ -531,6 +532,11 @@
   function putWritingTemplates(entry, options) { return putEntry(WRITING_TEMPLATES_STORE, entry, options); }
   function getAllWritingTemplates(options) { return getAllEntries(WRITING_TEMPLATES_STORE, options); }
   function deleteWritingTemplates(word, options) { return deleteEntry(WRITING_TEMPLATES_STORE, word, options); }
+
+  function getSpokenFluency(word, options) { return getEntry(SPOKEN_FLUENCY_STORE, word, options); }
+  function putSpokenFluency(entry, options) { return putEntry(SPOKEN_FLUENCY_STORE, entry, options); }
+  function getAllSpokenFluency(options) { return getAllEntries(SPOKEN_FLUENCY_STORE, options); }
+  function deleteSpokenFluency(word, options) { return deleteEntry(SPOKEN_FLUENCY_STORE, word, options); }
 
   /* ---------- familyEntries (Owner-added Word Family entries) ----------
      Same generic { key, entry } shape as customVerbs/the six grammar-rule
@@ -906,6 +912,10 @@
     putWritingTemplates: putWritingTemplates,
     getAllWritingTemplates: getAllWritingTemplates,
     deleteWritingTemplates: deleteWritingTemplates,
+    getSpokenFluency: getSpokenFluency,
+    putSpokenFluency: putSpokenFluency,
+    getAllSpokenFluency: getAllSpokenFluency,
+    deleteSpokenFluency: deleteSpokenFluency,
     FAMILY_STORE: FAMILY_STORE,
     getFamily: getFamily,
     putFamily: putFamily,
