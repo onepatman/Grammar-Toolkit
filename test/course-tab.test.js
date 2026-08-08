@@ -1,12 +1,14 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts five nested categories — Parts of Speech, Modal Verbs, Tenses,
-// Prepositions, and Word Order — all living inside panel-course as
-// .course-category divs (mirroring Language Bank's own category-switcher
-// pattern). Modal Verbs/Tenses/Prepositions/Word Order used to be
-// separate top-level tabs that a chip merely linked out to; they're
-// merged in here now, so nothing redundant is left outside the Course
-// tab, and their old panel-modals/panel-tenses/panel-preps/panel-order
+// hosts six nested categories — Parts of Speech, Modal Verbs, Tenses,
+// Prepositions, Word Order, and Articles — all living inside panel-course
+// as .course-category divs (mirroring Language Bank's own category-
+// switcher pattern; the chip row scrolls horizontally past 5 categories,
+// same treatment as Word Bank's own category seg). Modal Verbs/Tenses/
+// Prepositions/Word Order/Articles used to be separate top-level tabs
+// that a chip merely linked out to; they're merged in here now, so
+// nothing redundant is left outside the Course tab, and their old
+// panel-modals/panel-tenses/panel-preps/panel-order/panel-articles
 // sections and thumb-tab buttons no longer exist. Their own
 // add/edit/delete/CRUD behavior is still covered by
 // test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
@@ -42,7 +44,8 @@ describe("Course tab — shell and category switcher", () => {
     ["modals", "modalSelect", "can"],
     ["tenses", "tenseSelect", "Simple Present"],
     ["preps", "prepSelect", "at"],
-    ["order", "orderSelect", "adverb placement"]
+    ["order", "orderSelect", "adverb placement"],
+    ["articles", "articleSelect", "a"]
   ])("clicking the %s chip shows it inline inside the Course tab — no navigating away", async (key, selectId, builtInOption) => {
     const { window } = await loadApp();
     const document = window.document;
@@ -69,10 +72,12 @@ describe("Course tab — shell and category switcher", () => {
     expect(document.querySelector('.thumb-tab[data-tab="tenses"]')).toBeNull();
     expect(document.querySelector('.thumb-tab[data-tab="preps"]')).toBeNull();
     expect(document.querySelector('.thumb-tab[data-tab="order"]')).toBeNull();
+    expect(document.querySelector('.thumb-tab[data-tab="articles"]')).toBeNull();
     expect(document.getElementById("panel-modals")).toBeNull();
     expect(document.getElementById("panel-tenses")).toBeNull();
     expect(document.getElementById("panel-preps")).toBeNull();
     expect(document.getElementById("panel-order")).toBeNull();
+    expect(document.getElementById("panel-articles")).toBeNull();
   });
 });
 

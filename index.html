@@ -376,14 +376,14 @@
      (Basic → Advanced, Tagalog → English, Sentence Fragments,
      Subject-Verb Agreement, My Correction Log) once the last two
      moved in from the Fixes tab, so it gets the same treatment. */
-  #langBankCategorySeg, #favoritesCategorySeg, #wordBankCategorySeg{
+  #langBankCategorySeg, #favoritesCategorySeg, #wordBankCategorySeg, #courseCategorySeg{
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
     flex-wrap:nowrap;
     max-width:100%;
   }
-  #langBankCategorySeg button, #favoritesCategorySeg button, #wordBankCategorySeg button{
+  #langBankCategorySeg button, #favoritesCategorySeg button, #wordBankCategorySeg button, #courseCategorySeg button{
     flex:0 0 auto;
     white-space:nowrap;
   }
@@ -1371,7 +1371,6 @@
     <button class="thumb-tab" data-tab="wordbank">Word Bank<span class="n">WB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
-    <button class="thumb-tab" data-tab="articles">Articles<span class="n">A</span></button>
     <button class="thumb-tab" data-tab="qa">Ask<span class="n">Q</span></button>
     <button class="thumb-tab" data-tab="mistakes">Fixes<span class="n">X</span></button>
     <button class="thumb-tab" data-tab="capital">Capital<span class="n">C</span></button>
@@ -1406,35 +1405,6 @@
       <input type="text" id="verbAddInput" placeholder="e.g. proceed" autocomplete="off">
       <button id="verbAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
       <div id="verbAddStatus" class="add-status"></div>
-    </div>
-  </section>
-
-  <!-- ===== ARTICLES PANEL ===== -->
-  <section id="panel-articles" style="display:none;">
-    <div class="controls">
-      <select id="articleSelect"></select>
-      <button class="nav-btn" data-target="articleSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="articleSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="articleEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="articleSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="articleSelect" data-dir="next" aria-label="Next">Next ›</button>
-    </div>
-
-    <div class="quick-add-box owner-only" id="articleAddBox">
-      <div class="section-label">➕ Look Up &amp; Add an Article rule</div>
-      <p class="note" style="margin-bottom:8px;">Article rules aren't dictionary words, so there's no online lookup here — type a short rule name, then add your own explanation and an example below.</p>
-      <input type="text" id="articleAddInput" placeholder="Rule name (e.g. no article — mass nouns)" autocomplete="off">
-      <button id="articleAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
-      <div id="articleAddStatus" class="add-status"></div>
-      <div class="manual-entry-box" id="articleManualBox" style="display:none;">
-        <p class="note" style="margin-bottom:4px;">Explain "<strong id="articleManualWord"></strong>":</p>
-        <textarea id="articleManualUse" placeholder="Explanation / rule" rows="2"></textarea>
-        <input type="text" id="articleManualExample" placeholder="Example sentence (optional)" autocomplete="off">
-        <button id="articleManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
-        <button id="articleManualCancelBtn" class="add-btn secondary">Cancel</button>
-      </div>
     </div>
   </section>
 
@@ -1860,6 +1830,7 @@
         <button data-val="tenses">Tenses</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
+        <button data-val="articles">Articles</button>
       </div>
     </div>
 
@@ -1993,6 +1964,34 @@
           <input type="text" id="orderManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="orderManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="orderManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-articles" style="display:none;">
+      <div class="controls">
+        <select id="articleSelect"></select>
+        <button class="nav-btn" data-target="articleSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="articleSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="articleEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="articleSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="articleSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="articleAddBox">
+        <div class="section-label">➕ Look Up &amp; Add an Article rule</div>
+        <p class="note" style="margin-bottom:8px;">Article rules aren't dictionary words, so there's no online lookup here — type a short rule name, then add your own explanation and an example below.</p>
+        <input type="text" id="articleAddInput" placeholder="Rule name (e.g. no article — mass nouns)" autocomplete="off">
+        <button id="articleAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="articleAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="articleManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="articleManualWord"></strong>":</p>
+          <textarea id="articleManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="articleManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="articleManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="articleManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -40171,13 +40170,13 @@ function indexRuleModule(data, cat, selectId, entryId, tagLabel, tab){
     }});
   });
 }
-indexRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "Article Rule", "articles");
 indexRuleModule(capitalData, "Capitalization", "capitalSelect", "capitalEntry", "Capitalization Rule", "capital");
-// Not indexRuleModule for modals/order/pos: all three are Course-tab
-// CATEGORIES, not top-level tabs — indexRuleModule's `tab` param assumes
-// those are the same string (it calls activateTab(tab) directly), which
-// would try activateTab("modals")/activateTab("order")/activateTab("pos")
-// and fail since none of those panels exist anymore.
+// Not indexRuleModule for modals/order/articles/pos: all four are
+// Course-tab CATEGORIES, not top-level tabs — indexRuleModule's `tab`
+// param assumes those are the same string (it calls activateTab(tab)
+// directly), which would try activateTab("modals")/activateTab("order")/
+// activateTab("articles")/activateTab("pos") and fail since none of
+// those panels exist anymore.
 function indexCourseCategoryRuleModule(data, cat, selectId, entryId, tagLabel, categoryKey){
   data.forEach(item=>{
     searchIndex.push({label:item.w, cat:cat, action:()=>{
@@ -40190,6 +40189,7 @@ function indexCourseCategoryRuleModule(data, cat, selectId, entryId, tagLabel, c
 }
 indexCourseCategoryRuleModule(modalData, "Modal verb", "modalSelect", "modalEntry", "Modal Verb", "modals");
 indexCourseCategoryRuleModule(orderData, "Word order", "orderSelect", "orderEntry", "Word Order Pattern", "order");
+indexCourseCategoryRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "Article Rule", "articles");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41025,7 +41025,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "preps", "order"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41156,7 +41156,7 @@ const LANGUAGE_BANK_CONFIG = {
     manualBoxId: "articleManualBox", manualWordId: "articleManualWord",
     manualUseId: "articleManualUse", manualExampleId: "articleManualExample",
     manualSaveBtnId: "articleManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "articleManualCancelBtn",
-    activateFn: function(){ activateTab("articles"); }
+    activateFn: function(){ activateTab("course"); activateCourseCategory("articles"); }
   },
   modals: {
     data: modalData, selectId: "modalSelect", entryId: "modalEntry", tagLabel: "Modal Verb",

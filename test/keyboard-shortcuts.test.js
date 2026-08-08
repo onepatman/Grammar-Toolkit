@@ -93,12 +93,12 @@ describe("Arrow-key hotkeys — Up/Down are left alone for native page scroll", 
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
-    search(window, "an", "Article rule");
-    expect(activeTab(document)).toBe("articles");
+    search(window, "days", "Capitalization");
+    expect(activeTab(document)).toBe("capital");
 
     const event = pressKey(window, "ArrowDown");
 
-    expect(activeTab(document)).toBe("articles");
+    expect(activeTab(document)).toBe("capital");
     expect(event.defaultPrevented).toBe(false);
   });
 
@@ -106,11 +106,11 @@ describe("Arrow-key hotkeys — Up/Down are left alone for native page scroll", 
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
-    search(window, "an", "Article rule");
+    search(window, "days", "Capitalization");
 
     const event = pressKey(window, "ArrowUp");
 
-    expect(activeTab(document)).toBe("articles");
+    expect(activeTab(document)).toBe("capital");
     expect(event.defaultPrevented).toBe(false);
   });
 
@@ -444,7 +444,7 @@ describe("isElementVisible() / findVisibleNavBtn() helpers", () => {
     const visibleBtn = document.querySelector("#panel-verbs .bottom-nav .nav-btn[data-dir='next']");
     expect(hooks.isElementVisible(visibleBtn)).toBe(true);
 
-    const hiddenBtn = document.querySelector("#panel-articles .bottom-nav .nav-btn[data-dir='next']");
+    const hiddenBtn = document.querySelector("#panel-capital .bottom-nav .nav-btn[data-dir='next']");
     expect(hooks.isElementVisible(hiddenBtn)).toBe(false);
   });
 
