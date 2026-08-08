@@ -1832,6 +1832,7 @@
         <button data-val="conditionals">Conditionals</button>
         <button data-val="activePassive">Active/Passive Voice</button>
         <button data-val="reportedSpeech">Reported Speech</button>
+        <button data-val="relativeClauses">Relative Clauses</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2108,6 +2109,34 @@
           <input type="text" id="reportedSpeechManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="reportedSpeechManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="reportedSpeechManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-relativeClauses" style="display:none;">
+      <div class="controls">
+        <select id="relativeClausesSelect"></select>
+        <button class="nav-btn" data-target="relativeClausesSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="relativeClausesSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="relativeClausesEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="relativeClausesSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="relativeClausesSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="relativeClausesAddBox">
+        <div class="section-label">➕ Add a Relative Clauses rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Relative clauses with quantifiers"), then add your own explanation and an example below.</p>
+        <input type="text" id="relativeClausesAddInput" placeholder="Rule name (e.g. 'Some of whom' relative clauses)" autocomplete="off">
+        <button id="relativeClausesAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="relativeClausesAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="relativeClausesManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="relativeClausesManualWord"></strong>":</p>
+          <textarea id="relativeClausesManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="relativeClausesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="relativeClausesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="relativeClausesManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5611,6 +5640,42 @@ const reportedSpeechData = [
   {w:"Common Reported Speech Mistakes", senses:[
       {use:"Keeping the exact original wording (including 'I', 'you', present tense) inside indirect speech instead of adjusting pronouns and tense to the new perspective.", examples:["Wrong: He said I am tired. (still using the original speaker's 'I')","Correct: He said <b>he was</b> tired."]},
       {use:"Dropping or mishandling 'that' after reporting verbs that need a clear clause boundary, especially with longer or more complex reported content.", examples:["She reported <b>that</b> the pump had failed and <b>that</b> a replacement was already on order."]}
+    ], mistake:null}
+];
+
+/* =========================================================
+   DATA — RELATIVE CLAUSES (defining/non-defining, pronoun
+   choice, omission, prepositions, reduced clauses — the
+   range that separates 6.0 from 7.0+ sentence structure)
+========================================================= */
+const relativeClausesData = [
+  {w:"Defining vs Non-Defining Relative Clauses", senses:[
+      {use:"A defining (restrictive) clause gives essential information — without it, the sentence loses its specific meaning. No commas.", examples:["The engineer <b>who signed off the report</b> has since left the company. (identifies WHICH engineer)"]},
+      {use:"A non-defining (non-restrictive) clause adds extra, non-essential information — the sentence would still make sense without it. Always set off with commas.", examples:["The lead engineer, <b>who has 15 years of experience</b>, signed off the report. (already identified — the clause just adds detail)"]}
+    ], mistake:"Adding or dropping commas changes the meaning, not just the style — 'My brother who works in engineering called me' (implies you have more than one brother) vs 'My brother, who works in engineering, called me' (implies you have only one)."},
+  {w:"Choosing the Right Relative Pronoun", senses:[
+      {use:"'Who' (or formally 'whom' as object) refers to people; 'which' refers to things; 'that' can refer to either but ONLY in defining clauses.", examples:["The technician <b>who</b> inspected the site left a report.","The valve <b>which/that</b> failed has been replaced."]},
+      {use:"'Whose' shows possession for people OR things; 'where' replaces a place; 'when' replaces a time.", examples:["The site <b>where</b> the leak occurred has been sealed.","2019 was the year <b>when</b> the project began."]}
+    ], mistake:null},
+  {w:"Omitting the Relative Pronoun (Object Relative Clauses)", senses:[
+      {use:"The relative pronoun can be dropped when it's the OBJECT of the relative clause (something else is already doing the action).", examples:["The report (<b>that</b>) she submitted was thorough. (she = subject of 'submitted', 'that' = object — droppable)"]},
+      {use:"The relative pronoun CANNOT be dropped when it's the SUBJECT of the relative clause.", examples:["The engineer <b>who</b> submitted the report has left. (who = subject of 'submitted' — cannot be dropped: 'The engineer submitted the report has left' is wrong)"]}
+    ], mistake:"Dropping a subject relative pronoun is one of the most common structural errors at this level — always check whether the clause already has its own subject before deciding the pronoun is droppable."},
+  {w:"Relative Clauses with Prepositions", senses:[
+      {use:"In formal writing, the preposition moves before the relative pronoun (and 'whom' replaces 'who').", examples:["The client <b>to whom</b> I sent the invoice hasn't replied. (formal)"]},
+      {use:"In everyday speech and informal writing, the preposition stays at the end of the clause instead.", examples:["The client <b>who</b> I sent the invoice <b>to</b> hasn't replied. (informal, very common in speech)"]}
+    ], mistake:null},
+  {w:"Reduced Relative Clauses (Participle Clauses)", senses:[
+      {use:"An active (-ing) participle replaces 'who/which + active verb' when the relative clause has an active meaning.", examples:["The engineer <b>working</b> on the prototype is on leave. (= who is working)"]},
+      {use:"A past participle replaces 'who/which + be + past participle' when the relative clause has a passive meaning.", examples:["The report <b>written</b> last week needs revision. (= that was written)"]}
+    ], mistake:"Reduced clauses only work when the relative pronoun would have been the SUBJECT of the clause — you can't reduce an object relative clause this way."},
+  {w:"'Whose' for Possession — People AND Things", senses:[
+      {use:"Many learners assume 'whose' is only for people, but it works equally for things and organizations.", examples:["The company <b>whose</b> factory exploded faced an investigation. (thing, not a person)","The building <b>whose</b> foundation cracked was evacuated."]}
+    ], mistake:null},
+  {w:"Common Relative Clause Mistakes", senses:[
+      {use:"Using 'which' to refer to a person, or 'who' to refer to a thing.", examples:["Wrong: The manager <b>which</b> approved the budget. -> Correct: The manager <b>who</b> approved the budget."]},
+      {use:"Adding a redundant pronoun after the relative clause, repeating the subject the clause already refers to.", examples:["Wrong: The technician who inspected the valve <b>he</b> found a crack. -> Correct: The technician who inspected the valve found a crack."]},
+      {use:"Using 'that' in a non-defining (comma-separated) clause — 'that' is reserved for defining clauses only.", examples:["Wrong: The report, <b>that</b> was submitted late, caused delays. -> Correct: The report, <b>which</b> was submitted late, caused delays."]}
     ], mistake:null}
 ];
 
@@ -37795,6 +37860,7 @@ setupRuleModule(tenseMasteryData, "tenseMasterySelect", "tenseMasteryEntry", "Te
 setupRuleModule(conditionalsData, "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
 setupRuleModule(activePassiveData, "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
 setupRuleModule(reportedSpeechData, "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
+setupRuleModule(relativeClausesData, "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40450,6 +40516,7 @@ indexCourseCategoryRuleModule(tenseMasteryData, "Tense mastery", "tenseMasterySe
 indexCourseCategoryRuleModule(conditionalsData, "Conditionals", "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
 indexCourseCategoryRuleModule(activePassiveData, "Active/passive voice", "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
 indexCourseCategoryRuleModule(reportedSpeechData, "Reported speech", "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
+indexCourseCategoryRuleModule(relativeClausesData, "Relative clauses", "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41285,7 +41352,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41525,6 +41592,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "reportedSpeechManualUse", manualExampleId: "reportedSpeechManualExample",
     manualSaveBtnId: "reportedSpeechManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "reportedSpeechManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("reportedSpeech"); }
+  },
+  relativeClauses: {
+    data: relativeClausesData, selectId: "relativeClausesSelect", entryId: "relativeClausesEntry", tagLabel: "Relative Clauses Rule",
+    inputId: "relativeClausesAddInput", btnId: "relativeClausesAddBtn", statusId: "relativeClausesAddStatus", inputNoun: "a relative clauses rule",
+    putFn: function(entry, opts){ return VocabCache.putRelativeClauses(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllRelativeClauses(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteRelativeClauses(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "relativeClausesManualBox", manualWordId: "relativeClausesManualWord",
+    manualUseId: "relativeClausesManualUse", manualExampleId: "relativeClausesManualExample",
+    manualSaveBtnId: "relativeClausesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "relativeClausesManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("relativeClauses"); }
   }
 };
 
@@ -41535,11 +41614,12 @@ const LANGUAGE_BANK_CONFIG = {
 // drives the Language Bank tab's own category switcher and Firestore
 // sync payload. "pos" (Parts of Speech), "tenseMastery" (Tense
 // Mastery), "conditionals" (Conditionals), "activePassive"
-// (Active/Passive Voice), and "reportedSpeech" (Reported Speech) are
-// the Course tab's own local lesson categories — same generic
-// machinery as the others, just surfaced inside the Course tab's
-// category switcher instead of getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech"];
+// (Active/Passive Voice), "reportedSpeech" (Reported Speech), and
+// "relativeClauses" (Relative Clauses) are the Course tab's own local
+// lesson categories — same generic machinery as the others, just
+// surfaced inside the Course tab's category switcher instead of
+// getting their own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42586,7 +42666,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Tense Mastery Rule", data: tenseMasteryData },
     { cat: "Conditionals Rule", data: conditionalsData },
     { cat: "Active/Passive Voice Rule", data: activePassiveData },
-    { cat: "Reported Speech Rule", data: reportedSpeechData }
+    { cat: "Reported Speech Rule", data: reportedSpeechData },
+    { cat: "Relative Clauses Rule", data: relativeClausesData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45423,6 +45504,7 @@ renderRuleEntry(tenseMasteryData.find(x=>x.w===document.getElementById("tenseMas
 renderRuleEntry(conditionalsData.find(x=>x.w===document.getElementById("conditionalsSelect").value), document.getElementById("conditionalsEntry"), "Conditionals Rule", "conditionals");
 renderRuleEntry(activePassiveData.find(x=>x.w===document.getElementById("activePassiveSelect").value), document.getElementById("activePassiveEntry"), "Active/Passive Voice Rule", "activePassive");
 renderRuleEntry(reportedSpeechData.find(x=>x.w===document.getElementById("reportedSpeechSelect").value), document.getElementById("reportedSpeechEntry"), "Reported Speech Rule", "reportedSpeech");
+renderRuleEntry(relativeClausesData.find(x=>x.w===document.getElementById("relativeClausesSelect").value), document.getElementById("relativeClausesEntry"), "Relative Clauses Rule", "relativeClauses");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47568,7 +47650,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,

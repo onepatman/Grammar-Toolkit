@@ -1,23 +1,23 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts ten nested categories — Parts of Speech, Modal Verbs, Tenses,
-// Tense Mastery, Conditionals, Active/Passive Voice, Reported Speech,
-// Prepositions, Word Order, and Articles — all living inside
-// panel-course as .course-category divs (mirroring Language Bank's own
-// category-switcher pattern; the chip row scrolls horizontally past 5
-// categories, same treatment as Word Bank's own category seg). Modal
-// Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
-// top-level tabs that a chip merely linked out to; they're merged in
-// here now, so nothing redundant is left outside the Course tab, and
-// their old panel-modals/panel-tenses/panel-preps/panel-order/
-// panel-articles sections and thumb-tab buttons no longer exist. Tense
-// Mastery, Conditionals, Active/Passive Voice, and Reported Speech are
-// brand-new — none of them ever had a standalone tab. Their own
-// add/edit/delete/CRUD behavior is still covered by
-// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
-// focuses on the Course tab shell/category-switcher, Parts of Speech,
-// Tense Mastery, Conditionals, Active/Passive Voice, and Reported
-// Speech content.
+// hosts eleven nested categories — Parts of Speech, Modal Verbs,
+// Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
+// Speech, Relative Clauses, Prepositions, Word Order, and Articles —
+// all living inside panel-course as .course-category divs (mirroring
+// Language Bank's own category-switcher pattern; the chip row scrolls
+// horizontally past 5 categories, same treatment as Word Bank's own
+// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
+// used to be separate top-level tabs that a chip merely linked out to;
+// they're merged in here now, so nothing redundant is left outside the
+// Course tab, and their old panel-modals/panel-tenses/panel-preps/
+// panel-order/panel-articles sections and thumb-tab buttons no longer
+// exist. Tense Mastery, Conditionals, Active/Passive Voice, Reported
+// Speech, and Relative Clauses are brand-new — none of them ever had a
+// standalone tab. Their own add/edit/delete/CRUD behavior is still
+// covered by test/rule-tabs-add.test.js and test/tenses-add.test.js —
+// this file focuses on the Course tab shell/category-switcher, Parts
+// of Speech, Tense Mastery, Conditionals, Active/Passive Voice,
+// Reported Speech, and Relative Clauses content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -52,6 +52,7 @@ describe("Course tab — shell and category switcher", () => {
     ["conditionals", "conditionalsSelect", "Zero Conditional: General Truths & Facts"],
     ["activePassive", "activePassiveSelect", "When to Use Passive Voice"],
     ["reportedSpeech", "reportedSpeechSelect", "Backshift: Present to Past in Reported Statements"],
+    ["relativeClauses", "relativeClausesSelect", "Defining vs Non-Defining Relative Clauses"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -487,6 +488,77 @@ describe("Course tab — Reported Speech (backshift, questions, commands, pronou
   });
 });
 
+describe("Course tab — Relative Clauses (defining/non-defining, pronoun choice, omission, reduced clauses)", () => {
+  it("covers defining vs non-defining clauses, pronoun choice, omission, prepositions, reduced clauses, 'whose', and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.relativeClausesData.map((r) => r.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "Defining vs Non-Defining Relative Clauses",
+      "Choosing the Right Relative Pronoun",
+      "Omitting the Relative Pronoun (Object Relative Clauses)",
+      "Relative Clauses with Prepositions",
+      "Reduced Relative Clauses (Participle Clauses)",
+      "'Whose' for Possession — People AND Things",
+      "Common Relative Clause Mistakes"
+    ]));
+  });
+
+  it("the defining vs non-defining lesson explains that comma placement changes meaning, not just style", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.relativeClausesData.find((r) => r.w === "Defining vs Non-Defining Relative Clauses");
+    expect(lesson.mistake).toMatch(/changes the meaning/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("relativeClausesAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("relativeClausesAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("relativeClausesAddInput").value = "'Some of whom' relative clauses";
+    document.getElementById("relativeClausesAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("relativeClausesAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.relativeClausesData.some((r) => r.w === "'Some of whom' relative clauses")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Relative Clauses category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("relativeClausesAddInput").value = "'Some of whom' relative clauses";
+    document.getElementById("relativeClausesAddBtn").click();
+    await wait(30);
+
+    document.getElementById("relativeClausesManualUse").value = "A quantifier + 'of whom/which' introduces a formal non-defining clause about part of a group.";
+    document.getElementById("relativeClausesManualExample").value = "The engineers, some of whom had over a decade of experience, approved the design.";
+    document.getElementById("relativeClausesManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.relativeClausesData.some((r) => r.w === "'Some of whom' relative clauses")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="relativeClauses"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("relativeClausesEntry").querySelector(".headword").textContent).toBe("'Some of whom' relative clauses");
+    expect(document.getElementById("relativeClausesEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("relativeClausesSelect").value = "Defining vs Non-Defining Relative Clauses";
+    hooks.renderRuleEntry(
+      hooks.relativeClausesData.find((r) => r.w === "Defining vs Non-Defining Relative Clauses"),
+      document.getElementById("relativeClausesEntry"), "Relative Clauses Rule", "relativeClauses"
+    );
+    expect(document.getElementById("relativeClausesEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -570,6 +642,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="reportedSpeech"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("reportedSpeechEntry").querySelector(".headword").textContent).toBe("Reporting Questions (Yes/No and Wh-)");
+  });
+
+  it("indexes every Relative Clauses lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "Defining vs Non-Defining Relative Clauses" && item.cat === "Relative clauses");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Relative Clauses search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Omitting the Relative Pronoun (Object Relative Clauses)" && item.cat === "Relative clauses");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="relativeClauses"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("relativeClausesEntry").querySelector(".headword").textContent).toBe("Omitting the Relative Pronoun (Object Relative Clauses)");
   });
 });
 

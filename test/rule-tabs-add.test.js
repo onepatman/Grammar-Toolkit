@@ -198,6 +198,14 @@ describe.each([
     manualUseId: "reportedSpeechManualUse", manualExampleId: "reportedSpeechManualExample",
     manualSaveBtnId: "reportedSpeechManualSaveBtn", manualCancelBtnId: "reportedSpeechManualCancelBtn",
     courseCategory: "reportedSpeech"
+  },
+  {
+    key: "relativeClauses", label: "Relative Clauses", inputId: "relativeClausesAddInput", btnId: "relativeClausesAddBtn",
+    statusId: "relativeClausesAddStatus", dataKey: "relativeClausesData", entryId: "relativeClausesEntry",
+    builtIn: "Defining vs Non-Defining Relative Clauses", manualBoxId: "relativeClausesManualBox", manualWordId: "relativeClausesManualWord",
+    manualUseId: "relativeClausesManualUse", manualExampleId: "relativeClausesManualExample",
+    manualSaveBtnId: "relativeClausesManualSaveBtn", manualCancelBtnId: "relativeClausesManualCancelBtn",
+    courseCategory: "relativeClauses"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
