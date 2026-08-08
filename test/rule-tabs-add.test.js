@@ -182,6 +182,14 @@ describe.each([
     manualUseId: "conditionalsManualUse", manualExampleId: "conditionalsManualExample",
     manualSaveBtnId: "conditionalsManualSaveBtn", manualCancelBtnId: "conditionalsManualCancelBtn",
     courseCategory: "conditionals"
+  },
+  {
+    key: "activePassive", label: "Active/Passive Voice", inputId: "activePassiveAddInput", btnId: "activePassiveAddBtn",
+    statusId: "activePassiveAddStatus", dataKey: "activePassiveData", entryId: "activePassiveEntry",
+    builtIn: "When to Use Passive Voice", manualBoxId: "activePassiveManualBox", manualWordId: "activePassiveManualWord",
+    manualUseId: "activePassiveManualUse", manualExampleId: "activePassiveManualExample",
+    manualSaveBtnId: "activePassiveManualSaveBtn", manualCancelBtnId: "activePassiveManualCancelBtn",
+    courseCategory: "activePassive"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
