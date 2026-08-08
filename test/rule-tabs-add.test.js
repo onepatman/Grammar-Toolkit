@@ -1,13 +1,18 @@
 // Integration tests for the "every tab can add an entry" feature's 6
-// newly-addable standalone grammar-rule tabs: Prepositions (online
-// lookup — these ARE real dictionary words), and Articles/Modals/
-// Capitalization/Word Order/Question Starters (manual-only — these are
-// grammar RULES, not lookup-able dictionary words). Both flows funnel
-// through the shared LANGUAGE_BANK_CONFIG-driven machinery
-// (addLanguageBankEntry, openLanguageBankEditForm, deleteLanguageBankEntry,
+// grammar-rule categories: Prepositions (online lookup — these ARE real
+// dictionary words), and Articles/Modals/Capitalization/Word
+// Order/Question Starters (manual-only — these are grammar RULES, not
+// lookup-able dictionary words). Both flows funnel through the shared
+// LANGUAGE_BANK_CONFIG-driven machinery (addLanguageBankEntry,
+// openLanguageBankEditForm, deleteLanguageBankEntry,
 // findLanguageBankDuplicate) that Language Bank already uses — see
-// addRuleEntryFromInput's dispatch in index.html. Loads the real
-// index.html in jsdom and dispatches real DOM interactions, same as
+// addRuleEntryFromInput's dispatch in index.html. Modals, Word Order, and
+// Prepositions now live inside the Course tab as nested categories
+// (course-modals/course-order/course-preps) rather than their own
+// top-level tabs — see test/course-tab.test.js for the Course-tab
+// shell/switcher itself; Articles/Capitalization/Question Starters are
+// still standalone top-level tabs, unaffected by that merge. Loads the
+// real index.html in jsdom and dispatches real DOM interactions, same as
 // every other integration test in this repo.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
@@ -84,7 +89,8 @@ describe("Prepositions tab — online-first Look Up & Add", () => {
     await wait(30);
 
     expect(hooks.prepData.some((p) => p.w === "notwithstanding")).toBe(true);
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("preps");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="preps"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("notwithstanding");
   });
 
@@ -135,7 +141,8 @@ describe.each([
     statusId: "modalAddStatus", dataKey: "modalData", entryId: "modalEntry",
     builtIn: "can", manualBoxId: "modalManualBox", manualWordId: "modalManualWord",
     manualUseId: "modalManualUse", manualExampleId: "modalManualExample",
-    manualSaveBtnId: "modalManualSaveBtn", manualCancelBtnId: "modalManualCancelBtn"
+    manualSaveBtnId: "modalManualSaveBtn", manualCancelBtnId: "modalManualCancelBtn",
+    courseCategory: "modals"
   },
   {
     key: "capital", label: "Capitalization", inputId: "capitalAddInput", btnId: "capitalAddBtn",
@@ -149,7 +156,8 @@ describe.each([
     statusId: "orderAddStatus", dataKey: "orderData", entryId: "orderEntry",
     builtIn: "adverb placement", manualBoxId: "orderManualBox", manualWordId: "orderManualWord",
     manualUseId: "orderManualUse", manualExampleId: "orderManualExample",
-    manualSaveBtnId: "orderManualSaveBtn", manualCancelBtnId: "orderManualCancelBtn"
+    manualSaveBtnId: "orderManualSaveBtn", manualCancelBtnId: "orderManualCancelBtn",
+    courseCategory: "order"
   },
   {
     key: "qa", label: "Question Starters", inputId: "qaRuleAddInput", btnId: "qaRuleAddBtn",
@@ -160,7 +168,8 @@ describe.each([
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
-  manualBoxId, manualWordId, manualUseId, manualExampleId, manualSaveBtnId, manualCancelBtnId
+  manualBoxId, manualWordId, manualUseId, manualExampleId, manualSaveBtnId, manualCancelBtnId,
+  courseCategory
 }) => {
   it("shows an error and adds nothing when the input is empty", async () => {
     const { window } = await loadApp();
@@ -228,7 +237,14 @@ describe.each([
     expect(saved.senses[0].use).toBe("This is my own explanation.");
     expect(saved.source).toBe("online");
     expect(document.getElementById(entryId).querySelector(".headword").textContent).toBe("my new rule");
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe(key);
+    if (courseCategory) {
+      // Modals/Word Order now live inside the Course tab as a nested
+      // category rather than their own top-level tab.
+      expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+      expect(document.querySelector(`#courseCategorySeg button[data-val="${courseCategory}"]`).classList.contains("active")).toBe(true);
+    } else {
+      expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe(key);
+    }
     expect(document.getElementById(entryId).querySelector(".lb-edit-btn")).not.toBeNull();
   });
 

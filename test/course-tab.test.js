@@ -1,13 +1,18 @@
-// Integration tests for the new Course tab (structured Intermediate ->
-// Advanced lessons, IELTS/Cambridge-style). Phase 1: a category switcher
-// with one authored local lesson category (Parts of Speech, reusing the
-// exact same LANGUAGE_BANK_CONFIG-driven add/edit/delete machinery every
-// other standalone grammar-rule tab already uses — see
-// test/rule-tabs-add.test.js) plus four "linked" chips (Modal Verbs,
-// Tenses, Prepositions, Word Order) that just hand off to the existing
-// tab rather than duplicating its content. Loads the real index.html in
-// jsdom and dispatches real DOM interactions, same as every other
-// integration test in this repo.
+// Integration tests for the Course tab (structured Intermediate ->
+// Advanced lessons, IELTS/Cambridge-style). A single category switcher
+// hosts five nested categories — Parts of Speech, Modal Verbs, Tenses,
+// Prepositions, and Word Order — all living inside panel-course as
+// .course-category divs (mirroring Language Bank's own category-switcher
+// pattern). Modal Verbs/Tenses/Prepositions/Word Order used to be
+// separate top-level tabs that a chip merely linked out to; they're
+// merged in here now, so nothing redundant is left outside the Course
+// tab, and their old panel-modals/panel-tenses/panel-preps/panel-order
+// sections and thumb-tab buttons no longer exist. Their own
+// add/edit/delete/CRUD behavior is still covered by
+// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
+// focuses on the Course tab shell/category-switcher and Parts of Speech.
+// Loads the real index.html in jsdom and dispatches real DOM
+// interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
@@ -34,20 +39,40 @@ describe("Course tab — shell and category switcher", () => {
   });
 
   it.each([
-    ["modals", "Modal Verbs"],
-    ["tenses", "Tenses"],
-    ["preps", "Prepositions"],
-    ["order", "Word Order"]
-  ])("clicking the %s chip navigates straight to the existing %s tab instead of showing a local panel", async (linkedTab) => {
+    ["modals", "modalSelect", "can"],
+    ["tenses", "tenseSelect", "Simple Present"],
+    ["preps", "prepSelect", "at"],
+    ["order", "orderSelect", "adverb placement"]
+  ])("clicking the %s chip shows it inline inside the Course tab — no navigating away", async (key, selectId, builtInOption) => {
     const { window } = await loadApp();
     const document = window.document;
     document.querySelector('.thumb-tab[data-tab="course"]').click();
 
-    document.querySelector(`#courseCategorySeg button[data-link="${linkedTab}"]`).click();
+    document.querySelector(`#courseCategorySeg button[data-val="${key}"]`).click();
 
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe(linkedTab);
-    expect(document.getElementById("panel-course").style.display).toBe("none");
-    expect(document.getElementById("panel-" + linkedTab).style.display).toBe("block");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.getElementById("panel-course").style.display).toBe("block");
+    expect(document.getElementById("course-" + key).style.display).not.toBe("none");
+    expect(document.getElementById("course-partsOfSpeech").style.display).toBe("none");
+    expect(document.querySelector(`#courseCategorySeg button[data-val="${key}"]`).classList.contains("active")).toBe(true);
+    expect(document.querySelector('#courseCategorySeg button[data-val="partsOfSpeech"]').classList.contains("active")).toBe(false);
+
+    // the built-in content genuinely renders inline, not just an empty shell
+    const options = Array.from(document.getElementById(selectId).options).map((o) => o.value);
+    expect(options).toContain(builtInOption);
+  });
+
+  it("none of the old standalone tabs exist anymore — no redundant duplicates left outside Course", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    expect(document.querySelector('.thumb-tab[data-tab="modals"]')).toBeNull();
+    expect(document.querySelector('.thumb-tab[data-tab="tenses"]')).toBeNull();
+    expect(document.querySelector('.thumb-tab[data-tab="preps"]')).toBeNull();
+    expect(document.querySelector('.thumb-tab[data-tab="order"]')).toBeNull();
+    expect(document.getElementById("panel-modals")).toBeNull();
+    expect(document.getElementById("panel-tenses")).toBeNull();
+    expect(document.getElementById("panel-preps")).toBeNull();
+    expect(document.getElementById("panel-order")).toBeNull();
   });
 });
 
