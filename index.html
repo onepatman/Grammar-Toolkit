@@ -1835,6 +1835,7 @@
         <button data-val="relativeClauses">Relative Clauses</button>
         <button data-val="complexSentences">Complex Sentences</button>
         <button data-val="cohesiveDevices">Cohesive Devices</button>
+        <button data-val="nominalization">Nominalization</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2195,6 +2196,34 @@
           <input type="text" id="cohesiveDevicesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="cohesiveDevicesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="cohesiveDevicesManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-nominalization" style="display:none;">
+      <div class="controls">
+        <select id="nominalizationSelect"></select>
+        <button class="nav-btn" data-target="nominalizationSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="nominalizationSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="nominalizationEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="nominalizationSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="nominalizationSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="nominalizationAddBox">
+        <div class="section-label">➕ Add a Nominalization rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Prevent → prevention"), then add your own explanation and an example below.</p>
+        <input type="text" id="nominalizationAddInput" placeholder="Rule name (e.g. Despite / in spite of)" autocomplete="off">
+        <button id="nominalizationAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="nominalizationAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="nominalizationManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="nominalizationManualWord"></strong>":</p>
+          <textarea id="nominalizationManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="nominalizationManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="nominalizationManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="nominalizationManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5801,6 +5830,35 @@ const cohesiveDevicesData = [
       {use:"Overusing linkers — starting nearly every sentence with 'Furthermore' or 'Moreover' — makes writing feel mechanical rather than genuinely connected.", examples:["Overused: Furthermore, the cost is low. Furthermore, it is durable. Furthermore, it is easy to install. (repetitive and robotic)"]},
       {use:"Using the wrong linker for the actual logical relationship — e.g. a contrast word where an addition or result was meant.", examples:["Wrong: The design is efficient. <b>However</b>, it is also cost-effective. (no real contrast here — 'furthermore' fits better)"]}
     ], mistake:"A high frequency of linking words does not automatically raise a Coherence and Cohesion score — examiners specifically penalize mechanical or inaccurate use over natural, varied connection between ideas."}
+];
+
+/* =========================================================
+   DATA — NOMINALIZATION (turning verbs/adjectives into nouns
+   for formal, academic register)
+========================================================= */
+const nominalizationData = [
+  {w:"What Is Nominalization?", senses:[
+      {use:"Nominalization turns a verb or adjective into a noun, letting an idea act as the subject or object of a sentence instead of the action itself.", examples:["Verb → noun: analyze → <b>analysis</b>. 'We analyzed the data' becomes 'Our <b>analysis</b> of the data revealed a trend.'","Adjective → noun: accurate → <b>accuracy</b>. 'The reading was accurate' becomes 'The <b>accuracy</b> of the reading was confirmed.'"]}
+    ], mistake:null},
+  {w:"Common Nominalization Suffixes: -tion, -sion, -ment, -ness, -ity, -ance/-ence", senses:[
+      {use:"Most nominalizations follow a predictable suffix pattern — recognizing the pattern helps you build the noun form quickly.", examples:["-tion/-sion: produce → <b>production</b>, decide → <b>decision</b>","-ment: develop → <b>development</b>, improve → <b>improvement</b>","-ness: aware → <b>awareness</b>, effective → <b>effectiveness</b>","-ity: stable → <b>stability</b>, able → <b>ability</b>","-ance/-ence: perform → <b>performance</b>, differ → <b>difference</b>"]}
+    ], mistake:null},
+  {w:"Nominalization for Academic/Formal Register (IELTS Writing Task 2)", senses:[
+      {use:"Academic and formal writing favors nominalized, noun-heavy sentences over a chain of short verb-driven ones — it reads as more objective and information-dense, which raises Lexical Resource and Coherence scores.", examples:["Informal/spoken: 'Governments invest more, so people become healthier.'","Formal/academic: '<b>Increased investment</b> by governments leads to <b>improvements</b> in public health.'"]}
+    ], mistake:null},
+  {w:"Nominalization Changes Sentence Structure", senses:[
+      {use:"Once the verb becomes a noun, the sentence needs a new supporting verb (often 'make,' 'have,' 'conduct,' 'undergo,' 'lead to') to carry the sentence — the noun itself cannot act as the verb.", examples:["'They examined the samples' → 'They <b>conducted an examination</b> of the samples.' (not 'They examination the samples')","'The prices increased sharply' → 'There was a sharp <b>increase</b> in prices.'"]}
+    ], mistake:"Leaving a nominalized sentence without any verb at all — 'The committee the decision about the budget' — is a fragment; it still needs 'made': 'The committee <b>made</b> the decision about the budget.'"},
+  {w:"Irregular Noun Forms", senses:[
+      {use:"Some common verbs form their noun this way instead of with a regular suffix — these have to be memorized individually.", examples:["choose → <b>choice</b> (not 'choosement')","grow → <b>growth</b> (not 'growation')","believe → <b>belief</b> (not 'believement')","fail → <b>failure</b> (not 'failness')","succeed → <b>success</b> (not 'succeedment')"]}
+    ], mistake:null},
+  {w:"Overusing Nominalization", senses:[
+      {use:"Stacking too many nominalizations in one sentence buries the real action and makes writing dense and hard to follow — strong academic writing balances nominalized noun phrases with clear, direct verbs.", examples:["Overloaded: 'The implementation of the reduction of the utilization of resources resulted in the achievement of cost savings.'","Balanced: 'Reducing resource use cut costs.' or, more formally, '<b>Resource reduction</b> led to significant cost savings.'"]}
+    ], mistake:null},
+  {w:"Common Nominalization Mistakes", senses:[
+      {use:"Using the wrong suffix or an invented noun form that doesn't exist in English.", examples:["Wrong: 'The informations were useful.' ('information' is uncountable — no plural, no article needed for the general sense)","Wrong: 'The company showed a big improvement-ness.' → Correct: 'The company showed a big <b>improvement</b>.'"]},
+      {use:"Forgetting to adjust the article or determiner once a verb becomes a countable noun.", examples:["Wrong: 'Decision was made quickly.' → Correct: '<b>A</b> decision was made quickly.' or '<b>The</b> decision was made quickly.'"]}
+    ], mistake:"Nominalizing every single verb in a paragraph, including ones that read naturally as verbs, produces stiff, overly formal writing — reserve nominalization for the sentence's main topic or argument, not every action."}
 ];
 
 /* =========================================================
@@ -37987,6 +38045,7 @@ setupRuleModule(reportedSpeechData, "reportedSpeechSelect", "reportedSpeechEntry
 setupRuleModule(relativeClausesData, "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
 setupRuleModule(complexSentencesData, "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
 setupRuleModule(cohesiveDevicesData, "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
+setupRuleModule(nominalizationData, "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40645,6 +40704,7 @@ indexCourseCategoryRuleModule(reportedSpeechData, "Reported speech", "reportedSp
 indexCourseCategoryRuleModule(relativeClausesData, "Relative clauses", "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
 indexCourseCategoryRuleModule(complexSentencesData, "Complex sentences", "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
 indexCourseCategoryRuleModule(cohesiveDevicesData, "Cohesive devices", "cohesiveDevicesSelect", "cohesiveDevicesEntry", "Cohesive Devices Rule", "cohesiveDevices");
+indexCourseCategoryRuleModule(nominalizationData, "Nominalization", "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41480,7 +41540,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41756,6 +41816,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "cohesiveDevicesManualUse", manualExampleId: "cohesiveDevicesManualExample",
     manualSaveBtnId: "cohesiveDevicesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "cohesiveDevicesManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("cohesiveDevices"); }
+  },
+  nominalization: {
+    data: nominalizationData, selectId: "nominalizationSelect", entryId: "nominalizationEntry", tagLabel: "Nominalization Rule",
+    inputId: "nominalizationAddInput", btnId: "nominalizationAddBtn", statusId: "nominalizationAddStatus", inputNoun: "a nominalization rule",
+    putFn: function(entry, opts){ return VocabCache.putNominalization(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllNominalization(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteNominalization(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "nominalizationManualBox", manualWordId: "nominalizationManualWord",
+    manualUseId: "nominalizationManualUse", manualExampleId: "nominalizationManualExample",
+    manualSaveBtnId: "nominalizationManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "nominalizationManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("nominalization"); }
   }
 };
 
@@ -41772,7 +41844,7 @@ const LANGUAGE_BANK_CONFIG = {
 // Course tab's own local lesson categories — same generic machinery as
 // the others, just surfaced inside the Course tab's category switcher
 // instead of getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices"];
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42822,7 +42894,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Reported Speech Rule", data: reportedSpeechData },
     { cat: "Relative Clauses Rule", data: relativeClausesData },
     { cat: "Complex Sentences Rule", data: complexSentencesData },
-    { cat: "Cohesive Devices Rule", data: cohesiveDevicesData }
+    { cat: "Cohesive Devices Rule", data: cohesiveDevicesData },
+    { cat: "Nominalization Rule", data: nominalizationData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45662,6 +45735,7 @@ renderRuleEntry(reportedSpeechData.find(x=>x.w===document.getElementById("report
 renderRuleEntry(relativeClausesData.find(x=>x.w===document.getElementById("relativeClausesSelect").value), document.getElementById("relativeClausesEntry"), "Relative Clauses Rule", "relativeClauses");
 renderRuleEntry(complexSentencesData.find(x=>x.w===document.getElementById("complexSentencesSelect").value), document.getElementById("complexSentencesEntry"), "Complex Sentences Rule", "complexSentences");
 renderRuleEntry(cohesiveDevicesData.find(x=>x.w===document.getElementById("cohesiveDevicesSelect").value), document.getElementById("cohesiveDevicesEntry"), "Cohesive Devices Rule", "cohesiveDevices");
+renderRuleEntry(nominalizationData.find(x=>x.w===document.getElementById("nominalizationSelect").value), document.getElementById("nominalizationEntry"), "Nominalization Rule", "nominalization");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47807,7 +47881,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,

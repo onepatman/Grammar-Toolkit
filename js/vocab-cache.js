@@ -27,8 +27,8 @@
        orderEntries, qaEntries, posEntries, tenseMasteryEntries,
        conditionalsEntries, activePassiveEntries, reportedSpeechEntries,
        relativeClausesEntries, complexSentencesEntries,
-       cohesiveDevicesEntries:
-                        fourteen grammar-rule categories, sharing the
+       cohesiveDevicesEntries, nominalizationEntries:
+                        fifteen grammar-rule categories, sharing the
                         same generic { key, entry } shape as the
                         Language Bank stores, added via each category's
                         own quick-add box. Capitalization and Question
@@ -36,12 +36,12 @@
                         Prepositions, Articles, Modals, Word Order,
                         Parts of Speech, Tense Mastery, Conditionals,
                         Active/Passive Voice, Reported Speech, Relative
-                        Clauses, Complex Sentence Building, and Cohesive
-                        Devices all live nested inside the Course tab
-                        instead (see COURSE_LOCAL_CATEGORIES in
-                        index.html). Local-only: unlike
-                        vocabEntries/phrasalEntries/etc. these don't
-                        currently participate in Firestore
+                        Clauses, Complex Sentence Building, Cohesive
+                        Devices, and Nominalization all live nested
+                        inside the Course tab instead (see
+                        COURSE_LOCAL_CATEGORIES in index.html).
+                        Local-only: unlike vocabEntries/phrasalEntries/etc.
+                        these don't currently participate in Firestore
                         cross-device sync (see LANGUAGE_BANK_CATEGORIES in
                         index.html).
      - familyEntries:   Owner-added Word Family entries (verb -> noun/
@@ -112,7 +112,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 24;
+  var DB_VERSION = 25;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -141,6 +141,7 @@
   var RELATIVE_CLAUSES_STORE = "relativeClausesEntries";
   var COMPLEX_SENTENCES_STORE = "complexSentencesEntries";
   var COHESIVE_DEVICES_STORE = "cohesiveDevicesEntries";
+  var NOMINALIZATION_STORE = "nominalizationEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
   var NOTES_STORE = "notesEntries";
@@ -210,7 +211,7 @@
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
-        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE, RELATIVE_CLAUSES_STORE, COMPLEX_SENTENCES_STORE, COHESIVE_DEVICES_STORE].forEach(function (name) {
+        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE, RELATIVE_CLAUSES_STORE, COMPLEX_SENTENCES_STORE, COHESIVE_DEVICES_STORE, NOMINALIZATION_STORE].forEach(function (name) {
           if (!db.objectStoreNames.contains(name)) {
             db.createObjectStore(name, { keyPath: "key" });
           }
@@ -511,6 +512,11 @@
   function putCohesiveDevices(entry, options) { return putEntry(COHESIVE_DEVICES_STORE, entry, options); }
   function getAllCohesiveDevices(options) { return getAllEntries(COHESIVE_DEVICES_STORE, options); }
   function deleteCohesiveDevices(word, options) { return deleteEntry(COHESIVE_DEVICES_STORE, word, options); }
+
+  function getNominalization(word, options) { return getEntry(NOMINALIZATION_STORE, word, options); }
+  function putNominalization(entry, options) { return putEntry(NOMINALIZATION_STORE, entry, options); }
+  function getAllNominalization(options) { return getAllEntries(NOMINALIZATION_STORE, options); }
+  function deleteNominalization(word, options) { return deleteEntry(NOMINALIZATION_STORE, word, options); }
 
   /* ---------- familyEntries (Owner-added Word Family entries) ----------
      Same generic { key, entry } shape as customVerbs/the six grammar-rule
@@ -874,6 +880,10 @@
     putCohesiveDevices: putCohesiveDevices,
     getAllCohesiveDevices: getAllCohesiveDevices,
     deleteCohesiveDevices: deleteCohesiveDevices,
+    getNominalization: getNominalization,
+    putNominalization: putNominalization,
+    getAllNominalization: getAllNominalization,
+    deleteNominalization: deleteNominalization,
     FAMILY_STORE: FAMILY_STORE,
     getFamily: getFamily,
     putFamily: putFamily,

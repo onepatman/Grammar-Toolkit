@@ -222,6 +222,14 @@ describe.each([
     manualUseId: "cohesiveDevicesManualUse", manualExampleId: "cohesiveDevicesManualExample",
     manualSaveBtnId: "cohesiveDevicesManualSaveBtn", manualCancelBtnId: "cohesiveDevicesManualCancelBtn",
     courseCategory: "cohesiveDevices"
+  },
+  {
+    key: "nominalization", label: "Nominalization", inputId: "nominalizationAddInput", btnId: "nominalizationAddBtn",
+    statusId: "nominalizationAddStatus", dataKey: "nominalizationData", entryId: "nominalizationEntry",
+    builtIn: "What Is Nominalization?", manualBoxId: "nominalizationManualBox", manualWordId: "nominalizationManualWord",
+    manualUseId: "nominalizationManualUse", manualExampleId: "nominalizationManualExample",
+    manualSaveBtnId: "nominalizationManualSaveBtn", manualCancelBtnId: "nominalizationManualCancelBtn",
+    courseCategory: "nominalization"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
