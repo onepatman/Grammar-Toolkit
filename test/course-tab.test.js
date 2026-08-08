@@ -1,11 +1,11 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts twelve nested categories — Parts of Speech, Modal Verbs,
+// hosts thirteen nested categories — Parts of Speech, Modal Verbs,
 // Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
-// Speech, Relative Clauses, Complex Sentence Building, Prepositions,
-// Word Order, and Articles — all living inside panel-course as
-// .course-category divs (mirroring Language Bank's own category-
-// switcher pattern; the chip row scrolls horizontally past 5
+// Speech, Relative Clauses, Complex Sentence Building, Cohesive
+// Devices, Prepositions, Word Order, and Articles — all living inside
+// panel-course as .course-category divs (mirroring Language Bank's own
+// category-switcher pattern; the chip row scrolls horizontally past 5
 // categories, same treatment as Word Bank's own category seg). Modal
 // Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
 // top-level tabs that a chip merely linked out to; they're merged in
@@ -13,13 +13,14 @@
 // their old panel-modals/panel-tenses/panel-preps/panel-order/
 // panel-articles sections and thumb-tab buttons no longer exist. Tense
 // Mastery, Conditionals, Active/Passive Voice, Reported Speech,
-// Relative Clauses, and Complex Sentence Building are brand-new — none
-// of them ever had a standalone tab. Their own add/edit/delete/CRUD
-// behavior is still covered by test/rule-tabs-add.test.js and
-// test/tenses-add.test.js — this file focuses on the Course tab
-// shell/category-switcher, Parts of Speech, Tense Mastery,
-// Conditionals, Active/Passive Voice, Reported Speech, Relative
-// Clauses, and Complex Sentence Building content.
+// Relative Clauses, Complex Sentence Building, and Cohesive Devices
+// are brand-new — none of them ever had a standalone tab. Their own
+// add/edit/delete/CRUD behavior is still covered by
+// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
+// focuses on the Course tab shell/category-switcher, Parts of Speech,
+// Tense Mastery, Conditionals, Active/Passive Voice, Reported Speech,
+// Relative Clauses, Complex Sentence Building, and Cohesive Devices
+// content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -56,6 +57,7 @@ describe("Course tab — shell and category switcher", () => {
     ["reportedSpeech", "reportedSpeechSelect", "Backshift: Present to Past in Reported Statements"],
     ["relativeClauses", "relativeClausesSelect", "Defining vs Non-Defining Relative Clauses"],
     ["complexSentences", "complexSentencesSelect", "Sentence Types: Simple, Compound, Complex, Compound-Complex"],
+    ["cohesiveDevices", "cohesiveDevicesSelect", "Addition Linkers: Furthermore, Moreover, In Addition"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -633,6 +635,77 @@ describe("Course tab — Complex Sentence Building (sentence types, joining clau
   });
 });
 
+describe("Course tab — Cohesive Devices (addition/contrast/cause-effect/sequencing linkers, reference, substitution)", () => {
+  it("covers addition, contrast, cause-effect, sequencing linkers, reference words, substitution, and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.cohesiveDevicesData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "Addition Linkers: Furthermore, Moreover, In Addition",
+      "Contrast Linkers: However, Nevertheless, On the Other Hand, Whereas",
+      "Cause-Effect Linkers: Therefore, Consequently, As a Result",
+      "Sequencing Linkers: Firstly, Subsequently, Finally",
+      "Reference Words: This/These/Such + Noun",
+      "Substitution: One, Do So, Ones (Avoiding Repetition)",
+      "Common Cohesive Device Mistakes"
+    ]));
+  });
+
+  it("the contrast linkers lesson distinguishes 'whereas' (subordinator) from 'however' (sentence adverb)", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.cohesiveDevicesData.find((c) => c.w === "Contrast Linkers: However, Nevertheless, On the Other Hand, Whereas");
+    expect(lesson.mistake).toMatch(/fragment/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("cohesiveDevicesAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("cohesiveDevicesAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("cohesiveDevicesAddInput").value = "Despite / in spite of";
+    document.getElementById("cohesiveDevicesAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("cohesiveDevicesAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.cohesiveDevicesData.some((c) => c.w === "Despite / in spite of")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Cohesive Devices category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("cohesiveDevicesAddInput").value = "Despite / in spite of";
+    document.getElementById("cohesiveDevicesAddBtn").click();
+    await wait(30);
+
+    document.getElementById("cohesiveDevicesManualUse").value = "Both take a noun phrase or gerund, not a full clause with a subject and verb.";
+    document.getElementById("cohesiveDevicesManualExample").value = "Despite the delay, the project finished on time.";
+    document.getElementById("cohesiveDevicesManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.cohesiveDevicesData.some((c) => c.w === "Despite / in spite of")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="cohesiveDevices"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("cohesiveDevicesEntry").querySelector(".headword").textContent).toBe("Despite / in spite of");
+    expect(document.getElementById("cohesiveDevicesEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("cohesiveDevicesSelect").value = "Addition Linkers: Furthermore, Moreover, In Addition";
+    hooks.renderRuleEntry(
+      hooks.cohesiveDevicesData.find((c) => c.w === "Addition Linkers: Furthermore, Moreover, In Addition"),
+      document.getElementById("cohesiveDevicesEntry"), "Cohesive Devices Rule", "cohesiveDevices"
+    );
+    expect(document.getElementById("cohesiveDevicesEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -750,6 +823,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="complexSentences"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("complexSentencesEntry").querySelector(".headword").textContent).toBe("Avoiding Run-on Sentences and Comma Splices");
+  });
+
+  it("indexes every Cohesive Devices lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "Addition Linkers: Furthermore, Moreover, In Addition" && item.cat === "Cohesive devices");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Cohesive Devices search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Common Cohesive Device Mistakes" && item.cat === "Cohesive devices");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="cohesiveDevices"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("cohesiveDevicesEntry").querySelector(".headword").textContent).toBe("Common Cohesive Device Mistakes");
   });
 });
 

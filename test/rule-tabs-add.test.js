@@ -214,6 +214,14 @@ describe.each([
     manualUseId: "complexSentencesManualUse", manualExampleId: "complexSentencesManualExample",
     manualSaveBtnId: "complexSentencesManualSaveBtn", manualCancelBtnId: "complexSentencesManualCancelBtn",
     courseCategory: "complexSentences"
+  },
+  {
+    key: "cohesiveDevices", label: "Cohesive Devices", inputId: "cohesiveDevicesAddInput", btnId: "cohesiveDevicesAddBtn",
+    statusId: "cohesiveDevicesAddStatus", dataKey: "cohesiveDevicesData", entryId: "cohesiveDevicesEntry",
+    builtIn: "Addition Linkers: Furthermore, Moreover, In Addition", manualBoxId: "cohesiveDevicesManualBox", manualWordId: "cohesiveDevicesManualWord",
+    manualUseId: "cohesiveDevicesManualUse", manualExampleId: "cohesiveDevicesManualExample",
+    manualSaveBtnId: "cohesiveDevicesManualSaveBtn", manualCancelBtnId: "cohesiveDevicesManualCancelBtn",
+    courseCategory: "cohesiveDevices"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
