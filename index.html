@@ -698,6 +698,21 @@
   .dashboard-error-word{ font-weight:700; color:var(--ink); font-size:14px; }
   .dashboard-error-count{ font-size:12px; color:var(--brick); font-family:'IBM Plex Mono', monospace; white-space:nowrap; }
 
+  .dashboard-ielts-band{ display:flex; flex-direction:column; gap:14px; }
+  .ielts-band-overall{
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:16px; border-radius:10px; background:var(--mint-bg); border:1px solid var(--mint-border);
+  }
+  .ielts-band-overall-value{ font-size:34px; font-weight:800; color:var(--mint); font-family:'IBM Plex Mono', monospace; line-height:1; }
+  .ielts-band-overall-label{ font-size:12px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
+  .ielts-band-criteria{ display:flex; flex-direction:column; gap:8px; }
+  .ielts-band-criterion{ display:grid; grid-template-columns:1fr 2fr auto; align-items:center; gap:10px; }
+  .ielts-band-criterion-label{ font-size:13px; color:var(--ink); }
+  .ielts-band-criterion-track{ height:8px; border-radius:4px; background:var(--rule); overflow:hidden; }
+  .ielts-band-criterion-fill{ height:100%; background:var(--teal); border-radius:4px; }
+  .ielts-band-criterion-value{ font-size:12px; font-family:'IBM Plex Mono', monospace; color:var(--teal-deep); white-space:nowrap; }
+  .ielts-band-basis{ margin:0; }
+
   /* ---------- Practice tab ---------- */
   .practice-source-picker{
     display:flex; flex-wrap:wrap; gap:10px;
@@ -1797,6 +1812,11 @@
       <div class="section-label">🔁 Your recurring error patterns</div>
       <p class="note" style="margin-bottom:8px;">Words you've missed more than once across Practice sessions — the ones worth reviewing first.</p>
       <div id="dashboardErrorPatterns" class="dashboard-error-patterns"></div>
+    </div>
+
+    <div class="dashboard-section">
+      <div class="section-label">🎓 Estimated IELTS Writing band</div>
+      <div id="dashboardIeltsBand" class="dashboard-ielts-band"></div>
     </div>
   </section>
 
@@ -38433,6 +38453,94 @@ function collectTopErrorPatterns(errorLog, limit, minCount = 1){
     .map(b=> ({ word: b.word, count: b.count, lastMissedAt: b.lastMissedAt, modes: Array.from(b.modes) }));
 }
 
+const IELTS_BAND_MIN_GRADED_ENTRIES = 2;
+const IELTS_BAND_RECENT_ENTRY_LIMIT = 10;
+const IELTS_BAND_RECENT_PRACTICE_LIMIT = 10;
+const IELTS_BAND_TARGET_WORD_COUNT = 150; // IELTS Writing Task 2's minimum word count.
+
+function clampIeltsBand(value){
+  return Math.max(3, Math.min(9, value));
+}
+
+// IELTS bands are always reported in half-point steps (5.5, 6.0, 6.5, ...).
+function roundToHalfBand(value){
+  return Math.round(value * 2) / 2;
+}
+
+// A rough, transparent, offline ESTIMATE of an IELTS-style Writing band
+// (0-9 scale, reported in half-point steps) built entirely from signals
+// this app already tracks — never a real IELTS score, and never a live
+// AI grading of arbitrary text (there's no such capability in this
+// static app). Every graded Journal entry already carries a LanguageTool
+// "clarity score" (see gradeJournalEntry/GrammarCheck.checkText) — this
+// combines that with word count, vocabulary diversity across recent
+// entries, and Practice accuracy/recurring-error signals already shown
+// elsewhere on the Dashboard, into a 4-criteria estimate mirroring the
+// real IELTS Writing rubric (Task Response, Coherence & Cohesion,
+// Lexical Resource, Grammatical Range & Accuracy).
+//
+// Requires at least IELTS_BAND_MIN_GRADED_ENTRIES graded Journal entries
+// (grading.status === "graded") before it will estimate anything — one
+// entry's error density is too noisy to generalize from.
+function estimateIeltsBand(journalEntries, practiceHistory, errorPatterns){
+  const graded = (journalEntries || [])
+    .filter(e=> e && e.grading && e.grading.status === "graded" && typeof e.grading.score === "number")
+    .sort((a, b)=> (b.grading.checkedAt || 0) - (a.grading.checkedAt || 0))
+    .slice(0, IELTS_BAND_RECENT_ENTRY_LIMIT);
+
+  if(graded.length < IELTS_BAND_MIN_GRADED_ENTRIES){
+    return { insufficientData: true, overallBand: null, criteria: null, basis: { gradedEntryCount: graded.length } };
+  }
+
+  const avgClarityScore = graded.reduce((sum, e)=> sum + e.grading.score, 0) / graded.length;
+  const avgWordCount = graded.reduce((sum, e)=> sum + (e.grading.wordCount || 0), 0) / graded.length;
+
+  // Vocabulary diversity (unique-word ratio) pooled across all recent
+  // entries together, not averaged per-entry — reusing the same word in
+  // entry after entry pulls this down, same as it would for a real
+  // examiner reading several samples of someone's writing.
+  const allWords = graded
+    .flatMap(e=> (stripHtmlTags(e.body).toLowerCase().match(/[a-z']+/g) || []));
+  const uniqueWordCount = new Set(allWords).size;
+  const vocabDiversity = allWords.length ? uniqueWordCount / allWords.length : 0;
+
+  const recentPractice = (practiceHistory || [])
+    .slice()
+    .sort((a, b)=> (b.completedAt || 0) - (a.completedAt || 0))
+    .slice(0, IELTS_BAND_RECENT_PRACTICE_LIMIT);
+  const avgPracticeAccuracy = recentPractice.length
+    ? recentPractice.reduce((sum, p)=> sum + (typeof p.percentage === "number" ? p.percentage : 0), 0) / recentPractice.length
+    : null;
+
+  const recurringErrorCount = (errorPatterns || []).length;
+
+  const grammaticalRangeAccuracy = roundToHalfBand(clampIeltsBand(3 + (avgClarityScore / 10) * 6));
+  const taskResponse = roundToHalfBand(clampIeltsBand(3 + Math.min(avgWordCount / IELTS_BAND_TARGET_WORD_COUNT, 1.3) * 4.6));
+  const lexicalResource = roundToHalfBand(clampIeltsBand(3 + vocabDiversity * 10));
+  const coherenceCohesionRaw = 9
+    - recurringErrorCount * 0.4
+    - (avgPracticeAccuracy !== null ? ((100 - avgPracticeAccuracy) / 100) * 2 : 0);
+  const coherenceCohesion = roundToHalfBand(clampIeltsBand(coherenceCohesionRaw));
+
+  const overallBand = roundToHalfBand(
+    (taskResponse + coherenceCohesion + lexicalResource + grammaticalRangeAccuracy) / 4
+  );
+
+  return {
+    insufficientData: false,
+    overallBand,
+    criteria: { taskResponse, coherenceCohesion, lexicalResource, grammaticalRangeAccuracy },
+    basis: {
+      gradedEntryCount: graded.length,
+      avgWordCount: Math.round(avgWordCount),
+      avgClarityScore: Math.round(avgClarityScore * 10) / 10,
+      vocabDiversity: Math.round(vocabDiversity * 100) / 100,
+      avgPracticeAccuracy: avgPracticeAccuracy === null ? null : Math.round(avgPracticeAccuracy),
+      recurringErrorCount
+    }
+  };
+}
+
 // Every calendar day (local time) that saw either a content-add or a
 // finished Practice session, mapped to how many of those happened that
 // day — feeds both the streak count and the activity calendar below.
@@ -38539,6 +38647,45 @@ function renderDashboardErrorPatterns(container, patterns){
   `).join("");
 }
 
+const IELTS_BAND_CRITERIA_LABELS = {
+  taskResponse: "Task Response",
+  coherenceCohesion: "Coherence &amp; Cohesion",
+  lexicalResource: "Lexical Resource",
+  grammaticalRangeAccuracy: "Grammatical Range &amp; Accuracy"
+};
+
+// Renders estimateIeltsBand()'s result: an empty/locked state until
+// enough graded Journal entries exist, otherwise the overall band plus
+// its 4-criteria breakdown as mini bars (0-9 scale) — same visual
+// language as the other Dashboard bar charts, kept purposely modest
+// ("Estimated") since this is a heuristic, not a real IELTS score.
+function renderDashboardIeltsBand(container, estimate){
+  if(!container) return;
+  if(!estimate || estimate.insufficientData){
+    const have = estimate ? estimate.basis.gradedEntryCount : 0;
+    container.innerHTML = `<div class="dashboard-empty" data-graded-count="${have}">Grade at least ${IELTS_BAND_MIN_GRADED_ENTRIES} Journal entries (Journal tab → Check my writing) to unlock your estimated Writing band. You have ${have} so far.</div>`;
+    return;
+  }
+  const criteriaHtml = Object.keys(IELTS_BAND_CRITERIA_LABELS).map(key=>{
+    const value = estimate.criteria[key];
+    const widthPct = Math.max(4, Math.round((value / 9) * 100));
+    return `
+      <div class="ielts-band-criterion" data-criterion="${key}" data-value="${value}">
+        <span class="ielts-band-criterion-label">${IELTS_BAND_CRITERIA_LABELS[key]}</span>
+        <div class="ielts-band-criterion-track"><div class="ielts-band-criterion-fill" style="width:${widthPct}%"></div></div>
+        <span class="ielts-band-criterion-value">${value.toFixed(1)}</span>
+      </div>`;
+  }).join("");
+  container.innerHTML = `
+    <div class="ielts-band-overall" data-band="${estimate.overallBand}">
+      <span class="ielts-band-overall-value">${estimate.overallBand.toFixed(1)}</span>
+      <span class="ielts-band-overall-label">Estimated Writing Band</span>
+    </div>
+    <div class="ielts-band-criteria">${criteriaHtml}</div>
+    <p class="note ielts-band-basis">Based on your last ${estimate.basis.gradedEntryCount} graded Journal ${estimate.basis.gradedEntryCount === 1 ? "entry" : "entries"} (avg. clarity score ${estimate.basis.avgClarityScore}/10, ~${estimate.basis.avgWordCount} words each)${estimate.basis.avgPracticeAccuracy !== null ? ` and recent Practice accuracy (${estimate.basis.avgPracticeAccuracy}%)` : ""}. This is a rough offline estimate, not an official IELTS score.</p>
+  `;
+}
+
 async function renderDashboardTab(){
   const statsEl = document.getElementById("dashboardStats");
   if(!statsEl) return;
@@ -38549,6 +38696,7 @@ async function renderDashboardTab(){
   const accuracyCountEl = document.getElementById("dashboardAccuracyCount");
   const accuracyNoteEl = document.getElementById("dashboardAccuracyNote");
   const errorPatternsEl = document.getElementById("dashboardErrorPatterns");
+  const ieltsBandEl = document.getElementById("dashboardIeltsBand");
 
   const practiceHistory = await VocabCache.getAllPracticeHistory({dbPromise: vocabDbPromise});
   const errorLog = await VocabCache.getAllErrorLogEntries({dbPromise: vocabDbPromise});
@@ -38582,6 +38730,9 @@ async function renderDashboardTab(){
 
   const errorPatterns = collectTopErrorPatterns(errorLog, DASHBOARD_ERROR_PATTERNS_LIMIT, 2);
   renderDashboardErrorPatterns(errorPatternsEl, errorPatterns);
+
+  const ieltsBandEstimate = estimateIeltsBand(journalData, practiceHistory, errorPatterns);
+  renderDashboardIeltsBand(ieltsBandEl, ieltsBandEstimate);
 }
 
 let favoritesFilterCat = "All";
@@ -48466,6 +48617,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   computeDashboardStreak, dashboardDateKey,
   renderDashboardBarChart, renderDashboardCalendar,
   collectTopErrorPatterns, renderDashboardErrorPatterns,
+  estimateIeltsBand, renderDashboardIeltsBand,
   favoritesCacheRestorePromise
 };
 </script>

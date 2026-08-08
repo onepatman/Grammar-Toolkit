@@ -308,3 +308,169 @@ describe("Dashboard pure aggregation helpers", () => {
     expect(patterns).toHaveLength(3);
   });
 });
+
+// estimateIeltsBand() is a rough, transparent, OFFLINE estimate — it
+// never calls any grading API itself, it only combines signals already
+// produced elsewhere (Journal's LanguageTool-based clarity score,
+// Practice accuracy, recurring error patterns). These tests pin down
+// its exact arithmetic so a future change to the formula is deliberate,
+// not accidental.
+describe("estimateIeltsBand (pure aggregation helper for the IELTS Band-Score estimate)", () => {
+  function gradedEntry(id, score, wordCount, checkedAt, bodyWords) {
+    return {
+      id,
+      body: bodyWords,
+      grading: { status: "graded", score, wordCount, checkedAt, corrections: [] }
+    };
+  }
+
+  it("reports insufficientData with zero graded entries", async () => {
+    const { hooks } = await loadApp();
+    const result = hooks.estimateIeltsBand([], [], []);
+    expect(result.insufficientData).toBe(true);
+    expect(result.overallBand).toBeNull();
+    expect(result.criteria).toBeNull();
+    expect(result.basis.gradedEntryCount).toBe(0);
+  });
+
+  it("still reports insufficientData with only one graded entry (needs at least 2)", async () => {
+    const { hooks } = await loadApp();
+    const entries = [gradedEntry("j1", 8, 100, 1000, "one two three")];
+    const result = hooks.estimateIeltsBand(entries, [], []);
+    expect(result.insufficientData).toBe(true);
+    expect(result.basis.gradedEntryCount).toBe(1);
+  });
+
+  it("ignores entries that are pending/checking/unavailable when counting graded entries", async () => {
+    const { hooks } = await loadApp();
+    const entries = [
+      gradedEntry("j1", 9, 100, 1000, "one two three"),
+      { id: "j2", body: "b", grading: { status: "pending" } },
+      { id: "j3", body: "b", grading: { status: "checking" } },
+      { id: "j4", body: "b", grading: { status: "unavailable", reason: "offline" } }
+    ];
+    const result = hooks.estimateIeltsBand(entries, [], []);
+    expect(result.insufficientData).toBe(true);
+    expect(result.basis.gradedEntryCount).toBe(1);
+  });
+
+  it("computes the exact band + 4-criteria breakdown for a known input", async () => {
+    const { hooks } = await loadApp();
+    // Two graded entries, each score 10/10, wordCount 150 (== the IELTS
+    // Task 2 target), pooled vocabulary is 10 unique words repeated
+    // once each (diversity 0.5). Practice: two sessions averaging 95%.
+    // No recurring error patterns.
+    const entries = [
+      gradedEntry("j1", 10, 150, 2000, "one two three four five six seven eight nine ten"),
+      gradedEntry("j2", 10, 150, 1000, "one two three four five six seven eight nine ten")
+    ];
+    const practiceHistory = [
+      { completedAt: 1000, percentage: 90 },
+      { completedAt: 2000, percentage: 100 }
+    ];
+    const result = hooks.estimateIeltsBand(entries, practiceHistory, []);
+    expect(result.insufficientData).toBe(false);
+    expect(result.criteria.grammaticalRangeAccuracy).toBe(9);
+    expect(result.criteria.taskResponse).toBe(7.5);
+    expect(result.criteria.lexicalResource).toBe(8);
+    expect(result.criteria.coherenceCohesion).toBe(9);
+    expect(result.overallBand).toBe(8.5);
+    expect(result.basis.gradedEntryCount).toBe(2);
+    expect(result.basis.avgWordCount).toBe(150);
+    expect(result.basis.avgClarityScore).toBe(10);
+    expect(result.basis.vocabDiversity).toBe(0.5);
+    expect(result.basis.avgPracticeAccuracy).toBe(95);
+  });
+
+  it("lowers Coherence & Cohesion for recurring error patterns and low practice accuracy", async () => {
+    const { hooks } = await loadApp();
+    const entries = [
+      gradedEntry("j1", 10, 150, 2000, "one two three four five six seven eight nine ten"),
+      gradedEntry("j2", 10, 150, 1000, "one two three four five six seven eight nine ten")
+    ];
+    const practiceHistory = [{ completedAt: 1000, percentage: 50 }];
+    const errorPatterns = [{ word: "affect" }, { word: "necessary" }, { word: "receive" }];
+    const result = hooks.estimateIeltsBand(entries, practiceHistory, errorPatterns);
+    expect(result.criteria.coherenceCohesion).toBe(7);
+    expect(result.basis.recurringErrorCount).toBe(3);
+    expect(result.basis.avgPracticeAccuracy).toBe(50);
+  });
+
+  it("leaves avgPracticeAccuracy null when there's no Practice history yet, without crashing", async () => {
+    const { hooks } = await loadApp();
+    const entries = [
+      gradedEntry("j1", 10, 150, 2000, "one two three four five six seven eight nine ten"),
+      gradedEntry("j2", 10, 150, 1000, "one two three four five six seven eight nine ten")
+    ];
+    const result = hooks.estimateIeltsBand(entries, [], []);
+    expect(result.basis.avgPracticeAccuracy).toBeNull();
+    expect(result.criteria.coherenceCohesion).toBe(9);
+  });
+
+  it("only considers the most recent 10 graded entries (sorted by grading.checkedAt)", async () => {
+    const { hooks } = await loadApp();
+    const entries = Array.from({ length: 12 }, (_, i) =>
+      gradedEntry(`j${i}`, 8, 100, i * 1000, "alpha beta gamma")
+    );
+    const result = hooks.estimateIeltsBand(entries, [], []);
+    expect(result.basis.gradedEntryCount).toBe(10);
+  });
+
+  it("never reports a band below 3 or above 9 for any criterion", async () => {
+    const { hooks } = await loadApp();
+    // Worst-case inputs: near-zero clarity score, tiny word count, no
+    // vocabulary variety, many recurring errors, poor practice accuracy.
+    const entries = [
+      gradedEntry("j1", 0, 5, 2000, "bad bad bad bad bad"),
+      gradedEntry("j2", 0, 5, 1000, "bad bad bad bad bad")
+    ];
+    const practiceHistory = [{ completedAt: 1000, percentage: 0 }];
+    const errorPatterns = Array.from({ length: 20 }, (_, i) => ({ word: `w${i}` }));
+    const result = hooks.estimateIeltsBand(entries, practiceHistory, errorPatterns);
+    Object.values(result.criteria).forEach((band) => {
+      expect(band).toBeGreaterThanOrEqual(3);
+      expect(band).toBeLessThanOrEqual(9);
+    });
+    expect(result.overallBand).toBeGreaterThanOrEqual(3);
+    expect(result.overallBand).toBeLessThanOrEqual(9);
+  });
+});
+
+describe("Dashboard IELTS Band-Score section", () => {
+  it("shows a locked/insufficient-data message when fewer than 2 Journal entries are graded", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    await wait(30);
+    const el = document.getElementById("dashboardIeltsBand");
+    expect(el.textContent).toContain("Grade at least 2 Journal entries");
+    expect(el.querySelector(".ielts-band-overall")).toBeFalsy();
+  });
+
+  it("renders the overall band and all 4 criteria once at least 2 Journal entries are graded", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addJournalEntry(
+      { title: "e1", body: "one two three four five six seven eight nine ten", grading: { status: "graded", score: 10, wordCount: 150, checkedAt: 2000, corrections: [] } },
+      { persist: true }
+    );
+    hooks.addJournalEntry(
+      { title: "e2", body: "one two three four five six seven eight nine ten", grading: { status: "graded", score: 10, wordCount: 150, checkedAt: 1000, corrections: [] } },
+      { persist: true }
+    );
+
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    await wait(30);
+
+    const el = document.getElementById("dashboardIeltsBand");
+    expect(el.querySelector(".ielts-band-overall-value").textContent).toBe("8.5");
+    const criteriaRows = el.querySelectorAll(".ielts-band-criterion");
+    expect(criteriaRows.length).toBe(4);
+    expect(el.textContent).toContain("Task Response");
+    expect(el.textContent).toContain("Coherence & Cohesion");
+    expect(el.textContent).toContain("Lexical Resource");
+    expect(el.textContent).toContain("Grammatical Range & Accuracy");
+    expect(el.textContent).toContain("2 graded Journal entries");
+    expect(el.textContent).toContain("not an official IELTS score");
+  });
+});
