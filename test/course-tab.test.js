@@ -1,18 +1,20 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts six nested categories — Parts of Speech, Modal Verbs, Tenses,
-// Prepositions, Word Order, and Articles — all living inside panel-course
-// as .course-category divs (mirroring Language Bank's own category-
-// switcher pattern; the chip row scrolls horizontally past 5 categories,
-// same treatment as Word Bank's own category seg). Modal Verbs/Tenses/
-// Prepositions/Word Order/Articles used to be separate top-level tabs
-// that a chip merely linked out to; they're merged in here now, so
-// nothing redundant is left outside the Course tab, and their old
-// panel-modals/panel-tenses/panel-preps/panel-order/panel-articles
-// sections and thumb-tab buttons no longer exist. Their own
-// add/edit/delete/CRUD behavior is still covered by
+// hosts seven nested categories — Parts of Speech, Modal Verbs, Tenses,
+// Tense Mastery, Prepositions, Word Order, and Articles — all living
+// inside panel-course as .course-category divs (mirroring Language
+// Bank's own category-switcher pattern; the chip row scrolls
+// horizontally past 5 categories, same treatment as Word Bank's own
+// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
+// used to be separate top-level tabs that a chip merely linked out to;
+// they're merged in here now, so nothing redundant is left outside the
+// Course tab, and their old panel-modals/panel-tenses/panel-preps/
+// panel-order/panel-articles sections and thumb-tab buttons no longer
+// exist. Tense Mastery is brand-new — it never had a standalone tab.
+// Their own add/edit/delete/CRUD behavior is still covered by
 // test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
-// focuses on the Course tab shell/category-switcher and Parts of Speech.
+// focuses on the Course tab shell/category-switcher, Parts of Speech,
+// and Tense Mastery content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -43,6 +45,7 @@ describe("Course tab — shell and category switcher", () => {
   it.each([
     ["modals", "modalSelect", "can"],
     ["tenses", "tenseSelect", "Simple Present"],
+    ["tenseMastery", "tenseMasterySelect", "Simple Past vs. Present Perfect"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -192,6 +195,78 @@ describe("Course tab — Parts of Speech (owner-only add, manual-only, no online
   });
 });
 
+describe("Course tab — Tense Mastery (all 12 tenses, mixed usage, paragraph consistency)", () => {
+  it("covers the full range beyond simple present/past — perfect, continuous, and future forms", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.tenseMasteryData.map((t) => t.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "Simple Past vs. Present Perfect",
+      "Simple Past vs. Past Continuous",
+      "Present Perfect vs. Present Perfect Continuous",
+      "Past Perfect: the extra step back",
+      "Tense Consistency Within a Paragraph",
+      "Future Forms: will vs. going to vs. Present Continuous"
+    ]));
+  });
+
+  it("addresses tense-consistency drift within a paragraph — the common 6.0-band weakness", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.tenseMasteryData.find((t) => t.w === "Tense Consistency Within a Paragraph");
+    const allUse = lesson.senses.map((s) => s.use).join(" ");
+    expect(allUse).toMatch(/anchor.{0,20}tense/i);
+    expect(lesson.mistake).toMatch(/6\.0/);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("tenseMasteryAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("tenseMasteryAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("tenseMasteryAddInput").value = "Mixed Conditionals";
+    document.getElementById("tenseMasteryAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("tenseMasteryAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.tenseMasteryData.some((t) => t.w === "Mixed Conditionals")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Tense Mastery category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("tenseMasteryAddInput").value = "Mixed Conditionals";
+    document.getElementById("tenseMasteryAddBtn").click();
+    await wait(30);
+
+    document.getElementById("tenseMasteryManualUse").value = "Combines a past hypothetical condition with a present result.";
+    document.getElementById("tenseMasteryManualExample").value = "If I had studied engineering, I would be working on-site now.";
+    document.getElementById("tenseMasteryManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.tenseMasteryData.some((t) => t.w === "Mixed Conditionals")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="tenseMastery"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("tenseMasteryEntry").querySelector(".headword").textContent).toBe("Mixed Conditionals");
+    expect(document.getElementById("tenseMasteryEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("tenseMasterySelect").value = "Simple Past vs. Present Perfect";
+    hooks.renderRuleEntry(
+      hooks.tenseMasteryData.find((t) => t.w === "Simple Past vs. Present Perfect"),
+      document.getElementById("tenseMasteryEntry"), "Tense Mastery Rule", "tenseMastery"
+    );
+    expect(document.getElementById("tenseMasteryEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -207,6 +282,23 @@ describe("Course tab — global search integration", () => {
 
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.getElementById("posEntry").querySelector(".headword").textContent).toBe("Adjective");
+  });
+
+  it("indexes every Tense Mastery lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "Simple Past vs. Present Perfect" && item.cat === "Tense mastery");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Tense Mastery search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Tense Consistency Within a Paragraph" && item.cat === "Tense mastery");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="tenseMastery"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("tenseMasteryEntry").querySelector(".headword").textContent).toBe("Tense Consistency Within a Paragraph");
   });
 });
 
