@@ -24,10 +24,11 @@
                         Added via its own two-word quick-add, persisted
                         the same way the Language Bank categories are.
      - prepEntries, articleEntries, modalEntries, capitalEntries,
-       orderEntries, qaEntries:
-                        the six standalone grammar-rule tabs (Prepositions,
+       orderEntries, qaEntries, posEntries:
+                        the seven standalone grammar-rule tabs (Prepositions,
                         Articles, Modals, Capitalization, Word Order,
-                        Question Starters) — same generic { key, entry }
+                        Question Starters, and the Course tab's own Parts of
+                        Speech lessons) — same generic { key, entry }
                         shape as the Language Bank stores, added via each
                         tab's own quick-add box. Local-only: unlike
                         vocabEntries/phrasalEntries/etc. these don't
@@ -101,7 +102,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 16;
+  var DB_VERSION = 17;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -122,6 +123,7 @@
   var CAPITAL_STORE = "capitalEntries";
   var ORDER_STORE = "orderEntries";
   var QA_STORE = "qaEntries";
+  var POS_STORE = "posEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
   var NOTES_STORE = "notesEntries";
@@ -191,7 +193,7 @@
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
-        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE].forEach(function (name) {
+        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE].forEach(function (name) {
           if (!db.objectStoreNames.contains(name)) {
             db.createObjectStore(name, { keyPath: "key" });
           }
@@ -452,6 +454,11 @@
   function putQa(entry, options) { return putEntry(QA_STORE, entry, options); }
   function getAllQa(options) { return getAllEntries(QA_STORE, options); }
   function deleteQa(word, options) { return deleteEntry(QA_STORE, word, options); }
+
+  function getPos(word, options) { return getEntry(POS_STORE, word, options); }
+  function putPos(entry, options) { return putEntry(POS_STORE, entry, options); }
+  function getAllPos(options) { return getAllEntries(POS_STORE, options); }
+  function deletePos(word, options) { return deleteEntry(POS_STORE, word, options); }
 
   /* ---------- familyEntries (Owner-added Word Family entries) ----------
      Same generic { key, entry } shape as customVerbs/the six grammar-rule
@@ -783,6 +790,10 @@
     putQa: putQa,
     getAllQa: getAllQa,
     deleteQa: deleteQa,
+    getPos: getPos,
+    putPos: putPos,
+    getAllPos: getAllPos,
+    deletePos: deletePos,
     FAMILY_STORE: FAMILY_STORE,
     getFamily: getFamily,
     putFamily: putFamily,

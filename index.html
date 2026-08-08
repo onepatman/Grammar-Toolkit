@@ -1364,6 +1364,7 @@
     <button class="thumb-tab" data-tab="favorites">Favorites<span class="n">★</span></button>
     <button class="thumb-tab" data-tab="notes">Notes<span class="n">📓</span></button>
     <button class="thumb-tab" data-tab="journal">Journal<span class="n">🖊️</span></button>
+    <button class="thumb-tab" data-tab="course">Course<span class="n">🎓</span></button>
     <button class="thumb-tab" data-tab="practice">Practice<span class="n">📝</span></button>
     <button class="thumb-tab" data-tab="vocab">Vocab<span class="n">VB</span></button>
     <button class="thumb-tab" data-tab="langbank">Language Bank<span class="n">LB</span></button>
@@ -1960,6 +1961,49 @@
 
     <input type="text" id="journalSearchInput" placeholder="🔎 Search your journal..." style="margin:14px 0 10px;" />
     <div id="journalList" class="notes-list"></div>
+  </section>
+
+  <!-- ===== COURSE PANEL (structured Intermediate → Advanced lessons) ===== -->
+  <section id="panel-course" style="display:none;">
+    <p class="note" style="margin-bottom:10px;">Structured lessons from Intermediate to Advanced, IELTS/Cambridge-style — built for stronger Writing and Speaking accuracy. Some lessons live here directly; others open the matching rule tab you already know.</p>
+
+    <div class="controls">
+      <div class="seg" id="courseCategorySeg">
+        <button class="active" data-val="partsOfSpeech">Parts of Speech</button>
+        <button data-link="modals">Modal Verbs</button>
+        <button data-link="tenses">Tenses</button>
+        <button data-link="preps">Prepositions</button>
+        <button data-link="order">Word Order</button>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-partsOfSpeech">
+      <div class="controls">
+        <select id="posSelect"></select>
+        <button class="nav-btn" data-target="posSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="posSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="posEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="posSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="posSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="posAddBox">
+        <div class="section-label">➕ Add your own Parts of Speech note</div>
+        <p class="note" style="margin-bottom:8px;">Type a part of speech name (e.g. "Interjection"), then add your own explanation and an example below.</p>
+        <input type="text" id="posAddInput" placeholder="Part of speech (e.g. Interjection)" autocomplete="off">
+        <button id="posAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="posAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="posManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="posManualWord"></strong>":</p>
+          <textarea id="posManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="posManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="posManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="posManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- ===== PRACTICE PANEL ===== -->
@@ -5290,6 +5334,41 @@ const orderData = [
       {use:"'Not' goes right after the auxiliary or modal verb, never as a stand-alone 'no.'", examples:["'I <b>do not have</b> the file,' not 'I have not the file' or 'I no have the file.'","'She <b>did not submit</b> it,' not 'She no submit it.'","'We <b>cannot proceed</b> yet,' not 'We no can proceed yet.'"]}], mistake:null},
   {w:"adverb placement", senses:[
       {use:"Adverbs of frequency (always, usually, often) go <b>before</b> the main verb, but <b>after</b> the verb 'be.'", examples:["'He <b>always checks</b> the gauge.'","'He <b>is always</b> on time.'","'We <b>usually schedule</b> inspections on Mondays.'"]}], mistake:null}
+];
+
+/* =========================================================
+   DATA — PARTS OF SPEECH (Course tab: Grammar Foundations)
+========================================================= */
+const partsOfSpeechData = [
+  {w:"Noun", senses:[
+      {use:"Names a person, place, thing, or idea. Common nouns are general ('engineer,' 'pump'); proper nouns name something specific and are always capitalized ('John,' 'Taguig').", examples:["The <b>engineer</b> checked the <b>pump</b>.","<b>MGS Construction</b> handled the project."]},
+      {use:"Countable nouns take a plural form and can follow 'a/an' or a number; uncountable nouns stay singular and never take 'a/an.'", examples:["I have <b>two reports</b> to submit.","We need more <b>equipment</b>, not 'an equipment' or 'equipments.'"]},
+      {use:"A noun's position tells you its role: before the verb, it's usually the subject; after the verb, it's usually the object.", examples:["The <b>technician</b> repaired the <b>valve</b>.","The <b>report</b> was late."]}
+    ], mistake:"Uncountable nouns (equipment, information, feedback, software) never take 'a/an' or a plural '-s' — say 'some equipment,' not 'an equipment' or 'equipments.'"},
+  {w:"Verb", senses:[
+      {use:"Shows an action or a state. An action verb shows what the subject does; a linking verb (be, seem, become, look) connects the subject to a description and is followed by an adjective, not an adverb.", examples:["He <b>operates</b> the crane.","The reading <b>seems</b> <b>high</b>, not 'seems highly.'"]},
+      {use:"The base form (no -s, no -ing, no -ed) is required right after a modal (can/will/must/should), right after 'to' in an infinitive, in an imperative, and after causative verbs like make/let/have.", examples:["She <b>can operate</b> this machine, not 'can operates.'","I need <b>to submit</b> this today.","<b>Check</b> the pressure first.","They made him <b>redo</b> the report."]},
+      {use:"The verb must agree with its subject in number — he/she/it takes the '-s' form in the simple present; I/you/we/they don't.", examples:["He <b>goes</b> to the site every Monday, not 'he go.'","They <b>go</b> together, not 'they goes.'"]}
+    ], mistake:"Subject-verb agreement (he/she/it + -s) is the single most common slip — always double-check the subject before you finalize the verb form."},
+  {w:"Adjective", senses:[
+      {use:"Describes a noun and normally comes right before it.", examples:["A <b>heavy</b> pump.","A <b>licensed</b> engineer."]},
+      {use:"After a linking verb (be, seem, become, look, feel), the adjective comes after the verb instead, describing the subject.", examples:["The pump <b>is heavy</b>.","The reading <b>looks unusual</b>."]},
+      {use:"When you stack more than one adjective before a noun, English has a preferred order: opinion → size → age → shape → color → origin → material → purpose.", examples:["A <b>reliable, large, new</b> generator, not 'a new, large, reliable generator.'","A <b>small, round, steel</b> valve."]}
+    ], mistake:null},
+  {w:"Adverb", senses:[
+      {use:"Modifies a verb, adjective, or another adverb — often answers how, when, where, or how often something happens.", examples:["He worked <b>carefully</b>.","She <b>always</b> arrives early."]},
+      {use:"Adverbs of frequency (always, usually, often, never) go before the main verb but after the verb 'be.'", examples:["He <b>always checks</b> the gauge, not 'He checks always.'","He <b>is always</b> on time."]},
+      {use:"Manner adverbs (carefully, quickly, well) most naturally go at the end of the sentence, not between the verb and its object.", examples:["He completed the report <b>quickly</b>, not 'He completed quickly the report.'"]}
+    ], mistake:"Placing the adverb between the verb and its object is a direct carryover from Tagalog word order — keep the object right after the verb, and move the adverb to the end."},
+  {w:"Preposition", senses:[
+      {use:"Shows a relationship of time, place, or direction between a noun/pronoun and the rest of the sentence.", examples:["The meeting is <b>at 3 PM</b>.","The valve is <b>on</b> the pipe."]},
+      {use:"A preposition is always followed by a noun, pronoun, or gerund (-ing form) — never by the base form of a verb.", examples:["He is responsible <b>for checking</b> the wiring, not 'for check.'","Thank you <b>for submitting</b> the report."]},
+      {use:"Many verbs and adjectives pair with one fixed preposition that has to be memorized rather than guessed — mixing these up is a very common error.", examples:["<b>depend on</b> (not 'depend to')","<b>responsible for</b> (not 'responsible of')","<b>arrive at/in</b> (not 'arrive to')"]}
+    ], mistake:null},
+  {w:"Conjunction", senses:[
+      {use:"A coordinating conjunction (and, but, or, so, for, nor, yet — FANBOYS) joins two equal, independent parts and is preceded by a comma when it joins two full sentences.", examples:["The pump failed<b>, so</b> we shut down the line.","He checked the wiring <b>and</b> tested the breaker."]},
+      {use:"A subordinating conjunction (because, although, since, if, when) joins a dependent clause to an independent one. A comma follows the dependent clause only when it comes first.", examples:["<b>Because</b> the pressure dropped, we stopped the test.","We stopped the test <b>because</b> the pressure dropped."]}
+    ], mistake:null}
 ];
 
 /* =========================================================
@@ -37468,6 +37547,7 @@ setupRuleModule(capitalData, "capitalSelect", "capitalEntry", "Capitalization Ru
 setupRuleModule(orderData, "orderSelect", "orderEntry", "Word Order Pattern", "order");
 setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
 setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter", "qa");
+setupRuleModule(partsOfSpeechData, "posSelect", "posEntry", "Part of Speech", "pos");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40101,6 +40181,18 @@ indexRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "A
 indexRuleModule(modalData, "Modal verb", "modalSelect", "modalEntry", "Modal Verb", "modals");
 indexRuleModule(capitalData, "Capitalization", "capitalSelect", "capitalEntry", "Capitalization Rule", "capital");
 indexRuleModule(orderData, "Word order", "orderSelect", "orderEntry", "Word Order Pattern", "order");
+// Not indexRuleModule: "pos" is a Course-tab CATEGORY, not its own
+// top-level tab — indexRuleModule's `tab` param assumes those are the
+// same string (it calls activateTab(tab) directly), which would try to
+// activateTab("pos") and fail since panel-pos doesn't exist.
+partsOfSpeechData.forEach(item=>{
+  searchIndex.push({label:item.w, cat:"Part of speech", action:()=>{
+    document.getElementById("posSelect").value = item.w;
+    renderRuleEntry(item, document.getElementById("posEntry"), "Part of Speech", "pos");
+    activateTab("course");
+    activateCourseCategory("partsOfSpeech");
+  }});
+});
 prepVerbData.forEach(item=>{
   searchIndex.push({label:item.w, cat:"Verb + Preposition", action:()=>{
     currentVerbType = "prepverb";
@@ -40914,6 +41006,29 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
   activateLangBankCategory(btn.dataset.val);
 });
 
+// Course tab's own category switcher. Unlike Language Bank's (every
+// button toggles a local panel), some Course chips are just shortcuts
+// into an existing tab (Modals/Tenses/Preps/Order already have their own
+// full rule-browsing UI) — those carry data-link instead of data-val and
+// simply hand off to activateTab, no local panel of their own. Only
+// "partsOfSpeech" is real Course-tab content today; COURSE_LOCAL_CATEGORIES
+// stays a list (not a single constant) so a future lesson category can be
+// added here the same way Language Bank's categories are.
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech"];
+function activateCourseCategory(key){
+  if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
+  document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
+  COURSE_LOCAL_CATEGORIES.forEach(k=>{
+    document.getElementById("course-"+k).style.display = (k===key) ? "block" : "none";
+  });
+}
+document.getElementById("courseCategorySeg").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  if(btn.dataset.link){ activateTab(btn.dataset.link); return; }
+  activateCourseCategory(btn.dataset.val);
+});
+
 // requireExplanation: true (Phrasal Verbs, Idioms & Expressions) means
 // a manually-typed meaning is REQUIRED before the entry can be saved
 // when no online source has it — a dictionary-style entry with no
@@ -41080,15 +41195,30 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "qaRuleManualUse", manualExampleId: "qaRuleManualExample",
     manualSaveBtnId: "qaRuleManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "qaRuleManualCancelBtn",
     activateFn: function(){ activateTab("qa"); }
+  },
+  pos: {
+    data: partsOfSpeechData, selectId: "posSelect", entryId: "posEntry", tagLabel: "Part of Speech",
+    inputId: "posAddInput", btnId: "posAddBtn", statusId: "posAddStatus", inputNoun: "a part of speech",
+    putFn: function(entry, opts){ return VocabCache.putPos(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllPos(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deletePos(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "posManualBox", manualWordId: "posManualWord",
+    manualUseId: "posManualUse", manualExampleId: "posManualExample",
+    manualSaveBtnId: "posManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "posManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("partsOfSpeech"); }
   }
 };
 
-// The 6 standalone grammar-rule tabs above, kept as their own list
+// The 7 standalone grammar-rule tabs above, kept as their own list
 // (mirroring LANGUAGE_BANK_CATEGORIES) so restore-on-load, add-button
 // wiring, and owner-mode re-render loops can iterate just these — never
 // merged into LANGUAGE_BANK_CATEGORIES itself, which drives the
 // Language Bank tab's own category switcher and Firestore sync payload.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa"];
+// "pos" (Parts of Speech) is the Course tab's own local lesson category —
+// same generic machinery as the other six, just surfaced inside the
+// Course tab's category switcher instead of getting its own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42130,7 +42260,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Sentence Error", data: mistakeData.concat([sentenceFragmentEntry, subjectVerbAgreementEntry, CORRECTION_LOG_ENTRY]) },
     { cat: "Question Starter", data: qaData },
     { cat: "Verb + Preposition", data: prepVerbData },
-    { cat: "Preposition", data: prepData }
+    { cat: "Preposition", data: prepData },
+    { cat: "Part of Speech", data: partsOfSpeechData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -44962,6 +45093,7 @@ renderRuleEntry(capitalData.find(x=>x.w===document.getElementById("capitalSelect
 renderRuleEntry(orderData.find(x=>x.w===document.getElementById("orderSelect").value), document.getElementById("orderEntry"), "Word Order Pattern");
 renderRuleEntry(mistakeData.find(x=>x.w===document.getElementById("mistakeSelect").value), document.getElementById("mistakeEntry"), "Sentence Error");
 renderRuleEntry(qaData.find(x=>x.w===document.getElementById("qaSelect").value), document.getElementById("qaEntry"), "Question Starter");
+renderRuleEntry(partsOfSpeechData.find(x=>x.w===document.getElementById("posSelect").value), document.getElementById("posEntry"), "Part of Speech", "pos");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47092,7 +47224,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
@@ -47110,6 +47242,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPhraseTemplateEntry, phraseTemplatesCacheRestorePromise,
   isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn, mdBold,
   addLanguageBankEntry, activateLangBankCategory,
+  activateCourseCategory, COURSE_LOCAL_CATEGORIES,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getWordBankSortPref,
   compareForSort, reorderSelectBySort,
