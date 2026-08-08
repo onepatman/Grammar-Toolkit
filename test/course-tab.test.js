@@ -1,22 +1,23 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts nine nested categories — Parts of Speech, Modal Verbs, Tenses,
-// Tense Mastery, Conditionals, Active/Passive Voice, Prepositions, Word
-// Order, and Articles — all living inside panel-course as
-// .course-category divs (mirroring Language Bank's own category-
-// switcher pattern; the chip row scrolls horizontally past 5
+// hosts ten nested categories — Parts of Speech, Modal Verbs, Tenses,
+// Tense Mastery, Conditionals, Active/Passive Voice, Reported Speech,
+// Prepositions, Word Order, and Articles — all living inside
+// panel-course as .course-category divs (mirroring Language Bank's own
+// category-switcher pattern; the chip row scrolls horizontally past 5
 // categories, same treatment as Word Bank's own category seg). Modal
 // Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
 // top-level tabs that a chip merely linked out to; they're merged in
 // here now, so nothing redundant is left outside the Course tab, and
 // their old panel-modals/panel-tenses/panel-preps/panel-order/
 // panel-articles sections and thumb-tab buttons no longer exist. Tense
-// Mastery, Conditionals, and Active/Passive Voice are brand-new — none
-// of them ever had a standalone tab. Their own add/edit/delete/CRUD
-// behavior is still covered by test/rule-tabs-add.test.js and
-// test/tenses-add.test.js — this file focuses on the Course tab
-// shell/category-switcher, Parts of Speech, Tense Mastery, Conditionals,
-// and Active/Passive Voice content.
+// Mastery, Conditionals, Active/Passive Voice, and Reported Speech are
+// brand-new — none of them ever had a standalone tab. Their own
+// add/edit/delete/CRUD behavior is still covered by
+// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
+// focuses on the Course tab shell/category-switcher, Parts of Speech,
+// Tense Mastery, Conditionals, Active/Passive Voice, and Reported
+// Speech content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -50,6 +51,7 @@ describe("Course tab — shell and category switcher", () => {
     ["tenseMastery", "tenseMasterySelect", "Simple Past vs. Present Perfect"],
     ["conditionals", "conditionalsSelect", "Zero Conditional: General Truths & Facts"],
     ["activePassive", "activePassiveSelect", "When to Use Passive Voice"],
+    ["reportedSpeech", "reportedSpeechSelect", "Backshift: Present to Past in Reported Statements"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -414,6 +416,77 @@ describe("Course tab — Active/Passive Voice (formation, modals, agent phrase, 
   });
 });
 
+describe("Course tab — Reported Speech (backshift, questions, commands, pronoun/time/place shifts)", () => {
+  it("covers backshift, when backshift is skipped, reported questions, commands, pronoun/time/place shifts, reporting verbs beyond said/told, and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.reportedSpeechData.map((r) => r.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "Backshift: Present to Past in Reported Statements",
+      "When Backshift Is NOT Required",
+      "Reporting Questions (Yes/No and Wh-)",
+      "Reporting Commands and Requests",
+      "Pronoun, Time, and Place Changes",
+      "Reporting Verbs Beyond 'Said' and 'Told'",
+      "Common Reported Speech Mistakes"
+    ]));
+  });
+
+  it("the reporting-questions lesson warns against keeping do/does/did and question word order", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.reportedSpeechData.find((r) => r.w === "Reporting Questions (Yes/No and Wh-)");
+    expect(lesson.mistake).toMatch(/do\/does\/did/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("reportedSpeechAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("reportedSpeechAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("reportedSpeechAddInput").value = "Reporting Conditional Statements";
+    document.getElementById("reportedSpeechAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("reportedSpeechAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.reportedSpeechData.some((r) => r.w === "Reporting Conditional Statements")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Reported Speech category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("reportedSpeechAddInput").value = "Reporting Conditional Statements";
+    document.getElementById("reportedSpeechAddBtn").click();
+    await wait(30);
+
+    document.getElementById("reportedSpeechManualUse").value = "First-conditional 'will' backshifts to 'would' in reported speech.";
+    document.getElementById("reportedSpeechManualExample").value = "He said that if it rained, he would stay inside.";
+    document.getElementById("reportedSpeechManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.reportedSpeechData.some((r) => r.w === "Reporting Conditional Statements")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="reportedSpeech"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("reportedSpeechEntry").querySelector(".headword").textContent).toBe("Reporting Conditional Statements");
+    expect(document.getElementById("reportedSpeechEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("reportedSpeechSelect").value = "Backshift: Present to Past in Reported Statements";
+    hooks.renderRuleEntry(
+      hooks.reportedSpeechData.find((r) => r.w === "Backshift: Present to Past in Reported Statements"),
+      document.getElementById("reportedSpeechEntry"), "Reported Speech Rule", "reportedSpeech"
+    );
+    expect(document.getElementById("reportedSpeechEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -480,6 +553,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="activePassive"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("activePassiveEntry").querySelector(".headword").textContent).toBe("Passive with Modals");
+  });
+
+  it("indexes every Reported Speech lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "Backshift: Present to Past in Reported Statements" && item.cat === "Reported speech");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Reported Speech search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Reporting Questions (Yes/No and Wh-)" && item.cat === "Reported speech");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="reportedSpeech"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("reportedSpeechEntry").querySelector(".headword").textContent).toBe("Reporting Questions (Yes/No and Wh-)");
   });
 });
 

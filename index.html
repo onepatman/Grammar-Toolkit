@@ -1831,6 +1831,7 @@
         <button data-val="tenseMastery">Tense Mastery</button>
         <button data-val="conditionals">Conditionals</button>
         <button data-val="activePassive">Active/Passive Voice</button>
+        <button data-val="reportedSpeech">Reported Speech</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2079,6 +2080,34 @@
           <input type="text" id="activePassiveManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="activePassiveManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="activePassiveManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-reportedSpeech" style="display:none;">
+      <div class="controls">
+        <select id="reportedSpeechSelect"></select>
+        <button class="nav-btn" data-target="reportedSpeechSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="reportedSpeechSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="reportedSpeechEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="reportedSpeechSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="reportedSpeechSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="reportedSpeechAddBox">
+        <div class="section-label">➕ Add a Reported Speech rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Reporting embedded questions"), then add your own explanation and an example below.</p>
+        <input type="text" id="reportedSpeechAddInput" placeholder="Rule name (e.g. Reporting conditional statements)" autocomplete="off">
+        <button id="reportedSpeechAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="reportedSpeechAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="reportedSpeechManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="reportedSpeechManualWord"></strong>":</p>
+          <textarea id="reportedSpeechManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="reportedSpeechManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="reportedSpeechManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="reportedSpeechManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5550,6 +5579,39 @@ const activePassiveData = [
       {use:"Use passive for procedures, standard processes, and results — where the action itself is the point.", examples:["The specimen <b>is heated</b> to 200°C, then <b>allowed</b> to cool."]},
       {use:"Switch to active when explaining reasoning, decisions, or recommendations, where a clear responsible party makes the writing easier to follow.", examples:["<b>We recommend</b> replacing the seal every six months. (active — clearer ownership of the recommendation than 'It is recommended that...')"]}
     ], mistake:"An entire report written in unbroken passive voice reads as evasive and hard to follow — strong technical writing deliberately mixes both, matching the voice to what each sentence needs to emphasize."}
+];
+
+/* =========================================================
+   DATA — REPORTED SPEECH (backshift, questions, commands,
+   pronoun/time/place shifts, and reporting verbs beyond
+   said/told — the range examiners look for at 6.5+)
+========================================================= */
+const reportedSpeechData = [
+  {w:"Backshift: Present to Past in Reported Statements", senses:[
+      {use:"When the reporting verb is in the past ('said', 'told'), the original tense usually shifts one step back into the past.", examples:["Direct: \"I <b>check</b> the readings every hour.\" -> Reported: She said she <b>checked</b> the readings every hour.","Direct: \"We <b>are testing</b> the prototype.\" -> Reported: They said they <b>were testing</b> the prototype.","Direct: \"I <b>have finished</b> the report.\" -> Reported: He said he <b>had finished</b> the report."]}
+    ], mistake:null},
+  {w:"When Backshift Is NOT Required", senses:[
+      {use:"Skip the backshift when reporting something still generally true, a scientific/general fact, or something reported very soon after it was said.", examples:["Direct: \"Water <b>boils</b> at 100°C.\" -> Reported: The instructor explained that water <b>boils</b> at 100°C. (still a fact — no need to shift to 'boiled')","Direct: \"I<b>'m</b> free this afternoon.\" -> Reported (moments later): She just said she<b>'s</b> free this afternoon."]}
+    ], mistake:"Mechanically backshifting every single verb, even permanent facts, isn't wrong exactly but sounds unnatural and can even suggest the fact is no longer true — native writers keep present tense for things still true now."},
+  {w:"Reporting Questions (Yes/No and Wh-)", senses:[
+      {use:"Reported questions use normal statement word order (subject before verb) — never question word order, and never a question mark.", examples:["Direct: \"Where <b>is</b> the report?\" -> Reported: He asked where the report <b>was</b>. (NOT 'where was the report')","Direct: \"What <b>time does</b> the shift start?\" -> Reported: She asked what time the shift <b>started</b>."]},
+      {use:"Yes/No questions are reported with 'if' or 'whether', not left as a direct question.", examples:["Direct: \"Did you finish the audit?\" -> Reported: He asked <b>if</b> I had finished the audit.","Direct: \"Is the site safe?\" -> Reported: They asked <b>whether</b> the site was safe."]}
+    ], mistake:"Keeping the auxiliary 'do/does/did' and question word order — 'She asked what time did the shift start' — is one of the most common reported-question errors; the auxiliary disappears and the tense backshifts onto the main verb instead."},
+  {w:"Reporting Commands and Requests", senses:[
+      {use:"Commands and requests are reported with reporting verb + object + to-infinitive — no 'that'-clause, no backshift needed since there's no original tense to shift.", examples:["Direct: \"Turn off the machine.\" -> Reported: The supervisor told us <b>to turn off</b> the machine.","Direct: \"Please double-check the wiring.\" -> Reported: She asked him <b>to double-check</b> the wiring."]},
+      {use:"Negative commands use 'not to' + infinitive.", examples:["Direct: \"Don't touch the panel.\" -> Reported: He warned them <b>not to touch</b> the panel."]}
+    ], mistake:null},
+  {w:"Pronoun, Time, and Place Changes", senses:[
+      {use:"Pronouns shift to match the reporter's point of view, not the original speaker's — 'I' often becomes 'he/she', 'my' becomes 'his/her', and so on.", examples:["Direct: \"<b>I</b> finished <b>my</b> shift.\" -> Reported: He said <b>he</b> had finished <b>his</b> shift."]},
+      {use:"Time and place references shift too when the reporting happens at a different time or place: this->that, these->those, here->there, now->then, today->that day, tomorrow->the next day, yesterday->the day before.", examples:["Direct: \"I'll finish it <b>tomorrow</b>.\" -> Reported (a week later): He said he'd finish it <b>the next day</b>.","Direct: \"The results are <b>here</b>.\" -> Reported: She said the results were <b>there</b>."]}
+    ], mistake:"These shifts only apply when reporting AFTER a real change of time/place — if you're reporting something said minutes ago in the same room, 'here' and 'now' don't need to change at all."},
+  {w:"Reporting Verbs Beyond 'Said' and 'Told'", senses:[
+      {use:"Different reporting verbs take different grammatical patterns — memorize the verb's own pattern rather than forcing everything into 'said that' or 'told someone that'.", examples:["<b>suggest</b> + that-clause or gerund: He suggested <b>that we reschedule</b> / He suggested <b>rescheduling</b>.","<b>insist</b> + that-clause: She insisted <b>that the data be rechecked</b>.","<b>deny</b> + gerund: He denied <b>making</b> the error.","<b>promise/refuse/agree</b> + to-infinitive: They promised <b>to fix</b> it by Friday.","<b>warn</b> + object + not to + infinitive: She warned them <b>not to skip</b> the safety check."]}
+    ], mistake:"Using 'suggest' with a to-infinitive ('He suggested me to reschedule') is a very frequent error carried over from other reporting verbs — 'suggest' never takes object + to-infinitive; it needs a that-clause or a gerund."},
+  {w:"Common Reported Speech Mistakes", senses:[
+      {use:"Keeping the exact original wording (including 'I', 'you', present tense) inside indirect speech instead of adjusting pronouns and tense to the new perspective.", examples:["Wrong: He said I am tired. (still using the original speaker's 'I')","Correct: He said <b>he was</b> tired."]},
+      {use:"Dropping or mishandling 'that' after reporting verbs that need a clear clause boundary, especially with longer or more complex reported content.", examples:["She reported <b>that</b> the pump had failed and <b>that</b> a replacement was already on order."]}
+    ], mistake:null}
 ];
 
 /* =========================================================
@@ -37732,6 +37794,7 @@ setupRuleModule(partsOfSpeechData, "posSelect", "posEntry", "Part of Speech", "p
 setupRuleModule(tenseMasteryData, "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
 setupRuleModule(conditionalsData, "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
 setupRuleModule(activePassiveData, "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
+setupRuleModule(reportedSpeechData, "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40386,6 +40449,7 @@ indexCourseCategoryRuleModule(articleData, "Article rule", "articleSelect", "art
 indexCourseCategoryRuleModule(tenseMasteryData, "Tense mastery", "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
 indexCourseCategoryRuleModule(conditionalsData, "Conditionals", "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
 indexCourseCategoryRuleModule(activePassiveData, "Active/passive voice", "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
+indexCourseCategoryRuleModule(reportedSpeechData, "Reported speech", "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41221,7 +41285,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41449,6 +41513,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "activePassiveManualUse", manualExampleId: "activePassiveManualExample",
     manualSaveBtnId: "activePassiveManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "activePassiveManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("activePassive"); }
+  },
+  reportedSpeech: {
+    data: reportedSpeechData, selectId: "reportedSpeechSelect", entryId: "reportedSpeechEntry", tagLabel: "Reported Speech Rule",
+    inputId: "reportedSpeechAddInput", btnId: "reportedSpeechAddBtn", statusId: "reportedSpeechAddStatus", inputNoun: "a reported speech rule",
+    putFn: function(entry, opts){ return VocabCache.putReportedSpeech(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllReportedSpeech(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteReportedSpeech(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "reportedSpeechManualBox", manualWordId: "reportedSpeechManualWord",
+    manualUseId: "reportedSpeechManualUse", manualExampleId: "reportedSpeechManualExample",
+    manualSaveBtnId: "reportedSpeechManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "reportedSpeechManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("reportedSpeech"); }
   }
 };
 
@@ -41458,12 +41534,12 @@ const LANGUAGE_BANK_CONFIG = {
 // these — never merged into LANGUAGE_BANK_CATEGORIES itself, which
 // drives the Language Bank tab's own category switcher and Firestore
 // sync payload. "pos" (Parts of Speech), "tenseMastery" (Tense
-// Mastery), "conditionals" (Conditionals), and "activePassive"
-// (Active/Passive Voice) are the Course tab's own local lesson
-// categories — same generic machinery as the others, just surfaced
-// inside the Course tab's category switcher instead of getting their
-// own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive"];
+// Mastery), "conditionals" (Conditionals), "activePassive"
+// (Active/Passive Voice), and "reportedSpeech" (Reported Speech) are
+// the Course tab's own local lesson categories — same generic
+// machinery as the others, just surfaced inside the Course tab's
+// category switcher instead of getting their own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42509,7 +42585,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Part of Speech", data: partsOfSpeechData },
     { cat: "Tense Mastery Rule", data: tenseMasteryData },
     { cat: "Conditionals Rule", data: conditionalsData },
-    { cat: "Active/Passive Voice Rule", data: activePassiveData }
+    { cat: "Active/Passive Voice Rule", data: activePassiveData },
+    { cat: "Reported Speech Rule", data: reportedSpeechData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45345,6 +45422,7 @@ renderRuleEntry(partsOfSpeechData.find(x=>x.w===document.getElementById("posSele
 renderRuleEntry(tenseMasteryData.find(x=>x.w===document.getElementById("tenseMasterySelect").value), document.getElementById("tenseMasteryEntry"), "Tense Mastery Rule", "tenseMastery");
 renderRuleEntry(conditionalsData.find(x=>x.w===document.getElementById("conditionalsSelect").value), document.getElementById("conditionalsEntry"), "Conditionals Rule", "conditionals");
 renderRuleEntry(activePassiveData.find(x=>x.w===document.getElementById("activePassiveSelect").value), document.getElementById("activePassiveEntry"), "Active/Passive Voice Rule", "activePassive");
+renderRuleEntry(reportedSpeechData.find(x=>x.w===document.getElementById("reportedSpeechSelect").value), document.getElementById("reportedSpeechEntry"), "Reported Speech Rule", "reportedSpeech");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47490,7 +47568,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
