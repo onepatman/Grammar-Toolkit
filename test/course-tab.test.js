@@ -1,20 +1,22 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts eight nested categories — Parts of Speech, Modal Verbs, Tenses,
-// Tense Mastery, Conditionals, Prepositions, Word Order, and Articles —
-// all living inside panel-course as .course-category divs (mirroring
-// Language Bank's own category-switcher pattern; the chip row scrolls
-// horizontally past 5 categories, same treatment as Word Bank's own
-// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
-// used to be separate top-level tabs that a chip merely linked out to;
-// they're merged in here now, so nothing redundant is left outside the
-// Course tab, and their old panel-modals/panel-tenses/panel-preps/
-// panel-order/panel-articles sections and thumb-tab buttons no longer
-// exist. Tense Mastery and Conditionals are brand-new — neither ever
-// had a standalone tab. Their own add/edit/delete/CRUD behavior is
-// still covered by test/rule-tabs-add.test.js and test/tenses-add.test.js
-// — this file focuses on the Course tab shell/category-switcher, Parts
-// of Speech, Tense Mastery, and Conditionals content.
+// hosts nine nested categories — Parts of Speech, Modal Verbs, Tenses,
+// Tense Mastery, Conditionals, Active/Passive Voice, Prepositions, Word
+// Order, and Articles — all living inside panel-course as
+// .course-category divs (mirroring Language Bank's own category-
+// switcher pattern; the chip row scrolls horizontally past 5
+// categories, same treatment as Word Bank's own category seg). Modal
+// Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
+// top-level tabs that a chip merely linked out to; they're merged in
+// here now, so nothing redundant is left outside the Course tab, and
+// their old panel-modals/panel-tenses/panel-preps/panel-order/
+// panel-articles sections and thumb-tab buttons no longer exist. Tense
+// Mastery, Conditionals, and Active/Passive Voice are brand-new — none
+// of them ever had a standalone tab. Their own add/edit/delete/CRUD
+// behavior is still covered by test/rule-tabs-add.test.js and
+// test/tenses-add.test.js — this file focuses on the Course tab
+// shell/category-switcher, Parts of Speech, Tense Mastery, Conditionals,
+// and Active/Passive Voice content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -47,6 +49,7 @@ describe("Course tab — shell and category switcher", () => {
     ["tenses", "tenseSelect", "Simple Present"],
     ["tenseMastery", "tenseMasterySelect", "Simple Past vs. Present Perfect"],
     ["conditionals", "conditionalsSelect", "Zero Conditional: General Truths & Facts"],
+    ["activePassive", "activePassiveSelect", "When to Use Passive Voice"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -340,6 +343,77 @@ describe("Course tab — Conditionals (Zero through Third, mixed, and formal inv
   });
 });
 
+describe("Course tab — Active/Passive Voice (formation, modals, agent phrase, technical register)", () => {
+  it("covers when to use passive, formation across tenses, modals, the 'by' agent phrase, reporting verbs, common mistakes, and register choice", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.activePassiveData.map((a) => a.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "When to Use Passive Voice",
+      "Forming the Passive: be + Past Participle Across Tenses",
+      "Passive with Modals",
+      "The 'by' Agent Phrase: When to Include It",
+      "Passive with Reporting/Belief Verbs (It is believed that...)",
+      "Common Passive Mistakes",
+      "Choosing Active vs Passive for Technical/Engineering Writing"
+    ]));
+  });
+
+  it("the Common Passive Mistakes lesson warns against passivizing intransitive verbs", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.activePassiveData.find((a) => a.w === "Common Passive Mistakes");
+    expect(lesson.mistake).toMatch(/intransitive/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("activePassiveAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("activePassiveAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("activePassiveAddInput").value = "Passive for Lab Reports";
+    document.getElementById("activePassiveAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("activePassiveAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.activePassiveData.some((a) => a.w === "Passive for Lab Reports")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Active/Passive Voice category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("activePassiveAddInput").value = "Passive for Lab Reports";
+    document.getElementById("activePassiveAddBtn").click();
+    await wait(30);
+
+    document.getElementById("activePassiveManualUse").value = "Lab reports use passive throughout to keep focus on the procedure, not the researcher.";
+    document.getElementById("activePassiveManualExample").value = "The solution was titrated until the color changed.";
+    document.getElementById("activePassiveManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.activePassiveData.some((a) => a.w === "Passive for Lab Reports")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="activePassive"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("activePassiveEntry").querySelector(".headword").textContent).toBe("Passive for Lab Reports");
+    expect(document.getElementById("activePassiveEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("activePassiveSelect").value = "When to Use Passive Voice";
+    hooks.renderRuleEntry(
+      hooks.activePassiveData.find((a) => a.w === "When to Use Passive Voice"),
+      document.getElementById("activePassiveEntry"), "Active/Passive Voice Rule", "activePassive"
+    );
+    expect(document.getElementById("activePassiveEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -389,6 +463,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="conditionals"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("conditionalsEntry").querySelector(".headword").textContent).toBe("Third Conditional: Unreal Past (Regret / Different Result)");
+  });
+
+  it("indexes every Active/Passive Voice lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "When to Use Passive Voice" && item.cat === "Active/passive voice");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking an Active/Passive Voice search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Passive with Modals" && item.cat === "Active/passive voice");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="activePassive"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("activePassiveEntry").querySelector(".headword").textContent).toBe("Passive with Modals");
   });
 });
 

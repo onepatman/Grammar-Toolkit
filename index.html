@@ -1830,6 +1830,7 @@
         <button data-val="tenses">Tenses</button>
         <button data-val="tenseMastery">Tense Mastery</button>
         <button data-val="conditionals">Conditionals</button>
+        <button data-val="activePassive">Active/Passive Voice</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2050,6 +2051,34 @@
           <input type="text" id="conditionalsManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="conditionalsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="conditionalsManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-activePassive" style="display:none;">
+      <div class="controls">
+        <select id="activePassiveSelect"></select>
+        <button class="nav-btn" data-target="activePassiveSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="activePassiveSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="activePassiveEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="activePassiveSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="activePassiveSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="activePassiveAddBox">
+        <div class="section-label">➕ Add an Active/Passive Voice rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Passive for lab reports"), then add your own explanation and an example below.</p>
+        <input type="text" id="activePassiveAddInput" placeholder="Rule name (e.g. Passive with have/has been)" autocomplete="off">
+        <button id="activePassiveAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="activePassiveAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="activePassiveManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="activePassiveManualWord"></strong>":</p>
+          <textarea id="activePassiveManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="activePassiveManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="activePassiveManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="activePassiveManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5488,6 +5517,39 @@ const conditionalsData = [
   {w:"Formal Inversion: Were / Had / Should Instead of 'If'", senses:[
       {use:"Dropping 'if' and inverting the subject and auxiliary is a formal, written-register alternative — common in IELTS Writing Task 2 and technical reports.", examples:["<b>Were</b> the system to fail, backup power would engage. (= If the system were to fail...)","<b>Had</b> we known earlier, we could have avoided the delay. (= If we had known earlier...)","<b>Should</b> any issue arise, contact the supervisor immediately. (= If any issue should arise...)"]}
     ], mistake:"Reserve inversion for formal writing and use it sparingly — stacking several inverted conditionals in a row reads as stiff and unnatural, even though each one is grammatically correct on its own."}
+];
+
+/* =========================================================
+   DATA — ACTIVE / PASSIVE VOICE (formal, technical, and
+   IELTS Writing Task 2 register — when to use each, not just
+   how to form the passive)
+========================================================= */
+const activePassiveData = [
+  {w:"When to Use Passive Voice", senses:[
+      {use:"Use passive when the agent (who/what did the action) is unknown, unimportant, or obvious from context — the focus shifts to the action or the thing affected, not who did it.", examples:["The bridge <b>was completed</b> in 2019. (who exactly built it isn't the point)","The samples <b>are tested</b> daily. (the routine matters, not who runs the test)"]},
+      {use:"Passive is the default register in technical writing, lab reports, and procedures/manuals, where the process matters more than the person performing it.", examples:["The valve <b>is opened</b> slowly to release pressure.","Data <b>was collected</b> over a six-month period."]}
+    ], mistake:"Passive isn't 'more formal = always better' — overusing it when the agent IS relevant just makes writing vague and harder to read. If the doer matters, name them."},
+  {w:"Forming the Passive: be + Past Participle Across Tenses", senses:[
+      {use:"The passive is always 'be' (in the correct tense) + past participle — the tense lives entirely in the 'be' verb, never the participle.", examples:["Present simple: The report <b>is reviewed</b> every Friday.","Past simple: The design <b>was approved</b> last month.","Present perfect: The system <b>has been upgraded</b>.","Future: The results <b>will be published</b> next week."]}
+    ], mistake:"A missing or wrong-tense 'be' is the most common passive error — 'The report reviewed every Friday' (missing 'is') and 'The design was approve' (wrong participle form) are both incomplete passives."},
+  {w:"Passive with Modals", senses:[
+      {use:"Modal + be + past participle — used constantly in engineering/technical instructions and safety documentation.", examples:["The equipment <b>must be inspected</b> before use.","This fault <b>can be fixed</b> without replacing the whole unit.","Access <b>should be restricted</b> to authorized personnel."]}
+    ], mistake:"Never drop 'be' after the modal — 'must inspected' or 'can fixed' are ungrammatical; the modal needs the bare infinitive 'be', then the past participle."},
+  {w:"The 'by' Agent Phrase: When to Include It", senses:[
+      {use:"Only add 'by + agent' when the agent is genuinely important, surprising, or newsworthy information — otherwise it's just clutter.", examples:["The vulnerability was discovered <b>by a junior engineer</b> during routine testing. (surprising/notable — worth keeping)","The report was submitted. (nobody needs to know it was 'by the author' — that's obvious, so it's dropped)"]}
+    ], mistake:"Writing 'by someone', 'by people', or 'by them' when the agent is genuinely unknown or irrelevant adds nothing — if you can't name someone specific and meaningful, just omit the 'by' phrase entirely."},
+  {w:"Passive with Reporting/Belief Verbs (It is believed that...)", senses:[
+      {use:"'It + passive reporting verb + that-clause' is a formal, hedging structure common in IELTS Writing Task 2 and academic writing, useful for citing a general view without naming a specific source.", examples:["It <b>is believed</b> that renewable energy will dominate by 2050.","It <b>has been argued</b> that stricter regulation is necessary.","It <b>is widely reported</b> that the merger will proceed."]},
+      {use:"An equivalent structure fronts the subject instead: Subject + is + reporting verb (as past participle) + to + infinitive.", examples:["Renewable energy <b>is believed to</b> dominate by 2050. (same meaning, different structure)"]}
+    ], mistake:null},
+  {w:"Common Passive Mistakes", senses:[
+      {use:"Only transitive verbs (verbs that take a direct object) can be made passive — intransitive verbs like 'happen', 'occur', 'arrive' have no passive form at all.", examples:["Correct: The accident <b>occurred</b> yesterday. (active only — 'was occurred' does not exist)","Correct: The meeting <b>happened</b> without incident."]},
+      {use:"'Get' + past participle is an informal passive alternative, common in speech but usually avoided in formal/technical writing in favor of 'be' + past participle.", examples:["Informal: The cable <b>got damaged</b> during transport.","Formal: The cable <b>was damaged</b> during transport."]}
+    ], mistake:"Trying to passivize an intransitive verb ('The accident was occurred') is a very common error at this level — always check the verb actually takes a direct object in its active form first."},
+  {w:"Choosing Active vs Passive for Technical/Engineering Writing", senses:[
+      {use:"Use passive for procedures, standard processes, and results — where the action itself is the point.", examples:["The specimen <b>is heated</b> to 200°C, then <b>allowed</b> to cool."]},
+      {use:"Switch to active when explaining reasoning, decisions, or recommendations, where a clear responsible party makes the writing easier to follow.", examples:["<b>We recommend</b> replacing the seal every six months. (active — clearer ownership of the recommendation than 'It is recommended that...')"]}
+    ], mistake:"An entire report written in unbroken passive voice reads as evasive and hard to follow — strong technical writing deliberately mixes both, matching the voice to what each sentence needs to emphasize."}
 ];
 
 /* =========================================================
@@ -37669,6 +37731,7 @@ setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter", "qa");
 setupRuleModule(partsOfSpeechData, "posSelect", "posEntry", "Part of Speech", "pos");
 setupRuleModule(tenseMasteryData, "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
 setupRuleModule(conditionalsData, "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
+setupRuleModule(activePassiveData, "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40322,6 +40385,7 @@ indexCourseCategoryRuleModule(orderData, "Word order", "orderSelect", "orderEntr
 indexCourseCategoryRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "Article Rule", "articles");
 indexCourseCategoryRuleModule(tenseMasteryData, "Tense mastery", "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
 indexCourseCategoryRuleModule(conditionalsData, "Conditionals", "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
+indexCourseCategoryRuleModule(activePassiveData, "Active/passive voice", "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41157,7 +41221,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41373,20 +41437,33 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "conditionalsManualUse", manualExampleId: "conditionalsManualExample",
     manualSaveBtnId: "conditionalsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "conditionalsManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("conditionals"); }
+  },
+  activePassive: {
+    data: activePassiveData, selectId: "activePassiveSelect", entryId: "activePassiveEntry", tagLabel: "Active/Passive Voice Rule",
+    inputId: "activePassiveAddInput", btnId: "activePassiveAddBtn", statusId: "activePassiveAddStatus", inputNoun: "an active/passive voice rule",
+    putFn: function(entry, opts){ return VocabCache.putActivePassive(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllActivePassive(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteActivePassive(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "activePassiveManualBox", manualWordId: "activePassiveManualWord",
+    manualUseId: "activePassiveManualUse", manualExampleId: "activePassiveManualExample",
+    manualSaveBtnId: "activePassiveManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "activePassiveManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("activePassive"); }
   }
 };
 
-// The 9 standalone grammar-rule categories above, kept as their own list
-// (mirroring LANGUAGE_BANK_CATEGORIES) so restore-on-load, add-button
-// wiring, and owner-mode re-render loops can iterate just these — never
-// merged into LANGUAGE_BANK_CATEGORIES itself, which drives the
-// Language Bank tab's own category switcher and Firestore sync payload.
-// "pos" (Parts of Speech), "tenseMastery" (Tense Mastery), and
-// "conditionals" (Conditionals) are the Course tab's own local lesson
+// The 10 standalone grammar-rule categories above, kept as their own
+// list (mirroring LANGUAGE_BANK_CATEGORIES) so restore-on-load,
+// add-button wiring, and owner-mode re-render loops can iterate just
+// these — never merged into LANGUAGE_BANK_CATEGORIES itself, which
+// drives the Language Bank tab's own category switcher and Firestore
+// sync payload. "pos" (Parts of Speech), "tenseMastery" (Tense
+// Mastery), "conditionals" (Conditionals), and "activePassive"
+// (Active/Passive Voice) are the Course tab's own local lesson
 // categories — same generic machinery as the others, just surfaced
 // inside the Course tab's category switcher instead of getting their
 // own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals"];
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42431,7 +42508,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Preposition", data: prepData },
     { cat: "Part of Speech", data: partsOfSpeechData },
     { cat: "Tense Mastery Rule", data: tenseMasteryData },
-    { cat: "Conditionals Rule", data: conditionalsData }
+    { cat: "Conditionals Rule", data: conditionalsData },
+    { cat: "Active/Passive Voice Rule", data: activePassiveData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45266,6 +45344,7 @@ renderRuleEntry(qaData.find(x=>x.w===document.getElementById("qaSelect").value),
 renderRuleEntry(partsOfSpeechData.find(x=>x.w===document.getElementById("posSelect").value), document.getElementById("posEntry"), "Part of Speech", "pos");
 renderRuleEntry(tenseMasteryData.find(x=>x.w===document.getElementById("tenseMasterySelect").value), document.getElementById("tenseMasteryEntry"), "Tense Mastery Rule", "tenseMastery");
 renderRuleEntry(conditionalsData.find(x=>x.w===document.getElementById("conditionalsSelect").value), document.getElementById("conditionalsEntry"), "Conditionals Rule", "conditionals");
+renderRuleEntry(activePassiveData.find(x=>x.w===document.getElementById("activePassiveSelect").value), document.getElementById("activePassiveEntry"), "Active/Passive Voice Rule", "activePassive");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47411,7 +47490,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
