@@ -1371,12 +1371,8 @@
     <button class="thumb-tab" data-tab="wordbank">Word Bank<span class="n">WB</span></button>
     <button class="thumb-tab" data-tab="verbs">Verbs<span class="n">V</span></button>
     <button class="thumb-tab" data-tab="family">Family<span class="n">F</span></button>
-    <button class="thumb-tab" data-tab="preps">Preps<span class="n">P</span></button>
     <button class="thumb-tab" data-tab="articles">Articles<span class="n">A</span></button>
-    <button class="thumb-tab" data-tab="tenses">Tenses<span class="n">T</span></button>
-    <button class="thumb-tab" data-tab="modals">Modals<span class="n">M</span></button>
     <button class="thumb-tab" data-tab="qa">Ask<span class="n">Q</span></button>
-    <button class="thumb-tab" data-tab="order">Order<span class="n">O</span></button>
     <button class="thumb-tab" data-tab="mistakes">Fixes<span class="n">X</span></button>
     <button class="thumb-tab" data-tab="capital">Capital<span class="n">C</span></button>
   </div>
@@ -1413,58 +1409,6 @@
     </div>
   </section>
 
-  <!-- ===== TENSES PANEL ===== -->
-  <section id="panel-tenses" style="display:none;">
-    <div class="controls">
-      <select id="tenseSelect"></select>
-      <button class="nav-btn" data-target="tenseSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="tenseSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="tenseEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="tenseSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="tenseSelect" data-dir="next" aria-label="Next">Next ›</button>
-    </div>
-
-    <div class="quick-add-box owner-only" id="tenseAddBox">
-      <div class="section-label">➕ Add a Tense-related Construction</div>
-      <p class="note" style="margin-bottom:8px;">The 12 core English tenses above are already complete, so there's no online lookup here — this is for closely related constructions that aren't one of the 12 (e.g. "Going to" Future, "Used to" / "Would" for habitual past). Type a name; if it's already here we'll open the existing entry instead of adding a duplicate.</p>
-      <input type="text" id="tenseAddInput" placeholder="e.g. Going to Future" autocomplete="off">
-      <button id="tenseAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own construction</button>
-      <div id="tenseAddStatus" class="add-status"></div>
-    </div>
-  </section>
-
-  <!-- ===== PREPOSITIONS PANEL ===== -->
-  <section id="panel-preps" style="display:none;">
-    <div class="chip-row" id="prepChips"></div>
-    <div class="controls">
-      <select id="prepSelect"></select>
-      <button class="nav-btn" data-target="prepSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="prepSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="prepEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="prepSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="prepSelect" data-dir="next" aria-label="Next">Next ›</button>
-    </div>
-
-    <div class="quick-add-box owner-only" id="prepAddBox">
-      <div class="section-label">➕ Look Up &amp; Add a preposition</div>
-      <p class="note" style="margin-bottom:8px;">Type a preposition and we'll look it up online first — if it's already in your Prepositions list, we'll open the existing entry instead of adding a duplicate.</p>
-      <input type="text" id="prepAddInput" placeholder="e.g. throughout" autocomplete="off">
-      <button id="prepAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
-      <div id="prepAddStatus" class="add-status"></div>
-      <div class="manual-entry-box" id="prepManualBox" style="display:none;">
-        <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="prepManualWord"></strong>":</p>
-        <textarea id="prepManualUse" placeholder="Meaning / usage explanation" rows="2"></textarea>
-        <input type="text" id="prepManualExample" placeholder="Example sentence (optional)" autocomplete="off">
-        <button id="prepManualSaveBtn" class="add-btn" style="margin-top:10px;">Save with my notes</button>
-        <button id="prepManualCancelBtn" class="add-btn secondary">Cancel</button>
-      </div>
-    </div>
-  </section>
-
   <!-- ===== ARTICLES PANEL ===== -->
   <section id="panel-articles" style="display:none;">
     <div class="controls">
@@ -1494,35 +1438,6 @@
     </div>
   </section>
 
-  <!-- ===== MODALS PANEL ===== -->
-  <section id="panel-modals" style="display:none;">
-    <div class="controls">
-      <select id="modalSelect"></select>
-      <button class="nav-btn" data-target="modalSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="modalSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="modalEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="modalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="modalSelect" data-dir="next" aria-label="Next">Next ›</button>
-    </div>
-
-    <div class="quick-add-box owner-only" id="modalAddBox">
-      <div class="section-label">➕ Look Up &amp; Add a Modal rule</div>
-      <p class="note" style="margin-bottom:8px;">Type a short rule name (e.g. "ought to"), then add your own explanation and an example below.</p>
-      <input type="text" id="modalAddInput" placeholder="Rule name (e.g. ought to)" autocomplete="off">
-      <button id="modalAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
-      <div id="modalAddStatus" class="add-status"></div>
-      <div class="manual-entry-box" id="modalManualBox" style="display:none;">
-        <p class="note" style="margin-bottom:4px;">Explain "<strong id="modalManualWord"></strong>":</p>
-        <textarea id="modalManualUse" placeholder="Explanation / rule" rows="2"></textarea>
-        <input type="text" id="modalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
-        <button id="modalManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
-        <button id="modalManualCancelBtn" class="add-btn secondary">Cancel</button>
-      </div>
-    </div>
-  </section>
-
   <!-- ===== CAPITALIZATION PANEL ===== -->
   <section id="panel-capital" style="display:none;">
     <div class="controls">
@@ -1548,35 +1463,6 @@
         <input type="text" id="capitalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
         <button id="capitalManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
         <button id="capitalManualCancelBtn" class="add-btn secondary">Cancel</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== WORD ORDER PANEL ===== -->
-  <section id="panel-order" style="display:none;">
-    <div class="controls">
-      <select id="orderSelect"></select>
-      <button class="nav-btn" data-target="orderSelect" data-dir="prev" aria-label="Previous">‹</button>
-      <button class="nav-btn" data-target="orderSelect" data-dir="next" aria-label="Next">›</button>
-    </div>
-    <div class="entry" id="orderEntry"></div>
-    <div class="controls bottom-nav">
-      <button class="nav-btn" data-target="orderSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
-      <button class="nav-btn" data-target="orderSelect" data-dir="next" aria-label="Next">Next ›</button>
-    </div>
-
-    <div class="quick-add-box owner-only" id="orderAddBox">
-      <div class="section-label">➕ Look Up &amp; Add a Word Order rule</div>
-      <p class="note" style="margin-bottom:8px;">Type a short rule name, then add your own explanation and an example below.</p>
-      <input type="text" id="orderAddInput" placeholder="Rule name (e.g. indirect questions)" autocomplete="off">
-      <button id="orderAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
-      <div id="orderAddStatus" class="add-status"></div>
-      <div class="manual-entry-box" id="orderManualBox" style="display:none;">
-        <p class="note" style="margin-bottom:4px;">Explain "<strong id="orderManualWord"></strong>":</p>
-        <textarea id="orderManualUse" placeholder="Explanation / rule" rows="2"></textarea>
-        <input type="text" id="orderManualExample" placeholder="Example sentence (optional)" autocomplete="off">
-        <button id="orderManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
-        <button id="orderManualCancelBtn" class="add-btn secondary">Cancel</button>
       </div>
     </div>
   </section>
@@ -1970,10 +1856,10 @@
     <div class="controls">
       <div class="seg" id="courseCategorySeg">
         <button class="active" data-val="partsOfSpeech">Parts of Speech</button>
-        <button data-link="modals">Modal Verbs</button>
-        <button data-link="tenses">Tenses</button>
-        <button data-link="preps">Prepositions</button>
-        <button data-link="order">Word Order</button>
+        <button data-val="modals">Modal Verbs</button>
+        <button data-val="tenses">Tenses</button>
+        <button data-val="preps">Prepositions</button>
+        <button data-val="order">Word Order</button>
       </div>
     </div>
 
@@ -2001,6 +1887,112 @@
           <input type="text" id="posManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="posManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="posManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-modals" style="display:none;">
+      <div class="controls">
+        <select id="modalSelect"></select>
+        <button class="nav-btn" data-target="modalSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="modalSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="modalEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="modalSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="modalSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="modalAddBox">
+        <div class="section-label">➕ Look Up &amp; Add a Modal rule</div>
+        <p class="note" style="margin-bottom:8px;">Type a short rule name (e.g. "ought to"), then add your own explanation and an example below.</p>
+        <input type="text" id="modalAddInput" placeholder="Rule name (e.g. ought to)" autocomplete="off">
+        <button id="modalAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="modalAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="modalManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="modalManualWord"></strong>":</p>
+          <textarea id="modalManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="modalManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="modalManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="modalManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-tenses" style="display:none;">
+      <div class="controls">
+        <select id="tenseSelect"></select>
+        <button class="nav-btn" data-target="tenseSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="tenseSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="tenseEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="tenseSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="tenseSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="tenseAddBox">
+        <div class="section-label">➕ Add a Tense-related Construction</div>
+        <p class="note" style="margin-bottom:8px;">The 12 core English tenses above are already complete, so there's no online lookup here — this is for closely related constructions that aren't one of the 12 (e.g. "Going to" Future, "Used to" / "Would" for habitual past). Type a name; if it's already here we'll open the existing entry instead of adding a duplicate.</p>
+        <input type="text" id="tenseAddInput" placeholder="e.g. Going to Future" autocomplete="off">
+        <button id="tenseAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own construction</button>
+        <div id="tenseAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-preps" style="display:none;">
+      <div class="chip-row" id="prepChips"></div>
+      <div class="controls">
+        <select id="prepSelect"></select>
+        <button class="nav-btn" data-target="prepSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="prepSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="prepEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="prepSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="prepSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="prepAddBox">
+        <div class="section-label">➕ Look Up &amp; Add a preposition</div>
+        <p class="note" style="margin-bottom:8px;">Type a preposition and we'll look it up online first — if it's already in your Prepositions list, we'll open the existing entry instead of adding a duplicate.</p>
+        <input type="text" id="prepAddInput" placeholder="e.g. throughout" autocomplete="off">
+        <button id="prepAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+        <div id="prepAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="prepManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="prepManualWord"></strong>":</p>
+          <textarea id="prepManualUse" placeholder="Meaning / usage explanation" rows="2"></textarea>
+          <input type="text" id="prepManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="prepManualSaveBtn" class="add-btn" style="margin-top:10px;">Save with my notes</button>
+          <button id="prepManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-order" style="display:none;">
+      <div class="controls">
+        <select id="orderSelect"></select>
+        <button class="nav-btn" data-target="orderSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="orderSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="orderEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="orderSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="orderSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="orderAddBox">
+        <div class="section-label">➕ Look Up &amp; Add a Word Order rule</div>
+        <p class="note" style="margin-bottom:8px;">Type a short rule name, then add your own explanation and an example below.</p>
+        <input type="text" id="orderAddInput" placeholder="Rule name (e.g. indirect questions)" autocomplete="off">
+        <button id="orderAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="orderAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="orderManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="orderManualWord"></strong>":</p>
+          <textarea id="orderManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="orderManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="orderManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="orderManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -40149,7 +40141,8 @@ tenseData.forEach(t=>{
   searchIndex.push({label:t.name, cat:"Tense", action:()=>{
     tenseSelect.value = t.name;
     renderTense();
-    activateTab("tenses");
+    activateTab("course");
+    activateCourseCategory("tenses");
   }});
 });
 prepData.forEach(p=>{
@@ -40159,7 +40152,8 @@ prepData.forEach(p=>{
     populatePrepSelect();
     prepSelect.value = p.w;
     renderPrep();
-    activateTab("preps");
+    activateTab("course");
+    activateCourseCategory("preps");
   }});
 });
 function indexRuleModule(data, cat, selectId, entryId, tagLabel, tab){
@@ -40178,13 +40172,29 @@ function indexRuleModule(data, cat, selectId, entryId, tagLabel, tab){
   });
 }
 indexRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "Article Rule", "articles");
-indexRuleModule(modalData, "Modal verb", "modalSelect", "modalEntry", "Modal Verb", "modals");
 indexRuleModule(capitalData, "Capitalization", "capitalSelect", "capitalEntry", "Capitalization Rule", "capital");
-indexRuleModule(orderData, "Word order", "orderSelect", "orderEntry", "Word Order Pattern", "order");
-// Not indexRuleModule: "pos" is a Course-tab CATEGORY, not its own
-// top-level tab — indexRuleModule's `tab` param assumes those are the
-// same string (it calls activateTab(tab) directly), which would try to
-// activateTab("pos") and fail since panel-pos doesn't exist.
+// Not indexRuleModule for modals/order/pos: all three are Course-tab
+// CATEGORIES, not top-level tabs — indexRuleModule's `tab` param assumes
+// those are the same string (it calls activateTab(tab) directly), which
+// would try activateTab("modals")/activateTab("order")/activateTab("pos")
+// and fail since none of those panels exist anymore.
+function indexCourseCategoryRuleModule(data, cat, selectId, entryId, tagLabel, categoryKey){
+  data.forEach(item=>{
+    searchIndex.push({label:item.w, cat:cat, action:()=>{
+      document.getElementById(selectId).value = item.w;
+      renderRuleEntry(item, document.getElementById(entryId), tagLabel, categoryKey);
+      activateTab("course");
+      activateCourseCategory(categoryKey);
+    }});
+  });
+}
+indexCourseCategoryRuleModule(modalData, "Modal verb", "modalSelect", "modalEntry", "Modal Verb", "modals");
+indexCourseCategoryRuleModule(orderData, "Word order", "orderSelect", "orderEntry", "Word Order Pattern", "order");
+// pos is its own case: renderRuleEntry's categoryKey (drives the
+// LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
+// category chip/div key is "partsOfSpeech" — the two key spaces happen
+// to match for modals/order but not here, so this can't reuse
+// indexCourseCategoryRuleModule's single categoryKey param.
 partsOfSpeechData.forEach(item=>{
   searchIndex.push({label:item.w, cat:"Part of speech", action:()=>{
     document.getElementById("posSelect").value = item.w;
@@ -41006,15 +41016,16 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
   activateLangBankCategory(btn.dataset.val);
 });
 
-// Course tab's own category switcher. Unlike Language Bank's (every
-// button toggles a local panel), some Course chips are just shortcuts
-// into an existing tab (Modals/Tenses/Preps/Order already have their own
-// full rule-browsing UI) — those carry data-link instead of data-val and
-// simply hand off to activateTab, no local panel of their own. Only
-// "partsOfSpeech" is real Course-tab content today; COURSE_LOCAL_CATEGORIES
-// stays a list (not a single constant) so a future lesson category can be
-// added here the same way Language Bank's categories are.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech"];
+// Course tab's own category switcher — every chip is a nested category
+// living entirely inside panel-course, same pattern as Language Bank's
+// category switcher. Modal Verbs/Tenses/Prepositions/Word Order used to
+// be separate top-level tabs the "modals"/"tenses"/"preps"/"order" chips
+// just linked out to; they're merged in here now (their DOM ids —
+// modalSelect, tenseEntry, prepChips, orderAddBox, etc. — are unchanged,
+// only their containing element moved from a standalone <section> to a
+// nested .course-category <div>), so there is nothing redundant left
+// outside the Course tab.
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "preps", "order"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41025,7 +41036,6 @@ function activateCourseCategory(key){
 document.getElementById("courseCategorySeg").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
   if(!btn) return;
-  if(btn.dataset.link){ activateTab(btn.dataset.link); return; }
   activateCourseCategory(btn.dataset.val);
 });
 
@@ -41134,7 +41144,7 @@ const LANGUAGE_BANK_CONFIG = {
     manualBoxId: "prepManualBox", manualWordId: "prepManualWord",
     manualUseId: "prepManualUse", manualExampleId: "prepManualExample",
     manualSaveBtnId: "prepManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "prepManualCancelBtn",
-    activateFn: function(){ activateTab("preps"); }
+    activateFn: function(){ activateTab("course"); activateCourseCategory("preps"); }
   },
   articles: {
     data: articleData, selectId: "articleSelect", entryId: "articleEntry", tagLabel: "Article Rule",
@@ -41158,7 +41168,7 @@ const LANGUAGE_BANK_CONFIG = {
     manualBoxId: "modalManualBox", manualWordId: "modalManualWord",
     manualUseId: "modalManualUse", manualExampleId: "modalManualExample",
     manualSaveBtnId: "modalManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "modalManualCancelBtn",
-    activateFn: function(){ activateTab("modals"); }
+    activateFn: function(){ activateTab("course"); activateCourseCategory("modals"); }
   },
   capital: {
     data: capitalData, selectId: "capitalSelect", entryId: "capitalEntry", tagLabel: "Capitalization Rule",
@@ -41182,7 +41192,7 @@ const LANGUAGE_BANK_CONFIG = {
     manualBoxId: "orderManualBox", manualWordId: "orderManualWord",
     manualUseId: "orderManualUse", manualExampleId: "orderManualExample",
     manualSaveBtnId: "orderManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "orderManualCancelBtn",
-    activateFn: function(){ activateTab("order"); }
+    activateFn: function(){ activateTab("course"); activateCourseCategory("order"); }
   },
   qa: {
     data: qaData, selectId: "qaSelect", entryId: "qaEntry", tagLabel: "Question Starter",
@@ -45201,8 +45211,21 @@ function getCurrentlyDisplayedItem(){
     expectedCat = LANGUAGE_BANK_CONFIG[categoryKey] && LANGUAGE_BANK_CONFIG[categoryKey].tagLabel;
   } else if(visibleSection.id === "panel-vocab"){
     expectedCat = "Vocabulary Bank";
-  } else if(visibleSection.id === "panel-preps"){
-    expectedCat = "Preposition";
+  } else if(visibleSection.id === "panel-course"){
+    // Same disambiguation need as panel-langbank above, now that Modal
+    // Verbs/Tenses/Prepositions/Word Order/Parts of Speech all live here
+    // as nested .course-category divs instead of their own top-level
+    // panels — "under" as a Preposition vs. a same-spelled Vocabulary
+    // Bank entry is exactly the kind of collision this exists to catch.
+    scope = null;
+    for(const sub of visibleSection.querySelectorAll(".course-category")){
+      if(sub.style.display !== "none"){ scope = sub; break; }
+    }
+    if(!scope) return null;
+    const categoryKey = scope.id.replace("course-", "");
+    if(categoryKey === "partsOfSpeech") expectedCat = "Part of Speech";
+    else if(categoryKey === "tenses") expectedCat = "Tense";
+    else expectedCat = LANGUAGE_BANK_CONFIG[categoryKey] && LANGUAGE_BANK_CONFIG[categoryKey].tagLabel;
   } else if(visibleSection.id === "panel-verbs"){
     expectedCat = currentVerbType === "prepverb" ? "Verb + Preposition" : ("Verb (" + currentVerbType + ")");
   } else if(visibleSection.id === "panel-family"){
@@ -46050,8 +46073,9 @@ const familyCacheRestorePromise = VocabCache.getAllFamily({dbPromise: vocabDbPro
 }).catch(()=>{ /* IndexedDB unavailable — the app works the same without it */ });
 
 /* =========================================================
-   TENSES TAB — manual-only "Add my own construction"
-   (panel-tenses' own #tenseAddBox). Unlike every other add flow in
+   TENSES — manual-only "Add my own construction"
+   (the Course tab's course-tenses category, its own #tenseAddBox).
+   Unlike every other add flow in
    the app, this one has NO online-lookup step: the 12 core English
    tenses are already a complete, closed set (built into tenseData
    below), so there's nothing to "look up online" the way a
@@ -46110,7 +46134,8 @@ function addTenseEntry(entry, options){
       <div class="example-line">✗ ${t.examples.neg}</div>
       <div class="example-line">? ${t.examples.q}</div>
     `;
-    activateTab("tenses");
+    activateTab("course");
+    activateCourseCategory("tenses");
   };
   const item = {label: entry.name, cat: "Tense", categories: ["Tense"], action: openThisTense};
   searchIndex.push(item);

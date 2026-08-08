@@ -1,5 +1,7 @@
-// Integration tests for the Tenses tab's own "Add my own construction"
-// box (#tenseAddBox on panel-tenses). Unlike Verbs/Family, this flow has
+// Integration tests for the Tenses category's own "Add my own
+// construction" box (#tenseAddBox, now inside the Course tab's
+// course-tenses category rather than a standalone panel-tenses).
+// Unlike Verbs/Family, this flow has
 // NO online-lookup step — the 12 core English tenses are already a
 // complete, closed set, so there's nothing to look up online the way a
 // dictionary word would resolve. This box is only for closely related
@@ -13,7 +15,7 @@ function wait(ms = 30) {
 }
 
 describe("Tenses tab — Add my own construction box", () => {
-  it("renders the add box on panel-tenses", async () => {
+  it("renders the add box inside the Course tab's Tenses category", async () => {
     const { window } = await loadApp();
     const document = window.document;
     expect(document.getElementById("tenseAddBox")).not.toBeNull();
@@ -113,7 +115,8 @@ describe("Tenses tab — Add my own construction box", () => {
       neg: "They are not going to finish today.",
       q: "Are you going to review the drawings?"
     });
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("tenses");
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="tenses"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("tenseAddStatus").textContent).toContain("has been added to Tenses");
     expect(document.getElementById("lookupModal").style.display).toBe("none");
 

@@ -41,33 +41,36 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     search(window, "abandon", "Vocabulary Bank");
     expect(activeTab(document)).toBe("vocab");
 
-    search(window, "between", "Preposition");
-    expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
+    // Articles (a standalone top-level tab) rather than Prepositions,
+    // which now lives nested inside the Course tab (see
+    // test/course-tab.test.js for that navigation instead).
+    search(window, "an", "Article rule");
+    expect(activeTab(document)).toBe("articles");
+    expect(document.getElementById("articleEntry").querySelector(".headword").textContent).toBe("an");
 
     search(window, "worked");
     expect(activeTab(document)).toBe("verbs");
 
     document.querySelector("#panel-verbs .controls .nav-btn[data-dir='prev']").click();
-    expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
+    expect(activeTab(document)).toBe("articles");
+    expect(document.getElementById("articleEntry").querySelector(".headword").textContent).toBe("an");
 
-    document.querySelector("#panel-preps .controls .nav-btn[data-dir='prev']").click();
+    document.querySelector("#panel-articles .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
     expect(document.getElementById("vocabEntry").querySelector(".headword").textContent).toBe("abandon");
 
     document.querySelector("#panel-vocab .controls .nav-btn[data-dir='next']").click();
-    expect(activeTab(document)).toBe("preps");
-    expect(document.getElementById("prepEntry").querySelector(".headword").textContent).toBe("between");
+    expect(activeTab(document)).toBe("articles");
+    expect(document.getElementById("articleEntry").querySelector(".headword").textContent).toBe("an");
   });
 
   it("does not go past the oldest or newest entry (no wraparound)", async () => {
     const { window } = await loadApp();
     const document = window.document;
     search(window, "abandon", "Vocabulary Bank");
-    search(window, "between", "Preposition");
+    search(window, "an", "Article rule");
 
-    document.querySelector("#panel-preps .controls .nav-btn[data-dir='prev']").click();
+    document.querySelector("#panel-articles .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
     document.querySelector("#panel-vocab .controls .nav-btn[data-dir='prev']").click();
     // Still on the oldest entry — clicking prev again is a no-op, not a wrap to the newest.
@@ -106,21 +109,21 @@ describe("top Back/Forward: browser-style history across chips, searches, and pl
     // own, so a search establishes that origin first, exactly like a real
     // user's first action from the landing page would.
     search(window, "abandon", "Vocabulary Bank");
-    document.querySelector('.thumb-tab[data-tab="preps"]').click();
+    document.querySelector('.thumb-tab[data-tab="articles"]').click();
     document.querySelector('.thumb-tab[data-tab="langbank"]').click();
     document.querySelector('.thumb-tab[data-tab="verbs"]').click();
 
-    // Vocab (from the search) -> Preps -> Language Bank -> Verbs,
+    // Vocab (from the search) -> Articles -> Language Bank -> Verbs,
     // each a distinct destination, so each hop adds exactly one new entry.
     expect(hooks.getSearchHistory().map((h) => h.cat)).toEqual([
-      "Vocabulary Bank", "Preposition", "Phrasal verb", "Verb (regular)"
+      "Vocabulary Bank", "Article rule", "Phrasal verb", "Verb (regular)"
     ]);
 
     document.querySelector("#panel-verbs .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("langbank");
     document.querySelector("#panel-langbank .controls .nav-btn[data-dir='prev']").click();
-    expect(activeTab(document)).toBe("preps");
-    document.querySelector("#panel-preps .controls .nav-btn[data-dir='prev']").click();
+    expect(activeTab(document)).toBe("articles");
+    document.querySelector("#panel-articles .controls .nav-btn[data-dir='prev']").click();
     expect(activeTab(document)).toBe("vocab");
   });
 
