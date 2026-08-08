@@ -662,6 +662,26 @@ describe("Practice tab — Speaking mode (shadowing)", () => {
     expect(item.shadowText).toMatch(/^Example sentence \d+\.$/);
     expect(document.querySelector(".practice-shadow-sentence").textContent).toBe(item.shadowText);
   });
+
+  it("logs every wrong answer to the error log for the Personal Error Pattern Tracker", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    for (let i = 0; i < 15; i++) {
+      document.getElementById("practiceSpeakingSkipBtn").click();
+      document.querySelector(".practice-next-question-btn").click();
+      await wait(10);
+    }
+    await wait(30);
+
+    const errorLog = await window.VocabCache.getAllErrorLogEntries({ dbPromise: hooks.vocabDbPromise });
+    expect(errorLog.length).toBe(15);
+    expect(errorLog.every((e) => e.mode === "speaking")).toBe(true);
+    expect(errorLog.every((e) => typeof e.word === "string" && e.word.length > 0)).toBe(true);
+  });
 });
 
 describe("Practice tab — Writing mode (dictation)", () => {

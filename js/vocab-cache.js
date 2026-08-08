@@ -114,7 +114,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 28;
+  var DB_VERSION = 29;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -129,6 +129,7 @@
   var CUSTOM_VERBS_STORE = "customVerbs";
   var PRACTICE_USAGE_STORE = "practiceUsage";
   var PRACTICE_HISTORY_STORE = "practiceHistory";
+  var ERROR_LOG_STORE = "errorLogEntries";
   var PREP_STORE = "prepEntries";
   var ARTICLE_STORE = "articleEntries";
   var MODAL_STORE = "modalEntries";
@@ -215,6 +216,9 @@
         }
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(ERROR_LOG_STORE)) {
+          db.createObjectStore(ERROR_LOG_STORE, { keyPath: "key" });
         }
         [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE, ACTIVE_PASSIVE_STORE, REPORTED_SPEECH_STORE, RELATIVE_CLAUSES_STORE, COMPLEX_SENTENCES_STORE, COHESIVE_DEVICES_STORE, NOMINALIZATION_STORE, COLLOCATIONS_STORE, WRITING_TEMPLATES_STORE, SPOKEN_FLUENCY_STORE].forEach(function (name) {
           if (!db.objectStoreNames.contains(name)) {
@@ -731,6 +735,35 @@
     });
   }
 
+  /* ---------- error log (personal error pattern tracker) ----------
+     One record per WRONG Practice-session answer — local-only, same as
+     practiceHistory above (per-device personal learning data, not
+     synced). Distinct from practiceHistory, which only ever stores an
+     aggregate session score: this keeps the individual missed word so
+     recurring trouble spots can be surfaced (e.g. "affect vs effect"
+     missed 4 times), not just an overall accuracy trend. */
+
+  function addErrorLogEntry(record, options) {
+    if (!record || !record.word) return Promise.resolve(false);
+    var key = String(record.timestamp || Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
+    return storePut(ERROR_LOG_STORE, {
+      key: key,
+      word: record.word,
+      mode: record.mode,
+      source: record.source,
+      question: record.question,
+      userAnswer: record.userAnswer,
+      correctAnswer: record.correctAnswer,
+      timestamp: record.timestamp || Date.now()
+    }, options);
+  }
+
+  function getAllErrorLogEntries(options) {
+    return storeGetAll(ERROR_LOG_STORE, options).then(function (rows) {
+      return rows.sort(function (a, b) { return b.timestamp - a.timestamp; });
+    });
+  }
+
   /* ---------- recently viewed ---------- */
 
   function recordRecentlyViewed(word, cat, options) {
@@ -966,6 +999,8 @@
     getAllPracticeUsage: getAllPracticeUsage,
     addPracticeHistory: addPracticeHistory,
     getAllPracticeHistory: getAllPracticeHistory,
+    addErrorLogEntry: addErrorLogEntry,
+    getAllErrorLogEntries: getAllErrorLogEntries,
     recordRecentlyViewed: recordRecentlyViewed,
     getRecentlyViewed: getRecentlyViewed
   };
