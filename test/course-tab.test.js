@@ -1,26 +1,28 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts fourteen nested categories — Parts of Speech, Modal Verbs,
+// hosts fifteen nested categories — Parts of Speech, Modal Verbs,
 // Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
 // Speech, Relative Clauses, Complex Sentence Building, Cohesive
-// Devices, Nominalization, Prepositions, Word Order, and Articles — all
-// living inside panel-course as .course-category divs (mirroring
-// Language Bank's own category-switcher pattern; the chip row scrolls
-// horizontally past 5 categories, same treatment as Word Bank's own
-// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
-// used to be separate top-level tabs that a chip merely linked out to;
-// they're merged in here now, so nothing redundant is left outside the
-// Course tab, and their old panel-modals/panel-tenses/panel-preps/
-// panel-order/panel-articles sections and thumb-tab buttons no longer
-// exist. Tense Mastery, Conditionals, Active/Passive Voice, Reported
-// Speech, Relative Clauses, Complex Sentence Building, Cohesive
-// Devices, and Nominalization are brand-new — none of them ever had a
-// standalone tab. Their own add/edit/delete/CRUD behavior is still
-// covered by test/rule-tabs-add.test.js and test/tenses-add.test.js —
-// this file focuses on the Course tab shell/category-switcher, Parts
-// of Speech, Tense Mastery, Conditionals, Active/Passive Voice,
-// Reported Speech, Relative Clauses, Complex Sentence Building,
-// Cohesive Devices, and Nominalization content.
+// Devices, Nominalization, Collocations & Paraphrasing, Prepositions,
+// Word Order, and Articles — all living inside panel-course as
+// .course-category divs (mirroring Language Bank's own
+// category-switcher pattern; the chip row scrolls horizontally past 5
+// categories, same treatment as Word Bank's own category seg). Modal
+// Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
+// top-level tabs that a chip merely linked out to; they're merged in
+// here now, so nothing redundant is left outside the Course tab, and
+// their old panel-modals/panel-tenses/panel-preps/panel-order/
+// panel-articles sections and thumb-tab buttons no longer exist. Tense
+// Mastery, Conditionals, Active/Passive Voice, Reported Speech,
+// Relative Clauses, Complex Sentence Building, Cohesive Devices,
+// Nominalization, and Collocations & Paraphrasing are brand-new — none
+// of them ever had a standalone tab. Their own add/edit/delete/CRUD
+// behavior is still covered by test/rule-tabs-add.test.js and
+// test/tenses-add.test.js — this file focuses on the Course tab
+// shell/category-switcher, Parts of Speech, Tense Mastery,
+// Conditionals, Active/Passive Voice, Reported Speech, Relative
+// Clauses, Complex Sentence Building, Cohesive Devices, Nominalization,
+// and Collocations & Paraphrasing content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -59,6 +61,7 @@ describe("Course tab — shell and category switcher", () => {
     ["complexSentences", "complexSentencesSelect", "Sentence Types: Simple, Compound, Complex, Compound-Complex"],
     ["cohesiveDevices", "cohesiveDevicesSelect", "Addition Linkers: Furthermore, Moreover, In Addition"],
     ["nominalization", "nominalizationSelect", "What Is Nominalization?"],
+    ["collocations", "collocationsSelect", "What Are Collocations?"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -779,6 +782,77 @@ describe("Course tab — Nominalization (turning verbs/adjectives into nouns for
   });
 });
 
+describe("Course tab — Collocations & Paraphrasing (natural word pairings and restatement strategies)", () => {
+  it("covers what collocations are, verb+noun and adjective+noun pairings, three paraphrasing strategies, and common mistakes", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.collocationsData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "What Are Collocations?",
+      "Verb + Noun Collocations: Make, Do, Take, Have",
+      "Adjective + Noun Collocations",
+      "Paraphrasing Strategy 1: Synonym Substitution",
+      "Paraphrasing Strategy 2: Changing Word Form (Part of Speech)",
+      "Paraphrasing Strategy 3: Changing Sentence Structure",
+      "Common Collocation & Paraphrasing Mistakes"
+    ]));
+  });
+
+  it("the make/do/take/have lesson flags swapping them as a common mistake", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.collocationsData.find((c) => c.w === "Verb + Noun Collocations: Make, Do, Take, Have");
+    expect(lesson.mistake).toMatch(/make homework|do a decision/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("collocationsAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("collocationsAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("collocationsAddInput").value = "Make vs Do";
+    document.getElementById("collocationsAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("collocationsAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.collocationsData.some((c) => c.w === "Make vs Do")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Collocations category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("collocationsAddInput").value = "Make vs Do";
+    document.getElementById("collocationsAddBtn").click();
+    await wait(30);
+
+    document.getElementById("collocationsManualUse").value = "A quick memory aid for the make/do collocation pair.";
+    document.getElementById("collocationsManualExample").value = "Make a decision, but do your homework.";
+    document.getElementById("collocationsManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.collocationsData.some((c) => c.w === "Make vs Do")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="collocations"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("collocationsEntry").querySelector(".headword").textContent).toBe("Make vs Do");
+    expect(document.getElementById("collocationsEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("collocationsSelect").value = "What Are Collocations?";
+    hooks.renderRuleEntry(
+      hooks.collocationsData.find((c) => c.w === "What Are Collocations?"),
+      document.getElementById("collocationsEntry"), "Collocations & Paraphrasing Rule", "collocations"
+    );
+    expect(document.getElementById("collocationsEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -930,6 +1004,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="nominalization"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("nominalizationEntry").querySelector(".headword").textContent).toBe("Common Nominalization Mistakes");
+  });
+
+  it("indexes every Collocations & Paraphrasing lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "What Are Collocations?" && item.cat === "Collocations and paraphrasing");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Collocations & Paraphrasing search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Common Collocation & Paraphrasing Mistakes" && item.cat === "Collocations and paraphrasing");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="collocations"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("collocationsEntry").querySelector(".headword").textContent).toBe("Common Collocation & Paraphrasing Mistakes");
   });
 });
 
