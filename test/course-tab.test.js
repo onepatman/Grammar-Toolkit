@@ -1,20 +1,20 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts seven nested categories — Parts of Speech, Modal Verbs, Tenses,
-// Tense Mastery, Prepositions, Word Order, and Articles — all living
-// inside panel-course as .course-category divs (mirroring Language
-// Bank's own category-switcher pattern; the chip row scrolls
+// hosts eight nested categories — Parts of Speech, Modal Verbs, Tenses,
+// Tense Mastery, Conditionals, Prepositions, Word Order, and Articles —
+// all living inside panel-course as .course-category divs (mirroring
+// Language Bank's own category-switcher pattern; the chip row scrolls
 // horizontally past 5 categories, same treatment as Word Bank's own
 // category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
 // used to be separate top-level tabs that a chip merely linked out to;
 // they're merged in here now, so nothing redundant is left outside the
 // Course tab, and their old panel-modals/panel-tenses/panel-preps/
 // panel-order/panel-articles sections and thumb-tab buttons no longer
-// exist. Tense Mastery is brand-new — it never had a standalone tab.
-// Their own add/edit/delete/CRUD behavior is still covered by
-// test/rule-tabs-add.test.js and test/tenses-add.test.js — this file
-// focuses on the Course tab shell/category-switcher, Parts of Speech,
-// and Tense Mastery content.
+// exist. Tense Mastery and Conditionals are brand-new — neither ever
+// had a standalone tab. Their own add/edit/delete/CRUD behavior is
+// still covered by test/rule-tabs-add.test.js and test/tenses-add.test.js
+// — this file focuses on the Course tab shell/category-switcher, Parts
+// of Speech, Tense Mastery, and Conditionals content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -46,6 +46,7 @@ describe("Course tab — shell and category switcher", () => {
     ["modals", "modalSelect", "can"],
     ["tenses", "tenseSelect", "Simple Present"],
     ["tenseMastery", "tenseMasterySelect", "Simple Past vs. Present Perfect"],
+    ["conditionals", "conditionalsSelect", "Zero Conditional: General Truths & Facts"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -267,6 +268,78 @@ describe("Course tab — Tense Mastery (all 12 tenses, mixed usage, paragraph co
   });
 });
 
+describe("Course tab — Conditionals (Zero through Third, mixed, and formal inversion)", () => {
+  it("covers Zero through Third Conditional, Mixed Conditionals, alternatives to 'if', and formal inversion", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.conditionalsData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "Zero Conditional: General Truths & Facts",
+      "First Conditional: Real Future Possibility",
+      "Second Conditional: Unreal Present/Future",
+      "Third Conditional: Unreal Past (Regret / Different Result)",
+      "Mixed Conditionals: Combining Time Frames",
+      "Alternatives to 'If': Unless, Provided That, As Long As, In Case",
+      "Formal Inversion: Were / Had / Should Instead of 'If'"
+    ]));
+  });
+
+  it("the Third Conditional lesson warns against the common 'would have' inside the if-clause error", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.conditionalsData.find((c) => c.w === "Third Conditional: Unreal Past (Regret / Different Result)");
+    expect(lesson.mistake).toMatch(/would have/i);
+    expect(lesson.mistake).toMatch(/if-clause/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("conditionalsAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("conditionalsAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("conditionalsAddInput").value = "Second Conditional for Polite Hedging";
+    document.getElementById("conditionalsAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("conditionalsAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.conditionalsData.some((c) => c.w === "Second Conditional for Polite Hedging")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Conditionals category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("conditionalsAddInput").value = "Second Conditional for Polite Hedging";
+    document.getElementById("conditionalsAddBtn").click();
+    await wait(30);
+
+    document.getElementById("conditionalsManualUse").value = "Using would/could softens a suggestion, making it sound less direct.";
+    document.getElementById("conditionalsManualExample").value = "It would be helpful if you could double-check the readings.";
+    document.getElementById("conditionalsManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.conditionalsData.some((c) => c.w === "Second Conditional for Polite Hedging")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="conditionals"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("conditionalsEntry").querySelector(".headword").textContent).toBe("Second Conditional for Polite Hedging");
+    expect(document.getElementById("conditionalsEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("conditionalsSelect").value = "Zero Conditional: General Truths & Facts";
+    hooks.renderRuleEntry(
+      hooks.conditionalsData.find((c) => c.w === "Zero Conditional: General Truths & Facts"),
+      document.getElementById("conditionalsEntry"), "Conditionals Rule", "conditionals"
+    );
+    expect(document.getElementById("conditionalsEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -299,6 +372,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="tenseMastery"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("tenseMasteryEntry").querySelector(".headword").textContent).toBe("Tense Consistency Within a Paragraph");
+  });
+
+  it("indexes every Conditionals lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "Zero Conditional: General Truths & Facts" && item.cat === "Conditionals");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Conditionals search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Third Conditional: Unreal Past (Regret / Different Result)" && item.cat === "Conditionals");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="conditionals"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("conditionalsEntry").querySelector(".headword").textContent).toBe("Third Conditional: Unreal Past (Regret / Different Result)");
   });
 });
 

@@ -24,19 +24,21 @@
                         Added via its own two-word quick-add, persisted
                         the same way the Language Bank categories are.
      - prepEntries, articleEntries, modalEntries, capitalEntries,
-       orderEntries, qaEntries, posEntries, tenseMasteryEntries:
-                        eight grammar-rule categories, sharing the same
+       orderEntries, qaEntries, posEntries, tenseMasteryEntries,
+       conditionalsEntries:
+                        nine grammar-rule categories, sharing the same
                         generic { key, entry } shape as the Language Bank
                         stores, added via each category's own quick-add
                         box. Capitalization and Question Starters are
                         still standalone top-level tabs; Prepositions,
-                        Articles, Modals, Word Order, Parts of Speech, and
-                        Tense Mastery all live nested inside the Course
-                        tab instead (see COURSE_LOCAL_CATEGORIES in
-                        index.html). Local-only: unlike
-                        vocabEntries/phrasalEntries/etc. these don't
-                        currently participate in Firestore cross-device
-                        sync (see LANGUAGE_BANK_CATEGORIES in index.html).
+                        Articles, Modals, Word Order, Parts of Speech,
+                        Tense Mastery, and Conditionals all live nested
+                        inside the Course tab instead (see
+                        COURSE_LOCAL_CATEGORIES in index.html).
+                        Local-only: unlike vocabEntries/phrasalEntries/etc.
+                        these don't currently participate in Firestore
+                        cross-device sync (see LANGUAGE_BANK_CATEGORIES in
+                        index.html).
      - familyEntries:   Owner-added Word Family entries (verb -> noun/
                         person/adjective forms + example sentences),
                         added via the Family tab's own quick-add box.
@@ -105,7 +107,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 18;
+  var DB_VERSION = 19;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -128,6 +130,7 @@
   var QA_STORE = "qaEntries";
   var POS_STORE = "posEntries";
   var TENSE_MASTERY_STORE = "tenseMasteryEntries";
+  var CONDITIONALS_STORE = "conditionalsEntries";
   var FAMILY_STORE = "familyEntries";
   var TENSE_STORE = "tenseEntries";
   var NOTES_STORE = "notesEntries";
@@ -197,7 +200,7 @@
         if (!db.objectStoreNames.contains(PRACTICE_HISTORY_STORE)) {
           db.createObjectStore(PRACTICE_HISTORY_STORE, { keyPath: "key" });
         }
-        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE].forEach(function (name) {
+        [PREP_STORE, ARTICLE_STORE, MODAL_STORE, CAPITAL_STORE, ORDER_STORE, QA_STORE, POS_STORE, TENSE_MASTERY_STORE, CONDITIONALS_STORE].forEach(function (name) {
           if (!db.objectStoreNames.contains(name)) {
             db.createObjectStore(name, { keyPath: "key" });
           }
@@ -468,6 +471,11 @@
   function putTenseMastery(entry, options) { return putEntry(TENSE_MASTERY_STORE, entry, options); }
   function getAllTenseMastery(options) { return getAllEntries(TENSE_MASTERY_STORE, options); }
   function deleteTenseMastery(word, options) { return deleteEntry(TENSE_MASTERY_STORE, word, options); }
+
+  function getConditionals(word, options) { return getEntry(CONDITIONALS_STORE, word, options); }
+  function putConditionals(entry, options) { return putEntry(CONDITIONALS_STORE, entry, options); }
+  function getAllConditionals(options) { return getAllEntries(CONDITIONALS_STORE, options); }
+  function deleteConditionals(word, options) { return deleteEntry(CONDITIONALS_STORE, word, options); }
 
   /* ---------- familyEntries (Owner-added Word Family entries) ----------
      Same generic { key, entry } shape as customVerbs/the six grammar-rule
@@ -807,6 +815,10 @@
     putTenseMastery: putTenseMastery,
     getAllTenseMastery: getAllTenseMastery,
     deleteTenseMastery: deleteTenseMastery,
+    getConditionals: getConditionals,
+    putConditionals: putConditionals,
+    getAllConditionals: getAllConditionals,
+    deleteConditionals: deleteConditionals,
     FAMILY_STORE: FAMILY_STORE,
     getFamily: getFamily,
     putFamily: putFamily,

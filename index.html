@@ -1829,6 +1829,7 @@
         <button data-val="modals">Modal Verbs</button>
         <button data-val="tenses">Tenses</button>
         <button data-val="tenseMastery">Tense Mastery</button>
+        <button data-val="conditionals">Conditionals</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2021,6 +2022,34 @@
           <input type="text" id="tenseMasteryManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="tenseMasteryManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="tenseMasteryManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-conditionals" style="display:none;">
+      <div class="controls">
+        <select id="conditionalsSelect"></select>
+        <button class="nav-btn" data-target="conditionalsSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="conditionalsSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="conditionalsEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="conditionalsSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="conditionalsSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="conditionalsAddBox">
+        <div class="section-label">➕ Add a Conditionals rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Second Conditional for hedging"), then add your own explanation and an example below.</p>
+        <input type="text" id="conditionalsAddInput" placeholder="Rule name (e.g. Third Conditional for regrets)" autocomplete="off">
+        <button id="conditionalsAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="conditionalsAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="conditionalsManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="conditionalsManualWord"></strong>":</p>
+          <textarea id="conditionalsManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="conditionalsManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="conditionalsManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="conditionalsManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5424,6 +5453,41 @@ const tenseMasteryData = [
       {use:"'Going to' is for a plan or intention decided before now, or a prediction based on present evidence.", examples:["We<b>'re going to</b> replace the motor next week. (already decided)","Look at those clouds — it<b>'s going to</b> rain."]},
       {use:"Present Continuous is for a fixed arrangement — something already scheduled, often with a time or date.", examples:["I<b>'m meeting</b> the client at 3 PM tomorrow."]}
     ], mistake:null}
+];
+
+/* =========================================================
+   DATA — CONDITIONALS (Zero through Third, mixed, and the
+   formal register a 6.0+ writer needs for IELTS/Cambridge
+   Task 2 and technical reports)
+========================================================= */
+const conditionalsData = [
+  {w:"Zero Conditional: General Truths & Facts", senses:[
+      {use:"If + present simple, present simple result — for things that are always true: scientific facts, routines, automatic system behavior.", examples:["If you <b>heat</b> metal, it <b>expands</b>.","If the pressure <b>drops</b> below 2 bar, the alarm <b>sounds</b>."]},
+      {use:"'If' and 'when' are interchangeable here, because the result isn't hypothetical — it always happens.", examples:["<b>When/If</b> the sensor <b>detects</b> smoke, the sprinklers <b>activate</b>."]}
+    ], mistake:null},
+  {w:"First Conditional: Real Future Possibility", senses:[
+      {use:"If + present simple, will + base form — for a realistic future situation and its likely result.", examples:["If the reading <b>exceeds</b> the limit, we <b>will shut down</b> the system.","If it <b>rains</b> tomorrow, the inspection <b>will be</b> postponed."]},
+      {use:"Modals like 'can', 'may', or 'should' can replace 'will' in the result clause for permission, possibility, or advice instead of a flat prediction.", examples:["If the test passes, you <b>may proceed</b> to the next phase.","If the noise continues, you <b>should report</b> it."]}
+    ], mistake:"Never use 'will' inside the if-clause itself — 'If it will rain tomorrow' is wrong. The future meaning already belongs in the result clause: 'If it rains tomorrow, it will...'."},
+  {w:"Second Conditional: Unreal Present/Future", senses:[
+      {use:"If + past simple, would + base form — for a hypothetical or unlikely present/future situation, not a real plan.", examples:["If I <b>had</b> more time, I <b>would redesign</b> the whole layout.","If the budget <b>were</b> bigger, we <b>could hire</b> two more engineers."]},
+      {use:"In formal writing, 'were' is used for every subject (I/he/she/it), not 'was' — 'If I were you' is the standard form, even though 'was' is common in casual speech.", examples:["If I <b>were</b> the site manager, I would enforce stricter safety checks."]}
+    ], mistake:"Don't confuse this with the First Conditional just because the situation feels 'possible' to you — the Second Conditional signals that the speaker sees it as unlikely or purely hypothetical right now, which is a deliberate stylistic choice in writing, not a factual claim about probability."},
+  {w:"Third Conditional: Unreal Past (Regret / Different Result)", senses:[
+      {use:"If + past perfect, would have + past participle — for a past situation that did NOT happen, and its hypothetical result.", examples:["If we <b>had inspected</b> the valve sooner, we <b>would have prevented</b> the failure.","If she <b>hadn't left</b> early, she <b>would have caught</b> the error."]}
+    ], mistake:"Never put 'would have' inside the if-clause — 'If we would have inspected it sooner' is a very common error. 'Would have' only ever belongs in the result clause; the if-clause always stays in the past perfect (had + past participle)."},
+  {w:"Mixed Conditionals: Combining Time Frames", senses:[
+      {use:"Past condition, present result: if + past perfect, would + base form — a past event explains a present state.", examples:["If I <b>had studied</b> engineering, I <b>would be working</b> on-site now.","If he <b>hadn't missed</b> that training, he <b>would understand</b> the procedure today."]},
+      {use:"Present condition, past result: if + past simple, would have + past participle — an ongoing trait or state explains a past event.", examples:["If she <b>weren't</b> so cautious by nature, she <b>wouldn't have hesitated</b> during the drill.","If he <b>didn't care</b> about safety, he <b>wouldn't have reported</b> the leak."]}
+    ], mistake:"This is where advanced writers gain real marks — showing you can link a past cause to a present consequence (or vice versa) instead of forcing every conditional into a single, matching time frame."},
+  {w:"Alternatives to 'If': Unless, Provided That, As Long As, In Case", senses:[
+      {use:"'Unless' means 'if not' — it already contains the negative, so never add 'not' again in the same clause.", examples:["<b>Unless</b> the pressure is released, the tank could rupture. (= if the pressure is NOT released)","You won't pass <b>unless</b> you complete every checklist item."]},
+      {use:"'Provided that' and 'as long as' both mean 'only if' — common in formal writing for stating a strict condition.", examples:["You may proceed <b>provided that</b> all safety checks are complete.","The design is sound <b>as long as</b> the load stays within spec."]},
+      {use:"'In case' prepares for a possible future event — it's about precaution, not a direct if-then result.", examples:["Keep a spare fuse <b>in case</b> the original one blows."]}
+    ], mistake:"'Unless you don't finish the report, you can't leave' is a double negative — since 'unless' already means 'if not', adding another 'not' reverses the intended meaning."},
+  {w:"Formal Inversion: Were / Had / Should Instead of 'If'", senses:[
+      {use:"Dropping 'if' and inverting the subject and auxiliary is a formal, written-register alternative — common in IELTS Writing Task 2 and technical reports.", examples:["<b>Were</b> the system to fail, backup power would engage. (= If the system were to fail...)","<b>Had</b> we known earlier, we could have avoided the delay. (= If we had known earlier...)","<b>Should</b> any issue arise, contact the supervisor immediately. (= If any issue should arise...)"]}
+    ], mistake:"Reserve inversion for formal writing and use it sparingly — stacking several inverted conditionals in a row reads as stiff and unnatural, even though each one is grammatically correct on its own."}
 ];
 
 /* =========================================================
@@ -37604,6 +37668,7 @@ setupRuleModule(mistakeData, "mistakeSelect", "mistakeEntry", "Sentence Error");
 setupRuleModule(qaData, "qaSelect", "qaEntry", "Question Starter", "qa");
 setupRuleModule(partsOfSpeechData, "posSelect", "posEntry", "Part of Speech", "pos");
 setupRuleModule(tenseMasteryData, "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
+setupRuleModule(conditionalsData, "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40256,6 +40321,7 @@ indexCourseCategoryRuleModule(modalData, "Modal verb", "modalSelect", "modalEntr
 indexCourseCategoryRuleModule(orderData, "Word order", "orderSelect", "orderEntry", "Word Order Pattern", "order");
 indexCourseCategoryRuleModule(articleData, "Article rule", "articleSelect", "articleEntry", "Article Rule", "articles");
 indexCourseCategoryRuleModule(tenseMasteryData, "Tense mastery", "tenseMasterySelect", "tenseMasteryEntry", "Tense Mastery Rule", "tenseMastery");
+indexCourseCategoryRuleModule(conditionalsData, "Conditionals", "conditionalsSelect", "conditionalsEntry", "Conditionals Rule", "conditionals");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41091,7 +41157,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41295,19 +41361,32 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "tenseMasteryManualUse", manualExampleId: "tenseMasteryManualExample",
     manualSaveBtnId: "tenseMasteryManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "tenseMasteryManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("tenseMastery"); }
+  },
+  conditionals: {
+    data: conditionalsData, selectId: "conditionalsSelect", entryId: "conditionalsEntry", tagLabel: "Conditionals Rule",
+    inputId: "conditionalsAddInput", btnId: "conditionalsAddBtn", statusId: "conditionalsAddStatus", inputNoun: "a conditionals rule",
+    putFn: function(entry, opts){ return VocabCache.putConditionals(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllConditionals(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteConditionals(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "conditionalsManualBox", manualWordId: "conditionalsManualWord",
+    manualUseId: "conditionalsManualUse", manualExampleId: "conditionalsManualExample",
+    manualSaveBtnId: "conditionalsManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "conditionalsManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("conditionals"); }
   }
 };
 
-// The 8 standalone grammar-rule categories above, kept as their own list
+// The 9 standalone grammar-rule categories above, kept as their own list
 // (mirroring LANGUAGE_BANK_CATEGORIES) so restore-on-load, add-button
 // wiring, and owner-mode re-render loops can iterate just these — never
 // merged into LANGUAGE_BANK_CATEGORIES itself, which drives the
 // Language Bank tab's own category switcher and Firestore sync payload.
-// "pos" (Parts of Speech) and "tenseMastery" (Tense Mastery) are the
-// Course tab's own local lesson categories — same generic machinery as
-// the others, just surfaced inside the Course tab's category switcher
-// instead of getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery"];
+// "pos" (Parts of Speech), "tenseMastery" (Tense Mastery), and
+// "conditionals" (Conditionals) are the Course tab's own local lesson
+// categories — same generic machinery as the others, just surfaced
+// inside the Course tab's category switcher instead of getting their
+// own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42351,7 +42430,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Verb + Preposition", data: prepVerbData },
     { cat: "Preposition", data: prepData },
     { cat: "Part of Speech", data: partsOfSpeechData },
-    { cat: "Tense Mastery Rule", data: tenseMasteryData }
+    { cat: "Tense Mastery Rule", data: tenseMasteryData },
+    { cat: "Conditionals Rule", data: conditionalsData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45185,6 +45265,7 @@ renderRuleEntry(mistakeData.find(x=>x.w===document.getElementById("mistakeSelect
 renderRuleEntry(qaData.find(x=>x.w===document.getElementById("qaSelect").value), document.getElementById("qaEntry"), "Question Starter");
 renderRuleEntry(partsOfSpeechData.find(x=>x.w===document.getElementById("posSelect").value), document.getElementById("posEntry"), "Part of Speech", "pos");
 renderRuleEntry(tenseMasteryData.find(x=>x.w===document.getElementById("tenseMasterySelect").value), document.getElementById("tenseMasteryEntry"), "Tense Mastery Rule", "tenseMastery");
+renderRuleEntry(conditionalsData.find(x=>x.w===document.getElementById("conditionalsSelect").value), document.getElementById("conditionalsEntry"), "Conditionals Rule", "conditionals");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47330,7 +47411,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,

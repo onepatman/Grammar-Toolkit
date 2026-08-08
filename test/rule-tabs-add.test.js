@@ -174,6 +174,14 @@ describe.each([
     manualUseId: "tenseMasteryManualUse", manualExampleId: "tenseMasteryManualExample",
     manualSaveBtnId: "tenseMasteryManualSaveBtn", manualCancelBtnId: "tenseMasteryManualCancelBtn",
     courseCategory: "tenseMastery"
+  },
+  {
+    key: "conditionals", label: "Conditionals", inputId: "conditionalsAddInput", btnId: "conditionalsAddBtn",
+    statusId: "conditionalsAddStatus", dataKey: "conditionalsData", entryId: "conditionalsEntry",
+    builtIn: "Zero Conditional: General Truths & Facts", manualBoxId: "conditionalsManualBox", manualWordId: "conditionalsManualWord",
+    manualUseId: "conditionalsManualUse", manualExampleId: "conditionalsManualExample",
+    manualSaveBtnId: "conditionalsManualSaveBtn", manualCancelBtnId: "conditionalsManualCancelBtn",
+    courseCategory: "conditionals"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
