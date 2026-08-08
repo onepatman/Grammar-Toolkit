@@ -1,23 +1,25 @@
 // Integration tests for the Course tab (structured Intermediate ->
 // Advanced lessons, IELTS/Cambridge-style). A single category switcher
-// hosts eleven nested categories — Parts of Speech, Modal Verbs,
+// hosts twelve nested categories — Parts of Speech, Modal Verbs,
 // Tenses, Tense Mastery, Conditionals, Active/Passive Voice, Reported
-// Speech, Relative Clauses, Prepositions, Word Order, and Articles —
-// all living inside panel-course as .course-category divs (mirroring
-// Language Bank's own category-switcher pattern; the chip row scrolls
-// horizontally past 5 categories, same treatment as Word Bank's own
-// category seg). Modal Verbs/Tenses/Prepositions/Word Order/Articles
-// used to be separate top-level tabs that a chip merely linked out to;
-// they're merged in here now, so nothing redundant is left outside the
-// Course tab, and their old panel-modals/panel-tenses/panel-preps/
-// panel-order/panel-articles sections and thumb-tab buttons no longer
-// exist. Tense Mastery, Conditionals, Active/Passive Voice, Reported
-// Speech, and Relative Clauses are brand-new — none of them ever had a
-// standalone tab. Their own add/edit/delete/CRUD behavior is still
-// covered by test/rule-tabs-add.test.js and test/tenses-add.test.js —
-// this file focuses on the Course tab shell/category-switcher, Parts
-// of Speech, Tense Mastery, Conditionals, Active/Passive Voice,
-// Reported Speech, and Relative Clauses content.
+// Speech, Relative Clauses, Complex Sentence Building, Prepositions,
+// Word Order, and Articles — all living inside panel-course as
+// .course-category divs (mirroring Language Bank's own category-
+// switcher pattern; the chip row scrolls horizontally past 5
+// categories, same treatment as Word Bank's own category seg). Modal
+// Verbs/Tenses/Prepositions/Word Order/Articles used to be separate
+// top-level tabs that a chip merely linked out to; they're merged in
+// here now, so nothing redundant is left outside the Course tab, and
+// their old panel-modals/panel-tenses/panel-preps/panel-order/
+// panel-articles sections and thumb-tab buttons no longer exist. Tense
+// Mastery, Conditionals, Active/Passive Voice, Reported Speech,
+// Relative Clauses, and Complex Sentence Building are brand-new — none
+// of them ever had a standalone tab. Their own add/edit/delete/CRUD
+// behavior is still covered by test/rule-tabs-add.test.js and
+// test/tenses-add.test.js — this file focuses on the Course tab
+// shell/category-switcher, Parts of Speech, Tense Mastery,
+// Conditionals, Active/Passive Voice, Reported Speech, Relative
+// Clauses, and Complex Sentence Building content.
 // Loads the real index.html in jsdom and dispatches real DOM
 // interactions, same as every other integration test in this repo.
 import { describe, it, expect } from "vitest";
@@ -53,6 +55,7 @@ describe("Course tab — shell and category switcher", () => {
     ["activePassive", "activePassiveSelect", "When to Use Passive Voice"],
     ["reportedSpeech", "reportedSpeechSelect", "Backshift: Present to Past in Reported Statements"],
     ["relativeClauses", "relativeClausesSelect", "Defining vs Non-Defining Relative Clauses"],
+    ["complexSentences", "complexSentencesSelect", "Sentence Types: Simple, Compound, Complex, Compound-Complex"],
     ["preps", "prepSelect", "at"],
     ["order", "orderSelect", "adverb placement"],
     ["articles", "articleSelect", "a"]
@@ -559,6 +562,77 @@ describe("Course tab — Relative Clauses (defining/non-defining, pronoun choice
   });
 });
 
+describe("Course tab — Complex Sentence Building (sentence types, joining clauses, run-ons/fragments, IELTS balance)", () => {
+  it("covers sentence types, coordinating vs subordinating conjunctions, clause order, combining, run-ons/comma splices, fragments, and balance for IELTS", async () => {
+    const { hooks } = await loadApp();
+    const words = hooks.complexSentencesData.map((c) => c.w);
+    expect(words).toEqual(expect.arrayContaining([
+      "Sentence Types: Simple, Compound, Complex, Compound-Complex",
+      "Coordinating vs Subordinating Conjunctions",
+      "Clause Order: Subordinate Clause First vs Second",
+      "Combining Short Sentences for Variety",
+      "Avoiding Run-on Sentences and Comma Splices",
+      "Avoiding Sentence Fragments",
+      "Balancing Sentence Complexity for IELTS Writing Task 2"
+    ]));
+  });
+
+  it("the IELTS balance lesson warns against chasing complexity for its own sake", async () => {
+    const { hooks } = await loadApp();
+    const lesson = hooks.complexSentencesData.find((c) => c.w === "Balancing Sentence Complexity for IELTS Writing Task 2");
+    expect(lesson.mistake).toMatch(/complexity for its own sake/i);
+  });
+
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById("complexSentencesAddBtn").click();
+    await wait(10);
+    expect(document.getElementById("complexSentencesAddStatus").textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById("complexSentencesAddInput").value = "Correlative conjunctions";
+    document.getElementById("complexSentencesAddBtn").click();
+    await wait(30);
+    expect(document.getElementById("complexSentencesAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.complexSentencesData.some((c) => c.w === "Correlative conjunctions")).toBe(false);
+  });
+
+  it("saves a manually-typed rule, persists it, and activates the Course tab + Complex Sentences category", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("complexSentencesAddInput").value = "Correlative conjunctions";
+    document.getElementById("complexSentencesAddBtn").click();
+    await wait(30);
+
+    document.getElementById("complexSentencesManualUse").value = "Pairs like 'not only...but also' and 'either...or' link two balanced parts of a sentence.";
+    document.getElementById("complexSentencesManualExample").value = "Not only did the pump fail, but also the backup generator stalled.";
+    document.getElementById("complexSentencesManualSaveBtn").click();
+    await wait(30);
+
+    expect(hooks.complexSentencesData.some((c) => c.w === "Correlative conjunctions")).toBe(true);
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="complexSentences"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("complexSentencesEntry").querySelector(".headword").textContent).toBe("Correlative conjunctions");
+    expect(document.getElementById("complexSentencesEntry").querySelector(".lb-edit-btn")).not.toBeNull();
+  });
+
+  it("a built-in lesson (no source field) never gets Edit/Delete buttons", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("complexSentencesSelect").value = "Sentence Types: Simple, Compound, Complex, Compound-Complex";
+    hooks.renderRuleEntry(
+      hooks.complexSentencesData.find((c) => c.w === "Sentence Types: Simple, Compound, Complex, Compound-Complex"),
+      document.getElementById("complexSentencesEntry"), "Complex Sentences Rule", "complexSentences"
+    );
+    expect(document.getElementById("complexSentencesEntry").querySelector(".lb-edit-btn")).toBeNull();
+  });
+});
+
 describe("Course tab — global search integration", () => {
   it("indexes every Parts of Speech lesson under the Course tab", async () => {
     const { hooks } = await loadApp();
@@ -659,6 +733,23 @@ describe("Course tab — global search integration", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
     expect(document.querySelector('#courseCategorySeg button[data-val="relativeClauses"]').classList.contains("active")).toBe(true);
     expect(document.getElementById("relativeClausesEntry").querySelector(".headword").textContent).toBe("Omitting the Relative Pronoun (Object Relative Clauses)");
+  });
+
+  it("indexes every Complex Sentences lesson under the Course tab", async () => {
+    const { hooks } = await loadApp();
+    const hit = hooks.searchIndex.find((item) => item.label === "Sentence Types: Simple, Compound, Complex, Compound-Complex" && item.cat === "Complex sentences");
+    expect(hit).toBeDefined();
+  });
+
+  it("clicking a Complex Sentences search result opens the Course tab with the right lesson selected", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const hit = hooks.searchIndex.find((item) => item.label === "Avoiding Run-on Sentences and Comma Splices" && item.cat === "Complex sentences");
+    hit.action();
+
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("course");
+    expect(document.querySelector('#courseCategorySeg button[data-val="complexSentences"]').classList.contains("active")).toBe(true);
+    expect(document.getElementById("complexSentencesEntry").querySelector(".headword").textContent).toBe("Avoiding Run-on Sentences and Comma Splices");
   });
 });
 

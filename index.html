@@ -1833,6 +1833,7 @@
         <button data-val="activePassive">Active/Passive Voice</button>
         <button data-val="reportedSpeech">Reported Speech</button>
         <button data-val="relativeClauses">Relative Clauses</button>
+        <button data-val="complexSentences">Complex Sentences</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2137,6 +2138,34 @@
           <input type="text" id="relativeClausesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="relativeClausesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="relativeClausesManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-complexSentences" style="display:none;">
+      <div class="controls">
+        <select id="complexSentencesSelect"></select>
+        <button class="nav-btn" data-target="complexSentencesSelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="complexSentencesSelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="complexSentencesEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="complexSentencesSelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="complexSentencesSelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="complexSentencesAddBox">
+        <div class="section-label">➕ Add a Complex Sentences rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Correlative conjunctions"), then add your own explanation and an example below.</p>
+        <input type="text" id="complexSentencesAddInput" placeholder="Rule name (e.g. Nested subordinate clauses)" autocomplete="off">
+        <button id="complexSentencesAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="complexSentencesAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="complexSentencesManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="complexSentencesManualWord"></strong>":</p>
+          <textarea id="complexSentencesManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="complexSentencesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="complexSentencesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="complexSentencesManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5677,6 +5706,41 @@ const relativeClausesData = [
       {use:"Adding a redundant pronoun after the relative clause, repeating the subject the clause already refers to.", examples:["Wrong: The technician who inspected the valve <b>he</b> found a crack. -> Correct: The technician who inspected the valve found a crack."]},
       {use:"Using 'that' in a non-defining (comma-separated) clause — 'that' is reserved for defining clauses only.", examples:["Wrong: The report, <b>that</b> was submitted late, caused delays. -> Correct: The report, <b>which</b> was submitted late, caused delays."]}
     ], mistake:null}
+];
+
+/* =========================================================
+   DATA — COMPLEX SENTENCE BUILDING (sentence types, joining
+   clauses correctly, avoiding run-ons/fragments, and
+   balancing complexity for a genuinely higher IELTS band —
+   not just longer sentences)
+========================================================= */
+const complexSentencesData = [
+  {w:"Sentence Types: Simple, Compound, Complex, Compound-Complex", senses:[
+      {use:"A simple sentence has one independent clause. A compound sentence joins two independent clauses (coordinating conjunction or semicolon).", examples:["Simple: The pump failed.","Compound: The pump failed, <b>and</b> production stopped."]},
+      {use:"A complex sentence joins an independent clause with at least one dependent clause. A compound-complex sentence combines both patterns.", examples:["Complex: <b>Because the pump failed</b>, production stopped.","Compound-complex: <b>Because the pump failed</b>, production stopped, <b>and</b> the client was notified immediately."]}
+    ], mistake:null},
+  {w:"Coordinating vs Subordinating Conjunctions", senses:[
+      {use:"Coordinating conjunctions (FANBOYS: for, and, nor, but, or, yet, so) join two independent clauses of EQUAL weight — both could stand alone.", examples:["The design was solid, <b>but</b> the budget was insufficient."]},
+      {use:"Subordinating conjunctions (because, although, since, while, whereas, if, when) attach a dependent clause that CANNOT stand alone to an independent clause.", examples:["<b>Although</b> the design was solid, the budget was insufficient."]}
+    ], mistake:"Punctuation differs by type — a comma goes BEFORE a coordinating conjunction joining two independent clauses, but placement with a subordinating conjunction depends on clause order (see the next lesson)."},
+  {w:"Clause Order: Subordinate Clause First vs Second", senses:[
+      {use:"When the subordinate clause comes FIRST, it's followed by a comma before the main clause.", examples:["<b>Although the budget was tight</b>, the team delivered on time."]},
+      {use:"When the subordinate clause comes SECOND (after the main clause), no comma is needed in most cases.", examples:["The team delivered on time <b>although the budget was tight</b>."]}
+    ], mistake:"Adding a comma before a subordinating conjunction that comes mid-sentence ('The team delivered on time, although the budget was tight') is unnecessary in standard usage, though some style guides tolerate it for contrast."},
+  {w:"Combining Short Sentences for Variety", senses:[
+      {use:"A string of short, simple sentences in a row reads as choppy and unsophisticated — combine related ideas using conjunctions, relative clauses, or participle phrases.", examples:["Choppy: The engineer inspected the site. She found a crack. She filed a report. -> Combined: <b>After inspecting the site and finding a crack</b>, the engineer filed a report."]}
+    ], mistake:null},
+  {w:"Avoiding Run-on Sentences and Comma Splices", senses:[
+      {use:"A run-on sentence joins two independent clauses with no punctuation or connector at all.", examples:["Wrong: The report was late the client complained. -> Correct: The report was late, <b>so</b> the client complained."]},
+      {use:"A comma splice joins two independent clauses with just a comma — a comma alone is never strong enough to join two complete sentences.", examples:["Wrong: The report was late, the client complained. -> Correct: The report was late<b>;</b> the client complained. (or add a coordinating conjunction)"]}
+    ], mistake:"Both errors come from the same root cause: treating a comma as if it has the joining power of a period, semicolon, or conjunction — it doesn't."},
+  {w:"Avoiding Sentence Fragments", senses:[
+      {use:"A fragment is a dependent clause or incomplete thought punctuated as if it were a full sentence — it's missing an independent clause to attach to.", examples:["Wrong: Because the pump failed. -> Correct: Because the pump failed, production stopped."]}
+    ], mistake:"Fragments often slip in during editing, when a writer splits one long sentence into two and forgets that the second half started with a subordinating conjunction — always check that every 'sentence' has a complete, independent thought."},
+  {w:"Balancing Sentence Complexity for IELTS Writing Task 2", senses:[
+      {use:"Band 7+ grammatical range comes from a genuine MIX of simple, compound, and complex sentences — not from maximizing complexity in every sentence.", examples:["A short simple sentence after a long complex one can emphasize a point effectively: 'Although the evidence is mixed, one trend is undeniable: costs are rising.'"]},
+      {use:"An overly long sentence stacking multiple subordinate clauses often becomes harder to follow, which actually hurts a coherence/clarity score even if the grammar is technically correct.", examples:["Overloaded: Although the results, which were collected over several months and reviewed by multiple engineers who had varying levels of experience, suggested improvement, the client remained skeptical because previous reports had also claimed progress. (hard to follow — better split into two sentences)"]}
+    ], mistake:"Chasing complexity for its own sake — stacking clause after clause — often reads as trying too hard rather than as genuinely advanced writing; controlled variety beats maximal complexity."}
 ];
 
 /* =========================================================
@@ -37861,6 +37925,7 @@ setupRuleModule(conditionalsData, "conditionalsSelect", "conditionalsEntry", "Co
 setupRuleModule(activePassiveData, "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
 setupRuleModule(reportedSpeechData, "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
 setupRuleModule(relativeClausesData, "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
+setupRuleModule(complexSentencesData, "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40517,6 +40582,7 @@ indexCourseCategoryRuleModule(conditionalsData, "Conditionals", "conditionalsSel
 indexCourseCategoryRuleModule(activePassiveData, "Active/passive voice", "activePassiveSelect", "activePassiveEntry", "Active/Passive Voice Rule", "activePassive");
 indexCourseCategoryRuleModule(reportedSpeechData, "Reported speech", "reportedSpeechSelect", "reportedSpeechEntry", "Reported Speech Rule", "reportedSpeech");
 indexCourseCategoryRuleModule(relativeClausesData, "Relative clauses", "relativeClausesSelect", "relativeClausesEntry", "Relative Clauses Rule", "relativeClauses");
+indexCourseCategoryRuleModule(complexSentencesData, "Complex sentences", "complexSentencesSelect", "complexSentencesEntry", "Complex Sentences Rule", "complexSentences");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41352,7 +41418,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41604,6 +41670,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "relativeClausesManualUse", manualExampleId: "relativeClausesManualExample",
     manualSaveBtnId: "relativeClausesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "relativeClausesManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("relativeClauses"); }
+  },
+  complexSentences: {
+    data: complexSentencesData, selectId: "complexSentencesSelect", entryId: "complexSentencesEntry", tagLabel: "Complex Sentences Rule",
+    inputId: "complexSentencesAddInput", btnId: "complexSentencesAddBtn", statusId: "complexSentencesAddStatus", inputNoun: "a complex sentences rule",
+    putFn: function(entry, opts){ return VocabCache.putComplexSentences(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllComplexSentences(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteComplexSentences(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "complexSentencesManualBox", manualWordId: "complexSentencesManualWord",
+    manualUseId: "complexSentencesManualUse", manualExampleId: "complexSentencesManualExample",
+    manualSaveBtnId: "complexSentencesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "complexSentencesManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("complexSentences"); }
   }
 };
 
@@ -41614,12 +41692,13 @@ const LANGUAGE_BANK_CONFIG = {
 // drives the Language Bank tab's own category switcher and Firestore
 // sync payload. "pos" (Parts of Speech), "tenseMastery" (Tense
 // Mastery), "conditionals" (Conditionals), "activePassive"
-// (Active/Passive Voice), "reportedSpeech" (Reported Speech), and
-// "relativeClauses" (Relative Clauses) are the Course tab's own local
-// lesson categories — same generic machinery as the others, just
-// surfaced inside the Course tab's category switcher instead of
-// getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses"];
+// (Active/Passive Voice), "reportedSpeech" (Reported Speech),
+// "relativeClauses" (Relative Clauses), and "complexSentences"
+// (Complex Sentence Building) are the Course tab's own local lesson
+// categories — same generic machinery as the others, just surfaced
+// inside the Course tab's category switcher instead of getting their
+// own top-level tab.
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -42667,7 +42746,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Conditionals Rule", data: conditionalsData },
     { cat: "Active/Passive Voice Rule", data: activePassiveData },
     { cat: "Reported Speech Rule", data: reportedSpeechData },
-    { cat: "Relative Clauses Rule", data: relativeClausesData }
+    { cat: "Relative Clauses Rule", data: relativeClausesData },
+    { cat: "Complex Sentences Rule", data: complexSentencesData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45505,6 +45585,7 @@ renderRuleEntry(conditionalsData.find(x=>x.w===document.getElementById("conditio
 renderRuleEntry(activePassiveData.find(x=>x.w===document.getElementById("activePassiveSelect").value), document.getElementById("activePassiveEntry"), "Active/Passive Voice Rule", "activePassive");
 renderRuleEntry(reportedSpeechData.find(x=>x.w===document.getElementById("reportedSpeechSelect").value), document.getElementById("reportedSpeechEntry"), "Reported Speech Rule", "reportedSpeech");
 renderRuleEntry(relativeClausesData.find(x=>x.w===document.getElementById("relativeClausesSelect").value), document.getElementById("relativeClausesEntry"), "Relative Clauses Rule", "relativeClauses");
+renderRuleEntry(complexSentencesData.find(x=>x.w===document.getElementById("complexSentencesSelect").value), document.getElementById("complexSentencesEntry"), "Complex Sentences Rule", "complexSentences");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -47650,7 +47731,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
