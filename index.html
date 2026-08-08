@@ -579,6 +579,22 @@
      label, and a wrong/why/correct row per issue LanguageTool found —
      see js/grammar-check.js and renderJournalCardHtml). */
   .journal-word-count{ font-size:11.5px; color:var(--ink-soft); margin:-2px 0 8px; text-align:right; }
+
+  .self-check-box{
+    border:1px solid var(--rule); border-radius:var(--radius); background:var(--card);
+    padding:12px 14px; margin-bottom:14px;
+  }
+  .self-check-toggle{
+    display:flex; align-items:center; justify-content:space-between; width:100%;
+    background:none; border:none; padding:0; cursor:pointer; font:inherit; color:inherit;
+  }
+  .self-check-progress{ font-size:12.5px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; }
+  .self-check-list{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+  .self-check-item{ display:flex; align-items:flex-start; gap:8px; font-size:13.5px; color:var(--ink); cursor:pointer; }
+  .self-check-item input[type="checkbox"]{ margin-top:2px; width:16px; height:16px; flex-shrink:0; }
+  .self-check-item.checked{ color:var(--ink-soft); text-decoration:line-through; }
+  .self-check-box.collapsed .self-check-list,
+  .self-check-box.collapsed #selfCheckResetBtn{ display:none; }
   .journal-card{
     border:1px solid var(--rule); border-radius:var(--radius);
     background:var(--card); padding:12px 14px;
@@ -1827,6 +1843,15 @@
   <!-- ===== ENGLISH JOURNAL PANEL ===== -->
   <section id="panel-journal" style="display:none;">
     <p class="note" style="margin-bottom:10px;">Practice writing in English. Save an entry and it's automatically checked for grammar — your score, and any corrections with a plain explanation of why, appear right below it. Unlimited entries.</p>
+
+    <div class="self-check-box owner-only" id="selfCheckBox">
+      <button class="self-check-toggle" id="selfCheckToggleBtn" aria-expanded="true">
+        <span class="section-label" style="margin:0;">✅ Pre-Submission Self-Check</span>
+        <span id="selfCheckProgress" class="self-check-progress"></span>
+      </button>
+      <div id="selfCheckList" class="self-check-list"></div>
+      <button class="add-btn secondary" id="selfCheckResetBtn" style="margin-top:8px;">↺ Reset checklist</button>
+    </div>
 
     <div class="quick-add-box owner-only" id="journalAddBox">
       <div class="section-label">🖊️ Write a new journal entry</div>
@@ -39121,6 +39146,79 @@ document.getElementById("notesList").addEventListener("click", async (e)=>{
    shows up wherever the Owner already reviews grammar mistakes,
    instead of living only inside this one tab.
 ========================================================= */
+/* =========================================================
+   SELF-CHECK CHECKLIST — a fixed IELTS/Cambridge-style
+   pre-submission checklist shown in the Journal tab, right where a
+   learner is about to save a piece of writing. Local-only, like the
+   Favorites Summary "reviewed" set above (FAVORITES_REVIEWED_KEY):
+   this is a personal writing habit, not content to sync across
+   devices. Checked state is intentionally NOT tied to a specific
+   journal entry — it's a reusable checklist that resets automatically
+   once an entry is saved, so it's always ready for the next one.
+========================================================= */
+const SELF_CHECK_ITEMS = [
+  "Does my writing directly answer every part of the question/prompt?",
+  "Did I paraphrase the question in my own words instead of copying it?",
+  "Does each paragraph have ONE clear main idea, explained and backed by an example?",
+  "Did I use a variety of cohesive devices (not just 'and'/'but' every time)?",
+  "Did I check subject-verb agreement throughout?",
+  "Did I check article usage (a / an / the) on every noun that needs one?",
+  "Did I mix simple, compound, and complex sentences instead of only one type?",
+  "Did I proofread for spelling and punctuation before saving?"
+];
+
+const SELF_CHECK_STATE_KEY = "mepf_toolkit_selfcheck_state";
+
+function getSelfCheckState(){
+  try {
+    const raw = localStorage.getItem(SELF_CHECK_STATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return SELF_CHECK_ITEMS.map((_, i)=> !!parsed[i]);
+  } catch(e){ return SELF_CHECK_ITEMS.map(()=> false); }
+}
+
+function saveSelfCheckState(state){
+  try { localStorage.setItem(SELF_CHECK_STATE_KEY, JSON.stringify(state)); } catch(e){ /* private mode etc. */ }
+}
+
+function renderSelfCheckChecklist(){
+  const listEl = document.getElementById("selfCheckList");
+  const progressEl = document.getElementById("selfCheckProgress");
+  if(!listEl) return;
+  const state = getSelfCheckState();
+  const checkedCount = state.filter(Boolean).length;
+  listEl.innerHTML = SELF_CHECK_ITEMS.map((item, i)=> `
+    <label class="self-check-item${state[i] ? " checked" : ""}">
+      <input type="checkbox" data-index="${i}" ${state[i] ? "checked" : ""}>
+      <span>${item}</span>
+    </label>
+  `).join("");
+  if(progressEl) progressEl.textContent = `${checkedCount}/${SELF_CHECK_ITEMS.length}`;
+}
+
+document.getElementById("selfCheckList").addEventListener("change", (e)=>{
+  const checkbox = e.target.closest('input[type="checkbox"]');
+  if(!checkbox) return;
+  const index = Number(checkbox.dataset.index);
+  const state = getSelfCheckState();
+  state[index] = checkbox.checked;
+  saveSelfCheckState(state);
+  renderSelfCheckChecklist();
+});
+
+document.getElementById("selfCheckResetBtn").addEventListener("click", ()=>{
+  saveSelfCheckState(SELF_CHECK_ITEMS.map(()=> false));
+  renderSelfCheckChecklist();
+});
+
+document.getElementById("selfCheckToggleBtn").addEventListener("click", ()=>{
+  const box = document.getElementById("selfCheckBox");
+  const collapsed = box.classList.toggle("collapsed");
+  document.getElementById("selfCheckToggleBtn").setAttribute("aria-expanded", collapsed ? "false" : "true");
+});
+
+renderSelfCheckChecklist();
+
 let journalData = [];
 let journalSearchQuery = "";
 
@@ -39472,6 +39570,8 @@ document.getElementById("journalSaveBtn").addEventListener("click", async ()=>{
   }
   renderJournalTab();
   gradeJournalEntry(saved.id);
+  saveSelfCheckState(SELF_CHECK_ITEMS.map(()=> false));
+  renderSelfCheckChecklist();
 });
 bindEnterToClick("journalTitleInput", "journalSaveBtn");
 
@@ -48358,6 +48458,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   journalCacheRestorePromise, generateJournalId, gradeJournalEntry,
   resumeIncompleteJournalGrading,
   addJournalCorrectionsToFixes, formatJournalTimestamp,
+  SELF_CHECK_ITEMS, getSelfCheckState, saveSelfCheckState, renderSelfCheckChecklist,
   getJournalSearchQuery: ()=> journalSearchQuery,
   setJournalSearchQuery: (v)=>{ journalSearchQuery = v; },
   renderDashboardTab, collectDashboardAddedEntries, bucketTimestampsByWeek,

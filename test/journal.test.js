@@ -605,3 +605,97 @@ describe("English Journal tab — layout consistency (search box and Edit form m
     expect(window.getComputedStyle(editCard.querySelector(".journal-edit-body")).width).toBe("100%");
   });
 });
+
+describe("Self-Check Checklist — IELTS-style pre-submission checklist in the Journal tab", () => {
+  it("renders every checklist item, unchecked, with 0/N progress", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await openJournalTab(document);
+
+    const items = document.querySelectorAll("#selfCheckList .self-check-item");
+    expect(items).toHaveLength(hooks.SELF_CHECK_ITEMS.length);
+    expect(Array.from(items).every((el) => !el.querySelector("input").checked)).toBe(true);
+    expect(document.getElementById("selfCheckProgress").textContent).toBe(`0/${hooks.SELF_CHECK_ITEMS.length}`);
+  });
+
+  it("checking an item marks it visually done and updates the progress count", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    await openJournalTab(document);
+
+    const firstCheckbox = document.querySelector('#selfCheckList input[data-index="0"]');
+    firstCheckbox.checked = true;
+    firstCheckbox.dispatchEvent(new window.Event("change", { bubbles: true }));
+
+    expect(document.querySelectorAll("#selfCheckList .self-check-item.checked")).toHaveLength(1);
+    expect(document.getElementById("selfCheckProgress").textContent).toBe("1/8");
+  });
+
+  it("persists checked state across a re-render (localStorage-backed, like Favorites Summary's reviewed set)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await openJournalTab(document);
+
+    const checkbox = document.querySelector('#selfCheckList input[data-index="2"]');
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new window.Event("change", { bubbles: true }));
+
+    hooks.renderSelfCheckChecklist();
+    expect(document.querySelector('#selfCheckList input[data-index="2"]').checked).toBe(true);
+    expect(hooks.getSelfCheckState()[2]).toBe(true);
+  });
+
+  it("Reset checklist clears every checked item back to 0/N", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await openJournalTab(document);
+
+    hooks.saveSelfCheckState(hooks.SELF_CHECK_ITEMS.map(() => true));
+    hooks.renderSelfCheckChecklist();
+    expect(document.getElementById("selfCheckProgress").textContent).toBe("8/8");
+
+    document.getElementById("selfCheckResetBtn").click();
+    expect(document.getElementById("selfCheckProgress").textContent).toBe("0/8");
+    expect(document.querySelectorAll("#selfCheckList .self-check-item.checked")).toHaveLength(0);
+  });
+
+  it("collapsing hides the list and reset button, without losing checked state", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await openJournalTab(document);
+
+    document.querySelector('#selfCheckList input[data-index="0"]').click();
+    document.getElementById("selfCheckToggleBtn").click();
+
+    expect(document.getElementById("selfCheckBox").classList.contains("collapsed")).toBe(true);
+    expect(document.getElementById("selfCheckToggleBtn").getAttribute("aria-expanded")).toBe("false");
+    expect(hooks.getSelfCheckState()[0]).toBe(true);
+
+    document.getElementById("selfCheckToggleBtn").click();
+    expect(document.getElementById("selfCheckBox").classList.contains("collapsed")).toBe(false);
+  });
+
+  it("automatically resets to 0/N once a journal entry is successfully saved, ready for the next one", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await openJournalTab(document);
+    stubGrading(window, PERFECT_RESULT);
+
+    hooks.saveSelfCheckState(hooks.SELF_CHECK_ITEMS.map(() => true));
+    hooks.renderSelfCheckChecklist();
+    expect(document.getElementById("selfCheckProgress").textContent).toBe("8/8");
+
+    document.getElementById("journalBodyInput").value = "A quick journal entry to trigger a reset.";
+    document.getElementById("journalSaveBtn").click();
+    await wait();
+
+    expect(document.getElementById("selfCheckProgress").textContent).toBe("0/8");
+  });
+
+  it("is hidden on a locked device, same as the Journal add box it accompanies", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    await openJournalTab(document);
+    expect(document.getElementById("selfCheckBox").style.display).toBe("none");
+  });
+});
