@@ -206,6 +206,14 @@ describe.each([
     manualUseId: "relativeClausesManualUse", manualExampleId: "relativeClausesManualExample",
     manualSaveBtnId: "relativeClausesManualSaveBtn", manualCancelBtnId: "relativeClausesManualCancelBtn",
     courseCategory: "relativeClauses"
+  },
+  {
+    key: "complexSentences", label: "Complex Sentences", inputId: "complexSentencesAddInput", btnId: "complexSentencesAddBtn",
+    statusId: "complexSentencesAddStatus", dataKey: "complexSentencesData", entryId: "complexSentencesEntry",
+    builtIn: "Sentence Types: Simple, Compound, Complex, Compound-Complex", manualBoxId: "complexSentencesManualBox", manualWordId: "complexSentencesManualWord",
+    manualUseId: "complexSentencesManualUse", manualExampleId: "complexSentencesManualExample",
+    manualSaveBtnId: "complexSentencesManualSaveBtn", manualCancelBtnId: "complexSentencesManualCancelBtn",
+    courseCategory: "complexSentences"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,
