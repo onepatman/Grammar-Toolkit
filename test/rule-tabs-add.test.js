@@ -246,6 +246,14 @@ describe.each([
     manualUseId: "writingTemplatesManualUse", manualExampleId: "writingTemplatesManualExample",
     manualSaveBtnId: "writingTemplatesManualSaveBtn", manualCancelBtnId: "writingTemplatesManualCancelBtn",
     courseCategory: "writingTemplates"
+  },
+  {
+    key: "spokenFluency", label: "Spoken Fluency & Register", inputId: "spokenFluencyAddInput", btnId: "spokenFluencyAddBtn",
+    statusId: "spokenFluencyAddStatus", dataKey: "spokenFluencyData", entryId: "spokenFluencyEntry",
+    builtIn: "What Is Register?", manualBoxId: "spokenFluencyManualBox", manualWordId: "spokenFluencyManualWord",
+    manualUseId: "spokenFluencyManualUse", manualExampleId: "spokenFluencyManualExample",
+    manualSaveBtnId: "spokenFluencyManualSaveBtn", manualCancelBtnId: "spokenFluencyManualCancelBtn",
+    courseCategory: "spokenFluency"
   }
 ])("$label quick-add (manual-only — no online lookup for grammar rules)", ({
   key, inputId, btnId, statusId, dataKey, entryId, builtIn,

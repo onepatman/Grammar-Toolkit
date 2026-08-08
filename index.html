@@ -1838,6 +1838,7 @@
         <button data-val="nominalization">Nominalization</button>
         <button data-val="collocations">Collocations & Paraphrasing</button>
         <button data-val="writingTemplates">Writing Templates</button>
+        <button data-val="spokenFluency">Spoken Fluency & Register</button>
         <button data-val="preps">Prepositions</button>
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
@@ -2282,6 +2283,34 @@
           <input type="text" id="writingTemplatesManualExample" placeholder="Example sentence (optional)" autocomplete="off">
           <button id="writingTemplatesManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
           <button id="writingTemplatesManualCancelBtn" class="add-btn secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-category" id="course-spokenFluency" style="display:none;">
+      <div class="controls">
+        <select id="spokenFluencySelect"></select>
+        <button class="nav-btn" data-target="spokenFluencySelect" data-dir="prev" aria-label="Previous">‹</button>
+        <button class="nav-btn" data-target="spokenFluencySelect" data-dir="next" aria-label="Next">›</button>
+      </div>
+      <div class="entry" id="spokenFluencyEntry"></div>
+      <div class="controls bottom-nav">
+        <button class="nav-btn" data-target="spokenFluencySelect" data-dir="prev" aria-label="Previous">‹ Previous</button>
+        <button class="nav-btn" data-target="spokenFluencySelect" data-dir="next" aria-label="Next">Next ›</button>
+      </div>
+
+      <div class="quick-add-box owner-only" id="spokenFluencyAddBox">
+        <div class="section-label">➕ Add a Spoken Fluency & Register rule</div>
+        <p class="note" style="margin-bottom:8px;">Not a dictionary word, so there's no online lookup here — type a short rule name (e.g. "Formal vs Casual Greetings"), then add your own explanation and an example below.</p>
+        <input type="text" id="spokenFluencyAddInput" placeholder="Rule name (e.g. Despite / in spite of)" autocomplete="off">
+        <button id="spokenFluencyAddBtn" class="add-btn" style="margin-top:8px;">+ Add my own rule</button>
+        <div id="spokenFluencyAddStatus" class="add-status"></div>
+        <div class="manual-entry-box" id="spokenFluencyManualBox" style="display:none;">
+          <p class="note" style="margin-bottom:4px;">Explain "<strong id="spokenFluencyManualWord"></strong>":</p>
+          <textarea id="spokenFluencyManualUse" placeholder="Explanation / rule" rows="2"></textarea>
+          <input type="text" id="spokenFluencyManualExample" placeholder="Example sentence (optional)" autocomplete="off">
+          <button id="spokenFluencyManualSaveBtn" class="add-btn" style="margin-top:10px;">Save</button>
+          <button id="spokenFluencyManualCancelBtn" class="add-btn secondary">Cancel</button>
         </div>
       </div>
     </div>
@@ -5974,6 +6003,35 @@ const writingTemplatesData = [
       {use:"Memorizing an entire template sentence-for-sentence and reusing it in every essay, regardless of the actual question, produces generic writing that doesn't directly answer the specific prompt.", examples:["A memorized opening like 'Nowadays, this issue has become a hot topic of discussion in society' fits almost any question, which is exactly why examiners recognize it as unoriginal, formulaic language."]},
       {use:"Following the structure so rigidly that natural transitions and cohesive devices between paragraphs get sacrificed — the shape is a guide for organizing ideas, not a rigid fill-in-the-blank form.", examples:["Templates should shape your OWN ideas about the specific question, not replace them with generic filler."]}
     ], mistake:"Relying entirely on a memorized template without adapting the content to the specific question asked results in an essay that reads as rehearsed rather than a genuine response — examiners are trained to notice and penalize this under Task Achievement."}
+];
+
+/* =========================================================
+   DATA — SPOKEN FLUENCY & REGISTER (formal/informal language
+   choice, natural spoken discourse for IELTS Speaking)
+========================================================= */
+const spokenFluencyData = [
+  {w:"What Is Register?", senses:[
+      {use:"Register is the level of formality a speaker chooses for a specific situation — the same idea can be expressed in very different words depending on who you're speaking to and the context.", examples:["Formal: 'I would appreciate it if you could provide further details.'","Informal: 'Can you tell me a bit more?'","Both are correct English — the difference is appropriateness to context, not grammar."]}
+    ], mistake:null},
+  {w:"Formal vs Informal Vocabulary", senses:[
+      {use:"Many everyday words have a more formal counterpart used in academic writing, professional speech, or exams — recognizing pairs like this expands your ability to shift register on purpose.", examples:["get → <b>obtain/receive</b>","kids → <b>children</b>","a lot of → <b>numerous/considerable</b>","find out → <b>discover/determine</b>","buy → <b>purchase</b>"]}
+    ], mistake:null},
+  {w:"Contractions: When to Use / Avoid Them", senses:[
+      {use:"Contractions ('I'm,' 'don't,' 'it's') sound natural and are expected in spoken English and informal writing, but are generally avoided in formal academic writing like IELTS Writing Task 2.", examples:["Spoken/informal: 'I don't think that's true.'","Formal written: 'I do not believe this to be accurate.'"]}
+    ], mistake:"Using contractions throughout a formal IELTS Writing Task 2 essay reads as too casual for the expected academic register, even though the grammar itself is correct."},
+  {w:"Filler Words & Hesitation Devices for Natural Fluency", senses:[
+      {use:"Native speakers use small hesitation devices — 'well,' 'you know,' 'I mean,' 'actually' — to buy thinking time without breaking the flow of speech; using a few naturally in IELTS Speaking sounds more fluent than long silent pauses.", examples:["'Well, I suppose the main reason is...' ","'It's, you know, a bit complicated to explain.'","'I mean, that's just my personal opinion.'"]}
+    ], mistake:null},
+  {w:"Discourse Markers for Spoken Fluency", senses:[
+      {use:"Spoken discourse markers organize what you're saying in real time — signaling a change of topic, a return to the point, or a summary — without the more rigid academic connectors used in writing.", examples:["<b>Anyway</b>, going back to what I was saying... (returning to a point)","<b>So</b>, basically, that's why I moved here. (summarizing/concluding)","<b>Right</b>, so the next thing is... (transitioning to a new point)"]}
+    ], mistake:null},
+  {w:"Register Mismatches", senses:[
+      {use:"Mixing registers within the same context — very formal vocabulary in casual conversation, or slang in a formal exam — sounds unnatural even when every individual sentence is grammatically correct.", examples:["Mismatch: 'Yo, I would like to formally request your assistance.' (informal greeting + overly formal request)","Mismatch in IELTS Speaking: '<b>Honestly, this whole gig is kind of a drag</b>, but I digress' — too slangy for the exam's expected semi-formal register."]}
+    ], mistake:"Switching between very formal and very casual language within the same answer signals a lack of control over register, which examiners notice even when grammar and vocabulary are otherwise strong."},
+  {w:"Common Register/Fluency Mistakes", senses:[
+      {use:"Overusing filler words to the point that they replace actual content — a few natural hesitation markers help fluency, but constant 'um,' 'like,' or 'you know' every few words undermines it.", examples:["Overused: 'So, like, um, I think, you know, like, it's, um, kind of, you know, hard to say.' (fillers have replaced the actual answer)"]},
+      {use:"Speaking in an overly written, textbook-formal register during a conversational IELTS Speaking test, which can sound rehearsed and unnatural rather than fluent.", examples:["Overly formal for a casual speaking question: 'I am of the firm conviction that one's leisure pursuits are of paramount importance.' — natural spoken register: 'I think hobbies are really important, to be honest.'"]}
+    ], mistake:"IELTS Speaking rewards natural, appropriately-registered fluency over either robotic overformality or filler-heavy hesitation — both extremes are penalized under Fluency and Coherence."}
 ];
 
 /* =========================================================
@@ -38163,6 +38221,7 @@ setupRuleModule(cohesiveDevicesData, "cohesiveDevicesSelect", "cohesiveDevicesEn
 setupRuleModule(nominalizationData, "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
 setupRuleModule(collocationsData, "collocationsSelect", "collocationsEntry", "Collocations & Paraphrasing Rule", "collocations");
 setupRuleModule(writingTemplatesData, "writingTemplatesSelect", "writingTemplatesEntry", "Writing Templates Rule", "writingTemplates");
+setupRuleModule(spokenFluencyData, "spokenFluencySelect", "spokenFluencyEntry", "Spoken Fluency & Register Rule", "spokenFluency");
 setupRuleModule(vocabData, "vocabSelect", "vocabEntry", "Vocabulary Bank", "vocab");
 setupRuleModule(phrasalData, "phrasalSelect", "phrasalEntry", "Phrasal Verb", "phrasal");
 setupRuleModule(idiomsData, "idiomsSelect", "idiomsEntry", "Idiom / Expression", "idioms");
@@ -40824,6 +40883,7 @@ indexCourseCategoryRuleModule(cohesiveDevicesData, "Cohesive devices", "cohesive
 indexCourseCategoryRuleModule(nominalizationData, "Nominalization", "nominalizationSelect", "nominalizationEntry", "Nominalization Rule", "nominalization");
 indexCourseCategoryRuleModule(collocationsData, "Collocations and paraphrasing", "collocationsSelect", "collocationsEntry", "Collocations & Paraphrasing Rule", "collocations");
 indexCourseCategoryRuleModule(writingTemplatesData, "Writing templates", "writingTemplatesSelect", "writingTemplatesEntry", "Writing Templates Rule", "writingTemplates");
+indexCourseCategoryRuleModule(spokenFluencyData, "Spoken fluency and register", "spokenFluencySelect", "spokenFluencyEntry", "Spoken Fluency & Register Rule", "spokenFluency");
 // pos is its own case: renderRuleEntry's categoryKey (drives the
 // LANGUAGE_BANK_CONFIG/canManage lookup) is "pos", but the Course-tab
 // category chip/div key is "partsOfSpeech" — the two key spaces happen
@@ -41659,7 +41719,7 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // only their containing element moved from a standalone <section> to a
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
-const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates", "preps", "order", "articles"];
+const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates", "spokenFluency", "preps", "order", "articles"];
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
@@ -41971,6 +42031,18 @@ const LANGUAGE_BANK_CONFIG = {
     manualUseId: "writingTemplatesManualUse", manualExampleId: "writingTemplatesManualExample",
     manualSaveBtnId: "writingTemplatesManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "writingTemplatesManualCancelBtn",
     activateFn: function(){ activateTab("course"); activateCourseCategory("writingTemplates"); }
+  },
+  spokenFluency: {
+    data: spokenFluencyData, selectId: "spokenFluencySelect", entryId: "spokenFluencyEntry", tagLabel: "Spoken Fluency & Register Rule",
+    inputId: "spokenFluencyAddInput", btnId: "spokenFluencyAddBtn", statusId: "spokenFluencyAddStatus", inputNoun: "a spoken fluency & register rule",
+    putFn: function(entry, opts){ return VocabCache.putSpokenFluency(entry, opts); },
+    getAllFn: function(opts){ return VocabCache.getAllSpokenFluency(opts); },
+    deleteFn: function(word, opts){ return VocabCache.deleteSpokenFluency(word, opts); },
+    requireExplanation: true, onlineLookup: false,
+    manualBoxId: "spokenFluencyManualBox", manualWordId: "spokenFluencyManualWord",
+    manualUseId: "spokenFluencyManualUse", manualExampleId: "spokenFluencyManualExample",
+    manualSaveBtnId: "spokenFluencyManualSaveBtn", manualSkipBtnId: null, manualCancelBtnId: "spokenFluencyManualCancelBtn",
+    activateFn: function(){ activateTab("course"); activateCourseCategory("spokenFluency"); }
   }
 };
 
@@ -41987,7 +42059,7 @@ const LANGUAGE_BANK_CONFIG = {
 // Course tab's own local lesson categories — same generic machinery as
 // the others, just surfaced inside the Course tab's category switcher
 // instead of getting their own top-level tab.
-const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates"];
+const RULE_TAB_CATEGORIES = ["preps", "articles", "modals", "capital", "order", "qa", "pos", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates", "spokenFluency"];
 
 /* =========================================================
    SORT BY — Language Bank (all 5 categories share one
@@ -43040,7 +43112,8 @@ function getFavoriteRuleEntrySources(){
     { cat: "Cohesive Devices Rule", data: cohesiveDevicesData },
     { cat: "Nominalization Rule", data: nominalizationData },
     { cat: "Collocations & Paraphrasing Rule", data: collocationsData },
-    { cat: "Writing Templates Rule", data: writingTemplatesData }
+    { cat: "Writing Templates Rule", data: writingTemplatesData },
+    { cat: "Spoken Fluency & Register Rule", data: spokenFluencyData }
   ].concat(LANGUAGE_BANK_CATEGORIES.map(k=> ({ cat: LANGUAGE_BANK_CONFIG[k].tagLabel, data: LANGUAGE_BANK_CONFIG[k].data })));
 }
 
@@ -45883,6 +45956,7 @@ renderRuleEntry(cohesiveDevicesData.find(x=>x.w===document.getElementById("cohes
 renderRuleEntry(nominalizationData.find(x=>x.w===document.getElementById("nominalizationSelect").value), document.getElementById("nominalizationEntry"), "Nominalization Rule", "nominalization");
 renderRuleEntry(collocationsData.find(x=>x.w===document.getElementById("collocationsSelect").value), document.getElementById("collocationsEntry"), "Collocations & Paraphrasing Rule", "collocations");
 renderRuleEntry(writingTemplatesData.find(x=>x.w===document.getElementById("writingTemplatesSelect").value), document.getElementById("writingTemplatesEntry"), "Writing Templates Rule", "writingTemplates");
+renderRuleEntry(spokenFluencyData.find(x=>x.w===document.getElementById("spokenFluencySelect").value), document.getElementById("spokenFluencyEntry"), "Spoken Fluency & Register Rule", "spokenFluency");
 renderRuleEntry(vocabData.find(x=>x.w===document.getElementById("vocabSelect").value), document.getElementById("vocabEntry"), "Vocabulary Bank", "vocab");
 renderRuleEntry(phrasalData.find(x=>x.w===document.getElementById("phrasalSelect").value), document.getElementById("phrasalEntry"), "Phrasal Verb", "phrasal");
 renderRuleEntry(idiomsData.find(x=>x.w===document.getElementById("idiomsSelect").value), document.getElementById("idiomsEntry"), "Idiom / Expression", "idioms");
@@ -48028,7 +48102,7 @@ Promise.all([
 // any of it. Harmless in the browser — nothing here is called at runtime.
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
-  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, writingTemplatesData, vocabData, distinctionsData,
+  orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, writingTemplatesData, spokenFluencyData, vocabData, distinctionsData,
   phrasalData, idiomsData, sentencesData, patternsData, technicalData, phraseTemplatesData,
   wordFamilyData, searchIndex, wordIndexMap, vocabLookup,
   CORRECTION_LOG_ENTRY, BUILTIN_MISTAKE_SENSES, BUILTIN_LOG_SENSES, renderCorrectionLogEntry,
