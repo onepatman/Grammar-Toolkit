@@ -388,6 +388,21 @@
     white-space:nowrap;
   }
 
+  #courseCategorySeg button.course-chip-done{
+    box-shadow:inset 0 0 0 2px var(--mint);
+  }
+  #courseCategorySeg button.course-chip-done::after{
+    content:" \2713";
+  }
+  .course-progress-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin:10px 0 16px;
+  }
+  .course-progress-summary{ font-size:13px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; }
+  #courseMarkDoneBtn.done{
+    background:var(--mint); border-color:var(--mint); color:#fff;
+  }
+
   select{
     flex:1; min-width:180px;
     appearance:none;
@@ -1910,6 +1925,11 @@
         <button data-val="order">Word Order</button>
         <button data-val="articles">Articles</button>
       </div>
+    </div>
+
+    <div class="course-progress-bar">
+      <span class="course-progress-summary" id="courseProgressSummary"></span>
+      <button class="add-btn secondary" id="courseMarkDoneBtn" type="button">Mark as Done</button>
     </div>
 
     <div class="course-category" id="course-partsOfSpeech">
@@ -42101,18 +42121,75 @@ document.getElementById("langBankCategorySeg").addEventListener("click", (e)=>{
 // nested .course-category <div>), so there is nothing redundant left
 // outside the Course tab.
 const COURSE_LOCAL_CATEGORIES = ["partsOfSpeech", "modals", "tenses", "tenseMastery", "conditionals", "activePassive", "reportedSpeech", "relativeClauses", "complexSentences", "cohesiveDevices", "nominalization", "collocations", "writingTemplates", "spokenFluency", "preps", "order", "articles"];
+let activeCourseCategoryKey = "partsOfSpeech";
+const COURSE_PROGRESS_STATE_KEY = "mepf_toolkit_course_progress";
+
+// Per-device "I've finished this lesson" tracking — localStorage-only,
+// same precedent as SELF_CHECK_STATE_KEY/FAVORITES_REVIEWED_KEY, since
+// this is personal study-habit state that doesn't need cross-device
+// sync or structured querying. Keyed by category key rather than an
+// array/Set so a stale key from a removed category is simply ignored
+// rather than corrupting anything.
+function getCourseProgressState(){
+  const state = {};
+  try {
+    const raw = localStorage.getItem(COURSE_PROGRESS_STATE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    COURSE_LOCAL_CATEGORIES.forEach(k=> state[k] = !!parsed[k]);
+  } catch(e){
+    COURSE_LOCAL_CATEGORIES.forEach(k=> state[k] = false);
+  }
+  return state;
+}
+
+function saveCourseProgressState(state){
+  try { localStorage.setItem(COURSE_PROGRESS_STATE_KEY, JSON.stringify(state)); } catch(e){ /* private mode etc. */ }
+}
+
+// Paints the chip-row checkmarks, the "x / 17 lessons completed"
+// summary, and the Mark as Done button's state for whichever category
+// is currently active — called after every activateCourseCategory() so
+// the button always reflects the category actually on screen.
+function renderCourseProgressUI(){
+  const summaryEl = document.getElementById("courseProgressSummary");
+  const markBtn = document.getElementById("courseMarkDoneBtn");
+  if(!summaryEl && !markBtn) return;
+  const state = getCourseProgressState();
+  const completedCount = COURSE_LOCAL_CATEGORIES.filter(k=> state[k]).length;
+  if(summaryEl) summaryEl.textContent = `${completedCount} / ${COURSE_LOCAL_CATEGORIES.length} lessons completed`;
+  document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(btn=>{
+    btn.classList.toggle("course-chip-done", !!state[btn.dataset.val]);
+  });
+  if(markBtn){
+    const done = !!state[activeCourseCategoryKey];
+    markBtn.textContent = done ? "✓ Completed — click to undo" : "Mark as Done";
+    markBtn.classList.toggle("done", done);
+  }
+}
+
+function toggleActiveCourseCategoryDone(){
+  const state = getCourseProgressState();
+  state[activeCourseCategoryKey] = !state[activeCourseCategoryKey];
+  saveCourseProgressState(state);
+  renderCourseProgressUI();
+}
+
 function activateCourseCategory(key){
   if(COURSE_LOCAL_CATEGORIES.indexOf(key) === -1) key = "partsOfSpeech";
+  activeCourseCategoryKey = key;
   document.querySelectorAll("#courseCategorySeg button[data-val]").forEach(b=>b.classList.toggle("active", b.dataset.val===key));
   COURSE_LOCAL_CATEGORIES.forEach(k=>{
     document.getElementById("course-"+k).style.display = (k===key) ? "block" : "none";
   });
+  renderCourseProgressUI();
 }
 document.getElementById("courseCategorySeg").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
   if(!btn) return;
   activateCourseCategory(btn.dataset.val);
 });
+document.getElementById("courseMarkDoneBtn").addEventListener("click", toggleActiveCourseCategoryDone);
+renderCourseProgressUI();
 
 // requireExplanation: true (Phrasal Verbs, Idioms & Expressions) means
 // a manually-typed meaning is REQUIRED before the entry can be saved
@@ -48502,6 +48579,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn, mdBold,
   addLanguageBankEntry, activateLangBankCategory,
   activateCourseCategory, COURSE_LOCAL_CATEGORIES,
+  getCourseProgressState, saveCourseProgressState, renderCourseProgressUI, toggleActiveCourseCategoryDone,
+  getActiveCourseCategoryKey: ()=> activeCourseCategoryKey,
   applyLanguageBankSort, applyDistinctionsSort, applyWordBankSort,
   getLangBankSortPref, getWordBankSortPref,
   compareForSort, reorderSelectBySort,
