@@ -300,6 +300,16 @@
   .search-result-item .label{ font-weight:600; color:var(--teal-deep); }
   .search-empty{ padding:12px 13px; font-size:13px; color:var(--ink-soft); font-style:italic; }
 
+  /* A "label" used to always be one short word, so squeezing it into a
+     row next to the category tag and a favorite star worked fine. Longer
+     paired content (a Basic -> Advanced sentence pair, a full Word Chunk)
+     doesn't fit that row — it wraps into several cramped lines fighting
+     the tag/star for space. .long-label (added in JS once the text
+     passes a length threshold) drops the tag+star onto their own line
+     below, so the text gets the full row width to wrap normally. */
+  .search-result-item.long-label{ flex-wrap:wrap; row-gap:6px; align-items:flex-start; }
+  .search-result-item.long-label .label{ flex:1 1 100%; line-height:1.45; }
+
   /* Thumb-index tab strip — centered when every tab fits the available
      width; on narrower screens the tabs overflow their natural width and
      "justify-content:center" degrades to safe/start alignment (per the
@@ -474,6 +484,7 @@
     font-family:'Source Serif 4', serif;
     font-weight:700;
     font-size:30px;
+    line-height:1.25;
     color:var(--ink);
   }
   .tag{
@@ -2884,6 +2895,30 @@ function wireListenButton(containerEl, text){
 
 function makePhoneticHtml(phonetic){
   return phonetic ? `<span class="phonetic">${phonetic}</span>` : "";
+}
+
+// A headword used to always be a single word ("Achieve"), so a big fixed
+// font size worked everywhere. Word Bank pairs and correction-log entries
+// can now hold full sentences ("I kindly request your early arrival."),
+// and rendering those at the same size wraps them into several oversized
+// lines next to the small listen/star icons. Scaling the size down as the
+// text gets longer keeps a word, a phrase, or a sentence equally readable.
+// Same "used to always be a short word" problem as headwordFontSize
+// above, but for the compact list rows in Favorites/global search
+// (.search-result-item) — see the .long-label CSS rule for the layout
+// this triggers.
+function isLongLabel(text){
+  return !!(text && text.length > 26);
+}
+
+function headwordFontSize(text, basePx){
+  const base = basePx || 30;
+  const len = (text || "").length;
+  if(len > 55) return Math.max(13, Math.round(base * 0.5));
+  if(len > 38) return Math.max(14, Math.round(base * 0.6));
+  if(len > 24) return Math.max(16, Math.round(base * 0.72));
+  if(len > 14) return Math.max(18, Math.round(base * 0.85));
+  return base;
 }
 
 function makeWordChips(words, type){
@@ -38319,7 +38354,7 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
   const catsHtml = Array.isArray(item.cats) ? item.cats.map(c=>`<span class="tag ghost">${c}</span>`).join("") : "";
   entryEl.innerHTML = `
     <div class="headword-row">
-      <span class="headword" style="font-size:22px;">${item.w}</span>
+      <span class="headword" style="font-size:${headwordFontSize(item.w, 22)}px;">${item.w}</span>
       ${makePhoneticHtml(item.phonetic)}
       <span class="tag ghost">${displayTagLabel}</span>
       ${catsHtml}
@@ -38475,7 +38510,7 @@ function renderFamily(item){
   const familyEntry = document.getElementById("familyEntry");
   familyEntry.innerHTML = `
     <div class="headword-row">
-      <span class="headword" style="font-size:22px;">${item.verb}</span>
+      <span class="headword" style="font-size:${headwordFontSize(item.verb, 22)}px;">${item.verb}</span>
       <span class="tag ghost">Word Family</span>
       ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.verb, "Word Family")}
@@ -39083,7 +39118,7 @@ function renderFavoritesTab(){
         label = `${data.word} ${data.divider} ${data.pairWord}`;
       }
       return `
-      <div class="search-result-item" data-word="${f.word}" data-cat="${f.cat}">
+      <div class="search-result-item${isLongLabel(label) ? " long-label" : ""}" data-word="${f.word}" data-cat="${f.cat}">
         <span class="label">${label}</span>
         <span class="cat">${f.cat}</span>
         ${makeFavToggleHtml(f.word, f.cat)}
@@ -44921,7 +44956,7 @@ function buildLookupResultCardHtml(entry){
   ` : "";
   return `
     <div class="headword-row">
-      <span class="headword" style="font-size:20px;">${entry.w}</span>
+      <span class="headword" style="font-size:${headwordFontSize(entry.w, 20)}px;">${entry.w}</span>
       ${makePhoneticHtml(entry.phonetic)}
     </div>
     ${matchConfidenceHtml}
@@ -45668,7 +45703,7 @@ function renderDistinctionWordBlock(word, favToggleHtml){
 
   return `
     <div class="headword-row">
-      <span class="headword" style="font-size:22px;">${word.w}</span>
+      <span class="headword" style="font-size:${headwordFontSize(word.w, 22)}px;">${word.w}</span>
       ${makePhoneticHtml(word.phonetic)}
       <span class="tag ghost">${DISTINCTIONS_TAG_LABEL}</span>
       ${makeListenButtonHtml()}
@@ -46876,7 +46911,7 @@ document.addEventListener("change", (e)=>{
 
 function renderSearchMatches(matches){
   searchResultsEl.innerHTML = matches.map((m,i)=>`
-    <div class="search-result-item" data-idx="${i}">
+    <div class="search-result-item${isLongLabel(m.label) ? " long-label" : ""}" data-idx="${i}">
       <span class="label">${m.label}</span>
       <span class="cat">${m.cat}</span>
     </div>`).join("");
@@ -48087,7 +48122,7 @@ function renderWordBankSide(label, def, examples, tagLabel, favToggleHtml){
   return `
     <div class="tag ghost" style="display:inline-block;margin-bottom:4px;">${tagLabel}</div>
     <div class="headword-row">
-      <span class="headword" style="font-size:22px;">${label}</span>
+      <span class="headword" style="font-size:${headwordFontSize(label, 22)}px;">${label}</span>
       ${makeListenButtonHtml()}
       ${favToggleHtml || ""}
     </div>
@@ -49056,6 +49091,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   renderLanguageBankAfterDelete, refreshLanguageBankUI, refreshVocabUI, renderRuleEntry,
   waitForInitialAuthState, speakText, makeListenButtonHtml, wireListenButton,
   makePhoneticHtml, renderVerb, renderPrep, renderFamily,
+  headwordFontSize, isLongLabel,
   distinctionsCacheRestorePromise, addDistinctionEntry, addDistinctionFromInputs,
   renderDistinctionEntry, setupDistinctionsModule, indexDistinctionsData,
   findExistingDistinctionPair, deleteDistinctionEntry, renderDistinctionsAfterDelete,
