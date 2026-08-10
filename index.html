@@ -38173,7 +38173,13 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
             const reviewKey = buildWordBankReviewKey(reviewScope, s, i);
             const isReviewed = reviewedSet.has(reviewKey);
             reviewedClass = isReviewed ? " reviewed" : "";
-            reviewCheckboxHtml = `<label class="wordbank-review-check" title="Mark as reviewed"><input type="checkbox" class="wordbank-review-checkbox" data-review-key="${reviewKey}" ${isReviewed ? "checked" : ""}></label>`;
+            // Hidden while Manage is on — the checkbox and the Edit/Delete
+            // buttons both sit in the same tight row, and showing all
+            // three at once for every sense is exactly the clutter Manage
+            // mode exists to avoid. The reviewed/dimmed styling above
+            // still applies either way; only the interactive checkbox
+            // itself disappears.
+            reviewCheckboxHtml = wordBankManageMode ? "" : `<label class="wordbank-review-check" title="Mark as reviewed"><input type="checkbox" class="wordbank-review-checkbox" data-review-key="${reviewKey}" ${isReviewed ? "checked" : ""}></label>`;
           }
 
           // Inline edit form REPLACES the normal use/examples display for

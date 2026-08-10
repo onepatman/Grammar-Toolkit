@@ -224,6 +224,49 @@ describe("Word Bank — Manage toggle declutters Edit/Delete buttons", () => {
     openWordBankCategory(document, "sentenceFragment");
     expect(document.getElementById("fragmentEntry").querySelector(".wordbank-manage-toggle-btn")).toBeNull();
   });
+
+  it("turning Manage on also hides the reviewed tickboxes, and turning it off brings them back", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openWordBankCategory(document, "sentenceFragment");
+
+    let entryEl = document.getElementById("fragmentEntry");
+    const checkboxCountBefore = entryEl.querySelectorAll(".wordbank-review-checkbox").length;
+    expect(checkboxCountBefore).toBeGreaterThan(0);
+
+    entryEl.querySelector(".wordbank-manage-toggle-btn").click();
+    entryEl = document.getElementById("fragmentEntry");
+    expect(entryEl.querySelectorAll(".wordbank-review-checkbox").length).toBe(0);
+    // Edit/Delete are visible in their place — this isn't just an empty gap.
+    expect(entryEl.querySelector(".wordbank-builtin-edit-btn")).not.toBeNull();
+
+    entryEl.querySelector(".wordbank-manage-toggle-btn").click();
+    entryEl = document.getElementById("fragmentEntry");
+    expect(entryEl.querySelectorAll(".wordbank-review-checkbox").length).toBe(checkboxCountBefore);
+  });
+
+  it("hiding the tickbox during Manage does not touch the underlying reviewed state — it's still checked when Manage turns back off", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openWordBankCategory(document, "sentenceFragment");
+
+    let entryEl = document.getElementById("fragmentEntry");
+    const firstCheckbox = entryEl.querySelector(".wordbank-review-checkbox");
+    firstCheckbox.checked = true;
+    firstCheckbox.dispatchEvent(new window.Event("change", { bubbles: true }));
+    await wait();
+
+    entryEl = document.getElementById("fragmentEntry");
+    entryEl.querySelector(".wordbank-manage-toggle-btn").click();
+    entryEl = document.getElementById("fragmentEntry");
+    expect(entryEl.querySelectorAll(".wordbank-review-checkbox").length).toBe(0);
+    // The dimmed "reviewed" styling still applies even while the checkbox itself is hidden.
+    expect(entryEl.querySelector(".sense.reviewed")).not.toBeNull();
+
+    entryEl.querySelector(".wordbank-manage-toggle-btn").click();
+    entryEl = document.getElementById("fragmentEntry");
+    expect(entryEl.querySelector(".wordbank-review-checkbox").checked).toBe(true);
+  });
 });
 
 describe("Word Bank UX upgrades — scoped only to the 3 correction-log categories", () => {
