@@ -407,6 +407,27 @@ describe("Practice tab — Speaking mode (shadowing)", () => {
     expect(document.getElementById("practiceRecordBtn").disabled).toBe(false);
   });
 
+  // A real user reported "tapping the mic button does nothing" — root
+  // cause was that Record starts disabled (by design, shadowing means
+  // listen-first) but nothing on screen said so, so a disabled button
+  // with no explanation reads as broken. This pins down the fix: a
+  // visible hint before Hear it is clicked, and a different one after.
+  it("explains why Record is disabled before Hear it is clicked, then confirms it's ready once it is", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await seedFavoritedWords(window, hooks, 16);
+    startSpeakingSession(window, document);
+    await wait(20);
+
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(true);
+    expect(document.getElementById("practiceSpeakingStatus").textContent).toContain("Hear it");
+
+    document.querySelector(".practice-speaking-listen-btn").click();
+
+    expect(document.getElementById("practiceRecordBtn").disabled).toBe(false);
+    expect(document.getElementById("practiceSpeakingStatus").textContent).toContain("Ready");
+  });
+
   it("scores an exact spoken transcript of the full sentence as correct and shows what was heard", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;

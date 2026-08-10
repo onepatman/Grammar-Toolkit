@@ -40461,7 +40461,7 @@ function renderSpeakingHtml(item){
     </div>
     <button class="practice-record-btn" id="practiceRecordBtn" disabled>🎤 Tap to Speak</button>
     <button class="add-btn secondary" id="practiceSpeakingSkipBtn">Skip this one</button>
-    <div id="practiceSpeakingStatus" class="note" style="margin-top:8px;"></div>
+    <div id="practiceSpeakingStatus" class="note" style="margin-top:8px;">🔊 Tap "Hear it" first — the mic unlocks once you've listened.</div>
     <div id="practiceSpeakingFeedback"></div>
   `;
 }
@@ -40586,6 +40586,8 @@ document.addEventListener("click", (e)=>{
     // renderSpeakingHtml) until this fires at least once per question.
     const recordBtn = document.getElementById("practiceRecordBtn");
     if(recordBtn) recordBtn.disabled = false;
+    const statusEl = document.getElementById("practiceSpeakingStatus");
+    if(statusEl) statusEl.textContent = "🎤 Ready — tap \"Tap to Speak\" and repeat it back.";
     return;
   }
   if(e.target.closest("#practiceRecordBtn")){
