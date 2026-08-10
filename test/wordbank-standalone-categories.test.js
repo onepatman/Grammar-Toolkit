@@ -103,6 +103,9 @@ describe.each(CATEGORIES)("Word Bank tab — $label category", ({ val, label, en
     document.getElementById(ids.addBtnId).click();
     await wait();
 
+    // Edit/Delete are hidden by default now — Manage reveals them (see
+    // test/wordbank-review-manage.test.js for dedicated coverage).
+    document.querySelector(`#${entryElId} .wordbank-manage-toggle-btn`).click();
     document.querySelector(`#${entryElId} .edit-correction-btn`).click();
     expect(document.getElementById(ids.wrongId).value).toBe("Wrong original.");
     expect(document.getElementById("qaWrongInput").value).not.toBe("Wrong original.");
@@ -127,6 +130,7 @@ describe.each(CATEGORIES)("Word Bank tab — $label category", ({ val, label, en
     expect(document.getElementById(entryElId).textContent).toContain("Delete me right");
 
     window.confirm = () => true;
+    document.querySelector(`#${entryElId} .wordbank-manage-toggle-btn`).click();
     document.querySelector(`#${entryElId} .delete-correction-btn`).click();
     await wait();
     expect(document.getElementById(entryElId).textContent).not.toContain("Delete me right");

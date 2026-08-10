@@ -44,6 +44,12 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     row.querySelector(".correction-wrong-input").value = wrong;
     row.querySelector(".correction-right-input").value = right;
   }
+  // Edit/Delete are hidden behind a Manage toggle for the 3 Word Bank
+  // correction-log categories now (see test/wordbank-review-manage.test.js)
+  // — a no-op for the Fixes tab (qa) case, which has no such toggle.
+  function revealManageButtonsIfPresent(document) {
+    document.querySelector(`#${entryId} .wordbank-manage-toggle-btn`)?.click();
+  }
 
   it("starts with exactly one example row and no remove button on it", async () => {
     const { window } = await loadApp();
@@ -174,6 +180,7 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     // ...then trigger Edit on the entry that was actually saved. This
     // should REPLACE whatever was sitting in the form with the entry's
     // own examples, not merge with the stray row.
+    revealManageButtonsIfPresent(document);
     document.querySelector(`#${entryId} .edit-correction-btn`).click();
 
     expect(rows(document)).toHaveLength(2);
@@ -191,6 +198,7 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     fillRow(rows(document)[0], "Original wrong", "Original right");
     document.getElementById(addBtnId).click();
     await wait();
+    revealManageButtonsIfPresent(document);
     document.querySelector(`#${entryId} .edit-correction-btn`).click();
     expect(document.getElementById(cancelBtnId).classList.contains("show")).toBe(true);
 
@@ -221,6 +229,7 @@ describe.each(BOXES)("$label", ({ prep, rowsId, addRowBtnId, whyId, addBtnId, ca
     expect(hooks.loadPersonalCorrections()).toHaveLength(2);
 
     // Edit the FIRST group: change one example and add a brand new one.
+    revealManageButtonsIfPresent(document);
     document.querySelectorAll(`#${entryId} .edit-correction-btn`)[0].click();
     expect(rows(document)).toHaveLength(2);
     fillRow(rows(document)[0], rows(document)[0].querySelector(".correction-wrong-input").value, "An updated correction");
