@@ -211,11 +211,11 @@ describe("Word Bank — Manage toggle declutters Edit/Delete buttons", () => {
     expect(document.getElementById("subjectVerbAgreementEntry").querySelector(".edit-correction-btn")).not.toBeNull();
   });
 
-  it("does not show a Manage button at all when there's nothing personal to manage yet", async () => {
+  it("still shows a Manage button when unlocked even with nothing personal yet, since built-in rules are manageable too", async () => {
     const { window } = await loadApp();
     const document = window.document;
     openWordBankCategory(document, "sentenceFragment");
-    expect(document.getElementById("fragmentEntry").querySelector(".wordbank-manage-toggle-btn")).toBeNull();
+    expect(document.getElementById("fragmentEntry").querySelector(".wordbank-manage-toggle-btn")).not.toBeNull();
   });
 
   it("does not show a Manage button while the device is locked (nothing manageable either way)", async () => {
@@ -250,5 +250,332 @@ describe("Word Bank UX upgrades — scoped only to the 3 correction-log categori
     expect(entryEl.querySelector(".delete-correction-btn")).not.toBeNull();
     expect(entryEl.querySelector(".wordbank-review-checkbox")).toBeNull();
     expect(entryEl.querySelector(".wordbank-manage-toggle-btn")).toBeNull();
+  });
+
+  it("no rule module outside the 3 correction-log categories ever renders built-in Edit/Delete buttons, regardless of global Manage state", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    // Flip Manage on globally via the hook (as if a correction-log category turned it on).
+    hooks.setWordBankManageMode(true);
+
+    openWordBankCategory(document, "distinctions");
+    expect(document.getElementById("wordbank-distinctions").querySelector(".wordbank-builtin-edit-btn")).toBeNull();
+    expect(document.getElementById("wordbank-distinctions").querySelector(".wordbank-builtin-delete-btn")).toBeNull();
+
+    document.querySelector('.thumb-tab[data-tab="course"]')?.click();
+    const courseEntry = document.querySelector('[id^="course"]') || document.body;
+    expect(courseEntry.querySelector(".wordbank-builtin-edit-btn")).toBeNull();
+  });
+});
+
+const BUILTIN_MANAGE_CATEGORIES = [
+  { val: "sentenceFragment", scope: "sentenceFragment", entryId: "fragmentEntry" },
+  { val: "subjectVerbAgreement", scope: "subjectVerbAgreement", entryId: "subjectVerbAgreementEntry" },
+  { val: "correctionLog", scope: "correctionLog", entryId: "correctionLogEntry" }
+];
+
+describe.each(BUILTIN_MANAGE_CATEGORIES)("Word Bank — built-in item Edit/Delete under Manage ($val)", ({ val, scope, entryId }) => {
+  function firstBuiltinKey() {
+    return `${scope}::idx:0`;
+  }
+  function openAndManage(document) {
+    openWordBankCategory(document, val);
+    document.getElementById(entryId).querySelector(".wordbank-manage-toggle-btn").click();
+  }
+
+  it("built-in items have no Edit/Delete while Manage is off", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openWordBankCategory(document, val);
+
+    const entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelector(".wordbank-builtin-edit-btn")).toBeNull();
+    expect(entryEl.querySelector(".wordbank-builtin-delete-btn")).toBeNull();
+  });
+
+  it("built-in items get Edit/Delete once Manage is turned on, one pair per built-in sense", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openWordBankCategory(document, val);
+    const builtinCount = document.getElementById(entryId).querySelectorAll(".sense").length;
+    document.getElementById(entryId).querySelector(".wordbank-manage-toggle-btn").click();
+
+    const entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelectorAll(".wordbank-builtin-edit-btn").length).toBe(builtinCount);
+    expect(entryEl.querySelectorAll(".wordbank-builtin-delete-btn").length).toBe(builtinCount);
+  });
+
+  it("does not show built-in Edit/Delete while the device is locked, even with Manage forced on", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    hooks.setWordBankManageMode(true);
+    openWordBankCategory(document, val);
+
+    const entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelector(".wordbank-builtin-edit-btn")).toBeNull();
+    expect(entryEl.querySelector(".wordbank-manage-toggle-btn")).toBeNull();
+  });
+
+  it("clicking built-in Edit opens an inline form pre-filled with the current rule text and examples", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openAndManage(document);
+
+    const entryEl = document.getElementById(entryId);
+    const originalUse = entryEl.querySelectorAll(".sense")[0].querySelector(".use").textContent;
+    entryEl.querySelector(".wordbank-builtin-edit-btn").click();
+
+    const refreshed = document.getElementById(entryId);
+    const form = refreshed.querySelector(`.wb-builtin-edit-form[data-key="${firstBuiltinKey()}"]`);
+    expect(form).not.toBeNull();
+    expect(form.querySelector(".wb-builtin-use-input").value).toBe(originalUse);
+    expect(form.querySelector(".wb-builtin-examples-input").value.length).toBeGreaterThan(0);
+  });
+
+  it("Save persists an override, updates the displayed text, and closes the form", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    openAndManage(document);
+
+    document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
+    let entryEl = document.getElementById(entryId);
+    const form = entryEl.querySelector(".wb-builtin-edit-form");
+    form.querySelector(".wb-builtin-use-input").value = "An edited built-in rule.";
+    form.querySelector(".wb-builtin-examples-input").value = "Example one.\nExample two.";
+    entryEl.querySelector(".wb-builtin-save-btn").click();
+
+    entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelector(".wb-builtin-edit-form")).toBeNull();
+    expect(entryEl.textContent).toContain("An edited built-in rule.");
+    expect(entryEl.textContent).toContain("Example one.");
+    expect(entryEl.textContent).toContain("Example two.");
+
+    const overrides = hooks.getWordBankBuiltinOverrides();
+    expect(overrides[firstBuiltinKey()]).toEqual({ use: "An edited built-in rule.", examples: ["Example one.", "Example two."] });
+  });
+
+  it("Cancel discards the in-progress edit without saving anything", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    openAndManage(document);
+
+    document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
+    let entryEl = document.getElementById(entryId);
+    entryEl.querySelector(".wb-builtin-use-input").value = "Text that should never be saved.";
+    entryEl.querySelector(".wb-builtin-cancel-btn").click();
+
+    entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelector(".wb-builtin-edit-form")).toBeNull();
+    expect(entryEl.textContent).not.toContain("Text that should never be saved.");
+    expect(hooks.getWordBankBuiltinOverrides()[firstBuiltinKey()]).toBeUndefined();
+  });
+
+  it("editing the same built-in a second time starts from the saved override, not the original text", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openAndManage(document);
+
+    document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
+    let entryEl = document.getElementById(entryId);
+    entryEl.querySelector(".wb-builtin-use-input").value = "First override text.";
+    entryEl.querySelector(".wb-builtin-examples-input").value = "Override example.";
+    entryEl.querySelector(".wb-builtin-save-btn").click();
+
+    entryEl = document.getElementById(entryId);
+    entryEl.querySelector(".wordbank-builtin-edit-btn").click();
+    entryEl = document.getElementById(entryId);
+    const form = entryEl.querySelector(".wb-builtin-edit-form");
+    expect(form.querySelector(".wb-builtin-use-input").value).toBe("First override text.");
+    expect(form.querySelector(".wb-builtin-examples-input").value).toBe("Override example.");
+  });
+
+  it("Delete permanently removes a built-in sense after confirmation, dropping the visible total by one", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const originalConfirm = window.confirm;
+    window.confirm = () => true;
+    openWordBankCategory(document, val);
+    const builtinCount = document.getElementById(entryId).querySelectorAll(".sense").length;
+    document.getElementById(entryId).querySelector(".wordbank-manage-toggle-btn").click();
+
+    let entryEl = document.getElementById(entryId);
+    const progressBefore = entryEl.querySelector(".wordbank-review-progress").textContent;
+    expect(progressBefore).toContain(`/ ${builtinCount} reviewed`);
+
+    entryEl.querySelector(".wordbank-builtin-delete-btn").click();
+
+    entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelectorAll(".sense").length).toBe(builtinCount - 1);
+    expect(entryEl.querySelector(".wordbank-review-progress").textContent).toContain(`/ ${builtinCount - 1} reviewed`);
+    expect(hooks.getWordBankBuiltinDeletedSet().has(firstBuiltinKey())).toBe(true);
+    window.confirm = originalConfirm;
+  });
+
+  it("declining the confirmation leaves the built-in item untouched", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const originalConfirm = window.confirm;
+    window.confirm = () => false;
+    openWordBankCategory(document, val);
+    const builtinCount = document.getElementById(entryId).querySelectorAll(".sense").length;
+    document.getElementById(entryId).querySelector(".wordbank-manage-toggle-btn").click();
+
+    document.getElementById(entryId).querySelector(".wordbank-builtin-delete-btn").click();
+
+    const entryEl = document.getElementById(entryId);
+    expect(entryEl.querySelectorAll(".sense").length).toBe(builtinCount);
+    expect(hooks.getWordBankBuiltinDeletedSet().has(firstBuiltinKey())).toBe(false);
+    window.confirm = originalConfirm;
+  });
+
+  it("a permanent delete also drops any existing override for that same item", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    window.confirm = () => true;
+    openAndManage(document);
+
+    document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
+    let entryEl = document.getElementById(entryId);
+    entryEl.querySelector(".wb-builtin-use-input").value = "Soon to be deleted anyway.";
+    entryEl.querySelector(".wb-builtin-examples-input").value = "n/a";
+    entryEl.querySelector(".wb-builtin-save-btn").click();
+    expect(hooks.getWordBankBuiltinOverrides()[firstBuiltinKey()]).toBeDefined();
+
+    entryEl = document.getElementById(entryId);
+    entryEl.querySelector(".wordbank-builtin-delete-btn").click();
+
+    expect(hooks.getWordBankBuiltinOverrides()[firstBuiltinKey()]).toBeUndefined();
+    expect(hooks.getWordBankBuiltinDeletedSet().has(firstBuiltinKey())).toBe(true);
+  });
+
+  it("a permanent delete persists across a full reload and is NOT restorable via the (unrelated) reviewed-Reset button", async () => {
+    const first = await loadApp();
+    first.window.confirm = () => true;
+    openWordBankCategory(first.window.document, val);
+    const builtinCount = first.window.document.getElementById(entryId).querySelectorAll(".sense").length;
+    first.window.document.getElementById(entryId).querySelector(".wordbank-manage-toggle-btn").click();
+    first.window.document.getElementById(entryId).querySelector(".wordbank-builtin-delete-btn").click();
+
+    const deletedRaw = first.window.localStorage.getItem("mepf_toolkit_wordbank_builtin_deleted");
+    expect(deletedRaw).toContain(firstBuiltinKey());
+
+    const second = await loadApp({ localStorage: { mepf_toolkit_wordbank_builtin_deleted: deletedRaw } });
+    openWordBankCategory(second.window.document, val);
+    let entryEl = second.window.document.getElementById(entryId);
+    expect(entryEl.querySelectorAll(".sense").length).toBe(builtinCount - 1);
+
+    // Reset only clears reviewed-state, never a built-in tombstone.
+    entryEl.querySelector(".wordbank-review-reset-btn").click();
+    entryEl = second.window.document.getElementById(entryId);
+    expect(entryEl.querySelectorAll(".sense").length).toBe(builtinCount - 1);
+  });
+});
+
+describe("Word Bank — built-in override/delete sync round-trip", () => {
+  it("collectWordBankBuiltinOverridesForSync/applyRemoteWordBankBuiltinOverrides round-trip a full-replace", async () => {
+    const { hooks } = await loadApp();
+    hooks.saveWordBankBuiltinOverrides({ "sentenceFragment::idx:0": { use: "Local edit.", examples: ["a"] } });
+    expect(hooks.collectWordBankBuiltinOverridesForSync()).toEqual({ "sentenceFragment::idx:0": { use: "Local edit.", examples: ["a"] } });
+
+    const remote = { "sentenceFragment::idx:1": { use: "Remote edit.", examples: ["b"] } };
+    hooks.applyRemoteWordBankBuiltinOverrides(remote);
+    expect(hooks.getWordBankBuiltinOverrides()).toEqual(remote);
+  });
+
+  it("applyRemoteWordBankBuiltinOverrides ignores malformed remote payloads", async () => {
+    const { hooks } = await loadApp();
+    hooks.saveWordBankBuiltinOverrides({ "sentenceFragment::idx:0": { use: "Keep me.", examples: [] } });
+    hooks.applyRemoteWordBankBuiltinOverrides(null);
+    hooks.applyRemoteWordBankBuiltinOverrides(["not", "an", "object"]);
+    expect(hooks.getWordBankBuiltinOverrides()).toEqual({ "sentenceFragment::idx:0": { use: "Keep me.", examples: [] } });
+  });
+
+  it("collectWordBankBuiltinDeletedForSync/applyRemoteWordBankBuiltinDeleted merge tombstones without dropping local ones", async () => {
+    const { hooks } = await loadApp();
+    hooks.saveWordBankBuiltinDeletedSet(new Set(["sentenceFragment::idx:0"]));
+    expect(hooks.collectWordBankBuiltinDeletedForSync().sort()).toEqual(["sentenceFragment::idx:0"]);
+
+    hooks.applyRemoteWordBankBuiltinDeleted(["subjectVerbAgreement::idx:2"]);
+    const merged = hooks.getWordBankBuiltinDeletedSet();
+    expect(merged.has("sentenceFragment::idx:0")).toBe(true);
+    expect(merged.has("subjectVerbAgreement::idx:2")).toBe(true);
+  });
+
+  it("applyRemoteWordBankBuiltinDeleted ignores a non-array remote payload", async () => {
+    const { hooks } = await loadApp();
+    hooks.saveWordBankBuiltinDeletedSet(new Set(["sentenceFragment::idx:0"]));
+    hooks.applyRemoteWordBankBuiltinDeleted(null);
+    hooks.applyRemoteWordBankBuiltinDeleted({ not: "an array" });
+    expect(Array.from(hooks.getWordBankBuiltinDeletedSet())).toEqual(["sentenceFragment::idx:0"]);
+  });
+
+  it("saving a built-in override while connected as owner pushes it to the shared doc's wordbankBuiltinOverrides field", async () => {
+    const { createFakeFirebase } = await import("./helpers/fake-firebase.js");
+    const OWNER_EMAIL = "owner@example.com";
+    const OWNER_PASSWORD = "correct-horse-battery-staple";
+    const firebase = createFakeFirebase({ ownerEmail: OWNER_EMAIL, users: { [OWNER_EMAIL]: OWNER_PASSWORD } });
+    const { window, hooks } = await loadApp({ firebase });
+    const document = window.document;
+
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+    await hooks.connectSync("wb-builtin-code-1");
+    await wait();
+
+    openWordBankCategory(document, "sentenceFragment");
+    document.getElementById("fragmentEntry").querySelector(".wordbank-manage-toggle-btn").click();
+    document.getElementById("fragmentEntry").querySelector(".wordbank-builtin-edit-btn").click();
+    let entryEl = document.getElementById("fragmentEntry");
+    entryEl.querySelector(".wb-builtin-use-input").value = "Synced override.";
+    entryEl.querySelector(".wb-builtin-examples-input").value = "synced example";
+    entryEl.querySelector(".wb-builtin-save-btn").click();
+    await wait();
+
+    const doc = firebase._docs.get("syncedLogs/wb-builtin-code-1");
+    expect(doc && doc.wordbankBuiltinOverrides).toBeTruthy();
+    expect(doc.wordbankBuiltinOverrides["sentenceFragment::idx:0"].use).toBe("Synced override.");
+  });
+
+  it("a permanent delete while connected as owner pushes the tombstone to the shared doc's wordbankBuiltinDeleted field", async () => {
+    const { createFakeFirebase } = await import("./helpers/fake-firebase.js");
+    const OWNER_EMAIL = "owner@example.com";
+    const OWNER_PASSWORD = "correct-horse-battery-staple";
+    const firebase = createFakeFirebase({ ownerEmail: OWNER_EMAIL, users: { [OWNER_EMAIL]: OWNER_PASSWORD } });
+    const { window, hooks } = await loadApp({ firebase });
+    const document = window.document;
+
+    await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
+    await hooks.connectSync("wb-builtin-code-2");
+    await wait();
+
+    window.confirm = () => true;
+    openWordBankCategory(document, "sentenceFragment");
+    document.getElementById("fragmentEntry").querySelector(".wordbank-manage-toggle-btn").click();
+    document.getElementById("fragmentEntry").querySelector(".wordbank-builtin-delete-btn").click();
+    await wait();
+
+    const doc = firebase._docs.get("syncedLogs/wb-builtin-code-2");
+    expect(doc && doc.wordbankBuiltinDeleted).toContain("sentenceFragment::idx:0");
+  });
+
+  it("a device that connects to a code already carrying a remote built-in override/delete applies both locally", async () => {
+    const { createFakeFirebase } = await import("./helpers/fake-firebase.js");
+    const firebase = createFakeFirebase();
+    firebase._docs.set("syncedLogs/wb-builtin-code-3", {
+      entries: [], languageBank: { phrasal: [], idioms: [], sentences: [], patterns: [], technical: [] },
+      distinctions: [], vocab: [], verbs: [], favorites: [],
+      basicAdvanced: [], tagalogEnglish: [],
+      wordbankBuiltinOverrides: { "sentenceFragment::idx:1": { use: "Remote-supplied edit.", examples: ["remote ex"] } },
+      wordbankBuiltinDeleted: ["sentenceFragment::idx:2"]
+    });
+
+    const { window, hooks } = await loadApp({ firebase, ownerUnlocked: false });
+    const document = window.document;
+    await hooks.connectSync("wb-builtin-code-3");
+    await wait();
+
+    openWordBankCategory(document, "sentenceFragment");
+    const entryEl = document.getElementById("fragmentEntry");
+    expect(entryEl.textContent).toContain("Remote-supplied edit.");
+    expect(entryEl.querySelectorAll(".sense").length).toBe(2); // one of the 3 built-ins tombstoned
   });
 });

@@ -1243,6 +1243,27 @@
   .wordbank-review-check input[type="checkbox"]{ width:15px; height:15px; }
   .sense.reviewed .body .use{ color:var(--ink-soft); }
 
+  .wordbank-builtin-edit-btn, .wordbank-builtin-delete-btn{
+    border:1px solid var(--rule); background:var(--paper); border-radius:6px;
+    padding:4px 10px; font-size:11.5px; font-weight:600; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; color:var(--ink-soft);
+  }
+  .wordbank-builtin-edit-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
+  .wordbank-builtin-delete-btn:hover{ background:var(--brick-bg); border-color:var(--brick-border); color:var(--brick); }
+  .wb-builtin-edit-form{ display:flex; flex-direction:column; gap:8px; }
+  .wb-builtin-use-input, .wb-builtin-examples-input{
+    width:100%; box-sizing:border-box; border:1px solid var(--rule); border-radius:8px;
+    padding:8px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:13.5px;
+    color:var(--ink); background:var(--card); resize:vertical;
+  }
+  .wb-builtin-edit-actions{ display:flex; gap:8px; }
+  .wb-builtin-save-btn, .wb-builtin-cancel-btn{
+    border:1px solid var(--rule); border-radius:6px; padding:6px 14px;
+    font-size:12.5px; font-weight:700; cursor:pointer; font-family:'IBM Plex Sans', sans-serif;
+  }
+  .wb-builtin-save-btn{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .wb-builtin-cancel-btn{ background:var(--paper); color:var(--ink-soft); }
+
   .entry-actions{ display:flex; gap:8px; margin:10px 0 4px; }
   .entry-actions button{
     border:1px solid var(--rule); background:var(--paper); border-radius:6px;
@@ -38090,20 +38111,51 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
     : (function(){
         // reviewScope (only ever set by the 3 Word Bank correction-log
         // categories — see renderFragmentEntry/renderSubjectVerbAgreement
-        // Entry/renderCorrectionLogEntry) is what gates BOTH the reviewed
-        // tickbox AND hiding Edit/Delete behind wordBankManageMode — every
-        // other non-vocab rule module (Course tab, Language Bank,
-        // Distinctions, Prepositions, etc.) leaves reviewScope undefined
-        // and keeps its exact original always-visible-when-personal
-        // Edit/Delete behavior, untouched.
+        // Entry/renderCorrectionLogEntry) is what gates the reviewed
+        // tickbox, hiding Edit/Delete behind wordBankManageMode (built-in
+        // rules included, not just personal ones), and built-in
+        // override/delete support — every other non-vocab rule module
+        // (Course tab, Language Bank, Distinctions, Prepositions, etc.)
+        // leaves reviewScope undefined and keeps its exact original
+        // always-visible-when-personal Edit/Delete behavior, untouched.
         const reviewedSet = reviewScope ? getWordBankReviewedSet() : null;
+        const builtinOverrides = reviewScope ? getWordBankBuiltinOverrides() : null;
+        const builtinDeleted = reviewScope ? getWordBankBuiltinDeletedSet() : null;
+        let displayNumber = 0;
         return item.senses.map((s,i)=>{
-          const showActions = s.personal && isDeviceUnlocked() && (!reviewScope || wordBankManageMode);
-          const actionsHtml = showActions ? `
+          // Built-in senses have no id, so this resolves to the same
+          // "scope::idx:i" shape buildWordBankReviewKey already uses for
+          // their reviewed-checkbox key — a separate localStorage bucket
+          // (WORDBANK_BUILTIN_OVERRIDES_KEY/_DELETED_KEY) keeps that from
+          // colliding with reviewed-state.
+          const builtinKey = reviewScope ? buildWordBankReviewKey(reviewScope, s, i) : null;
+          // A built-in sense the Owner permanently removed — original
+          // index i is kept stable for every OTHER sense's own key by
+          // filtering here (returning "") rather than splicing the array.
+          if(reviewScope && !s.personal && builtinDeleted.has(builtinKey)) return "";
+          displayNumber++;
+
+          const override = (reviewScope && !s.personal) ? builtinOverrides[builtinKey] : null;
+          const effectiveUse = override ? override.use : s.use;
+          const effectiveExamples = override ? override.examples : s.examples;
+
+          const isBuiltin = reviewScope && !s.personal;
+          const showActions = isDeviceUnlocked() && (s.personal || isBuiltin) && (!reviewScope || wordBankManageMode);
+          let actionsHtml = "";
+          if(showActions && s.personal){
+            actionsHtml = `
             <div class="personal-actions">
               <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
               <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
-            </div>` : "";
+            </div>`;
+          } else if(showActions && isBuiltin){
+            actionsHtml = `
+            <div class="personal-actions">
+              <button class="wordbank-builtin-edit-btn" data-key="${builtinKey}">✎ Edit</button>
+              <button class="wordbank-builtin-delete-btn" data-key="${builtinKey}">🗑 Delete</button>
+            </div>`;
+          }
+
           let reviewCheckboxHtml = "";
           let reviewedClass = "";
           if(reviewScope){
@@ -38112,13 +38164,34 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
             reviewedClass = isReviewed ? " reviewed" : "";
             reviewCheckboxHtml = `<label class="wordbank-review-check" title="Mark as reviewed"><input type="checkbox" class="wordbank-review-checkbox" data-review-key="${reviewKey}" ${isReviewed ? "checked" : ""}></label>`;
           }
+
+          // Inline edit form REPLACES the normal use/examples display for
+          // whichever one built-in sense is currently being edited (see
+          // wordBankEditingBuiltinKey) — textarea values are set via a
+          // follow-up applyWordBankBuiltinEditFormValues() call below,
+          // never interpolated into this HTML, so arbitrary saved text
+          // can never break out of the template.
+          if(isBuiltin && wordBankEditingBuiltinKey === builtinKey){
+            return `
+            <div class="sense${reviewedClass}">${reviewCheckboxHtml}<span class="num">${displayNumber}</span><div class="body">
+              <div class="wb-builtin-edit-form" data-key="${builtinKey}">
+                <textarea class="wb-builtin-use-input" rows="3" placeholder="Rule text"></textarea>
+                <textarea class="wb-builtin-examples-input" rows="4" placeholder="One example per line"></textarea>
+                <div class="wb-builtin-edit-actions">
+                  <button type="button" class="wb-builtin-save-btn">Save</button>
+                  <button type="button" class="wb-builtin-cancel-btn">Cancel</button>
+                </div>
+              </div>
+            </div></div>`;
+          }
+
           return `
-          <div class="sense${reviewedClass}">${reviewCheckboxHtml}<span class="num">${i+1}</span><div class="body">
-            <div class="use">${s.use}</div>
-            ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
+          <div class="sense${reviewedClass}">${reviewCheckboxHtml}<span class="num">${displayNumber}</span><div class="body">
+            <div class="use">${effectiveUse}</div>
+            ${effectiveExamples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
             ${actionsHtml}
           </div></div>`;
-        }).join("");
+        }).filter(Boolean).join("");
       })();
   const mistakeHtml = item.mistake ? `
     <div class="callout">
@@ -38244,6 +38317,25 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
     ${wordsHtml}
   `;
   wireListenButton(entryEl, item.w);
+
+  // Populates the open built-in-sense edit form's textareas via .value
+  // (a DOM property assignment, not template-string interpolation) —
+  // keeps arbitrary saved override text from ever needing to be
+  // HTML-escaped, same reasoning setupCorrectionBox's makeRow() already
+  // relies on for personal-correction inputs.
+  if(reviewScope && wordBankEditingBuiltinKey){
+    const editForm = entryEl.querySelector(`.wb-builtin-edit-form[data-key="${wordBankEditingBuiltinKey}"]`);
+    if(editForm){
+      const editingIndex = Number(wordBankEditingBuiltinKey.split("::idx:")[1]);
+      const editingSense = item.senses[editingIndex];
+      const overrides = getWordBankBuiltinOverrides();
+      const current = overrides[wordBankEditingBuiltinKey] || editingSense;
+      if(current){
+        editForm.querySelector(".wb-builtin-use-input").value = current.use || "";
+        editForm.querySelector(".wb-builtin-examples-input").value = (current.examples || []).join("\n");
+      }
+    }
+  }
 
   if(canManage){
     // Wired via closures (not data-attributes) so a word/phrase
@@ -44198,6 +44290,8 @@ function listenToSync(code){
       applyRemoteLanguageBank(data.languageBank);
       applyRemoteDistinctions(data.distinctions);
       applyRemoteDeletedSeedWords(data.deletedSeedWords);
+      applyRemoteWordBankBuiltinOverrides(data.wordbankBuiltinOverrides);
+      applyRemoteWordBankBuiltinDeleted(data.wordbankBuiltinDeleted);
       applyRemoteVocab(data.vocab);
       applyRemoteVerbs(data.verbs);
       applyRemoteBasicAdvanced(data.basicAdvanced);
@@ -44239,6 +44333,8 @@ function listenToSync(code){
         languageBank: collectOnlineLanguageBankEntries(),
         distinctions: collectOnlineDistinctions(),
         deletedSeedWords: collectDeletedSeedWordsForSync(),
+        wordbankBuiltinOverrides: collectWordBankBuiltinOverridesForSync(),
+        wordbankBuiltinDeleted: collectWordBankBuiltinDeletedForSync(),
         vocab: collectOnlineVocabEntries(),
         verbs: collectOnlineVerbs(),
         basicAdvanced: collectOnlineBasicAdvanced(),
@@ -44294,6 +44390,8 @@ function pushToSync(entries){
     languageBank: collectOnlineLanguageBankEntries(),
     distinctions: collectOnlineDistinctions(),
     deletedSeedWords: collectDeletedSeedWordsForSync(),
+    wordbankBuiltinOverrides: collectWordBankBuiltinOverridesForSync(),
+    wordbankBuiltinDeleted: collectWordBankBuiltinDeletedForSync(),
     vocab: collectOnlineVocabEntries(),
     verbs: collectOnlineVerbs(),
     basicAdvanced: collectOnlineBasicAdvanced(),
@@ -46195,6 +46293,45 @@ function applyRemoteDeletedSeedWords(remote){
   });
 }
 
+// Owner-edited built-in rule text for the 3 Word Bank correction-log
+// categories (see buildWordBankReviewKey/getWordBankBuiltinOverrides) —
+// a plain object, small enough to travel as a single field like
+// deletedSeedWords does, no per-key round trip needed.
+function collectWordBankBuiltinOverridesForSync(){
+  return getWordBankBuiltinOverrides();
+}
+// The shared doc always carries the FULL current object (same as
+// `entries`/`vocab`/etc.), not just this device's own recent edits, so a
+// straight overwrite here mirrors whatever the doc currently says —
+// consistent with how every other synced Word Bank field already
+// reconciles.
+function applyRemoteWordBankBuiltinOverrides(remote){
+  if(!remote || typeof remote !== "object" || Array.isArray(remote)) return;
+  if(JSON.stringify(remote) === JSON.stringify(getWordBankBuiltinOverrides())) return;
+  saveWordBankBuiltinOverrides(remote);
+  refreshAllWordBankStandaloneRules();
+}
+
+// Built-in rules the Owner has PERMANENTLY removed from the 3 Word Bank
+// correction-log categories — a tombstone set, same spirit as
+// deletedSeedWords, so a device that never saw the delete still ends up
+// hiding that rule once it syncs.
+function collectWordBankBuiltinDeletedForSync(){
+  return Array.from(getWordBankBuiltinDeletedSet());
+}
+function applyRemoteWordBankBuiltinDeleted(remote){
+  if(!Array.isArray(remote)) return;
+  const local = getWordBankBuiltinDeletedSet();
+  let changed = false;
+  remote.forEach(key=>{
+    if(!local.has(key)){ local.add(key); changed = true; }
+  });
+  if(changed){
+    saveWordBankBuiltinDeletedSet(local);
+    refreshAllWordBankStandaloneRules();
+  }
+}
+
 // Owner-added verbs (source:"online") only — every client ships the
 // same built-in regular/irregular lists already. `group` travels with
 // each entry so a remote client can tell Regular from Irregular apart
@@ -47670,19 +47807,67 @@ function saveWordBankReviewedSet(set){
 function buildWordBankReviewKey(scope, sense, index){
   return scope + "::" + (sense.personal && sense.id ? "id:" + sense.id : "idx:" + index);
 }
+
+// Lets the Owner edit or PERMANENTLY remove a built-in rule (not just
+// their own added corrections) in the three standalone correction-log
+// categories, while Manage mode is on. Built-in senses live as hardcoded
+// JS, not any persisted store, so this can't literally rewrite them —
+// instead an edit is saved as an override (keyed by the same stable
+// scope+index key buildWordBankReviewKey uses for built-ins) that's
+// preferred over the original text at render time, and a delete adds
+// that key to a tombstone set that's filtered out at render time. Both
+// are localStorage-only by default and folded into the existing
+// pushToSync/listenToSync doc so they travel to every synced device —
+// see collectWordBankBuiltinOverridesForSync/applyRemoteWordBankBuiltin*
+// below. There is deliberately no "undo a delete" UI: the Owner asked
+// for permanent removal, and the reviewed-Reset button (a completely
+// separate concept — see renderWordBankReviewControlsHtml) never
+// touches either of these.
+const WORDBANK_BUILTIN_OVERRIDES_KEY = "mepf_toolkit_wordbank_builtin_overrides";
+const WORDBANK_BUILTIN_DELETED_KEY = "mepf_toolkit_wordbank_builtin_deleted";
+// Which built-in sense (by its scope+index key) currently has its inline
+// edit form open, if any — in-memory only, one at a time, cleared on
+// Save/Cancel or whenever Manage mode itself is turned off.
+let wordBankEditingBuiltinKey = null;
+
+function getWordBankBuiltinOverrides(){
+  try {
+    const raw = localStorage.getItem(WORDBANK_BUILTIN_OVERRIDES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+  } catch(e){ return {}; }
+}
+function saveWordBankBuiltinOverrides(map){
+  try { localStorage.setItem(WORDBANK_BUILTIN_OVERRIDES_KEY, JSON.stringify(map)); } catch(e){ /* private mode etc. */ }
+}
+function getWordBankBuiltinDeletedSet(){
+  try {
+    const raw = localStorage.getItem(WORDBANK_BUILTIN_DELETED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch(e){ return new Set(); }
+}
+function saveWordBankBuiltinDeletedSet(set){
+  try { localStorage.setItem(WORDBANK_BUILTIN_DELETED_KEY, JSON.stringify(Array.from(set))); } catch(e){ /* private mode etc. */ }
+}
+
 // The small controls bar shown above a correction-log category's rule
 // list: a "reviewed" progress count, a Reset button for that category's
-// own reviewed state, and — only when there's actually something to
-// manage — a Manage toggle that reveals/hides every personal sense's
-// Edit/Delete buttons at once, so the default view stays a clean read
-// instead of a wall of button pairs.
+// own reviewed state, and a Manage toggle that reveals/hides every
+// sense's Edit/Delete buttons at once — built-in rules included, not
+// just the Owner's own added corrections — so the default view stays a
+// clean read instead of a wall of button pairs.
 function renderWordBankReviewControlsHtml(scope, senses){
   const reviewedSet = getWordBankReviewedSet();
-  const total = senses.length;
-  const reviewedCount = senses.filter((s, i)=> reviewedSet.has(buildWordBankReviewKey(scope, s, i))).length;
-  const hasPersonal = senses.some(s=> s.personal);
-  const manageBtnHtml = (hasPersonal && isDeviceUnlocked())
-    ? `<button type="button" class="wordbank-manage-toggle-btn" data-scope="${scope}">${wordBankManageMode ? "Done managing" : "✎ Manage my corrections"}</button>`
+  const deletedSet = getWordBankBuiltinDeletedSet();
+  // Permanently-deleted built-ins never count toward the total or the
+  // reviewed count — they're gone, not just hidden.
+  const visible = senses
+    .map((s, i)=> ({s, i}))
+    .filter(({s, i})=> !(!s.personal && deletedSet.has(buildWordBankReviewKey(scope, {personal:false}, i))));
+  const total = visible.length;
+  const reviewedCount = visible.filter(({s, i})=> reviewedSet.has(buildWordBankReviewKey(scope, s, i))).length;
+  const manageBtnHtml = (total > 0 && isDeviceUnlocked())
+    ? `<button type="button" class="wordbank-manage-toggle-btn" data-scope="${scope}">${wordBankManageMode ? "Done managing" : "✎ Manage"}</button>`
     : "";
   return `
     <div class="wordbank-review-bar">
@@ -47743,7 +47928,65 @@ document.addEventListener("click", (e)=>{
   const manageBtn = e.target.closest(".wordbank-manage-toggle-btn");
   if(manageBtn){
     wordBankManageMode = !wordBankManageMode;
+    wordBankEditingBuiltinKey = null;
     refreshAllWordBankStandaloneRules();
+    return;
+  }
+
+  const builtinEditBtn = e.target.closest(".wordbank-builtin-edit-btn");
+  if(builtinEditBtn){
+    if(!isDeviceUnlocked()) return;
+    wordBankEditingBuiltinKey = builtinEditBtn.dataset.key;
+    refreshAllWordBankStandaloneRules();
+    return;
+  }
+
+  const builtinCancelBtn = e.target.closest(".wb-builtin-cancel-btn");
+  if(builtinCancelBtn){
+    wordBankEditingBuiltinKey = null;
+    refreshAllWordBankStandaloneRules();
+    return;
+  }
+
+  const builtinSaveBtn = e.target.closest(".wb-builtin-save-btn");
+  if(builtinSaveBtn){
+    if(!isDeviceUnlocked()) return;
+    const form = builtinSaveBtn.closest(".wb-builtin-edit-form");
+    const key = form.dataset.key;
+    const useText = form.querySelector(".wb-builtin-use-input").value.trim();
+    if(!useText) return; // a rule with no text at all isn't useful — just leave the form open
+    const examples = form.querySelector(".wb-builtin-examples-input").value
+      .split("\n").map(line=> line.trim()).filter(Boolean);
+    const overrides = getWordBankBuiltinOverrides();
+    overrides[key] = { use: useText, examples: examples };
+    saveWordBankBuiltinOverrides(overrides);
+    wordBankEditingBuiltinKey = null;
+    refreshAllWordBankStandaloneRules();
+    pushToSync(loadPersonalCorrections());
+    return;
+  }
+
+  const builtinDeleteBtn = e.target.closest(".wordbank-builtin-delete-btn");
+  if(builtinDeleteBtn){
+    if(!isDeviceUnlocked()) return;
+    const confirmed = window.confirm
+      ? window.confirm("Permanently remove this built-in rule from your Word Bank? This can't be undone.")
+      : true;
+    if(!confirmed) return;
+    const key = builtinDeleteBtn.dataset.key;
+    const deletedSet = getWordBankBuiltinDeletedSet();
+    deletedSet.add(key);
+    saveWordBankBuiltinDeletedSet(deletedSet);
+    // An override for a now-permanently-deleted item is dead weight —
+    // drop it too rather than leaving it orphaned in storage/sync.
+    const overrides = getWordBankBuiltinOverrides();
+    if(overrides[key]){
+      delete overrides[key];
+      saveWordBankBuiltinOverrides(overrides);
+    }
+    if(wordBankEditingBuiltinKey === key) wordBankEditingBuiltinKey = null;
+    refreshAllWordBankStandaloneRules();
+    pushToSync(loadPersonalCorrections());
   }
 });
 
@@ -48692,6 +48935,12 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getWordBankReviewedSet, saveWordBankReviewedSet, buildWordBankReviewKey,
   getWordBankManageMode: ()=> wordBankManageMode,
   setWordBankManageMode: (v)=>{ wordBankManageMode = v; },
+  getWordBankBuiltinOverrides, saveWordBankBuiltinOverrides,
+  getWordBankBuiltinDeletedSet, saveWordBankBuiltinDeletedSet,
+  collectWordBankBuiltinOverridesForSync, applyRemoteWordBankBuiltinOverrides,
+  collectWordBankBuiltinDeletedForSync, applyRemoteWordBankBuiltinDeleted,
+  getWordBankEditingBuiltinKey: ()=> wordBankEditingBuiltinKey,
+  setWordBankEditingBuiltinKey: (v)=>{ wordBankEditingBuiltinKey = v; },
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,
