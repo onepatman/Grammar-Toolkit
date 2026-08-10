@@ -359,6 +359,21 @@
 
   main{ max-width:640px; margin:0 auto; padding:16px 14px 40px; }
 
+  /* The masthead, search bar, and tab strip above already run edge-to-
+     edge at any width. Only this content column was capped at a
+     phone-friendly 640px, so a wide desktop window (this app also runs
+     as a desktop PWA/window, not just on phones) left huge empty
+     margins on both sides. Widening the cap in two steps uses that
+     space on genuinely desktop-size windows while leaving phone and
+     tablet widths untouched (a block element's width already shrinks
+     to fit a narrower viewport regardless of max-width). */
+  @media (min-width:900px){
+    main{ max-width:860px; }
+  }
+  @media (min-width:1200px){
+    main{ max-width:1040px; }
+  }
+
   /* Control row */
   .controls{
     display:flex; flex-wrap:wrap; gap:8px;
