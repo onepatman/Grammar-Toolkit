@@ -239,6 +239,9 @@ describe("a non-owner's writes are rejected and rolled back", () => {
     // tab's mistakeSelect dropdown.
     document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
     document.querySelector('#wordBankCategorySeg button[data-val="correctionLog"]').click();
+    // Edit/Delete are hidden behind a Manage toggle for this category now
+    // (see test/wordbank-review-manage.test.js for dedicated coverage).
+    document.querySelector("#correctionLogEntry .wordbank-manage-toggle-btn").click();
     const delBtn = document.querySelector("#correctionLogEntry .delete-correction-btn");
     expect(delBtn).toBeTruthy();
     delBtn.click();

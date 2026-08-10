@@ -1228,6 +1228,21 @@
   .edit-correction-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
   .delete-correction-btn:hover{ background:var(--brick-bg); border-color:var(--brick-border); color:var(--brick); }
 
+  .wordbank-review-bar{
+    display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+    margin-bottom:10px;
+  }
+  .wordbank-review-progress{ font-size:12.5px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; }
+  .wordbank-review-reset-btn, .wordbank-manage-toggle-btn{
+    border:1px solid var(--rule); background:var(--paper); border-radius:6px;
+    padding:4px 10px; font-size:11.5px; font-weight:600; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; color:var(--ink-soft);
+  }
+  .wordbank-manage-toggle-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
+  .wordbank-review-check{ flex:none; padding-top:2px; cursor:pointer; }
+  .wordbank-review-check input[type="checkbox"]{ width:15px; height:15px; }
+  .sense.reviewed .body .use{ color:var(--ink-soft); }
+
   .entry-actions{ display:flex; gap:8px; margin:10px 0 4px; }
   .entry-actions button{
     border:1px solid var(--rule); background:var(--paper); border-radius:6px;
@@ -1537,10 +1552,10 @@
       <div class="seg" id="wordBankCategorySeg">
         <button class="active" data-val="basicAdvanced">Basic → Advanced</button>
         <button data-val="tagalogEnglish">Tagalog → English</button>
+        <button data-val="distinctions">Distinctions Words</button>
         <button data-val="sentenceFragment">Sentence Fragments</button>
         <button data-val="subjectVerbAgreement">Subject-Verb Agreement</button>
         <button data-val="correctionLog">My Correction Log</button>
-        <button data-val="distinctions">Distinctions Words</button>
       </div>
     </div>
 
@@ -38024,7 +38039,7 @@ function groupSensesByPos(senses){
 // Articles, Modals, etc.) leaves it undefined, which is what keeps the
 // Edit/Delete buttons below scoped to just the Language Bank instead of
 // showing up anywhere renderRuleEntry() is used.
-function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
+function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
   // A not-yet-saved online lookup result is previewed in the shared
   // LookupModal (see renderVocabSavePreview) rather than here, so every
   // call reaching this function with tagLabel "Vocabulary Bank" is
@@ -38072,19 +38087,39 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
         }).join("");
         return `<div class="pos-group">${posHeadingHtml}${groupSensesHtml}</div>`;
       }).join("")
-    : item.senses.map((s,i)=>{
-        const actionsHtml = (s.personal && isDeviceUnlocked()) ? `
-          <div class="personal-actions">
-            <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
-            <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
-          </div>` : "";
-        return `
-        <div class="sense"><span class="num">${i+1}</span><div class="body">
-          <div class="use">${s.use}</div>
-          ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
-          ${actionsHtml}
-        </div></div>`;
-      }).join("");
+    : (function(){
+        // reviewScope (only ever set by the 3 Word Bank correction-log
+        // categories — see renderFragmentEntry/renderSubjectVerbAgreement
+        // Entry/renderCorrectionLogEntry) is what gates BOTH the reviewed
+        // tickbox AND hiding Edit/Delete behind wordBankManageMode — every
+        // other non-vocab rule module (Course tab, Language Bank,
+        // Distinctions, Prepositions, etc.) leaves reviewScope undefined
+        // and keeps its exact original always-visible-when-personal
+        // Edit/Delete behavior, untouched.
+        const reviewedSet = reviewScope ? getWordBankReviewedSet() : null;
+        return item.senses.map((s,i)=>{
+          const showActions = s.personal && isDeviceUnlocked() && (!reviewScope || wordBankManageMode);
+          const actionsHtml = showActions ? `
+            <div class="personal-actions">
+              <button class="edit-correction-btn" data-id="${s.id}">✎ Edit</button>
+              <button class="delete-correction-btn" data-id="${s.id}">🗑 Delete</button>
+            </div>` : "";
+          let reviewCheckboxHtml = "";
+          let reviewedClass = "";
+          if(reviewScope){
+            const reviewKey = buildWordBankReviewKey(reviewScope, s, i);
+            const isReviewed = reviewedSet.has(reviewKey);
+            reviewedClass = isReviewed ? " reviewed" : "";
+            reviewCheckboxHtml = `<label class="wordbank-review-check" title="Mark as reviewed"><input type="checkbox" class="wordbank-review-checkbox" data-review-key="${reviewKey}" ${isReviewed ? "checked" : ""}></label>`;
+          }
+          return `
+          <div class="sense${reviewedClass}">${reviewCheckboxHtml}<span class="num">${i+1}</span><div class="body">
+            <div class="use">${s.use}</div>
+            ${s.examples.map(ex=>`<div class="ex">${ex}</div>`).join("")}
+            ${actionsHtml}
+          </div></div>`;
+        }).join("");
+      })();
   const mistakeHtml = item.mistake ? `
     <div class="callout">
       <div class="lbl">Common mistake</div>
@@ -38166,8 +38201,10 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey){
   // senses — showing an empty "Rule & usage"/"Definition" heading over
   // nothing would look broken, so it's only shown when there's
   // actually content under it.
+  const reviewControlsHtml = reviewScope ? renderWordBankReviewControlsHtml(reviewScope, item.senses) : "";
   const ruleUsageHtml = item.senses.length ? `
     <div class="section-label">${isVocabEntry ? "Definition" : "Rule &amp; usage"}</div>
+    ${reviewControlsHtml}
     ${sensesHtml}
   ` : "";
   // Vocabulary Bank is the one category where a built-in seed entry
@@ -47600,21 +47637,73 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
 ========================================================= */
 const basicAdvancedData = [];
 const tagalogEnglishData = [];
-const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog", "distinctions"];
+const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "distinctions", "sentenceFragment", "subjectVerbAgreement", "correctionLog"];
 let currentWordBankCategory = "basicAdvanced";
+
+// Per-device "I've reviewed this rule" tracking for the three standalone
+// correction-log categories (Sentence Fragments, Subject-Verb Agreement,
+// My Correction Log) — the only Word Bank categories that stack many
+// numbered items on one page, so they're the only ones that benefit
+// from a reviewed/read tickbox. localStorage-only, same precedent as
+// FAVORITES_REVIEWED_KEY/SELF_CHECK_STATE_KEY, and deliberately
+// PERSISTENT (never auto-resets) since the point is tracking which
+// rules you've already encountered, not a per-session habit checklist.
+const WORDBANK_REVIEWED_KEY = "mepf_toolkit_wordbank_reviewed_senses";
+// Shared across all three categories, in-memory only (not persisted) —
+// meant to declutter the default read view, not to remember a stale
+// "editing" state across visits.
+let wordBankManageMode = false;
+
+function getWordBankReviewedSet(){
+  try {
+    const raw = localStorage.getItem(WORDBANK_REVIEWED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch(e){ return new Set(); }
+}
+function saveWordBankReviewedSet(set){
+  try { localStorage.setItem(WORDBANK_REVIEWED_KEY, JSON.stringify(Array.from(set))); } catch(e){ /* private mode etc. */ }
+}
+// Built-in senses are always the same fixed-length prefix of item.senses
+// (see rebuildCorrectionLog: builtinSenses.concat(personal ones)), so
+// their plain index is a stable key — only personal senses (which can be
+// added/deleted, shifting later indices) need their own real id instead.
+function buildWordBankReviewKey(scope, sense, index){
+  return scope + "::" + (sense.personal && sense.id ? "id:" + sense.id : "idx:" + index);
+}
+// The small controls bar shown above a correction-log category's rule
+// list: a "reviewed" progress count, a Reset button for that category's
+// own reviewed state, and — only when there's actually something to
+// manage — a Manage toggle that reveals/hides every personal sense's
+// Edit/Delete buttons at once, so the default view stays a clean read
+// instead of a wall of button pairs.
+function renderWordBankReviewControlsHtml(scope, senses){
+  const reviewedSet = getWordBankReviewedSet();
+  const total = senses.length;
+  const reviewedCount = senses.filter((s, i)=> reviewedSet.has(buildWordBankReviewKey(scope, s, i))).length;
+  const hasPersonal = senses.some(s=> s.personal);
+  const manageBtnHtml = (hasPersonal && isDeviceUnlocked())
+    ? `<button type="button" class="wordbank-manage-toggle-btn" data-scope="${scope}">${wordBankManageMode ? "Done managing" : "✎ Manage my corrections"}</button>`
+    : "";
+  return `
+    <div class="wordbank-review-bar">
+      <span class="wordbank-review-progress">${reviewedCount} / ${total} reviewed</span>
+      <button type="button" class="wordbank-review-reset-btn" data-scope="${scope}">Reset</button>
+      ${manageBtnHtml}
+    </div>`;
+}
 
 // Renders each single-entry standalone rule (moved here from the Fixes
 // tab — see sentenceFragmentEntry/subjectVerbAgreementEntry/
 // CORRECTION_LOG_ENTRY above) the same way the Fixes tab always rendered
 // it, just inside its own Word Bank category div.
 function renderFragmentEntry(){
-  renderRuleEntry(sentenceFragmentEntry, document.getElementById("fragmentEntry"), "Sentence Error");
+  renderRuleEntry(sentenceFragmentEntry, document.getElementById("fragmentEntry"), "Sentence Error", undefined, "sentenceFragment");
 }
 function renderSubjectVerbAgreementEntry(){
-  renderRuleEntry(subjectVerbAgreementEntry, document.getElementById("subjectVerbAgreementEntry"), "Sentence Error");
+  renderRuleEntry(subjectVerbAgreementEntry, document.getElementById("subjectVerbAgreementEntry"), "Sentence Error", undefined, "subjectVerbAgreement");
 }
 function renderCorrectionLogEntry(){
-  renderRuleEntry(CORRECTION_LOG_ENTRY, document.getElementById("correctionLogEntry"), "Sentence Error");
+  renderRuleEntry(CORRECTION_LOG_ENTRY, document.getElementById("correctionLogEntry"), "Sentence Error", undefined, "correctionLog");
 }
 const WORDBANK_STANDALONE_RENDERERS = {
   sentenceFragment: renderFragmentEntry,
@@ -47626,6 +47715,37 @@ function refreshAllWordBankStandaloneRules(){
   renderSubjectVerbAgreementEntry();
   renderCorrectionLogEntry();
 }
+
+// Toggling a "reviewed" checkbox re-renders all three standalone rule
+// panels (cheap — at most a few dozen senses total) rather than
+// hand-patching just the one .sense div, same recompute-and-rerender
+// convention SELF_CHECK_ITEMS/renderSelfCheckChecklist already uses.
+document.addEventListener("change", (e)=>{
+  const checkbox = e.target.closest(".wordbank-review-checkbox");
+  if(!checkbox) return;
+  const key = checkbox.dataset.reviewKey;
+  const reviewedSet = getWordBankReviewedSet();
+  if(checkbox.checked) reviewedSet.add(key);
+  else reviewedSet.delete(key);
+  saveWordBankReviewedSet(reviewedSet);
+  refreshAllWordBankStandaloneRules();
+});
+document.addEventListener("click", (e)=>{
+  const resetBtn = e.target.closest(".wordbank-review-reset-btn");
+  if(resetBtn){
+    const scope = resetBtn.dataset.scope;
+    const reviewedSet = getWordBankReviewedSet();
+    Array.from(reviewedSet).forEach(key=>{ if(key.startsWith(scope + "::")) reviewedSet.delete(key); });
+    saveWordBankReviewedSet(reviewedSet);
+    refreshAllWordBankStandaloneRules();
+    return;
+  }
+  const manageBtn = e.target.closest(".wordbank-manage-toggle-btn");
+  if(manageBtn){
+    wordBankManageMode = !wordBankManageMode;
+    refreshAllWordBankStandaloneRules();
+  }
+});
 
 function activateWordBankCategory(key){
   if(WORD_BANK_CATEGORIES.indexOf(key) === -1) key = "basicAdvanced";
@@ -48569,6 +48689,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   sentenceFragmentEntry, BUILTIN_FRAGMENT_SENSES, renderFragmentEntry,
   subjectVerbAgreementEntry, BUILTIN_SVA_SENSES, renderSubjectVerbAgreementEntry,
   WORD_BANK_CATEGORIES, activateWordBankCategory, refreshAllWordBankStandaloneRules,
+  getWordBankReviewedSet, saveWordBankReviewedSet, buildWordBankReviewKey,
+  getWordBankManageMode: ()=> wordBankManageMode,
+  setWordBankManageMode: (v)=>{ wordBankManageMode = v; },
   loadPersonalCorrections, savePersonalCorrections, rebuildCorrectionLog,
   sanitizeSyncCode, runSearchPipeline, searchAndNavigate,
   addVocabEntry, vocabDbPromise, vocabCacheRestorePromise,

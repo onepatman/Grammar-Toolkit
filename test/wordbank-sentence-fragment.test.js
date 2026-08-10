@@ -36,7 +36,7 @@ describe("Word Bank tab — Sentence Fragments category", () => {
     const document = window.document;
     document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
     const vals = Array.from(document.querySelectorAll("#wordBankCategorySeg button")).map((b) => b.dataset.val);
-    expect(vals).toEqual(["basicAdvanced", "tagalogEnglish", "sentenceFragment", "subjectVerbAgreement", "correctionLog", "distinctions"]);
+    expect(vals).toEqual(["basicAdvanced", "tagalogEnglish", "distinctions", "sentenceFragment", "subjectVerbAgreement", "correctionLog"]);
   });
 
   it("scrolls horizontally instead of wrapping, same as Language Bank's own category seg (6 categories is too many pills for a phone screen)", async () => {
@@ -144,6 +144,9 @@ describe("Word Bank tab — Sentence Fragments category", () => {
     document.getElementById("fragAddBtn").click();
     await wait();
 
+    // Edit/Delete are hidden by default now — Manage reveals them (see
+    // test/wordbank-review-manage.test.js for dedicated coverage).
+    document.querySelector("#fragmentEntry .wordbank-manage-toggle-btn").click();
     document.querySelector("#fragmentEntry .edit-correction-btn").click();
     expect(document.getElementById("fragWrongInput").value).toBe("Wrong original.");
     expect(document.getElementById("qaWrongInput").value).not.toBe("Wrong original.");
@@ -168,6 +171,7 @@ describe("Word Bank tab — Sentence Fragments category", () => {
     expect(document.getElementById("fragmentEntry").textContent).toContain("Delete me right");
 
     window.confirm = () => true;
+    document.querySelector("#fragmentEntry .wordbank-manage-toggle-btn").click();
     document.querySelector("#fragmentEntry .delete-correction-btn").click();
     await wait();
     expect(document.getElementById("fragmentEntry").textContent).not.toContain("Delete me right");
