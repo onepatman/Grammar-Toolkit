@@ -329,7 +329,30 @@ describe.each(BUILTIN_MANAGE_CATEGORIES)("Word Bank — built-in item Edit/Delet
     const form = refreshed.querySelector(`.wb-builtin-edit-form[data-key="${firstBuiltinKey()}"]`);
     expect(form).not.toBeNull();
     expect(form.querySelector(".wb-builtin-use-input").value).toBe(originalUse);
-    expect(form.querySelector(".wb-builtin-examples-input").value.length).toBeGreaterThan(0);
+    const exampleInputs = form.querySelectorAll(".wb-builtin-example-input");
+    expect(exampleInputs.length).toBeGreaterThan(0);
+    expect(exampleInputs[0].value.length).toBeGreaterThan(0);
+    // Every example row also gets its own Remove button, same as the
+    // Language Bank/Vocab editors' example rows.
+    expect(form.querySelectorAll(".wb-builtin-remove-example-btn").length).toBe(exampleInputs.length);
+    expect(form.querySelector(".wb-builtin-add-example-btn")).not.toBeNull();
+  });
+
+  it("+ Add Example appends a blank row, and Remove takes just that row back out", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    openAndManage(document);
+
+    document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
+    const form = document.getElementById(entryId).querySelector(".wb-builtin-edit-form");
+    const countBefore = form.querySelectorAll(".wb-builtin-example-input").length;
+
+    form.querySelector(".wb-builtin-add-example-btn").click();
+    expect(form.querySelectorAll(".wb-builtin-example-input").length).toBe(countBefore + 1);
+    expect(form.querySelectorAll(".wb-builtin-example-input")[countBefore].value).toBe("");
+
+    form.querySelectorAll(".wb-builtin-remove-example-btn")[countBefore].click();
+    expect(form.querySelectorAll(".wb-builtin-example-input").length).toBe(countBefore);
   });
 
   it("Save persists an override, updates the displayed text, and closes the form", async () => {
@@ -341,7 +364,13 @@ describe.each(BUILTIN_MANAGE_CATEGORIES)("Word Bank — built-in item Edit/Delet
     let entryEl = document.getElementById(entryId);
     const form = entryEl.querySelector(".wb-builtin-edit-form");
     form.querySelector(".wb-builtin-use-input").value = "An edited built-in rule.";
-    form.querySelector(".wb-builtin-examples-input").value = "Example one.\nExample two.";
+    // Replace the pre-filled example rows with two of our own.
+    form.querySelectorAll(".wb-builtin-example-row").forEach(row=> row.remove());
+    form.querySelector(".wb-builtin-add-example-btn").click();
+    form.querySelector(".wb-builtin-add-example-btn").click();
+    const exampleInputs = form.querySelectorAll(".wb-builtin-example-input");
+    exampleInputs[0].value = "Example one.";
+    exampleInputs[1].value = "Example two.";
     entryEl.querySelector(".wb-builtin-save-btn").click();
 
     entryEl = document.getElementById(entryId);
@@ -377,16 +406,21 @@ describe.each(BUILTIN_MANAGE_CATEGORIES)("Word Bank — built-in item Edit/Delet
 
     document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
     let entryEl = document.getElementById(entryId);
-    entryEl.querySelector(".wb-builtin-use-input").value = "First override text.";
-    entryEl.querySelector(".wb-builtin-examples-input").value = "Override example.";
+    let form = entryEl.querySelector(".wb-builtin-edit-form");
+    form.querySelector(".wb-builtin-use-input").value = "First override text.";
+    form.querySelectorAll(".wb-builtin-example-row").forEach(row=> row.remove());
+    form.querySelector(".wb-builtin-add-example-btn").click();
+    form.querySelector(".wb-builtin-example-input").value = "Override example.";
     entryEl.querySelector(".wb-builtin-save-btn").click();
 
     entryEl = document.getElementById(entryId);
     entryEl.querySelector(".wordbank-builtin-edit-btn").click();
     entryEl = document.getElementById(entryId);
-    const form = entryEl.querySelector(".wb-builtin-edit-form");
+    form = entryEl.querySelector(".wb-builtin-edit-form");
     expect(form.querySelector(".wb-builtin-use-input").value).toBe("First override text.");
-    expect(form.querySelector(".wb-builtin-examples-input").value).toBe("Override example.");
+    const exampleInputs = form.querySelectorAll(".wb-builtin-example-input");
+    expect(exampleInputs).toHaveLength(1);
+    expect(exampleInputs[0].value).toBe("Override example.");
   });
 
   it("Delete permanently removes a built-in sense after confirmation, dropping the visible total by one", async () => {
@@ -437,7 +471,6 @@ describe.each(BUILTIN_MANAGE_CATEGORIES)("Word Bank — built-in item Edit/Delet
     document.getElementById(entryId).querySelector(".wordbank-builtin-edit-btn").click();
     let entryEl = document.getElementById(entryId);
     entryEl.querySelector(".wb-builtin-use-input").value = "Soon to be deleted anyway.";
-    entryEl.querySelector(".wb-builtin-examples-input").value = "n/a";
     entryEl.querySelector(".wb-builtin-save-btn").click();
     expect(hooks.getWordBankBuiltinOverrides()[firstBuiltinKey()]).toBeDefined();
 
@@ -526,7 +559,6 @@ describe("Word Bank — built-in override/delete sync round-trip", () => {
     document.getElementById("fragmentEntry").querySelector(".wordbank-builtin-edit-btn").click();
     let entryEl = document.getElementById("fragmentEntry");
     entryEl.querySelector(".wb-builtin-use-input").value = "Synced override.";
-    entryEl.querySelector(".wb-builtin-examples-input").value = "synced example";
     entryEl.querySelector(".wb-builtin-save-btn").click();
     await wait();
 

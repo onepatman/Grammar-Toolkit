@@ -1251,11 +1251,22 @@
   .wordbank-builtin-edit-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
   .wordbank-builtin-delete-btn:hover{ background:var(--brick-bg); border-color:var(--brick-border); color:var(--brick); }
   .wb-builtin-edit-form{ display:flex; flex-direction:column; gap:8px; }
-  .wb-builtin-use-input, .wb-builtin-examples-input{
+  .wb-builtin-use-input, .wb-builtin-example-input{
     width:100%; box-sizing:border-box; border:1px solid var(--rule); border-radius:8px;
     padding:8px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:13.5px;
     color:var(--ink); background:var(--card); resize:vertical;
   }
+  /* Same row layout as the Language Bank/Vocab editors' example lists
+     (.lb-edit-example-row) — a dedicated class rather than reusing that
+     one directly, so this form's document-level add/remove listeners
+     never double-fire alongside openLanguageBankEditForm's own
+     container-scoped ones. */
+  .wb-builtin-examples-list{ margin-bottom:6px; }
+  .wb-builtin-example-row{
+    display:flex; align-items:center; gap:8px; margin-bottom:6px;
+  }
+  .wb-builtin-example-row input{ flex:1; margin-bottom:0 !important; }
+  .wb-builtin-add-example-btn{ margin-bottom:4px; }
   .wb-builtin-edit-actions{ display:flex; gap:8px; }
   .wb-builtin-save-btn, .wb-builtin-cancel-btn{
     border:1px solid var(--rule); border-radius:6px; padding:6px 14px;
@@ -38176,7 +38187,9 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
             <div class="sense${reviewedClass}">${reviewCheckboxHtml}<span class="num">${displayNumber}</span><div class="body">
               <div class="wb-builtin-edit-form" data-key="${builtinKey}">
                 <textarea class="wb-builtin-use-input" rows="3" placeholder="Rule text"></textarea>
-                <textarea class="wb-builtin-examples-input" rows="4" placeholder="One example per line"></textarea>
+                <div class="section-label">Example sentences</div>
+                <div class="wb-builtin-examples-list"></div>
+                <button type="button" class="add-btn secondary wb-builtin-add-example-btn">+ Add Example</button>
                 <div class="wb-builtin-edit-actions">
                   <button type="button" class="wb-builtin-save-btn">Save</button>
                   <button type="button" class="wb-builtin-cancel-btn">Cancel</button>
@@ -38332,7 +38345,9 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
       const current = overrides[wordBankEditingBuiltinKey] || editingSense;
       if(current){
         editForm.querySelector(".wb-builtin-use-input").value = current.use || "";
-        editForm.querySelector(".wb-builtin-examples-input").value = (current.examples || []).join("\n");
+        const examplesList = editForm.querySelector(".wb-builtin-examples-list");
+        const currentExamples = (current.examples && current.examples.length) ? current.examples : [""];
+        currentExamples.forEach(ex=> examplesList.appendChild(createWbBuiltinExampleRow(ex)));
       }
     }
   }
@@ -45295,6 +45310,31 @@ function renderLanguageBankAfterDelete(categoryKey){
 // field, generalized to a list — this is the specific gap (unlimited
 // examples per meaning) the shared Language Bank/rule-tab editor didn't
 // have until now.
+// One example-sentence row for the built-in-sense edit form (see
+// renderRuleEntry's isBuiltin branch) — deliberately its own class
+// names rather than reusing .lb-edit-example-row directly, so the
+// document-level add/remove click handlers wired for this form (near
+// the .wordbank-builtin-edit-btn handler below) can never double-fire
+// alongside openLanguageBankEditForm's own container-scoped listener
+// (wireLbEditGroupEvents), which listens on a completely different
+// part of the DOM but would otherwise share the same class names.
+function createWbBuiltinExampleRow(text){
+  const wrap = document.createElement("div");
+  wrap.className = "wb-builtin-example-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "wb-builtin-example-input";
+  input.autocomplete = "off";
+  input.value = text || "";
+  wrap.appendChild(input);
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "vocab-edit-small-btn wb-builtin-remove-example-btn";
+  removeBtn.textContent = "Remove";
+  wrap.appendChild(removeBtn);
+  return wrap;
+}
+
 function createLbEditExampleRow(text){
   const wrap = document.createElement("div");
   wrap.className = "lb-edit-example-row";
@@ -47948,6 +47988,22 @@ document.addEventListener("click", (e)=>{
     return;
   }
 
+  // Add/remove an example row directly in the DOM — no re-render, same
+  // reasoning as wireLbEditGroupEvents (a full refreshAllWordBankStandaloneRules()
+  // here would blow away whatever the Owner already typed in the Rule
+  // text field or any other example row).
+  const builtinAddExampleBtn = e.target.closest(".wb-builtin-add-example-btn");
+  if(builtinAddExampleBtn){
+    const list = builtinAddExampleBtn.closest(".wb-builtin-edit-form").querySelector(".wb-builtin-examples-list");
+    list.appendChild(createWbBuiltinExampleRow());
+    return;
+  }
+  const builtinRemoveExampleBtn = e.target.closest(".wb-builtin-remove-example-btn");
+  if(builtinRemoveExampleBtn){
+    builtinRemoveExampleBtn.closest(".wb-builtin-example-row").remove();
+    return;
+  }
+
   const builtinSaveBtn = e.target.closest(".wb-builtin-save-btn");
   if(builtinSaveBtn){
     if(!isDeviceUnlocked()) return;
@@ -47955,8 +48011,8 @@ document.addEventListener("click", (e)=>{
     const key = form.dataset.key;
     const useText = form.querySelector(".wb-builtin-use-input").value.trim();
     if(!useText) return; // a rule with no text at all isn't useful — just leave the form open
-    const examples = form.querySelector(".wb-builtin-examples-input").value
-      .split("\n").map(line=> line.trim()).filter(Boolean);
+    const examples = Array.from(form.querySelectorAll(".wb-builtin-example-input"))
+      .map(inp=> inp.value.trim()).filter(Boolean);
     const overrides = getWordBankBuiltinOverrides();
     overrides[key] = { use: useText, examples: examples };
     saveWordBankBuiltinOverrides(overrides);
