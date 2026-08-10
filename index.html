@@ -1267,7 +1267,13 @@
   .wordbank-manage-toggle-btn:hover{ background:var(--mint-bg); border-color:var(--mint-border); color:var(--mint); }
   .wordbank-review-check{ flex:none; padding-top:2px; cursor:pointer; }
   .wordbank-review-check input[type="checkbox"]{ width:15px; height:15px; }
-  .sense.reviewed .body .use{ color:var(--ink-soft); }
+  /* Marking a rule reviewed used to only lighten its rule-text color a
+     touch (barely visible against the page) — the whole numbered block
+     (number + rule text + every example under it) now dims to signal
+     "done" at a glance, while the checkbox itself stays full-strength so
+     it's still obviously checked. */
+  .sense.reviewed .num,
+  .sense.reviewed .body{ opacity:.45; }
 
   .wordbank-builtin-edit-btn, .wordbank-builtin-delete-btn{
     border:1px solid var(--rule); background:var(--paper); border-radius:6px;
