@@ -2922,8 +2922,7 @@ function makePhoneticHtml(phonetic){
 // font size worked everywhere. Word Bank pairs and correction-log entries
 // can now hold full sentences ("I kindly request your early arrival."),
 // and rendering those at the same size wraps them into several oversized
-// lines next to the small listen/star icons. Scaling the size down as the
-// text gets longer keeps a word, a phrase, or a sentence equally readable.
+// lines next to the small listen/star icons.
 // Same "used to always be a short word" problem as headwordFontSize
 // above, but for the compact list rows in Favorites/global search
 // (.search-result-item) — see the .long-label CSS rule for the layout
@@ -2932,14 +2931,31 @@ function isLongLabel(text){
   return !!(text && text.length > 26);
 }
 
+// Returns a CSS font-size value (a plain "Npx" string, or a clamp()
+// expression), not a bare number — callers interpolate it directly into
+// `style="font-size:${...};"` with no unit suffix of their own.
+//
+// A fixed px-per-length-tier version of this shrank a long headword by
+// the same fixed amount everywhere, phone or desktop. But this app's
+// content column itself widens on bigger windows (see the `main`
+// max-width breakpoints), so a sentence that genuinely needs to shrink
+// on a ~375px phone doesn't need to shrink at all on a wide desktop
+// window where there's room to spare. clamp(floor, Nvw, base) ties the
+// size to the actual viewport instead: it sits at `floor` on narrow
+// screens, scales up through tablet widths, and reaches the normal
+// `base` size by roughly 950px viewport width — no resize listener
+// needed, the browser recalculates it live as the window resizes.
 function headwordFontSize(text, basePx){
   const base = basePx || 30;
   const len = (text || "").length;
-  if(len > 55) return Math.max(13, Math.round(base * 0.5));
-  if(len > 38) return Math.max(14, Math.round(base * 0.6));
-  if(len > 24) return Math.max(16, Math.round(base * 0.72));
-  if(len > 14) return Math.max(18, Math.round(base * 0.85));
-  return base;
+  let floor = base;
+  if(len > 55) floor = Math.max(13, Math.round(base * 0.5));
+  else if(len > 38) floor = Math.max(14, Math.round(base * 0.6));
+  else if(len > 24) floor = Math.max(16, Math.round(base * 0.72));
+  else if(len > 14) floor = Math.max(18, Math.round(base * 0.85));
+  if(floor >= base) return `${base}px`;
+  const vw = (base * 100 / 950).toFixed(2);
+  return `clamp(${floor}px, ${vw}vw, ${base}px)`;
 }
 
 function makeWordChips(words, type){
@@ -38375,7 +38391,7 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
   const catsHtml = Array.isArray(item.cats) ? item.cats.map(c=>`<span class="tag ghost">${c}</span>`).join("") : "";
   entryEl.innerHTML = `
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(item.w, 22)}px;">${item.w}</span>
+      <span class="headword" style="font-size:${headwordFontSize(item.w, 22)};">${item.w}</span>
       ${makePhoneticHtml(item.phonetic)}
       <span class="tag ghost">${displayTagLabel}</span>
       ${catsHtml}
@@ -38531,7 +38547,7 @@ function renderFamily(item){
   const familyEntry = document.getElementById("familyEntry");
   familyEntry.innerHTML = `
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(item.verb, 22)}px;">${item.verb}</span>
+      <span class="headword" style="font-size:${headwordFontSize(item.verb, 22)};">${item.verb}</span>
       <span class="tag ghost">Word Family</span>
       ${makeListenButtonHtml()}
       ${makeFavToggleHtml(item.verb, "Word Family")}
@@ -44977,7 +44993,7 @@ function buildLookupResultCardHtml(entry){
   ` : "";
   return `
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(entry.w, 20)}px;">${entry.w}</span>
+      <span class="headword" style="font-size:${headwordFontSize(entry.w, 20)};">${entry.w}</span>
       ${makePhoneticHtml(entry.phonetic)}
     </div>
     ${matchConfidenceHtml}
@@ -45724,7 +45740,7 @@ function renderDistinctionWordBlock(word, favToggleHtml){
 
   return `
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(word.w, 22)}px;">${word.w}</span>
+      <span class="headword" style="font-size:${headwordFontSize(word.w, 22)};">${word.w}</span>
       ${makePhoneticHtml(word.phonetic)}
       <span class="tag ghost">${DISTINCTIONS_TAG_LABEL}</span>
       ${makeListenButtonHtml()}
@@ -48143,7 +48159,7 @@ function renderWordBankSide(label, def, examples, tagLabel, favToggleHtml){
   return `
     <div class="tag ghost" style="display:inline-block;margin-bottom:4px;">${tagLabel}</div>
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(label, 22)}px;">${label}</span>
+      <span class="headword" style="font-size:${headwordFontSize(label, 22)};">${label}</span>
       ${makeListenButtonHtml()}
       ${favToggleHtml || ""}
     </div>
