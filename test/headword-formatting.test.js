@@ -9,20 +9,33 @@
 import { describe, it, expect } from "vitest";
 import { loadApp } from "./helpers/load-app.js";
 
+// headwordFontSize() returns a CSS value string, not a bare number: either
+// a plain "Npx" (short text — no shrinking needed at any width) or a
+// clamp(floor, Nvw, base) expression (long text — shrinks toward `floor`
+// only on narrow/phone-width viewports, and grows back to the normal
+// `base` size once the viewport is roughly desktop-width, since the
+// content column itself widens there and the text no longer needs to
+// shrink just because it's long). This helper pulls the floor value back
+// out of a clamp() string for tests that care about the progression.
+function clampFloor(cssValue) {
+  const m = /^clamp\((\d+)px/.exec(cssValue);
+  return m ? Number(m[1]) : null;
+}
+
 describe("headwordFontSize()", () => {
-  it("keeps the base size for a short single word", async () => {
+  it("keeps the base size (no clamp needed) for a short single word", async () => {
     const { hooks } = await loadApp();
-    expect(hooks.headwordFontSize("Achieve", 22)).toBe(22);
-    expect(hooks.headwordFontSize("Happy", 30)).toBe(30);
+    expect(hooks.headwordFontSize("Achieve", 22)).toBe("22px");
+    expect(hooks.headwordFontSize("Happy", 30)).toBe("30px");
   });
 
   it("keeps the base size for empty/missing text", async () => {
     const { hooks } = await loadApp();
-    expect(hooks.headwordFontSize("", 22)).toBe(22);
-    expect(hooks.headwordFontSize(undefined, 22)).toBe(22);
+    expect(hooks.headwordFontSize("", 22)).toBe("22px");
+    expect(hooks.headwordFontSize(undefined, 22)).toBe("22px");
   });
 
-  it("scales down progressively as the text gets longer", async () => {
+  it("scales the clamp() floor down progressively as the text gets longer", async () => {
     const { hooks } = await loadApp();
     const short = hooks.headwordFontSize("Come early.", 22); // 11 chars
     const medium = hooks.headwordFontSize("A short-ish phrase", 22); // 18 chars
@@ -31,16 +44,22 @@ describe("headwordFontSize()", () => {
       "Please make every effort to arrive at the venue well before the scheduled start time.",
       22
     ); // 87 chars
-    expect(short).toBe(22);
-    expect(medium).toBeLessThan(short);
-    expect(long).toBeLessThan(medium);
-    expect(veryLong).toBeLessThan(long);
+    expect(short).toBe("22px");
+    expect(clampFloor(medium)).toBeLessThan(22);
+    expect(clampFloor(long)).toBeLessThan(clampFloor(medium));
+    expect(clampFloor(veryLong)).toBeLessThan(clampFloor(long));
   });
 
-  it("never shrinks below a sane floor even for extremely long text", async () => {
+  it("every clamp() still tops out at the original base size, for wide/desktop viewports", async () => {
+    const { hooks } = await loadApp();
+    const long = hooks.headwordFontSize("I kindly request your early arrival.", 22);
+    expect(long).toBe(`clamp(${clampFloor(long)}px, 2.32vw, 22px)`);
+  });
+
+  it("never shrinks its floor below a sane minimum even for extremely long text", async () => {
     const { hooks } = await loadApp();
     const huge = "x".repeat(500);
-    expect(hooks.headwordFontSize(huge, 22)).toBeGreaterThanOrEqual(13);
+    expect(clampFloor(hooks.headwordFontSize(huge, 22))).toBeGreaterThanOrEqual(13);
   });
 });
 
@@ -73,11 +92,14 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
     const headwords = window.document.querySelectorAll("#basicAdvancedEntry .headword");
     expect(headwords).toHaveLength(2);
-    expect(headwords[0].style.fontSize).toBe("22px");
-    expect(headwords[1].style.fontSize).toBe("22px");
+    // Style is read from the raw attribute (not the parsed .style object)
+    // since jsdom's CSS parser doesn't resolve clamp() the way a real
+    // browser does — the attribute text is what actually ships to users.
+    expect(headwords[0].getAttribute("style")).toContain("font-size:22px");
+    expect(headwords[1].getAttribute("style")).toContain("font-size:22px");
   });
 
-  it("shrinks the headword size for a sentence-length side, independently per side", async () => {
+  it("shrinks the headword's clamp() floor for a sentence-length side, independently per side, while staying responsive to viewport width", async () => {
     const { window, hooks } = await loadApp();
     hooks.addBasicAdvancedEntry(
       {
@@ -90,12 +112,15 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
     const headwords = window.document.querySelectorAll("#basicAdvancedEntry .headword");
     expect(headwords).toHaveLength(2);
-    // "Come early." stays short enough to keep the base size...
-    expect(headwords[0].style.fontSize).toBe("22px");
-    // ...but the long "advanced" side shrinks well below it.
-    const advancedSize = parseInt(headwords[1].style.fontSize, 10);
-    expect(advancedSize).toBeLessThan(22);
-    expect(advancedSize).toBeGreaterThanOrEqual(13);
+    // "Come early." stays short enough to keep the plain base size...
+    expect(headwords[0].getAttribute("style")).toContain("font-size:22px");
+    // ...but the long "advanced" side gets a clamp() — a fixed floor for
+    // narrow/phone viewports, scaling back up to the normal 22px base
+    // once there's enough room, rather than a fixed shrink that also
+    // applies on a wide desktop window with no space problem at all.
+    const style = headwords[1].getAttribute("style");
+    expect(style).toMatch(/font-size:clamp\(\d+px, [\d.]+vw, 22px\)/);
+    expect(clampFloor(style.match(/font-size:(clamp\([^)]*\))/)[1])).toBeLessThan(22);
   });
 });
 
