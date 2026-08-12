@@ -277,17 +277,13 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
 
   it("treats the whole typed sentence as a single candidate — never sub-extracts individual words from it", async () => {
     const { window, hooks } = await loadApp();
-    window.OnlineLookup.fetchOnlineDefinition = async () => ({
-      w: "Could you send that file when you get a chance?",
-      senses: [],
-      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-    });
 
     const document = window.document;
     document.getElementById("sentencesAddInput").value = "Could you send that file when you get a chance?";
     document.getElementById("sentencesAddBtn").click();
     await wait(50);
-    document.getElementById("lookupModalSaveBtn").click();
+    document.getElementById("sentencesManualUse").value = "A polite request to send a file.";
+    document.getElementById("sentencesManualSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("sentencesAddStatus");
@@ -313,18 +309,14 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
     );
 
     const document = window.document;
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      const key = word.trim().toLowerCase();
-      if (key === "arise-test") return { w: "arise-test", senses: [{ use: "(verb) To come into being.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      if (key === "quibblet-test") return { w: "quibblet-test", senses: [{ use: "(verb) A fresh online lookup result.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      return null;
-    };
 
     document.getElementById("distinctionsAddInput1").value = "arise-test";
     document.getElementById("distinctionsAddInput2").value = "quibblet-test";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("lookupModalSaveBtn").click();
+    document.getElementById("distinctionsManualUse1").value = "(verb) To come into being.";
+    document.getElementById("distinctionsManualUse2").value = "(verb) A fresh manual entry.";
+    document.getElementById("distinctionsManualSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("distinctionsAddStatus");
@@ -342,18 +334,14 @@ describe("Save to Vocabulary Bank — checks only the exact word(s) intentionall
   it("Distinctions: neither word already known — two independent Save buttons, saving one never touches the other", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      const key = word.trim().toLowerCase();
-      if (key === "arise-test2") return { w: "arise-test2", senses: [{ use: "(verb) u1", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      if (key === "quibblet-test2") return { w: "quibblet-test2", senses: [{ use: "(verb) u2", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      return null;
-    };
 
     document.getElementById("distinctionsAddInput1").value = "arise-test2";
     document.getElementById("distinctionsAddInput2").value = "quibblet-test2";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("lookupModalSaveBtn").click();
+    document.getElementById("distinctionsManualUse1").value = "(verb) u1";
+    document.getElementById("distinctionsManualUse2").value = "(verb) u2";
+    document.getElementById("distinctionsManualSaveBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("distinctionsAddStatus");

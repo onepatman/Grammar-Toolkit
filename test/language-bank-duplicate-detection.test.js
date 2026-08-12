@@ -43,22 +43,16 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
     expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("langbank");
   });
 
-  it("a genuinely new chunk still shows the Save button as before", async () => {
+  it("a genuinely new chunk goes straight to the manual box, not yet saved", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    window.OnlineLookup.fetchOnlineDefinition = async () => ({
-      w: "double-check the wiring diagram",
-      senses: [{ use: "Used to ask someone to verify wiring before use.", examples: [] }],
-      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-    });
 
     document.getElementById("sentencesAddInput").value = "double-check the wiring diagram";
     document.getElementById("sentencesAddBtn").click();
     await wait(50);
 
     const statusEl = document.getElementById("sentencesAddStatus");
-    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
-    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
+    expect(document.getElementById("sentencesManualBox").style.display).not.toBe("none");
     expect(hooks.sentencesData.some((e) => e.w === "double-check the wiring diagram")).toBe(false);
   });
 
@@ -109,11 +103,6 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
   it("a genuinely different chunk is NOT incorrectly flagged as a duplicate", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    window.OnlineLookup.fetchOnlineDefinition = async () => ({
-      w: "think about that for a moment",
-      senses: [{ use: "Used to ask for a short pause before answering.", examples: [] }],
-      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-    });
 
     document.getElementById("sentencesAddInput").value = "think about that for a moment";
     document.getElementById("sentencesAddBtn").click();
@@ -121,35 +110,8 @@ describe("Word Chunks: duplicate detection before showing Save", () => {
 
     const statusEl = document.getElementById("sentencesAddStatus");
     expect(statusEl.textContent).not.toContain("already in the database");
-    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
-    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
+    expect(document.getElementById("sentencesManualBox").style.display).not.toBe("none");
     expect(hooks.sentencesData.some((e) => e.w === "think about that for a moment")).toBe(false);
-  });
-
-  it("re-checks the ONLINE LOOKUP'S OWN returned word after it resolves — catches a duplicate even when the typed text itself didn't match anything", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    // The typed text is intentionally something that doesn't itself match
-    // any stored entry — but the dictionary/Wiktionary source resolves it
-    // to a phrase that (after case/whitespace/punctuation normalization)
-    // IS already in sentencesData. This is exactly the gap where a
-    // fuzzy/search-based online match doesn't echo the query back
-    // verbatim, so only a post-lookup re-check catches it.
-    window.OnlineLookup.fetchOnlineDefinition = async () => ({
-      w: "touch base",
-      senses: [{ use: "(verb) An unrelated, mismatched definition.", examples: [] }],
-      syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-    });
-
-    document.getElementById("sentencesAddInput").value = "check in briefly";
-    document.getElementById("sentencesAddBtn").click();
-    await wait(50);
-
-    const statusEl = document.getElementById("sentencesAddStatus");
-    expect(statusEl.textContent).toContain("already available in your Word Chunk list");
-    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
-    // Never silently added a second, near-duplicate record.
-    expect(hooks.sentencesData.filter((e) => e.w.toLowerCase().replace(/[.!?]+$/, "") === "touch base")).toHaveLength(1);
   });
 });
 
@@ -230,59 +192,24 @@ describe("Distinction Words: duplicate detection before showing Save", () => {
     expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
   });
 
-  it("a genuinely new pair still shows the Save button", async () => {
+  it("a genuinely new pair goes straight to the manual boxes, not yet saved", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      const key = word.trim().toLowerCase();
-      if (key === "arise-dup-test") return { w: "arise-dup-test", senses: [{ use: "(verb) Test.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      if (key === "quibblet-dup-test") return { w: "quibblet-dup-test", senses: [{ use: "(verb) Test.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      return null;
-    };
 
     document.getElementById("distinctionsAddInput1").value = "arise-dup-test";
     document.getElementById("distinctionsAddInput2").value = "quibblet-dup-test";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
 
-    const statusEl = document.getElementById("distinctionsAddStatus");
-    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
-    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
-  });
-
-  it("re-checks the online lookup's own returned words after they resolve, before showing Save", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    // Neither typed word matches anything locally, but the online source
-    // resolves them to the existing "Achieve"/"Attain" pair (again,
-    // simulating a fuzzy/search-based match that doesn't echo the query).
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      const key = word.trim().toLowerCase();
-      if (key === "reach-a-goal-test") return { w: "achieve", senses: [{ use: "(verb) Mismatched.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      if (key === "reach-a-target-test") return { w: "attain", senses: [{ use: "(verb) Mismatched.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      return null;
-    };
-
-    document.getElementById("distinctionsAddInput1").value = "reach-a-goal-test";
-    document.getElementById("distinctionsAddInput2").value = "reach-a-target-test";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    const statusEl = document.getElementById("distinctionsAddStatus");
-    expect(statusEl.textContent).toContain("already available in your Distinction Words");
-    expect(document.getElementById("lookupModalSaveBtn")).toBeNull();
-    expect(hooks.distinctionsData.filter((e) => e.word1.w === "Achieve" && e.word2.w === "Attain")).toHaveLength(1);
+    expect(document.getElementById("distinctionsManualBox").style.display).not.toBe("none");
+    expect(document.getElementById("distinctionsManualWord1Box").style.display).not.toBe("none");
+    expect(document.getElementById("distinctionsManualWord2Box").style.display).not.toBe("none");
+    expect(hooks.distinctionsData.some((e) => e.word1.w === "arise-dup-test")).toBe(false);
   });
 
   it("two genuinely different word pairs are NOT incorrectly flagged as duplicates", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      const key = word.trim().toLowerCase();
-      if (key === "unrelated-word-one") return { w: "unrelated-word-one", senses: [{ use: "(noun) Test one.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      if (key === "unrelated-word-two") return { w: "unrelated-word-two", senses: [{ use: "(noun) Test two.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
-      return null;
-    };
 
     document.getElementById("distinctionsAddInput1").value = "unrelated-word-one";
     document.getElementById("distinctionsAddInput2").value = "unrelated-word-two";
@@ -291,7 +218,6 @@ describe("Distinction Words: duplicate detection before showing Save", () => {
 
     const statusEl = document.getElementById("distinctionsAddStatus");
     expect(statusEl.textContent).not.toContain("already");
-    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
-    expect(document.getElementById("lookupModalSaveBtn")).toBeTruthy();
+    expect(document.getElementById("distinctionsManualBox").style.display).not.toBe("none");
   });
 });

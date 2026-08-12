@@ -1736,14 +1736,14 @@
 
       <div class="quick-add-box owner-only" id="distinctionsAddBox">
         <div class="section-label">Add a new Distinction Words pair</div>
-        <p class="note" style="margin-bottom:8px;">Type two commonly confused or easily misused words (e.g. "Affect" and "Effect") and we'll automatically look up the meaning, example sentences, synonyms, and antonyms for both from a reliable online dictionary. If a source can't provide part of that, it's simply left blank — nothing here is ever made up.</p>
+        <p class="note" style="margin-bottom:8px;">Type two commonly confused or easily misused words (e.g. "Affect" and "Effect"), then add your own meaning, example sentence, synonyms, and antonyms for each below.</p>
         <input type="text" id="distinctionsAddInput1" placeholder="Word 1 (e.g. Affect)" autocomplete="off">
         <input type="text" id="distinctionsAddInput2" placeholder="Word 2 (e.g. Effect)" autocomplete="off" style="margin-top:8px;">
-        <button id="distinctionsAddBtn" class="add-btn" style="margin-top:8px;">+ Look up &amp; add</button>
+        <button id="distinctionsAddBtn" class="add-btn" style="margin-top:8px;">+ Add a pair</button>
         <div id="distinctionsAddStatus" class="add-status"></div>
 
         <div class="manual-entry-box" id="distinctionsManualBox" style="display:none;">
-          <p class="note" style="margin-bottom:8px;">Online lookup couldn't find a definition for one or both words. Add your own notes below for whichever word needs it, or Cancel.</p>
+          <p class="note" style="margin-bottom:8px;">Add your own notes below for both words, or Cancel.</p>
           <div id="distinctionsManualWord1Box" style="display:none;">
             <p class="note" style="margin-bottom:4px;">No online definition was found for "<strong id="distinctionsManualWord1"></strong>":</p>
             <textarea id="distinctionsManualUse1" placeholder='Meaning / definition (e.g. "(verb) To influence something.")' rows="2"></textarea>
@@ -2650,9 +2650,9 @@
 
       <div class="quick-add-box owner-only" id="sentencesAddBox">
         <div class="section-label">Add a word chunk</div>
-        <p class="note" style="margin-bottom:8px;">Type a useful word chunk — a short group of words that go together (e.g. "get back to you", "as soon as possible") — and we'll try to find an explanation online for when/how it's used. Word chunks don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save the chunk as-is.</p>
+        <p class="note" style="margin-bottom:8px;">Type a useful word chunk — a short group of words that go together (e.g. "get back to you", "as soon as possible") — then add your own note on when/how it's used below (optional), or just save the chunk as-is.</p>
         <input type="text" id="sentencesAddInput" placeholder='A word chunk (e.g. "touch base")' autocomplete="off">
-        <button id="sentencesAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <button id="sentencesAddBtn" class="add-btn">+ Add a word chunk</button>
         <div id="sentencesAddStatus" class="add-status"></div>
 
         <div class="manual-entry-box" id="sentencesManualBox" style="display:none;">
@@ -2679,9 +2679,9 @@
 
       <div class="quick-add-box owner-only" id="patternsAddBox">
         <div class="section-label">Add a sentence pattern</div>
-        <p class="note" style="margin-bottom:8px;">Type a sentence pattern (e.g. "Would you mind + V-ing?") and we'll try to find an explanation online. Sentence patterns don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save the pattern as-is.</p>
+        <p class="note" style="margin-bottom:8px;">Type a sentence pattern (e.g. "Would you mind + V-ing?") then add your own note below (optional), or just save the pattern as-is.</p>
         <input type="text" id="patternsAddInput" placeholder='A sentence pattern (e.g. "Would you mind + V-ing?")' autocomplete="off">
-        <button id="patternsAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <button id="patternsAddBtn" class="add-btn">+ Add a sentence pattern</button>
         <div id="patternsAddStatus" class="add-status"></div>
 
         <div class="manual-entry-box" id="patternsManualBox" style="display:none;">
@@ -2737,9 +2737,9 @@
 
       <div class="quick-add-box owner-only" id="phraseTemplatesAddBox">
         <div class="section-label">Add a phrase template</div>
-        <p class="note" style="margin-bottom:8px;">Type a short label for a ready-made professional phrase (e.g. "Email: Requesting a deadline extension") and we'll try to find an explanation online. Phrase templates don't have synonyms or antonyms, so those sections are simply left out. If nothing is found online, you can add your own note or just save it as-is.</p>
+        <p class="note" style="margin-bottom:8px;">Type a short label for a ready-made professional phrase (e.g. "Email: Requesting a deadline extension") then add your own note below (optional), or just save it as-is.</p>
         <input type="text" id="phraseTemplatesAddInput" placeholder='A phrase template (e.g. "Email: Requesting a deadline extension")' autocomplete="off">
-        <button id="phraseTemplatesAddBtn" class="add-btn">+ Look up &amp; add</button>
+        <button id="phraseTemplatesAddBtn" class="add-btn">+ Add a phrase template</button>
         <div id="phraseTemplatesAddStatus" class="add-status"></div>
 
         <div class="manual-entry-box" id="phraseTemplatesManualBox" style="display:none;">
@@ -42457,7 +42457,7 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putSentence(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllSentences(opts); },
     deleteFn: function(word, opts){ return VocabCache.deleteSentence(word, opts); },
-    requireExplanation: false, onlineLookup: true,
+    requireExplanation: false, onlineLookup: false,
     manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord",
     manualUseId: "sentencesManualUse", manualExampleId: null,
     manualSaveBtnId: "sentencesManualSaveBtn", manualSkipBtnId: "sentencesManualSkipBtn", manualCancelBtnId: "sentencesManualCancelBtn",
@@ -42469,7 +42469,7 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putPattern(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPatterns(opts); },
     deleteFn: function(word, opts){ return VocabCache.deletePattern(word, opts); },
-    requireExplanation: false, onlineLookup: true,
+    requireExplanation: false, onlineLookup: false,
     manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord",
     manualUseId: "patternsManualUse", manualExampleId: null,
     manualSaveBtnId: "patternsManualSaveBtn", manualSkipBtnId: "patternsManualSkipBtn", manualCancelBtnId: "patternsManualCancelBtn",
@@ -42493,7 +42493,7 @@ const LANGUAGE_BANK_CONFIG = {
     putFn: function(entry, opts){ return VocabCache.putPhraseTemplate(entry, opts); },
     getAllFn: function(opts){ return VocabCache.getAllPhraseTemplates(opts); },
     deleteFn: function(word, opts){ return VocabCache.deletePhraseTemplate(word, opts); },
-    requireExplanation: false, onlineLookup: true,
+    requireExplanation: false, onlineLookup: false,
     manualBoxId: "phraseTemplatesManualBox", manualWordId: "phraseTemplatesManualWord",
     manualUseId: "phraseTemplatesManualUse", manualExampleId: null,
     manualSaveBtnId: "phraseTemplatesManualSaveBtn", manualSkipBtnId: "phraseTemplatesManualSkipBtn", manualCancelBtnId: "phraseTemplatesManualCancelBtn",
@@ -45670,9 +45670,14 @@ function refreshVocabUI(){
 
 LANGUAGE_BANK_CATEGORIES.forEach(categoryKey=>{
   const config = LANGUAGE_BANK_CONFIG[categoryKey];
-  document.getElementById(config.btnId).addEventListener("click", ()=> addLanguageBankEntryFromInput(categoryKey));
+  // addRuleEntryFromInput() dispatches to the online-first flow or the
+  // manual-only one per category's own onlineLookup flag — Word Chunks/
+  // Sentence Patterns/Phrase Templates are manual-only (see their
+  // onlineLookup:false above), same reasoning as the standalone rule
+  // tabs below.
+  document.getElementById(config.btnId).addEventListener("click", ()=> addRuleEntryFromInput(categoryKey));
   document.getElementById(config.inputId).addEventListener("keydown", (e)=>{
-    if(e.key === "Enter") addLanguageBankEntryFromInput(categoryKey);
+    if(e.key === "Enter") addRuleEntryFromInput(categoryKey);
   });
   if(config.manualExampleId) bindEnterToClick(config.manualExampleId, config.manualSaveBtnId);
   document.getElementById(config.manualSaveBtnId).addEventListener("click", ()=> saveLanguageBankManualEntry(categoryKey));
@@ -46001,6 +46006,64 @@ function hideDistinctionsManualBox(){
   document.getElementById("distinctionsManualExample1").value = "";
   document.getElementById("distinctionsManualUse2").value = "";
   document.getElementById("distinctionsManualExample2").value = "";
+}
+
+// Manual-only counterpart to addDistinctionFromInputs() below — Distinction
+// Words pairs are now added straight to the manual-notes box, skipping the
+// online-lookup step entirely (same reasoning as addRuleEntryManualFromInput
+// for the Language Bank's manual-only categories). Reuses
+// showDistinctionsManualBox exactly as the online flow's own "lookup
+// failed" fallback does, just with both words always needing manual
+// notes instead of only whichever ones a lookup didn't find, so the
+// actual save path (validation, dedupe, persistence, sync push) is
+// identical either way.
+async function addDistinctionManualFromInputs(){
+  const statusEl = document.getElementById("distinctionsAddStatus");
+  hideDistinctionsManualBox();
+  hideDistinctionsSavePreview();
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const input1 = document.getElementById("distinctionsAddInput1");
+  const input2 = document.getElementById("distinctionsAddInput2");
+  const text1 = input1.value.trim();
+  const text2 = input2.value.trim();
+
+  if(!text1 || !text2){
+    statusEl.textContent = "Please enter both Word 1 and Word 2 first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const existingPair = findExistingDistinctionPair(text1, text2);
+  if(existingPair){
+    const viewExisting = ()=> navigateToEntry({label: existingPair.word1.w, cat: DISTINCTIONS_TAG_LABEL, action: ()=>{
+      document.getElementById("distinctionsSelect").value = existingPair.w;
+      renderDistinctionEntry(existingPair, document.getElementById("distinctionsEntry"));
+      activateTab("wordbank");
+      activateWordBankCategory("distinctions");
+    }});
+    renderDuplicateConflictPopup(statusEl, {
+      word: existingPair.w,
+      category: DISTINCTIONS_TAG_LABEL,
+      addedAt: existingPair.addedAt,
+      modifiedAt: existingPair.modifiedAt,
+      onView: viewExisting,
+      onEdit: existingPair.source === "online" ? ()=>{
+        viewExisting();
+        openDistinctionEditForm(existingPair, document.getElementById("distinctionsEntry"));
+      } : null
+    });
+    return;
+  }
+
+  input1.value = "";
+  input2.value = "";
+  statusEl.textContent = `Add your own notes for "${text1}" and "${text2}" below.`;
+  statusEl.className = "add-status";
+  showDistinctionsManualBox(text1, text2, true, true, null, null);
 }
 
 async function addDistinctionFromInputs(){
@@ -46556,12 +46619,12 @@ function applyRemoteFavorites(remote){
   }
 }
 
-document.getElementById("distinctionsAddBtn").addEventListener("click", addDistinctionFromInputs);
+document.getElementById("distinctionsAddBtn").addEventListener("click", addDistinctionManualFromInputs);
 document.getElementById("distinctionsAddInput1").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") addDistinctionFromInputs();
+  if(e.key === "Enter") addDistinctionManualFromInputs();
 });
 document.getElementById("distinctionsAddInput2").addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") addDistinctionFromInputs();
+  if(e.key === "Enter") addDistinctionManualFromInputs();
 });
 document.getElementById("distinctionsManualSaveBtn").addEventListener("click", saveDistinctionsManualEntry);
 document.getElementById("distinctionsManualCancelBtn").addEventListener("click", cancelDistinctionsManualEntry);
@@ -49129,7 +49192,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   waitForInitialAuthState, speakText, makeListenButtonHtml, wireListenButton,
   makePhoneticHtml, renderVerb, renderPrep, renderFamily,
   headwordFontSize, isLongLabel,
-  distinctionsCacheRestorePromise, addDistinctionEntry, addDistinctionFromInputs,
+  distinctionsCacheRestorePromise, addDistinctionEntry, addDistinctionFromInputs, addDistinctionManualFromInputs,
   renderDistinctionEntry, setupDistinctionsModule, indexDistinctionsData,
   findExistingDistinctionPair, deleteDistinctionEntry, renderDistinctionsAfterDelete,
   openDistinctionEditForm, saveDistinctionEdit, refreshDistinctionsUI,
