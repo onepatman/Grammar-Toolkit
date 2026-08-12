@@ -209,32 +209,21 @@ describe("Distinctions Words manual add — meaning/example support **bold** for
 });
 
 describe("Distinctions Words edit form — meaning/example support **bold** for both words, headwords do not", () => {
-  const RESULT_ARISE = {
-    w: "Arise", senses: [{ use: "To come into being.", examples: ["A problem may arise later."] }],
-    syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-  };
-  const RESULT_QUIBBLET = {
-    w: "Quibblet", senses: [{ use: "To move upward.", examples: ["The level began to rise."] }],
-    syn: [], ant: [], mistake: null, tagalog: null, source: "online"
-  };
-
   it("converts **bold** in both words' use/example on save, leaves edited headwords literal", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
     document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').click();
-    window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-      const key = word.trim().toLowerCase();
-      if (key === "arise") return RESULT_ARISE;
-      if (key === "quibblet") return RESULT_QUIBBLET;
-      return null;
-    };
 
     document.getElementById("distinctionsAddInput1").value = "Arise";
     document.getElementById("distinctionsAddInput2").value = "Quibblet";
     document.getElementById("distinctionsAddBtn").click();
     await wait(50);
-    document.getElementById("lookupModalSaveBtn").click();
+    document.getElementById("distinctionsManualUse1").value = "To come into being.";
+    document.getElementById("distinctionsManualExample1").value = "A problem may arise later.";
+    document.getElementById("distinctionsManualUse2").value = "To move upward.";
+    document.getElementById("distinctionsManualExample2").value = "The level began to rise.";
+    document.getElementById("distinctionsManualSaveBtn").click();
     await wait(50);
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();

@@ -87,24 +87,6 @@ describe.each([
     sample: { w: "test the waters", senses: [{ use: "(idiom) Try something cautiously before fully committing.", examples: ["We tested the waters with a small pilot first."] }], syn: ["try it out"], ant: [], mistake: null, tagalog: null, source: "online" }
   },
   {
-    key: "sentences", label: "Word Chunks", inputId: "sentencesAddInput", btnId: "sentencesAddBtn",
-    statusId: "sentencesAddStatus", dataKey: "sentencesData", entryId: "sentencesEntry", tagLabel: "Word Chunk",
-    builtIn: "get back to you", requireExplanation: false, hasManualExample: false, hasSkip: true,
-    manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord", manualUseId: "sentencesManualUse",
-    manualExampleId: null, manualSaveBtnId: "sentencesManualSaveBtn",
-    manualCancelBtnId: "sentencesManualCancelBtn", manualSkipBtnId: "sentencesManualSkipBtn",
-    sample: { w: "Let me know if that works for you.", senses: [{ use: "Checks that a proposed plan or time is acceptable.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
-  },
-  {
-    key: "patterns", label: "Sentence Patterns", inputId: "patternsAddInput", btnId: "patternsAddBtn",
-    statusId: "patternsAddStatus", dataKey: "patternsData", entryId: "patternsEntry", tagLabel: "Sentence Pattern",
-    builtIn: "Would you mind + V-ing?", requireExplanation: false, hasManualExample: false, hasSkip: true,
-    manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord", manualUseId: "patternsManualUse",
-    manualExampleId: null, manualSaveBtnId: "patternsManualSaveBtn",
-    manualCancelBtnId: "patternsManualCancelBtn", manualSkipBtnId: "patternsManualSkipBtn",
-    sample: { w: "Not only + inverted clause, but also...", senses: [{ use: "Emphasizes two facts with subject-verb inversion.", examples: [] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
-  },
-  {
     key: "technical", label: "Technical/Engineering Terms", inputId: "technicalAddInput", btnId: "technicalAddBtn",
     statusId: "technicalAddStatus", dataKey: "technicalData", entryId: "technicalEntry", tagLabel: "Technical Term",
     builtIn: "tolerance", requireExplanation: true, hasManualExample: true, hasSkip: false,
@@ -112,15 +94,6 @@ describe.each([
     manualExampleId: "technicalManualExample", manualSaveBtnId: "technicalManualSaveBtn",
     manualCancelBtnId: "technicalManualCancelBtn", manualSkipBtnId: null,
     sample: { w: "load balancer", senses: [{ use: "(noun) A device or software that distributes network traffic across multiple servers.", examples: ["The load balancer routed requests to the healthiest servers."] }], syn: ["traffic distributor"], ant: [], mistake: null, tagalog: null, source: "online" }
-  },
-  {
-    key: "phraseTemplates", label: "Phrase Templates", inputId: "phraseTemplatesAddInput", btnId: "phraseTemplatesAddBtn",
-    statusId: "phraseTemplatesAddStatus", dataKey: "phraseTemplatesData", entryId: "phraseTemplatesEntry", tagLabel: "Phrase Template",
-    builtIn: "Email: Attaching a document", requireExplanation: false, hasManualExample: false, hasSkip: true,
-    manualBoxId: "phraseTemplatesManualBox", manualWordId: "phraseTemplatesManualWord", manualUseId: "phraseTemplatesManualUse",
-    manualExampleId: null, manualSaveBtnId: "phraseTemplatesManualSaveBtn",
-    manualCancelBtnId: "phraseTemplatesManualCancelBtn", manualSkipBtnId: "phraseTemplatesManualSkipBtn",
-    sample: { w: "Email: Confirming receipt of a message", senses: [{ use: "Lets the sender know their message arrived and was understood.", examples: ["Thank you for your email — I confirm receipt of the attached files."] }], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
   }
 ])("$label quick-add", ({
   key, inputId, btnId, statusId, dataKey, entryId, tagLabel, builtIn, requireExplanation, hasManualExample, hasSkip,
@@ -360,6 +333,175 @@ describe.each([
 
   it("persists across sessions via its own IndexedDB store, independent of the other categories", async () => {
     const indexedDBFactory = new IDBFactory();
+    const first = await loadApp({ indexedDBFactory });
+    first.hooks.addLanguageBankEntry(key, sample, { persist: true });
+    await wait(50);
+
+    const { window, hooks } = await loadApp({ indexedDBFactory });
+    expect(hooks[dataKey].some((p) => p.w === sample.w)).toBe(true);
+    expect(Array.from(window.document.getElementById(`${key}Select`).options).some((o) => o.value === sample.w)).toBe(true);
+  });
+});
+
+// Word Chunks, Sentence Patterns, and Phrase Templates are all
+// multi-word content that a dictionary API essentially never has a
+// headword entry for, so onlineLookup:false skips that pointless
+// network round-trip and goes straight to the manual-notes box — same
+// architecture as the grammar-rule tabs in rule-tabs-add.test.js, just
+// with an optional (not required) note and a Skip/"add without notes"
+// button, since the chunk/pattern/template text is already
+// self-explanatory content on its own.
+describe.each([
+  {
+    key: "sentences", label: "Word Chunks", inputId: "sentencesAddInput", btnId: "sentencesAddBtn",
+    statusId: "sentencesAddStatus", dataKey: "sentencesData", entryId: "sentencesEntry",
+    builtIn: "get back to you", manualBoxId: "sentencesManualBox", manualWordId: "sentencesManualWord",
+    manualUseId: "sentencesManualUse", manualSaveBtnId: "sentencesManualSaveBtn",
+    manualCancelBtnId: "sentencesManualCancelBtn", manualSkipBtnId: "sentencesManualSkipBtn"
+  },
+  {
+    key: "patterns", label: "Sentence Patterns", inputId: "patternsAddInput", btnId: "patternsAddBtn",
+    statusId: "patternsAddStatus", dataKey: "patternsData", entryId: "patternsEntry",
+    builtIn: "Would you mind + V-ing?", manualBoxId: "patternsManualBox", manualWordId: "patternsManualWord",
+    manualUseId: "patternsManualUse", manualSaveBtnId: "patternsManualSaveBtn",
+    manualCancelBtnId: "patternsManualCancelBtn", manualSkipBtnId: "patternsManualSkipBtn"
+  },
+  {
+    key: "phraseTemplates", label: "Phrase Templates", inputId: "phraseTemplatesAddInput", btnId: "phraseTemplatesAddBtn",
+    statusId: "phraseTemplatesAddStatus", dataKey: "phraseTemplatesData", entryId: "phraseTemplatesEntry",
+    builtIn: "Email: Attaching a document", manualBoxId: "phraseTemplatesManualBox", manualWordId: "phraseTemplatesManualWord",
+    manualUseId: "phraseTemplatesManualUse", manualSaveBtnId: "phraseTemplatesManualSaveBtn",
+    manualCancelBtnId: "phraseTemplatesManualCancelBtn", manualSkipBtnId: "phraseTemplatesManualSkipBtn"
+  }
+])("$label quick-add (manual-only — no online lookup for multi-word chunks)", ({
+  key, inputId, btnId, statusId, dataKey, entryId, builtIn,
+  manualBoxId, manualWordId, manualUseId, manualSaveBtnId, manualCancelBtnId, manualSkipBtnId
+}) => {
+  it("shows an error and adds nothing when the input is empty", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.getElementById(btnId).click();
+    await wait(10);
+    expect(document.getElementById(statusId).textContent).toContain("Please enter");
+  });
+
+  it("is gated behind isDeviceUnlocked()", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+    document.getElementById(inputId).value = "a new one";
+    document.getElementById(btnId).click();
+    await wait(30);
+    expect(document.getElementById(statusId).textContent).toContain("isn't unlocked");
+    expect(hooks[dataKey].some((p) => p.w === "a new one")).toBe(false);
+  });
+
+  it("goes straight to the manual box — never calls the online lookup", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    let fetchCalled = false;
+    window.OnlineLookup.fetchOnlineDefinition = async () => { fetchCalled = true; return null; };
+
+    document.getElementById(inputId).value = "a new one";
+    document.getElementById(btnId).click();
+    await wait(30);
+
+    expect(fetchCalled).toBe(false);
+    expect(document.getElementById(manualBoxId).style.display).not.toBe("none");
+    expect(document.getElementById(manualWordId).textContent).toBe("a new one");
+    expect(hooks.languageBankPendingManual[key]).toBe("a new one");
+    expect(hooks[dataKey].some((p) => p.w === "a new one")).toBe(false);
+  });
+
+  it("does not duplicate a built-in entry — navigates to it instead of opening the manual box", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById(inputId).value = builtIn;
+    document.getElementById(btnId).click();
+    await wait(30);
+
+    expect(document.getElementById(statusId).textContent).toContain("already in the database");
+    expect(document.getElementById(manualBoxId).style.display).toBe("none");
+    expect(hooks[dataKey].filter((p) => p.w === builtIn)).toHaveLength(1);
+  });
+
+  it("saves with a manually-typed note when Save is clicked", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const text = "a brand new entry";
+
+    document.getElementById(inputId).value = text;
+    document.getElementById(btnId).click();
+    await wait(30);
+
+    document.getElementById(manualUseId).value = "My own note about this.";
+    document.getElementById(manualSaveBtnId).click();
+    await wait(30);
+
+    expect(document.getElementById(statusId).className).toContain("success");
+    const added = hooks[dataKey].find((p) => p.w === text);
+    expect(added).toBeTruthy();
+    expect(added.senses[0].use).toBe("My own note about this.");
+    expect(document.getElementById(manualBoxId).style.display).toBe("none");
+    expect(document.getElementById(entryId).querySelector(".headword").textContent).toBe(text);
+  });
+
+  it("adds the entry with just the typed text when Skip/Add-without-notes is clicked", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const text = "a brand new entry with no note";
+
+    document.getElementById(inputId).value = text;
+    document.getElementById(btnId).click();
+    await wait(30);
+    document.getElementById(manualSkipBtnId).click();
+    await wait(30);
+
+    expect(document.getElementById(statusId).className).toContain("success");
+    const added = hooks[dataKey].find((p) => p.w === text);
+    expect(added).toBeTruthy();
+    expect(added.senses).toEqual([]);
+    expect(document.getElementById(entryId).querySelectorAll(".sense")).toHaveLength(0);
+  });
+
+  it("Cancel discards the pending manual entry — nothing is saved", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const text = "something to cancel";
+
+    document.getElementById(inputId).value = text;
+    document.getElementById(btnId).click();
+    await wait(30);
+    document.getElementById(manualCancelBtnId).click();
+    await wait(10);
+
+    expect(document.getElementById(manualBoxId).style.display).toBe("none");
+    expect(hooks[dataKey].some((p) => p.w === text)).toBe(false);
+  });
+
+  it("is gated behind isDeviceUnlocked() even though the manual box would normally be hidden while locked", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    const text = "gate check";
+
+    document.getElementById(inputId).value = text;
+    document.getElementById(btnId).click();
+    await wait(30);
+
+    window.OwnerMode.lockOwnerMode();
+    hooks.updateOwnerModeUI();
+
+    document.getElementById(manualUseId).value = "trying anyway";
+    document.getElementById(manualSaveBtnId).click();
+    await wait(20);
+
+    expect(document.getElementById(statusId).textContent).toContain("isn't unlocked");
+    expect(hooks[dataKey].some((p) => p.w === text)).toBe(false);
+  });
+
+  it("persists across sessions via its own IndexedDB store, independent of the other categories", async () => {
+    const indexedDBFactory = new IDBFactory();
+    const sample = { w: `persisted ${key}`, senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" };
     const first = await loadApp({ indexedDBFactory });
     first.hooks.addLanguageBankEntry(key, sample, { persist: true });
     await wait(50);

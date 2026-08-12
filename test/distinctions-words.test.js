@@ -43,13 +43,39 @@ const RESULT_QUIBBLET = {
   source: "online"
 };
 
-function stubBothLookups(window, result1, result2) {
-  window.OnlineLookup.fetchOnlineDefinition = async (word) => {
-    const key = word.trim().toLowerCase();
-    if (key === RESULT_ARISE.w.toLowerCase()) return result1;
-    if (key === RESULT_QUIBBLET.w.toLowerCase()) return result2;
-    return null;
+// Distinctions Words pairs are two real dictionary words, but adding a
+// pair is now manual-only (see addDistinctionManualFromInputs) — same
+// reasoning as Word Chunks/Sentence Patterns/Phrase Templates going
+// manual-only, just applied here by explicit user choice rather than
+// because the content isn't lookup-able. Goes straight to both manual
+// boxes and fills them in, producing an entry equivalent in shape to
+// what the old online-lookup flow would have saved.
+async function addAriseQuibblet(window) {
+  const document = window.document;
+  document.getElementById("distinctionsAddInput1").value = "Arise";
+  document.getElementById("distinctionsAddInput2").value = "Quibblet";
+  document.getElementById("distinctionsAddBtn").click();
+  await wait(30);
+  document.getElementById("distinctionsManualUse1").value = RESULT_ARISE.senses[0].use;
+  document.getElementById("distinctionsManualExample1").value = RESULT_ARISE.senses[0].examples[0];
+  document.getElementById("distinctionsManualUse2").value = RESULT_QUIBBLET.senses[0].use;
+  document.getElementById("distinctionsManualExample2").value = RESULT_QUIBBLET.senses[0].examples[0];
+  document.getElementById("distinctionsManualSaveBtn").click();
+  await wait(50);
+}
+
+// For the couple of tests that specifically exercise the Edit form's
+// synonym/antonym chip display — manual add has no syn/ant fields at
+// all (same as every other manual-only category), so those need a pair
+// seeded directly with syn/ant data instead of going through the Add UI.
+function seedAriseQuibblet(window, hooks) {
+  const entry = {
+    w: "Arise vs Quibblet", word1: RESULT_ARISE, word2: RESULT_QUIBBLET,
+    source: "online", addedAt: Date.now(), modifiedAt: Date.now()
   };
+  const item = hooks.addDistinctionEntry(entry, { persist: false });
+  item.action();
+  return entry;
 }
 
 describe("Distinctions Words lives inside the Word Bank tab", () => {
@@ -97,7 +123,7 @@ describe("Distinctions Words lives inside the Word Bank tab", () => {
   });
 });
 
-describe("Distinctions Words quick-add (two words, one Look Up & Add button)", () => {
+describe("Distinctions Words quick-add (manual-only — two words, both notes typed by hand)", () => {
   it("shows an error and adds nothing when either input is empty", async () => {
     const { window } = await loadApp();
     const document = window.document;
@@ -107,126 +133,8 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     expect(document.getElementById("distinctionsAddStatus").textContent).toContain("both Word 1 and Word 2");
   });
 
-  it("looks up both words online in parallel and adds one combined entry", async () => {
+  it("goes straight to both manual boxes — never calls the online lookup", async () => {
     const { window, hooks } = await loadApp();
-    const document = window.document;
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    expect(document.getElementById("lookupModalSubtitle").textContent).toContain("Ready to add");
-    document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
-
-    expect(document.getElementById("distinctionsAddStatus").textContent).toContain("Added");
-    const added = hooks.distinctionsData.find((e) => e.w === "Arise vs Quibblet");
-    expect(added).toBeTruthy();
-    expect(added.word1.senses[0].use).toContain("come into being");
-    expect(added.word2.senses[0].use).toContain("move upward");
-
-    // Navigates straight to the new entry.
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
-    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
-    const headwords = Array.from(document.querySelectorAll("#distinctionsEntry .headword")).map((el) => el.textContent);
-    expect(headwords).toEqual(["Arise", "Quibblet"]);
-  });
-
-  it("clears both input fields after a successful add", async () => {
-    const { window } = await loadApp();
-    const document = window.document;
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    expect(document.getElementById("distinctionsAddInput1").value).toBe("");
-    expect(document.getElementById("distinctionsAddInput2").value).toBe("");
-  });
-
-  it("both words become independently searchable, resolving to the same entry", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
-
-    expect(hooks.wordIndexMap.get("arise").cat).toBe("Distinction Word");
-    expect(hooks.wordIndexMap.get("quibblet").cat).toBe("Distinction Word");
-
-    hooks.runSearchPipeline("arise");
-    expect(document.getElementById("searchResults").textContent).toContain("Distinction Word");
-  });
-
-  it("requests both lookups with generateFallbackExamples disabled", async () => {
-    const { window } = await loadApp();
-    const document = window.document;
-    const captured = [];
-    window.OnlineLookup.fetchOnlineDefinition = async (word, options) => {
-      captured.push(options);
-      return word.trim().toLowerCase() === "arise" ? RESULT_ARISE : RESULT_QUIBBLET;
-    };
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    expect(captured.length).toBe(2);
-    captured.forEach((opts) => expect(opts.generateFallbackExamples).toBe(false));
-  });
-
-  it("does not create a duplicate and instead navigates to the existing pair (in either word order)", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    let fetchCalled = false;
-    window.OnlineLookup.fetchOnlineDefinition = async () => { fetchCalled = true; return null; };
-
-    // "Achieve" vs "Attain" is a built-in migrated pair — try the reversed order.
-    document.getElementById("distinctionsAddInput1").value = "Attain";
-    document.getElementById("distinctionsAddInput2").value = "Achieve";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    expect(fetchCalled).toBe(false);
-    const statusEl = document.getElementById("distinctionsAddStatus");
-    expect(statusEl.textContent).toContain("already in the database");
-    // The duplicate-conflict popup replaces the old auto-navigate — the
-    // Owner has to explicitly click View Existing.
-    statusEl.querySelector("#dupConflictViewBtn").click();
-    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
-    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
-    expect(hooks.distinctionsData.filter((e) => e.w === "Achieve vs Attain")).toHaveLength(1);
-  });
-
-  it("submits on Enter key from either input", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddInput2").dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter" }));
-    await wait(50);
-
-    document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
-
-    expect(hooks.distinctionsData.some((e) => e.w === "Arise vs Quibblet")).toBe(true);
-  });
-
-  it("is gated behind isDeviceUnlocked() — a locked device gets a clear error, not silence", async () => {
-    const { window, hooks } = await loadApp({ ownerUnlocked: false });
     const document = window.document;
     let fetchCalled = false;
     window.OnlineLookup.fetchOnlineDefinition = async () => { fetchCalled = true; return RESULT_ARISE; };
@@ -237,82 +145,56 @@ describe("Distinctions Words quick-add (two words, one Look Up & Add button)", (
     await wait(30);
 
     expect(fetchCalled).toBe(false);
-    expect(document.getElementById("distinctionsAddStatus").textContent).toContain("isn't unlocked");
+    expect(document.getElementById("distinctionsManualBox").style.display).not.toBe("none");
+    expect(document.getElementById("distinctionsManualWord1Box").style.display).not.toBe("none");
+    expect(document.getElementById("distinctionsManualWord2Box").style.display).not.toBe("none");
+    expect(document.getElementById("distinctionsManualWord1").textContent).toBe("Arise");
+    expect(document.getElementById("distinctionsManualWord2").textContent).toBe("Quibblet");
     expect(hooks.distinctionsData.some((e) => e.w === "Arise vs Quibblet")).toBe(false);
   });
 
-  it("the quick-add box itself is hidden while locked (owner-only)", async () => {
-    const { window } = await loadApp({ ownerUnlocked: false });
-    expect(window.document.getElementById("distinctionsAddBox").style.display).toBe("none");
-  });
-});
-
-describe("manual completion when online lookup fails for one or both words", () => {
-  it("shows only the Word 2 manual box when Word 1 succeeded but Word 2 failed", async () => {
-    const { window, hooks } = await loadApp();
-    const document = window.document;
-    stubBothLookups(window, RESULT_ARISE, null);
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "zzznotaword";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    expect(document.getElementById("distinctionsManualBox").style.display).not.toBe("none");
-    expect(document.getElementById("distinctionsManualWord1Box").style.display).toBe("none");
-    expect(document.getElementById("distinctionsManualWord2Box").style.display).not.toBe("none");
-    expect(document.getElementById("distinctionsManualWord2").textContent).toBe("zzznotaword");
-    expect(hooks.getDistinctionsPendingManual().result1).toEqual(RESULT_ARISE);
-  });
-
-  it("shows both manual boxes when both words fail", async () => {
+  it("clears both input fields once the manual box opens", async () => {
     const { window } = await loadApp();
     const document = window.document;
-    stubBothLookups(window, null, null);
-
-    document.getElementById("distinctionsAddInput1").value = "zzzone";
-    document.getElementById("distinctionsAddInput2").value = "zzztwo";
+    document.getElementById("distinctionsAddInput1").value = "Arise";
+    document.getElementById("distinctionsAddInput2").value = "Quibblet";
     document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
+    await wait(30);
 
-    expect(document.getElementById("distinctionsManualWord1Box").style.display).not.toBe("none");
-    expect(document.getElementById("distinctionsManualWord2Box").style.display).not.toBe("none");
+    expect(document.getElementById("distinctionsAddInput1").value).toBe("");
+    expect(document.getElementById("distinctionsAddInput2").value).toBe("");
   });
 
-  it("saves with the manually-typed meaning for just the failed word, keeping the successful lookup for the other", async () => {
+  it("saves both manually-typed notes as one combined entry, navigates to it, and indexes both words for search", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    stubBothLookups(window, RESULT_ARISE, null);
-
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "zzznotaword";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    document.getElementById("distinctionsManualUse2").value = "(adjective) A made-up test word.";
-    document.getElementById("distinctionsManualExample2").value = "This is a zzznotaword example.";
-    document.getElementById("distinctionsManualSaveBtn").click();
-    await wait(50);
+    await addAriseQuibblet(window);
 
     expect(document.getElementById("distinctionsAddStatus").className).toContain("success");
-    const added = hooks.distinctionsData.find((e) => e.w === "Arise vs zzznotaword");
+    const added = hooks.distinctionsData.find((e) => e.w === "Arise vs Quibblet");
     expect(added).toBeTruthy();
-    expect(added.word1.senses[0].use).toContain("come into being"); // the real lookup result, untouched
-    expect(added.word2.senses[0]).toEqual({
-      use: "(adjective) A made-up test word.",
-      examples: ["This is a zzznotaword example."]
-    });
+    expect(added.word1.senses[0].use).toBe(RESULT_ARISE.senses[0].use);
+    expect(added.word2.senses[0].use).toBe(RESULT_QUIBBLET.senses[0].use);
+
+    // Navigates straight to the new entry.
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
+    const headwords = Array.from(document.querySelectorAll("#distinctionsEntry .headword")).map((el) => el.textContent);
+    expect(headwords).toEqual(["Arise", "Quibblet"]);
+
+    expect(hooks.wordIndexMap.get("arise").cat).toBe("Distinction Word");
+    expect(hooks.wordIndexMap.get("quibblet").cat).toBe("Distinction Word");
+    hooks.runSearchPipeline("arise");
+    expect(document.getElementById("searchResults").textContent).toContain("Distinction Word");
   });
 
-  it("refuses to save a manual word with a blank meaning", async () => {
+  it("refuses to save when either word's meaning is left blank", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    stubBothLookups(window, null, null);
-
     document.getElementById("distinctionsAddInput1").value = "zzzone";
     document.getElementById("distinctionsAddInput2").value = "zzztwo";
     document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
+    await wait(30);
 
     document.getElementById("distinctionsManualUse1").value = "A meaning for word one.";
     // Word 2's meaning left blank.
@@ -326,38 +208,95 @@ describe("manual completion when online lookup fails for one or both words", () 
   it("Cancel hides the manual box and adds nothing", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    stubBothLookups(window, null, null);
-
     document.getElementById("distinctionsAddInput1").value = "zzzone";
     document.getElementById("distinctionsAddInput2").value = "zzztwo";
     document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
+    await wait(30);
 
     document.getElementById("distinctionsManualCancelBtn").click();
     await wait(10);
 
     expect(document.getElementById("distinctionsManualBox").style.display).toBe("none");
-    expect(document.getElementById("distinctionsAddStatus").textContent).toContain("Cancelled");
     expect(hooks.distinctionsData.some((e) => e.w === "zzzone vs zzztwo")).toBe(false);
+  });
+
+  it("does not create a duplicate and instead navigates to the existing pair (in either word order)", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    // "Achieve" vs "Attain" is a built-in migrated pair — try the reversed order.
+    document.getElementById("distinctionsAddInput1").value = "Attain";
+    document.getElementById("distinctionsAddInput2").value = "Achieve";
+    document.getElementById("distinctionsAddBtn").click();
+    await wait(30);
+
+    const statusEl = document.getElementById("distinctionsAddStatus");
+    expect(statusEl.textContent).toContain("already in the database");
+    // The duplicate-conflict popup replaces the old auto-navigate — the
+    // Owner has to explicitly click View Existing.
+    statusEl.querySelector("#dupConflictViewBtn").click();
+    expect(document.querySelector(".thumb-tab.active").dataset.tab).toBe("wordbank");
+    expect(document.querySelector('#wordBankCategorySeg button[data-val="distinctions"]').classList.contains("active")).toBe(true);
+    expect(hooks.distinctionsData.filter((e) => e.w === "Achieve vs Attain")).toHaveLength(1);
+  });
+
+  it("submits on Enter key from either input", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+
+    document.getElementById("distinctionsAddInput1").value = "Arise";
+    document.getElementById("distinctionsAddInput2").value = "Quibblet";
+    document.getElementById("distinctionsAddInput2").dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter" }));
+    await wait(30);
+
+    expect(document.getElementById("distinctionsManualBox").style.display).not.toBe("none");
+  });
+
+  it("is gated behind isDeviceUnlocked() — a locked device gets a clear error, not silence", async () => {
+    const { window, hooks } = await loadApp({ ownerUnlocked: false });
+    const document = window.document;
+
+    document.getElementById("distinctionsAddInput1").value = "Arise";
+    document.getElementById("distinctionsAddInput2").value = "Quibblet";
+    document.getElementById("distinctionsAddBtn").click();
+    await wait(30);
+
+    expect(document.getElementById("distinctionsAddStatus").textContent).toContain("isn't unlocked");
+    expect(document.getElementById("distinctionsManualBox").style.display).toBe("none");
+    expect(hooks.distinctionsData.some((e) => e.w === "Arise vs Quibblet")).toBe(false);
+  });
+
+  it("is gated behind isDeviceUnlocked() even though the manual box would normally be hidden while locked", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("distinctionsAddInput1").value = "gate check1";
+    document.getElementById("distinctionsAddInput2").value = "gate check2";
+    document.getElementById("distinctionsAddBtn").click();
+    await wait(30);
+
+    window.OwnerMode.lockOwnerMode();
+    hooks.updateOwnerModeUI();
+
+    document.getElementById("distinctionsManualUse1").value = "trying anyway";
+    document.getElementById("distinctionsManualUse2").value = "trying anyway too";
+    document.getElementById("distinctionsManualSaveBtn").click();
+    await wait(20);
+
+    expect(document.getElementById("distinctionsAddStatus").textContent).toContain("isn't unlocked");
+    expect(hooks.distinctionsData.some((e) => e.w === "gate check1 vs gate check2")).toBe(false);
+  });
+
+  it("the quick-add box itself is hidden while locked (owner-only)", async () => {
+    const { window } = await loadApp({ ownerUnlocked: false });
+    expect(window.document.getElementById("distinctionsAddBox").style.display).toBe("none");
   });
 });
 
 describe("Edit — owner-only, both words editable", () => {
-  async function addAriseQuibblet(window, hooks) {
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
-    const document = window.document;
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-    document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
-  }
-
   it("shows Edit/Delete only for owner-added entries, never for built-in seed pairs", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
 
     // "Arise vs Quibblet" was just added by the owner — Edit/Delete visible.
     expect(document.querySelector("#distinctionsEntry .lb-edit-btn")).toBeTruthy();
@@ -373,7 +312,7 @@ describe("Edit — owner-only, both words editable", () => {
   it("opens a pre-filled form with both words' current values", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    seedAriseQuibblet(window, hooks);
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();
 
@@ -388,7 +327,7 @@ describe("Edit — owner-only, both words editable", () => {
   it("saves updated word/meaning/example/synonyms/antonyms for both words", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    seedAriseQuibblet(window, hooks);
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();
     document.getElementById("distEditUse1").value = "(verb) A corrected definition.";
@@ -421,7 +360,7 @@ describe("Edit — owner-only, both words editable", () => {
   it("Cancel restores the normal read view without changing anything", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();
     document.getElementById("distEditWord1").value = "Something Else";
@@ -435,7 +374,7 @@ describe("Edit — owner-only, both words editable", () => {
   it("refuses to rename into a pair that's already used by a different entry", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();
     document.getElementById("distEditWord1").value = "Achieve";
@@ -453,7 +392,7 @@ describe("Edit — owner-only, both words editable", () => {
   it("is gated behind isDeviceUnlocked(), refusing a save if the device locks mid-edit", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
 
     document.querySelector("#distinctionsEntry .lb-edit-btn").click();
     document.getElementById("distEditUse1").value = "changed while locked";
@@ -476,21 +415,10 @@ describe("Edit — owner-only, both words editable", () => {
 });
 
 describe("Delete — owner-only, with confirmation", () => {
-  async function addAriseQuibblet(window, hooks) {
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
-    const document = window.document;
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-    document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
-  }
-
   it("asks for confirmation, and does nothing if declined", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
     window.confirm = () => false;
 
     document.querySelector("#distinctionsEntry .lb-delete-btn").click();
@@ -502,7 +430,7 @@ describe("Delete — owner-only, with confirmation", () => {
   it("removes the entry from data, the dropdown, and the search index when confirmed", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
     window.confirm = () => true;
 
     document.querySelector("#distinctionsEntry .lb-delete-btn").click();
@@ -518,7 +446,7 @@ describe("Delete — owner-only, with confirmation", () => {
   it("falls back to another entry in the panel after deleting the one on screen", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
     window.confirm = () => true;
 
     document.querySelector("#distinctionsEntry .lb-delete-btn").click();
@@ -549,7 +477,7 @@ describe("Delete — owner-only, with confirmation", () => {
   it("the Delete button is not rendered at all while the device is locked", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
-    await addAriseQuibblet(window, hooks);
+    await addAriseQuibblet(window);
 
     document.getElementById("ownerLockBtn").click();
     hooks.refreshDistinctionsUI();
@@ -698,19 +626,12 @@ describe("Distinctions Words cross-device sync", () => {
   it("a pair added while connected as owner reaches the shared doc's distinctions field, not just local IndexedDB", async () => {
     const firebase = makeFirebase();
     const { window, hooks } = await loadApp({ firebase });
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
 
     await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
     await hooks.connectSync("dw-code-2");
 
     const document = window.document;
-    document.getElementById("distinctionsAddInput1").value = "Arise";
-    document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
+    await addAriseQuibblet(window);
 
     const doc = firebase._docs.get("syncedLogs/dw-code-2");
     expect(doc.distinctions.some((e) => e.w === "Arise vs Quibblet")).toBe(true);
@@ -720,18 +641,11 @@ describe("Distinctions Words cross-device sync", () => {
   it("only syncs owner-typed pairs (source:'online'), never the built-in seed content", async () => {
     const firebase = makeFirebase();
     const { window, hooks } = await loadApp({ firebase });
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
 
     await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
     await hooks.connectSync("dw-code-3");
 
-    window.document.getElementById("distinctionsAddInput1").value = "Arise";
-    window.document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    window.document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    window.document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
+    await addAriseQuibblet(window);
 
     const doc = firebase._docs.get("syncedLogs/dw-code-3");
     expect(doc.distinctions).toHaveLength(1);
@@ -741,18 +655,11 @@ describe("Distinctions Words cross-device sync", () => {
   it("a delete removes the pair from the shared doc's distinctions field", async () => {
     const firebase = makeFirebase();
     const { window, hooks } = await loadApp({ firebase });
-    stubBothLookups(window, RESULT_ARISE, RESULT_QUIBBLET);
 
     await hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
     await hooks.connectSync("dw-code-4");
 
-    window.document.getElementById("distinctionsAddInput1").value = "Arise";
-    window.document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    window.document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-
-    window.document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
+    await addAriseQuibblet(window);
 
     window.confirm = () => true;
     window.document.querySelector("#distinctionsEntry .lb-delete-btn").click();
@@ -765,15 +672,9 @@ describe("Distinctions Words cross-device sync", () => {
   it("a device that connects to an already-seeded code pulls in the shared pair, searchable and cached offline", async () => {
     const firebase = makeFirebase();
     const owner = await loadApp({ firebase });
-    stubBothLookups(owner.window, RESULT_ARISE, RESULT_QUIBBLET);
     await owner.hooks.signInAsOwner(OWNER_EMAIL, OWNER_PASSWORD);
     await owner.hooks.connectSync("dw-code-5");
-    owner.window.document.getElementById("distinctionsAddInput1").value = "Arise";
-    owner.window.document.getElementById("distinctionsAddInput2").value = "Quibblet";
-    owner.window.document.getElementById("distinctionsAddBtn").click();
-    await wait(50);
-    owner.window.document.getElementById("lookupModalSaveBtn").click();
-    await wait(50);
+    await addAriseQuibblet(owner.window);
 
     const second = await loadApp({ firebase, ownerUnlocked: false });
     await second.hooks.connectSync("dw-code-5");
