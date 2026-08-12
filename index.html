@@ -373,6 +373,22 @@
   @media (min-width:1200px){
     main{ max-width:1040px; }
   }
+  /* Laptop screens routinely run wider than 1200px (1366/1440/1536/1920
+     are the common CSS-px widths), and the two steps above still left a
+     big chunk of that as plain dead margin on either side of a narrow
+     column. These two extra steps keep widening the reading column as
+     the window grows, so a maximized laptop window actually gets used
+     instead of framed by empty space — reading-line-length stays sane
+     throughout since font-size grows alongside it (see the desktop
+     readability pass at the end of this stylesheet). main also gets a
+     little extra breathing room on its sides/top at this size so the
+     bigger text doesn't feel pressed against the window edge. */
+  @media (min-width:1440px){
+    main{ max-width:1220px; padding:24px 28px 48px; }
+  }
+  @media (min-width:1800px){
+    main{ max-width:1360px; }
+  }
 
   /* Control row */
   .controls{
@@ -1421,6 +1437,178 @@
   @media (prefers-reduced-motion:reduce){
     .splash-content{ animation:none; }
     .splash-screen{ transition:opacity .01s linear; }
+  }
+
+  /* ---------- Desktop/laptop-only readability + density pass ----------
+     Fixes the reported complaint: on a wide laptop window the app read
+     tiny (every font-size above is a fixed px value, not rem, so it
+     never grew with the viewport) while the extra width past main's
+     max-width cap just sat there as dead margin. Scoped to
+     min-width:1024px — safely laptop/desktop territory, comfortably
+     above any phone width portrait or landscape — so the phone/PWA
+     experience above is completely untouched by everything below.
+     Every font-size in the stylesheet is bumped by the SAME 15% ratio
+     so the existing type hierarchy (headword vs. tag vs. body text vs.
+     captions) stays exactly as proportioned, just larger — a uniform
+     scale reads as "the same app, comfortably bigger," not a redesign.
+     The couple of small fixed-size icon buttons (nav-btn, theme toggle)
+     get their box scaled by the same ratio too, so the glyph inside
+     never outgrows its circle. Generated from every font-size
+     declaration above via scratchpad/gen_desktop_scale.py so nothing
+     was missed by hand, then hand-reviewed. */
+  @media (min-width:1024px){
+    .update-banner{ font-size:15px; }
+    .app-update-title{ font-size:22px; }
+    .app-update-version{ font-size:14.5px; }
+    .app-update-notes-label{ font-size:12.5px; }
+    .app-update-notes-list{ font-size:15.5px; }
+    .lookup-modal-title{ font-size:23px; }
+    .lookup-modal-subtitle{ font-size:13px; }
+    .lookup-modal-close{ font-size:27.5px; }
+    .masthead .eyebrow{ font-size:12.5px; }
+    .masthead h1{ font-size:43.5px; }
+    .masthead p{ font-size:15.5px; }
+    #globalSearch{ font-size:15.5px; }
+    .theme-toggle-btn{ width:43.5px; height:43.5px; font-size:18.5px; }
+    .search-result-item{ font-size:15.5px; }
+    .search-result-item .cat{ font-size:11.5px; }
+    .search-empty{ font-size:15px; }
+    .thumb-tab{ font-size:14px; }
+    .thumb-tab .n{ font-size:18.5px; }
+    .seg button{ font-size:14.5px; }
+    .course-progress-summary{ font-size:15px; }
+    select{ font-size:15.5px; }
+    .sort-controls .sort-label{ font-size:14.5px; }
+    .nav-btn{ width:43.5px; height:43.5px; font-size:17px; }
+    .bottom-nav .nav-btn{ font-size:15.5px; }
+    .chip{ font-size:14px; }
+    .headword{ font-size:34.5px; }
+    .tag{ font-size:12px; }
+    .fav-toggle{ font-size:25.5px; }
+    .listen-btn{ font-size:20.5px; }
+    .phonetic{ font-size:16px; }
+    .favorites-empty{ font-size:15.5px; }
+    .favorites-progress-row{ font-size:15px; }
+    .favorites-reset-btn{ font-size:14px; }
+    .summary-cat-count{ font-size:13px; }
+    .summary-row .row-num{ font-size:14px; }
+    .summary-row .row-word{ font-size:16.5px; }
+    .summary-row .row-def{ font-size:14.5px; }
+    .summary-row .row-example{ font-size:14px; }
+    .note-card-title{ font-size:17px; }
+    .note-card-date{ font-size:13px; }
+    .note-card-body{ font-size:15.5px; }
+    .note-card-actions button{ font-size:14px; }
+    .journal-word-count{ font-size:13px; }
+    .self-check-progress{ font-size:14.5px; }
+    .self-check-item{ font-size:15.5px; }
+    .journal-card-title{ font-size:17px; }
+    .journal-card-date{ font-size:13px; }
+    .journal-card-body{ font-size:15.5px; }
+    .journal-card-actions button{ font-size:14px; }
+    .journal-score-badge{ font-size:16.5px; }
+    .journal-grade-label{ font-size:14.5px; }
+    .journal-grading-note{ font-size:14.5px; }
+    .journal-correction-fix{ font-size:15px; }
+    .journal-correction-why{ font-size:14px; }
+    .journal-perfect-row{ font-size:15px; }
+    .dashboard-stat-value{ font-size:25.5px; }
+    .dashboard-stat-label{ font-size:12.5px; }
+    .dashboard-empty{ font-size:15.5px; }
+    .dashboard-bar-value{ font-size:11.5px; }
+    .dashboard-bar-label{ font-size:11px; }
+    .dashboard-error-word{ font-size:16px; }
+    .dashboard-error-count{ font-size:14px; }
+    .ielts-band-overall-value{ font-size:39px; }
+    .ielts-band-overall-label{ font-size:14px; }
+    .ielts-band-criterion-label{ font-size:15px; }
+    .ielts-band-criterion-value{ font-size:14px; }
+    .practice-source-picker label{ font-size:15px; }
+    .practice-mode-btn{ font-size:27.5px; }
+    .practice-mode-btn span{ font-size:14.5px; }
+    .practice-history-row{ font-size:14.5px; }
+    .practice-history-empty{ font-size:15px; }
+    .practice-progress-text{ font-size:15px; }
+    .practice-card .practice-front{ font-size:25.5px; }
+    .practice-card .practice-back h4{ font-size:13px; }
+    .practice-question-text{ font-size:18.5px; }
+    .practice-choice-btn{ font-size:16px; }
+    .practice-spelling-input{ font-size:17px; }
+    .practice-feedback{ font-size:16px; }
+    .practice-tf-btn{ font-size:17px; }
+    .practice-speaking-actions .listen-btn{ font-size:17px; }
+    .practice-record-btn{ font-size:18.5px; }
+    .practice-shadow-sentence{ font-size:19.5px; }
+    .practice-shadow-word-label{ font-size:14.5px; }
+    .practice-speaking-diff{ font-size:16px; }
+    .practice-dictation-hidden-hint{ font-size:15px; }
+    .practice-dictation-input{ font-size:17px; }
+    .practice-dictation-reveal{ font-size:16px; }
+    .practice-dictation-hint{ font-size:17px; }
+    .practice-match-item{ font-size:15px; }
+    .practice-results-summary h2{ font-size:23px; }
+    .practice-results-score{ font-size:37px; }
+    .practice-results-rating{ font-size:18.5px; }
+    .practice-review-row .practice-review-your{ font-size:15px; }
+    .practice-review-row .practice-review-correct{ font-size:15px; }
+    .study-progress{ font-size:14.5px; }
+    .study-bar-actions .nav-btn{ font-size:16.5px; }
+    .study-exit-btn{ font-size:16px; }
+    .form-box .lbl{ font-size:11px; }
+    .form-box .val{ font-size:16px; }
+    .sense .num{ font-size:17px; }
+    .sense .body .use{ font-size:15.5px; }
+    .sense .body .ex{ font-size:15px; }
+    .section-label{ font-size:12.5px; }
+    .example-line{ font-size:16px; }
+    .callout .lbl{ font-size:12px; }
+    .callout p{ font-size:15px; }
+    .tagalog-box{ font-size:16px; }
+    .source-line{ font-size:14px; }
+    .caution-note{ font-size:14.5px; }
+    .pos-heading{ font-size:15.5px; }
+    .sense-tagalog{ font-size:15px; }
+    .distinction-divider{ font-size:12.5px; }
+    .vocab-edit-meaning-label{ font-size:12px; }
+    .vocab-edit-small-btn{ font-size:14px; }
+    .chip-editor-chip{ font-size:13px; }
+    .chip-editor-remove{ font-size:15px; }
+    .chip-editor-input{ font-size:15px; }
+    .sense-notes{ font-size:14.5px; }
+    .quick-add-box input, .quick-add-box textarea,
+    .entry input, .entry textarea, .entry select,
+    .note-card-editing input, .note-card-editing textarea,
+    .journal-card-editing input, .journal-card-editing textarea,
+    #notesSearchInput, #journalSearchInput{ font-size:15.5px; }
+    .add-btn{ font-size:15.5px; }
+    .add-status{ font-size:14.5px; }
+    .duplicate-conflict-word{ font-size:16px; }
+    .duplicate-conflict-meta{ font-size:12.5px; }
+    .edit-correction-btn, .delete-correction-btn{ font-size:13px; }
+    .wordbank-review-progress{ font-size:14.5px; }
+    .wordbank-review-reset-btn, .wordbank-manage-toggle-btn{ font-size:13px; }
+    .wordbank-builtin-edit-btn, .wordbank-builtin-delete-btn{ font-size:13px; }
+    .wb-builtin-use-input, .wb-builtin-example-input{ font-size:15.5px; }
+    .wb-builtin-save-btn, .wb-builtin-cancel-btn{ font-size:14.5px; }
+    .entry-actions button{ font-size:14.5px; }
+    .cancel-edit-link{ font-size:14.5px; }
+    .correction-example-row .remove-example-row-btn{ font-size:14px; }
+    .signals span{ font-size:13px; }
+    .word-chips span{ font-size:13px; }
+    .word-chips .none{ font-size:14px; }
+    .note{ font-size:14.5px; }
+    footer{ font-size:13px; }
+    .splash-brand{ font-size:31px; }
+    .splash-title{ font-size:14px; }
+
+    /* A few key containers get a bit more interior room too, so the
+       now-bigger text has space to breathe instead of just filling the
+       same tight padding. Kept modest — the point is comfortable, not
+       cavernous. */
+    .entry{ padding:26px 26px 24px; }
+    .quick-add-box{ padding:18px 20px; }
+    .note-card, .journal-card{ padding:16px 18px; }
+    .controls{ gap:10px; }
   }
 </style>
 </head>
