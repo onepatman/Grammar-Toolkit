@@ -214,7 +214,12 @@
   }
   .masthead .eyebrow{
     font-family:'IBM Plex Mono', monospace;
-    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    /* Fluid instead of a fixed px + single narrow-phone breakpoint: two
+       phones with different CSS-pixel widths (e.g. 390px vs 412px) used
+       to land on opposite sides of one hard cutoff and render visibly
+       different sizes. clamp() grows continuously with the viewport
+       instead, so every phone width in between scales smoothly. */
+    font-size:clamp(10.5px, 8.8px + 0.5vw, 12px); letter-spacing:.14em; text-transform:uppercase;
     color:#B9D6D4; margin-bottom:10px;
   }
   .masthead-brand{
@@ -232,13 +237,13 @@
   .masthead h1{
     font-family:'Source Serif 4', serif;
     font-weight:800;
-    font-size:42px;
+    font-size:clamp(32px, 20.5px + 3.3vw, 42px);
     letter-spacing:-.01em;
     margin:0;
     line-height:1.1;
   }
   .masthead p{
-    margin:0 auto; font-size:15px; color:#CFE3E1; max-width:46ch; line-height:1.5;
+    margin:0 auto; font-size:clamp(13px, 10.7px + 0.7vw, 15px); color:#CFE3E1; max-width:46ch; line-height:1.5;
   }
 
   /* Sticky wrapper for search + tabs */
@@ -258,7 +263,7 @@
     border-radius:999px;
     padding:9px 16px;
     font-family:'IBM Plex Sans', sans-serif;
-    font-size:15px;
+    font-size:clamp(13px, 10.7px + 0.7vw, 15px);
     background:var(--card);
     color:var(--ink);
   }
@@ -331,7 +336,7 @@
     text-align:center;
     padding:13px 10px 11px;
     font-family:'IBM Plex Mono', monospace;
-    font-size:13px;
+    font-size:clamp(11.5px, 9.8px + 0.5vw, 13px);
     letter-spacing:.05em;
     text-transform:uppercase;
     color:var(--ink-soft);
@@ -352,7 +357,7 @@
   .thumb-tab .n{
     display:block;
     font-family:'Source Serif 4', serif;
-    font-size:17.5px;
+    font-size:clamp(15.5px, 13.2px + 0.7vw, 17.5px);
     font-weight:700;
     margin-top:2px;
   }
@@ -400,7 +405,7 @@
   }
   .seg button{
     border:none; background:transparent; padding:7px 14px; border-radius:999px;
-    font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:600;
+    font-family:'IBM Plex Sans', sans-serif; font-size:clamp(12.5px, 10.8px + 0.5vw, 14px); font-weight:600;
     color:var(--ink-soft); cursor:pointer; transition:all .15s ease;
   }
   .seg button.active{ background:var(--teal-deep); color:#fff; }
@@ -452,7 +457,7 @@
     border-radius:999px;
     padding:10px 36px 10px 16px;
     font-family:'IBM Plex Mono', monospace;
-    font-size:15px;
+    font-size:clamp(13px, 10.7px + 0.7vw, 15px);
     font-weight:500;
     color:var(--ink);
     cursor:pointer;
@@ -462,7 +467,7 @@
   .sort-controls{ align-items:center; }
   .sort-controls .sort-label{
     flex:0 0 auto; display:flex; align-items:center;
-    font-family:'IBM Plex Sans', sans-serif; font-size:14px; font-weight:600; color:var(--ink-soft);
+    font-family:'IBM Plex Sans', sans-serif; font-size:clamp(12.5px, 10.8px + 0.5vw, 14px); font-weight:600; color:var(--ink-soft);
   }
   .sort-controls select{ flex:1; min-width:200px; }
 
@@ -493,7 +498,7 @@
   .chip-row{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
   .chip{
     border:1.5px solid var(--rule); background:var(--card);
-    padding:6px 12px; border-radius:999px; font-size:13px; font-weight:600;
+    padding:6px 12px; border-radius:999px; font-size:clamp(11.5px, 9.8px + 0.5vw, 13px); font-weight:600;
     color:var(--ink-soft); cursor:pointer; font-family:'IBM Plex Mono', monospace;
   }
   .chip.active{ background:var(--gold); border-color:var(--gold-deep); color:#fff; }
@@ -1396,8 +1401,7 @@
 
   @media (max-width:400px){
     .headword{ font-size:27.5px; }
-    .thumb-tab{ font-size:11.5px; padding:11px 3px 9px; }
-    .masthead h1{ font-size:32px; }
+    .thumb-tab{ padding:11px 3px 9px; }
   }
 
   /* Opening/splash screen — brief branded moment on launch, purely
