@@ -83,7 +83,7 @@ describe("isLongLabel()", () => {
 });
 
 describe("Word Bank Basic → Advanced pair — headword sizing", () => {
-  it("keeps short basic/advanced words at the normal 22px headword size", async () => {
+  it("keeps short basic/advanced words at the normal 25px headword size", async () => {
     const { window, hooks } = await loadApp();
     hooks.addBasicAdvancedEntry(
       { basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] },
@@ -95,11 +95,11 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     // Style is read from the raw attribute (not the parsed .style object)
     // since jsdom's CSS parser doesn't resolve clamp() the way a real
     // browser does — the attribute text is what actually ships to users.
-    expect(headwords[0].getAttribute("style")).toContain("font-size:22px");
-    expect(headwords[1].getAttribute("style")).toContain("font-size:22px");
+    expect(headwords[0].getAttribute("style")).toContain("font-size:25px");
+    expect(headwords[1].getAttribute("style")).toContain("font-size:25px");
   });
 
-  it("shrinks the headword's clamp() floor for a sentence-length side, independently per side, while staying responsive to viewport width", async () => {
+  it("sizes BOTH headwords off whichever side is longer, so a pair never renders with two visibly mismatched sizes", async () => {
     const { window, hooks } = await loadApp();
     hooks.addBasicAdvancedEntry(
       {
@@ -112,15 +112,40 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     hooks.renderBasicAdvancedPair(hooks.basicAdvancedData[0]);
     const headwords = window.document.querySelectorAll("#basicAdvancedEntry .headword");
     expect(headwords).toHaveLength(2);
-    // "Come early." stays short enough to keep the plain base size...
-    expect(headwords[0].getAttribute("style")).toContain("font-size:22px");
-    // ...but the long "advanced" side gets a clamp() — a fixed floor for
-    // narrow/phone viewports, scaling back up to the normal 22px base
+    // The short "Come early." side does NOT get its own independent
+    // (larger) size — both sides share the clamp() computed off the
+    // longer "advanced" text, so the pair reads as one consistent size
+    // instead of two mismatched ones.
+    const style0 = headwords[0].getAttribute("style");
+    const style1 = headwords[1].getAttribute("style");
+    expect(style0).toBe(style1);
+    // ...and that shared size is a clamp() — a fixed floor for
+    // narrow/phone viewports, scaling back up to the normal 25px base
     // once there's enough room, rather than a fixed shrink that also
     // applies on a wide desktop window with no space problem at all.
-    const style = headwords[1].getAttribute("style");
-    expect(style).toMatch(/font-size:clamp\(\d+px, [\d.]+vw, 22px\)/);
-    expect(clampFloor(style.match(/font-size:(clamp\([^)]*\))/)[1])).toBeLessThan(22);
+    expect(style1).toMatch(/font-size:clamp\(\d+px, [\d.]+vw, 25px\)/);
+    expect(clampFloor(style1.match(/font-size:(clamp\([^)]*\))/)[1])).toBeLessThan(25);
+  });
+});
+
+describe("Distinctions Words pair — headword sizing", () => {
+  it("sizes BOTH word headwords off whichever side is longer, so a pair never renders with two visibly mismatched sizes", async () => {
+    const { window, hooks } = await loadApp();
+    const item = hooks.addDistinctionEntry(
+      {
+        w: "Arise vs Persnickety",
+        word1: { w: "Arise", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" },
+        word2: { w: "Extraordinarily meticulous", senses: [], syn: [], ant: [], mistake: null, tagalog: null, source: "online" }
+      },
+      { persist: false }
+    );
+    item.action();
+    const headwords = window.document.querySelectorAll("#distinctionsEntry .headword");
+    expect(headwords).toHaveLength(2);
+    const style0 = headwords[0].getAttribute("style");
+    const style1 = headwords[1].getAttribute("style");
+    expect(style0).toBe(style1);
+    expect(style1).toMatch(/font-size:clamp\(\d+px, [\d.]+vw, 25px\)/);
   });
 });
 

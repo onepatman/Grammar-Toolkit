@@ -45904,7 +45904,7 @@ RULE_TAB_CATEGORIES.forEach(categoryKey=>{
    the single-word original this is adapted from.
 ========================================================= */
 
-function renderDistinctionWordBlock(word, favToggleHtml){
+function renderDistinctionWordBlock(word, favToggleHtml, sharedHeadwordFontSize){
   const sensesHtml = (word.senses || []).map((s,i)=>{
     return `
     <div class="sense"><span class="num">${i+1}</span><div class="body">
@@ -45934,7 +45934,7 @@ function renderDistinctionWordBlock(word, favToggleHtml){
 
   return `
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(word.w, 25)};">${word.w}</span>
+      <span class="headword" style="font-size:${sharedHeadwordFontSize};">${word.w}</span>
       ${makePhoneticHtml(word.phonetic)}
       <span class="tag ghost">${DISTINCTIONS_TAG_LABEL}</span>
       ${makeListenButtonHtml()}
@@ -45961,10 +45961,17 @@ function renderDistinctionEntry(entry, entryEl){
   // BOTH words' own content wherever favorites are shown.
   const favToggleHtml = makeFavToggleHtml(entry.w, DISTINCTIONS_TAG_LABEL);
 
+  // Both headwords share ONE font-size — sized off whichever word is
+  // longer — instead of each shrinking independently by its own text
+  // length. Two headwords in the same pair rendering at visibly
+  // different sizes read as a mismatch/bug, not a deliberate hierarchy.
+  const longerWord = (entry.word1.w || "").length >= (entry.word2.w || "").length ? entry.word1.w : entry.word2.w;
+  const sharedHeadwordFontSize = headwordFontSize(longerWord, 25);
+
   entryEl.innerHTML = `
-    ${renderDistinctionWordBlock(entry.word1, favToggleHtml)}
+    ${renderDistinctionWordBlock(entry.word1, favToggleHtml, sharedHeadwordFontSize)}
     <div class="distinction-divider"><span>vs</span></div>
-    ${renderDistinctionWordBlock(entry.word2, "")}
+    ${renderDistinctionWordBlock(entry.word2, "", sharedHeadwordFontSize)}
     ${entryActionsHtml}
   `;
 
@@ -48399,7 +48406,7 @@ document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
 // pairs (see renderDistinctionWordBlock). Examples come in as an array —
 // each line the Owner typed into one textarea, split on save — and are
 // numbered exactly like every other module's example list.
-function renderWordBankSide(label, def, examples, tagLabel, favToggleHtml){
+function renderWordBankSide(label, def, examples, tagLabel, favToggleHtml, sharedHeadwordFontSize){
   const defHtml = def ? `
     <div class="section-label">Definition</div>
     <p class="note" style="margin:0 0 8px;">${def}</p>
@@ -48411,7 +48418,7 @@ function renderWordBankSide(label, def, examples, tagLabel, favToggleHtml){
   return `
     <div class="tag ghost" style="display:inline-block;margin-bottom:4px;">${tagLabel}</div>
     <div class="headword-row">
-      <span class="headword" style="font-size:${headwordFontSize(label, 25)};">${label}</span>
+      <span class="headword" style="font-size:${sharedHeadwordFontSize};">${label}</span>
       ${makeListenButtonHtml()}
       ${favToggleHtml || ""}
     </div>
@@ -48442,10 +48449,15 @@ function renderBasicAdvancedPair(entry){
   // (entry.basic, which findByKey already enforces as unique) — same
   // reasoning as Distinctions Words' single per-pair star.
   const favToggleHtml = makeFavToggleHtml(entry.basic, "Basic → Advanced");
+  // Both headwords share ONE font-size — sized off whichever word is
+  // longer — instead of each shrinking independently by its own text
+  // length (see renderDistinctionEntry's identical reasoning).
+  const longerWord = (entry.basic || "").length >= (entry.advanced || "").length ? entry.basic : entry.advanced;
+  const sharedHeadwordFontSize = headwordFontSize(longerWord, 25);
   basicAdvancedEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English", favToggleHtml)}
+    ${renderWordBankSide(entry.basic, entry.basicDef, entry.basicExamples, "Basic English", favToggleHtml, sharedHeadwordFontSize)}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English", "")}
+    ${renderWordBankSide(entry.advanced, entry.advancedDef, entry.advancedExamples, "Advanced English", "", sharedHeadwordFontSize)}
     ${entryActionsHtml}
   `;
   const listenBtns = basicAdvancedEntryEl.querySelectorAll(".listen-btn");
@@ -48714,10 +48726,15 @@ function renderTagalogEnglishPair(entry){
   // (entry.tagalog, which findByKey already enforces as unique) — same
   // reasoning as Distinctions Words' single per-pair star.
   const favToggleHtml = makeFavToggleHtml(entry.tagalog, "Tagalog → English");
+  // Both headwords share ONE font-size — sized off whichever word is
+  // longer — instead of each shrinking independently by its own text
+  // length (see renderDistinctionEntry's identical reasoning).
+  const longerWord = (entry.tagalog || "").length >= (entry.english || "").length ? entry.tagalog : entry.english;
+  const sharedHeadwordFontSize = headwordFontSize(longerWord, 25);
   tagalogEnglishEntryEl.innerHTML = `
-    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words", favToggleHtml)}
+    ${renderWordBankSide(entry.tagalog, entry.tagalogDef, entry.tagalogExamples, "Tagalog Words", favToggleHtml, sharedHeadwordFontSize)}
     <div class="distinction-divider"><span>→</span></div>
-    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words", "")}
+    ${renderWordBankSide(entry.english, entry.englishDef, entry.englishExamples, "English Words", "", sharedHeadwordFontSize)}
     ${entryActionsHtml}
   `;
   const listenBtns = tagalogEnglishEntryEl.querySelectorAll(".listen-btn");
