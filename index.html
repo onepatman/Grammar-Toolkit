@@ -519,7 +519,14 @@
   .headword{
     font-family:'Source Serif 4', serif;
     font-weight:700;
-    font-size:33px;
+    /* Same fluid clamp() pattern as the header/tabs/controls: scales
+       continuously with the actual viewport width instead of a flat
+       size that only changed at one hard breakpoint (max-width:400px).
+       Two phones with different CSS-pixel widths in the very common
+       400-640px range used to render this identically-sized regardless
+       of how much room they actually had, so a wider phone read
+       oversized relative to a narrower one right next to it. */
+    font-size:clamp(27.5px, 21.3px + 1.83vw, 33px);
     line-height:1.25;
     color:var(--ink);
   }
@@ -1400,7 +1407,6 @@
   }
 
   @media (max-width:400px){
-    .headword{ font-size:27.5px; }
     .thumb-tab{ padding:11px 3px 9px; }
   }
 
