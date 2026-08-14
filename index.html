@@ -1397,6 +1397,27 @@
   footer .footer-brand{
     margin-top:6px; font-weight:600; letter-spacing:.03em; color:var(--teal-deep);
   }
+  /* Manual update control — shows the running build so a user can
+     confirm whether a fix actually reached their device, and a button
+     that forces a real refresh (service worker re-check + hard reload)
+     instead of the only prior option, which was uninstalling/reinstalling
+     the PWA whenever a fix didn't visibly show up. */
+  .footer-build-row{
+    margin-top:14px; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
+  }
+  .footer-build-version{
+    font-size:11px; color:var(--ink-soft); opacity:.75;
+  }
+  .footer-update-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; font-weight:600;
+    border:1.5px solid var(--rule); background:var(--card); color:var(--teal-deep);
+    border-radius:999px; padding:6px 14px; cursor:pointer; transition:background .15s ease;
+  }
+  .footer-update-btn:hover{ background:var(--paper); }
+  .footer-update-btn:disabled{ opacity:.6; cursor:default; }
+  .footer-update-status{
+    margin-top:6px; font-size:11px; color:var(--teal-deep); min-height:1em;
+  }
 
   /* On phone-width screens the logo crowds a title that's already
      wrapping onto 2-3 lines, so it's dropped entirely and only the
@@ -2957,6 +2978,11 @@
 <footer>
   <div class="footer-brand">🔥Blueprintminds🔥</div>
   <div class="footer-brand">Ultimate Engineering Dictionary © 2026 — Coded by Engr.OnePatMan🤓</div>
+  <div class="footer-build-row">
+    <span id="footerBuildVersion" class="footer-build-version"></span>
+    <button id="footerCheckUpdateBtn" class="footer-update-btn" type="button">Check for Updates</button>
+  </div>
+  <div id="footerUpdateStatus" class="footer-update-status" aria-live="polite"></div>
 </footer>
 
 <!-- ===== STUDY MODE BAR — shown while reviewing favorites; the card
@@ -49553,6 +49579,44 @@ window.__TOOLKIT_TEST_HOOKS__ = {
       if (!hadExistingController || reloadedForNewWorker) return; // guards first-activation + reload loops
       reloadedForNewWorker = true;
       window.location.reload();
+    });
+  }
+
+  /* Manual "Check for Updates" control (footer). Fixes shipped to
+     index.html/service-worker.js only reach an already-installed PWA
+     once the browser re-fetches and activates a new service worker —
+     which can lag behind a real deploy by a while, and previously left
+     "did the fix actually reach me?" as an unanswerable question short
+     of uninstalling and reinstalling the app. BUILD_ID is a plain,
+     human-visible marker of what's currently running (bump it alongside
+     CACHE_NAME in service-worker.js on every release) so a user can
+     directly compare what they see against what they were told shipped,
+     and the button forces a real refetch instead of waiting on the
+     browser's own update timing. */
+  const BUILD_ID = "v104";
+  const footerBuildVersionEl = document.getElementById("footerBuildVersion");
+  if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
+  const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
+  if(footerCheckUpdateBtn){
+    footerCheckUpdateBtn.addEventListener("click", async ()=>{
+      const statusEl = document.getElementById("footerUpdateStatus");
+      footerCheckUpdateBtn.disabled = true;
+      if(statusEl) statusEl.textContent = "Checking for updates…";
+      try{
+        if("serviceWorker" in navigator){
+          const reg = await navigator.serviceWorker.getRegistration();
+          if(reg) await reg.update().catch(()=>{});
+        }
+        if("caches" in window){
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k=> caches.delete(k)));
+        }
+      } catch(e){}
+      if(statusEl) statusEl.textContent = "Reloading…";
+      // A plain reload() can still serve an already-cached copy of this
+      // very page — the cache-busting query param forces a genuinely
+      // fresh network fetch instead.
+      window.location.href = window.location.pathname + "?_refresh=" + Date.now();
     });
   }
 
