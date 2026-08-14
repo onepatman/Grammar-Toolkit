@@ -3152,6 +3152,15 @@ function headwordFontSize(text, basePx){
   else if(len > 38) floor = Math.max(14, Math.round(base * 0.6));
   else if(len > 24) floor = Math.max(16, Math.round(base * 0.72));
   else if(len > 14) floor = Math.max(18, Math.round(base * 0.85));
+  // Even a short word (or an empty/missing one) still needs to scale
+  // with the viewport rather than render at a flat, unresponsive `base`
+  // px on every phone — a fixed px number reads proportionally bigger
+  // on a narrower phone than the exact same number does on a wider one
+  // right next to it, which is what made two different phones look
+  // mismatched even after the length-based shrink tiers above were
+  // already fluid. A mild 0.9 floor keeps short headwords essentially
+  // full-size while still giving them the same clamp() responsiveness.
+  else floor = Math.max(18, Math.round(base * 0.9));
   if(floor >= base) return `${base}px`;
   const vw = (base * 100 / 950).toFixed(2);
   return `clamp(${floor}px, ${vw}vw, ${base}px)`;

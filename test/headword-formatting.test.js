@@ -23,16 +23,21 @@ function clampFloor(cssValue) {
 }
 
 describe("headwordFontSize()", () => {
-  it("keeps the base size (no clamp needed) for a short single word", async () => {
+  it("still returns a fluid clamp() for a short single word, not a flat unresponsive px", async () => {
+    // A flat px here used to render identically on every phone width,
+    // which reads as proportionally BIGGER on a narrower phone than the
+    // exact same pixel count does on a wider one right next to it — the
+    // mismatch this clamp() closes. The ceiling still equals `base`, so
+    // short words stay essentially full-size; only the floor differs.
     const { hooks } = await loadApp();
-    expect(hooks.headwordFontSize("Achieve", 22)).toBe("22px");
-    expect(hooks.headwordFontSize("Happy", 30)).toBe("30px");
+    expect(hooks.headwordFontSize("Achieve", 22)).toBe("clamp(20px, 2.32vw, 22px)");
+    expect(hooks.headwordFontSize("Happy", 30)).toBe("clamp(27px, 3.16vw, 30px)");
   });
 
-  it("keeps the base size for empty/missing text", async () => {
+  it("also gives empty/missing text the same fluid treatment as any other short label", async () => {
     const { hooks } = await loadApp();
-    expect(hooks.headwordFontSize("", 22)).toBe("22px");
-    expect(hooks.headwordFontSize(undefined, 22)).toBe("22px");
+    expect(hooks.headwordFontSize("", 22)).toBe("clamp(20px, 2.32vw, 22px)");
+    expect(hooks.headwordFontSize(undefined, 22)).toBe("clamp(20px, 2.32vw, 22px)");
   });
 
   it("scales the clamp() floor down progressively as the text gets longer", async () => {
@@ -44,8 +49,8 @@ describe("headwordFontSize()", () => {
       "Please make every effort to arrive at the venue well before the scheduled start time.",
       22
     ); // 87 chars
-    expect(short).toBe("22px");
-    expect(clampFloor(medium)).toBeLessThan(22);
+    expect(clampFloor(short)).toBe(20);
+    expect(clampFloor(medium)).toBeLessThan(clampFloor(short));
     expect(clampFloor(long)).toBeLessThan(clampFloor(medium));
     expect(clampFloor(veryLong)).toBeLessThan(clampFloor(long));
   });
@@ -83,7 +88,7 @@ describe("isLongLabel()", () => {
 });
 
 describe("Word Bank Basic → Advanced pair — headword sizing", () => {
-  it("keeps short basic/advanced words at the normal 25px headword size", async () => {
+  it("gives short basic/advanced words the fluid clamp() for the normal 25px headword size", async () => {
     const { window, hooks } = await loadApp();
     hooks.addBasicAdvancedEntry(
       { basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [] },
@@ -95,8 +100,10 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     // Style is read from the raw attribute (not the parsed .style object)
     // since jsdom's CSS parser doesn't resolve clamp() the way a real
     // browser does — the attribute text is what actually ships to users.
-    expect(headwords[0].getAttribute("style")).toContain("font-size:25px");
-    expect(headwords[1].getAttribute("style")).toContain("font-size:25px");
+    // Both sides still share one clamp() topping out at 25px, just with
+    // a mild floor now instead of a flat, viewport-unresponsive value.
+    expect(headwords[0].getAttribute("style")).toContain("font-size:clamp(23px, 2.63vw, 25px)");
+    expect(headwords[1].getAttribute("style")).toContain("font-size:clamp(23px, 2.63vw, 25px)");
   });
 
   it("sizes BOTH headwords off whichever side is longer, so a pair never renders with two visibly mismatched sizes", async () => {
