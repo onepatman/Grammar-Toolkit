@@ -3160,7 +3160,25 @@ function headwordFontSize(text, basePx){
   // mismatched even after the length-based shrink tiers above were
   // already fluid. A mild 0.9 floor keeps short headwords essentially
   // full-size while still giving them the same clamp() responsiveness.
-  else floor = Math.max(18, Math.round(base * 0.9));
+  if(len <= 14){
+    const shortFloor = Math.max(18, Math.round(base * 0.9));
+    if(shortFloor >= base) return `${base}px`;
+    // The tiers below reach `base` by ~950px width on purpose — a long
+    // sentence should sit near its floor through the whole phone range
+    // and only relax on tablet/desktop. That formula is wrong here: the
+    // floor-to-base gap for a mild 0.9 shrink is so small that its vw
+    // contribution never climbs past the floor before ~950px either,
+    // so clamp() would just sit dead at the floor across every real
+    // phone width — flat again, just at a lower number. Short text
+    // instead needs to visibly move THROUGH the phone range itself, so
+    // this reaches `base` by 640px (an ordinary large-phone width, not
+    // desktop) using the two-point px+vw form the rest of the fluid
+    // mobile chrome already uses.
+    const slope = (base - shortFloor) / 300;
+    const vwCoef = (slope * 100).toFixed(2);
+    const intercept = (shortFloor - slope * 340).toFixed(1);
+    return `clamp(${shortFloor}px, ${intercept}px + ${vwCoef}vw, ${base}px)`;
+  }
   if(floor >= base) return `${base}px`;
   const vw = (base * 100 / 950).toFixed(2);
   return `clamp(${floor}px, ${vw}vw, ${base}px)`;

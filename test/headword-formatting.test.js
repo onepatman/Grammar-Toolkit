@@ -29,15 +29,22 @@ describe("headwordFontSize()", () => {
     // exact same pixel count does on a wider one right next to it — the
     // mismatch this clamp() closes. The ceiling still equals `base`, so
     // short words stay essentially full-size; only the floor differs.
+    // Unlike the length-tiered clamp()s below (which reach `base` only
+    // by ~950px, i.e. tablet/desktop — fine for a long sentence that
+    // should stay near its floor through the whole phone range), a
+    // short word's floor-to-base gap is small, so it uses a px+vw offset
+    // form that actually reaches `base` by 640px — an ordinary large
+    // phone, not desktop — so it visibly moves across real phone widths
+    // instead of sitting flat at the floor the whole time.
     const { hooks } = await loadApp();
-    expect(hooks.headwordFontSize("Achieve", 22)).toBe("clamp(20px, 2.32vw, 22px)");
-    expect(hooks.headwordFontSize("Happy", 30)).toBe("clamp(27px, 3.16vw, 30px)");
+    expect(hooks.headwordFontSize("Achieve", 22)).toBe("clamp(20px, 17.7px + 0.67vw, 22px)");
+    expect(hooks.headwordFontSize("Happy", 30)).toBe("clamp(27px, 23.6px + 1.00vw, 30px)");
   });
 
   it("also gives empty/missing text the same fluid treatment as any other short label", async () => {
     const { hooks } = await loadApp();
-    expect(hooks.headwordFontSize("", 22)).toBe("clamp(20px, 2.32vw, 22px)");
-    expect(hooks.headwordFontSize(undefined, 22)).toBe("clamp(20px, 2.32vw, 22px)");
+    expect(hooks.headwordFontSize("", 22)).toBe("clamp(20px, 17.7px + 0.67vw, 22px)");
+    expect(hooks.headwordFontSize(undefined, 22)).toBe("clamp(20px, 17.7px + 0.67vw, 22px)");
   });
 
   it("scales the clamp() floor down progressively as the text gets longer", async () => {
@@ -102,8 +109,8 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     // browser does — the attribute text is what actually ships to users.
     // Both sides still share one clamp() topping out at 25px, just with
     // a mild floor now instead of a flat, viewport-unresponsive value.
-    expect(headwords[0].getAttribute("style")).toContain("font-size:clamp(23px, 2.63vw, 25px)");
-    expect(headwords[1].getAttribute("style")).toContain("font-size:clamp(23px, 2.63vw, 25px)");
+    expect(headwords[0].getAttribute("style")).toContain("font-size:clamp(23px, 20.7px + 0.67vw, 25px)");
+    expect(headwords[1].getAttribute("style")).toContain("font-size:clamp(23px, 20.7px + 0.67vw, 25px)");
   });
 
   it("sizes BOTH headwords off whichever side is longer, so a pair never renders with two visibly mismatched sizes", async () => {
