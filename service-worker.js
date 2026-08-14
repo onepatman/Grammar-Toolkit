@@ -6,7 +6,7 @@
 // treats it as a new script (triggers install -> activate, which
 // purges every OTHER cache bucket below) instead of silently reusing
 // whatever's already registered.
-const CACHE_NAME = "mepf-grammar-toolkit-v100";
+const CACHE_NAME = "mepf-grammar-toolkit-v101";
 const FILES_TO_CACHE = [
   "./index.html",
   "./manifest.json",
