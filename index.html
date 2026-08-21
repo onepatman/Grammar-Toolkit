@@ -587,6 +587,34 @@
     background:var(--card); color:var(--ink-soft); cursor:pointer;
   }
   .favorites-reset-btn:hover{ border-color:var(--teal-deep); color:var(--teal-deep); }
+
+  /* Favorites "Cards" view, "All" category — an Excel-style collapsible
+     group per category, so a long combined list can be temporarily
+     tucked away category-by-category after reviewing it, without
+     removing anything. Collapse state persists (mirrors the Summary
+     view's reviewed-set pattern) so it survives a reload too. */
+  .favorites-group-section{ margin-bottom:14px; }
+  .favorites-group-section:last-child{ margin-bottom:0; }
+  .favorites-group-head{
+    display:flex; align-items:center; gap:9px; cursor:pointer;
+    padding:8px 4px; border-bottom:1px solid var(--rule); margin-bottom:8px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .favorites-group-toggle{
+    flex:0 0 auto; width:22px; height:22px; border-radius:6px;
+    border:1.5px solid var(--rule); background:var(--card); color:var(--teal-deep);
+    font-family:'IBM Plex Mono', monospace; font-size:14px; line-height:1; font-weight:700;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .favorites-group-toggle:hover{ border-color:var(--teal-deep); }
+  .favorites-group-name{
+    flex:1 1 auto; font-weight:700; font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink);
+  }
+  .favorites-group-count{
+    flex:0 0 auto; font-size:clamp(11px, 9.3px + 0.5vw, 12.5px); color:var(--ink-soft); font-family:'IBM Plex Mono', monospace;
+  }
+  .favorites-group-body{ display:flex; flex-direction:column; gap:8px; }
+  .favorites-group-body.collapsed{ display:none; }
   .summary-cat-section{ margin-bottom:18px; }
   .summary-cat-section:last-child{ margin-bottom:0; }
   .summary-cat-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
@@ -39257,6 +39285,31 @@ function saveFavoritesReviewedSet(set){
   try { localStorage.setItem(FAVORITES_REVIEWED_KEY, JSON.stringify(Array.from(set))); } catch(e){ /* private mode etc. */ }
 }
 
+// Collapsed-category state for the Cards view's "All" grouping — an
+// Excel-style per-category +/- toggle so a reviewed category's items
+// can be tucked away without touching the favorites themselves.
+// Persisted the same way as the reviewed-words set above, keyed by
+// category name alone (collapse is a per-category, not per-word, state).
+const FAVORITES_COLLAPSED_CATS_KEY = "mepf_toolkit_favorites_collapsed_cats";
+
+function getFavoritesCollapsedCats(){
+  try {
+    const raw = localStorage.getItem(FAVORITES_COLLAPSED_CATS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch(e){ return new Set(); }
+}
+
+function saveFavoritesCollapsedCats(set){
+  try { localStorage.setItem(FAVORITES_COLLAPSED_CATS_KEY, JSON.stringify(Array.from(set))); } catch(e){ /* private mode etc. */ }
+}
+
+function toggleFavoritesCategoryCollapsed(cat){
+  const collapsed = getFavoritesCollapsedCats();
+  if(collapsed.has(cat)) collapsed.delete(cat);
+  else collapsed.add(cat);
+  saveFavoritesCollapsedCats(collapsed);
+}
+
 // Renders every (filtered) favorite as one continuously-numbered list
 // grouped by category — a monitoring/review view, distinct from the
 // browse-one-at-a-time Cards view above but sharing its same favorites
@@ -39400,19 +39453,46 @@ function renderFavoritesTab(){
       container.innerHTML = '<div class="favorites-empty">No favorites in this category.</div>';
       return;
     }
-    container.innerHTML = filtered.map(f=>{
-      let label = f.word;
-      if(isPairedFavorite(f)){
-        const data = resolveFavoriteEntryData(f);
-        label = `${data.word} ${data.divider} ${data.pairWord}`;
-      }
-      return `
-      <div class="search-result-item${isLongLabel(label) ? " long-label" : ""}" data-word="${f.word}" data-cat="${f.cat}">
-        <span class="label">${label}</span>
-        <span class="cat">${f.cat}</span>
-        ${makeFavToggleHtml(f.word, f.cat)}
-      </div>`;
-    }).join("");
+
+    if(favoritesFilterCat === "All"){
+      // The "All" list is what actually gets long enough to need this —
+      // an Excel-style collapsible group per category, so a category the
+      // user already reviewed can be tucked away without touching the
+      // favorites underneath it. A single-category filter is already
+      // short by definition, so it keeps the plain flat list below.
+      const collapsedCats = getFavoritesCollapsedCats();
+      const byCat = new Map();
+      filtered.forEach(f=>{
+        const list = byCat.get(f.cat) || [];
+        list.push(f);
+        byCat.set(f.cat, list);
+      });
+      const cats = Array.from(byCat.keys()).sort((a,b)=> a.localeCompare(b));
+      container.innerHTML = cats.map(cat=>{
+        const rows = byCat.get(cat);
+        const isCollapsed = collapsedCats.has(cat);
+        return `
+        <div class="favorites-group-section" data-cat="${cat}">
+          <div class="favorites-group-head" data-cat="${cat}">
+            <button class="favorites-group-toggle" type="button" aria-label="${isCollapsed ? "Expand" : "Collapse"} ${cat}">${isCollapsed ? "+" : "−"}</button>
+            <span class="favorites-group-name">${cat}</span>
+            <span class="favorites-group-count">${rows.length}</span>
+          </div>
+          <div class="favorites-group-body${isCollapsed ? " collapsed" : ""}">
+            ${rows.map(f=> favoriteRowHtml(f)).join("")}
+          </div>
+        </div>`;
+      }).join("");
+      container.querySelectorAll(".favorites-group-head").forEach(head=>{
+        head.addEventListener("click", ()=>{
+          toggleFavoritesCategoryCollapsed(head.dataset.cat);
+          renderFavoritesTab();
+        });
+      });
+    } else {
+      container.innerHTML = filtered.map(f=> favoriteRowHtml(f)).join("");
+    }
+
     container.querySelectorAll(".search-result-item").forEach(row=>{
       row.addEventListener("click", (e)=>{
         if(e.target.closest(".fav-toggle")) return; // the star's own handler manages removal
@@ -39429,6 +39509,20 @@ function renderFavoritesTab(){
       });
     });
   });
+}
+
+function favoriteRowHtml(f){
+  let label = f.word;
+  if(isPairedFavorite(f)){
+    const data = resolveFavoriteEntryData(f);
+    label = `${data.word} ${data.divider} ${data.pairWord}`;
+  }
+  return `
+  <div class="search-result-item${isLongLabel(label) ? " long-label" : ""}" data-word="${f.word}" data-cat="${f.cat}">
+    <span class="label">${label}</span>
+    <span class="cat">${f.cat}</span>
+    ${makeFavToggleHtml(f.word, f.cat)}
+  </div>`;
 }
 
 document.getElementById("favoritesCategorySeg").addEventListener("click", (e)=>{
@@ -49449,6 +49543,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   setFavoritesViewMode: (v)=>{ favoritesViewMode = v; },
   renderFavoritesSummary, favoriteReviewKey,
   getFavoritesReviewedSet, saveFavoritesReviewedSet,
+  getFavoritesCollapsedCats, saveFavoritesCollapsedCats, toggleFavoritesCategoryCollapsed,
+  favoriteRowHtml,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
@@ -49593,7 +49689,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v105";
+  const BUILD_ID = "v106";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
