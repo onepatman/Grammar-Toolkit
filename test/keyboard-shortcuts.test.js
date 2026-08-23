@@ -261,11 +261,29 @@ describe("F1 hotkey — clicks whatever favorite star is currently on screen", (
   it("does nothing when no favorite star is visible on the current panel", async () => {
     const { window } = await loadApp();
     const document = window.document;
-    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    // Notes is a free-form personal-notes panel, not tied to a single
+    // word — genuinely has no favorite star anywhere on it (unlike
+    // Dashboard, which does have one now: see the Word of the Day test
+    // below).
+    document.querySelector('.thumb-tab[data-tab="notes"]').click();
 
     // Should not throw, and should leave nothing favorited.
     const event = pressKey(window, "F1");
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("also reaches the Word of the Day star on the Dashboard, same as any other visible star", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="dashboard"]').click();
+    const star = document.querySelector("#wordOfTheDayCard .fav-toggle");
+    const word = star.dataset.word;
+    expect(star.classList.contains("active")).toBe(false);
+
+    pressKey(window, "F1");
+
+    expect(hooks.favoriteKeys.has(word.trim().toLowerCase())).toBe(true);
+    expect(document.querySelector("#wordOfTheDayCard .fav-toggle").classList.contains("active")).toBe(true);
   });
 
   it("does nothing while a modal is open", async () => {

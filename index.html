@@ -764,6 +764,28 @@
   .dashboard-section{ margin-top:22px; }
   .dashboard-empty{ font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink-soft); padding:14px 4px; text-align:center; }
 
+  /* Word of the Day — a daily hook at the very top of the Dashboard.
+     Deterministic by date (see wordOfTheDayEntry()), so it's the same
+     word all day and changes tomorrow without needing any stored state. */
+  .word-of-day-card{
+    background:var(--sky-bg); border:1px solid var(--sky-border); border-radius:var(--radius);
+    padding:16px; margin-bottom:18px; cursor:pointer;
+  }
+  .word-of-day-eyebrow{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-size:clamp(10px, 7.7px + 0.67vw, 12px); color:var(--sky-deep); font-weight:700;
+    text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;
+  }
+  .word-of-day-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .word-of-day-word{
+    font-family:'Source Serif 4', serif; font-weight:700; color:var(--ink);
+    font-size:clamp(21px, 15.7px + 2.67vw, 29px);
+  }
+  .word-of-day-tagalog{ font-size:clamp(12px, 9.7px + 0.67vw, 14px); color:var(--ink-soft); font-style:italic; }
+  .word-of-day-def{ font-size:clamp(13px, 10.2px + 0.83vw, 15.5px); color:var(--ink); margin-top:6px; }
+  .word-of-day-example{ font-size:clamp(12px, 9.7px + 0.67vw, 14px); color:var(--ink-soft); font-style:italic; margin-top:6px; }
+  .word-of-day-card .fav-toggle{ font-size:clamp(16px, 12.7px + 1.33vw, 20px); }
+
   .dashboard-bar-chart{
     display:flex; align-items:flex-end; gap:6px; height:130px;
     overflow-x:auto; padding:4px 2px 0;
@@ -1047,6 +1069,34 @@
   }
   .study-exit-btn:hover{ background:var(--sky-hover); }
   .study-exit-btn:active{ background:var(--sky-border); }
+
+  /* Undo toast — a fixed scrim pill, same dark-on-light-text look in
+     both app themes (like a native Snackbar) so it reads clearly as a
+     temporary overlay rather than part of whichever panel is showing
+     underneath it. See showUndoToast() in the script below. */
+  .app-toast{
+    position:fixed; left:50%; bottom:calc(20px + env(safe-area-inset-bottom));
+    transform:translateX(-50%); z-index:500;
+    display:flex; align-items:center; gap:16px;
+    background:#172A33; color:#F4F7F6;
+    padding:12px 18px; border-radius:999px;
+    box-shadow:0 8px 22px rgba(0,0,0,.28);
+    font-size:clamp(12px, 9.7px + 0.67vw, 14px);
+    max-width:calc(100vw - 32px);
+  }
+  .app-toast-message{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .app-toast-undo-btn{
+    flex:none; font-family:'IBM Plex Mono', monospace; font-weight:700;
+    color:#6FD6CE; background:none; border:none; cursor:pointer; padding:0; font-size:inherit;
+  }
+  .app-toast-undo-btn:hover{ text-decoration:underline; }
+
+  /* Favorites swipe-to-remove — only #favoritesList rows get the
+     draggable transform/opacity treatment (see the pointer handlers
+     below); the identical .search-result-item markup used by the
+     global search dropdown is untouched. */
+  #favoritesList .search-result-item{ touch-action:pan-y; will-change:transform; }
+  #favoritesList .search-result-item.swiping{ transition:none; }
 
   .forms-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr));
@@ -2132,6 +2182,7 @@
   <!-- ===== PROGRESS DASHBOARD PANEL (the app's default/landing tab) ===== -->
   <section id="panel-dashboard">
     <p class="note" style="margin-bottom:14px;">Your learning activity at a glance — words and entries you've added, your daily streak, and how your Practice sessions are trending.</p>
+    <div id="wordOfTheDayCard"></div>
     <div id="dashboardStats" class="dashboard-stats"></div>
 
     <div class="dashboard-section">
@@ -3027,6 +3078,14 @@
       <button class="nav-btn" id="studyNextBtn" aria-label="Next">Next ›</button>
     </div>
   </div>
+</div>
+
+<!-- ===== UNDO TOAST — a brief, dismissible confirmation for any
+     reversible action (currently: swiping a favorite away). See
+     showUndoToast() below. -->
+<div id="appToast" class="app-toast" style="display:none;" role="status" aria-live="polite">
+  <span id="appToastMessage" class="app-toast-message"></span>
+  <button id="appToastUndoBtn" class="app-toast-undo-btn" type="button">Undo</button>
 </div>
 
 <script src="js/correction-log.js"></script>
@@ -39208,7 +39267,58 @@ function renderDashboardIeltsBand(container, estimate){
   `;
 }
 
+/* Word of the Day — a small daily hook at the top of the Dashboard.
+   Deterministic by calendar date (a stable string hash mod vocabData's
+   length), so it's the same word all day on every device and reload,
+   and simply changes tomorrow — no stored state, no server round trip. */
+function wordOfTheDayDateKey(date){
+  const d = date || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function wordOfTheDayEntry(date){
+  if(!vocabData.length) return null;
+  const key = wordOfTheDayDateKey(date);
+  let hash = 0;
+  for(let i = 0; i < key.length; i++){
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+  return vocabData[Math.abs(hash) % vocabData.length];
+}
+
+function renderWordOfTheDay(){
+  const container = document.getElementById("wordOfTheDayCard");
+  if(!container) return;
+  const entry = wordOfTheDayEntry();
+  if(!entry){ container.innerHTML = ""; return; }
+  const sense = (entry.senses || [])[0];
+  const def = sense ? sense.use : "";
+  const example = sense && sense.examples && sense.examples[0] ? sense.examples[0] : "";
+  container.innerHTML = `
+    <div class="word-of-day-card" id="wordOfTheDayCardInner">
+      <div class="word-of-day-eyebrow">
+        <span>📅 Word of the Day</span>
+        ${makeFavToggleHtml(entry.w, "Vocabulary Bank")}
+      </div>
+      <div class="word-of-day-head">
+        <span class="word-of-day-word">${entry.w}</span>
+        ${entry.tagalog ? `<span class="word-of-day-tagalog">${entry.tagalog}</span>` : ""}
+      </div>
+      ${def ? `<div class="word-of-day-def">${def}</div>` : ""}
+      ${example ? `<div class="word-of-day-example">"${example}"</div>` : ""}
+    </div>`;
+  const card = document.getElementById("wordOfTheDayCardInner");
+  if(card){
+    card.addEventListener("click", (e)=>{
+      if(e.target.closest(".fav-toggle")) return; // the star's own handler manages favoriting
+      const item = wordIndexMap.get(normalizeWordKey(entry.w));
+      if(item) navigateToEntry(item);
+    });
+  }
+}
+
 async function renderDashboardTab(){
+  renderWordOfTheDay();
   const statsEl = document.getElementById("dashboardStats");
   if(!statsEl) return;
   const weeklyEl = document.getElementById("dashboardWeeklyChart");
@@ -44104,8 +44214,19 @@ function stripHtmlTags(text){
 // applied to genuinely free-text fields (definitions, examples,
 // explanations) — never headwords/keys, which must stay byte-for-byte
 // exact for search/sync/duplicate-detection.
+// The delimiter rules matter as much as the conversion itself. A plain
+// /\*\*(.+?)\*\*/ pairs up EVERY run of two asterisks in order, so one
+// stray/unbalanced `**` anywhere earlier in the text silently shifts
+// the pairing and swallows the whole span between it and the next
+// marker: "Use ** for emphasis and **this** is bold" bolded
+// " for emphasis and " and left "this**" dangling — the intended word
+// not bold, and most of the sentence bold instead. Requiring a
+// non-space right after the opening `**` and right before the closing
+// one (the same left/right-flanking rule real markdown uses) makes a
+// lone `**` simply stay literal text, so the intended **word** still
+// bolds correctly no matter what else is in the sentence.
 function mdBold(text){
-  return String(text || "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  return String(text || "").replace(/\*\*(?=\S)(.*?\S)\*\*/g, "<b>$1</b>");
 }
 
 // Most favoritable things (Vocabulary Bank, all 5 Language Bank
@@ -47063,15 +47184,14 @@ document.addEventListener("click", (e)=>{
    (renderRuleEntry, renderVerb, renderPrep, renderFamily) and on each
    row of the Favorites tab itself, so the same handler both favorites
    an entry you're viewing and un-favorites one from the list. */
-document.addEventListener("click", (e)=>{
-  const btn = e.target.closest(".fav-toggle");
-  if(!btn) return;
-  const word = btn.dataset.word;
-  const cat = btn.dataset.cat;
+// Shared add/remove side effects for a favorite — the in-memory
+// favoriteKeys/favoriteRecords, the IndexedDB record, its study-mode
+// schedule, and the cross-device sync push. Pulled out of the ☆/★
+// click handler below so the Favorites swipe-to-remove gesture (and its
+// Undo) can trigger the exact same effects without duplicating them.
+function setFavoriteActive(word, cat, active){
   const key = word.trim().toLowerCase();
-  const nowActive = !favoriteKeys.has(key);
-
-  if(nowActive){
+  if(active){
     favoriteKeys.add(key);
     favoriteRecords.set(key, {word, cat, addedAt: Date.now()});
     VocabCache.addFavorite(word, {word, cat}, {dbPromise: vocabDbPromise});
@@ -47084,6 +47204,17 @@ document.addEventListener("click", (e)=>{
     // resurface with a stale level if the word is ever re-favorited.
     VocabCache.deleteReviewSchedule(word, {dbPromise: vocabDbPromise});
   }
+  pushToSync(loadPersonalCorrections());
+}
+
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".fav-toggle");
+  if(!btn) return;
+  const word = btn.dataset.word;
+  const cat = btn.dataset.cat;
+  const key = word.trim().toLowerCase();
+  const nowActive = !favoriteKeys.has(key);
+  setFavoriteActive(word, cat, nowActive);
 
   btn.classList.toggle("active", nowActive);
   btn.textContent = nowActive ? "★" : "☆";
@@ -47094,9 +47225,131 @@ document.addEventListener("click", (e)=>{
   if(document.querySelector(".thumb-tab.active")?.dataset.tab === "favorites"){
     renderFavoritesTab();
   }
-
-  pushToSync(loadPersonalCorrections());
 });
+
+/* Undo toast — a brief, reusable confirmation for any reversible
+   action. Re-showing it (e.g. swiping away a second favorite before the
+   first toast's timer runs out) cancels the previous timer/undo instead
+   of stacking, so only ever one toast, and its Undo button always
+   matches what's currently on screen. */
+let appToastTimer = null;
+let appToastUndoHandler = null;
+
+function showUndoToast(message, onUndo, duration){
+  const toast = document.getElementById("appToast");
+  const messageEl = document.getElementById("appToastMessage");
+  if(!toast || !messageEl) return;
+  clearTimeout(appToastTimer);
+  messageEl.textContent = message;
+  appToastUndoHandler = onUndo || null;
+  toast.style.display = "flex";
+  appToastTimer = setTimeout(()=> hideUndoToast(), duration || 5000);
+}
+
+function hideUndoToast(){
+  const toast = document.getElementById("appToast");
+  if(toast) toast.style.display = "none";
+  clearTimeout(appToastTimer);
+  appToastUndoHandler = null;
+}
+
+const appToastUndoBtn = document.getElementById("appToastUndoBtn");
+if(appToastUndoBtn){
+  appToastUndoBtn.addEventListener("click", ()=>{
+    const handler = appToastUndoHandler;
+    hideUndoToast();
+    if(handler) handler();
+  });
+}
+
+/* Favorites — swipe left to remove, with Undo. Delegated on the list
+   container itself (rather than per-row) so it keeps working across
+   every re-render, including the collapsible category groups. Pointer
+   events cover touch AND mouse with one code path; a drag is only
+   claimed as a horizontal swipe once it's moved further sideways than
+   vertically, so an ordinary vertical scroll on the list is untouched. */
+const FAVORITES_SWIPE_THRESHOLD = 90;
+
+function removeFavoriteWithUndo(word, cat){
+  setFavoriteActive(word, cat, false);
+  renderFavoritesTab();
+  showUndoToast(`Removed "${word}" from Favorites`, ()=>{
+    setFavoriteActive(word, cat, true);
+    renderFavoritesTab();
+  });
+}
+
+(function setupFavoritesSwipeToRemove(){
+  const container = document.getElementById("favoritesList");
+  if(!container) return;
+  let activeRow = null, startX = 0, startY = 0, dx = 0, dragging = false, decided = false;
+
+  function resetRow(row){
+    if(!row) return;
+    row.classList.remove("swiping");
+    row.style.transform = "";
+    row.style.opacity = "";
+  }
+
+  container.addEventListener("pointerdown", (e)=>{
+    const row = e.target.closest(".search-result-item");
+    if(!row || e.target.closest(".fav-toggle")) return;
+    activeRow = row; startX = e.clientX; startY = e.clientY; dx = 0; dragging = true; decided = false;
+    // Without pointer capture, a fast/far drag that leaves the row's own
+    // bounding box stops delivering pointermove/pointerup to it (they'd
+    // target whatever element is now under the pointer instead, which
+    // this delegated listener on #favoritesList never sees). Capturing
+    // keeps every subsequent event targeted at this row until release.
+    try { if(row.setPointerCapture) row.setPointerCapture(e.pointerId); } catch(err){ /* unsupported — swipe still works within the row's own bounds */ }
+  });
+
+  container.addEventListener("pointermove", (e)=>{
+    if(!dragging || !activeRow) return;
+    const moveX = e.clientX - startX;
+    const moveY = e.clientY - startY;
+    if(!decided){
+      if(Math.abs(moveX) < 10 && Math.abs(moveY) < 10) return;
+      if(Math.abs(moveY) > Math.abs(moveX)){ dragging = false; activeRow = null; return; }
+      decided = true;
+      activeRow.classList.add("swiping");
+    }
+    dx = Math.min(0, moveX); // swipe LEFT only — right stays inert
+    activeRow.style.transform = `translateX(${dx}px)`;
+    activeRow.style.opacity = String(Math.max(0.35, 1 + dx / 220));
+  });
+
+  function finishDrag(){
+    if(!dragging){ return; }
+    dragging = false;
+    const row = activeRow;
+    const wasDecided = decided;
+    activeRow = null; decided = false;
+    if(!row || !wasDecided) return;
+    container.dataset.justSwiped = "1"; // suppress the row's click-to-navigate handler
+    if(dx <= -FAVORITES_SWIPE_THRESHOLD){
+      const word = row.dataset.word;
+      const cat = row.dataset.cat;
+      row.style.transform = "translateX(-100%)";
+      row.style.opacity = "0";
+      setTimeout(()=> removeFavoriteWithUndo(word, cat), 160);
+    } else {
+      resetRow(row);
+    }
+  }
+
+  container.addEventListener("pointerup", finishDrag);
+  container.addEventListener("pointercancel", ()=>{
+    if(activeRow) resetRow(activeRow);
+    dragging = false; activeRow = null; decided = false;
+  });
+
+  container.addEventListener("click", (e)=>{
+    if(container.dataset.justSwiped === "1"){
+      container.dataset.justSwiped = "";
+      e.stopImmediatePropagation();
+    }
+  }, true);
+})();
 
 /* Re-render whatever is currently on screen now that wordIndexMap is fully
    populated, so the very first view of every tab also has clickable chips.
@@ -48503,10 +48756,10 @@ document.addEventListener("click", (e)=>{
     if(!isDeviceUnlocked()) return;
     const form = builtinSaveBtn.closest(".wb-builtin-edit-form");
     const key = form.dataset.key;
-    const useText = form.querySelector(".wb-builtin-use-input").value.trim();
+    const useText = mdBold(form.querySelector(".wb-builtin-use-input").value.trim());
     if(!useText) return; // a rule with no text at all isn't useful — just leave the form open
     const examples = Array.from(form.querySelectorAll(".wb-builtin-example-input"))
-      .map(inp=> inp.value.trim()).filter(Boolean);
+      .map(inp=> mdBold(inp.value.trim())).filter(Boolean);
     const overrides = getWordBankBuiltinOverrides();
     overrides[key] = { use: useText, examples: examples };
     saveWordBankBuiltinOverrides(overrides);
@@ -49545,6 +49798,9 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getFavoritesReviewedSet, saveFavoritesReviewedSet,
   getFavoritesCollapsedCats, saveFavoritesCollapsedCats, toggleFavoritesCategoryCollapsed,
   favoriteRowHtml,
+  wordOfTheDayDateKey, wordOfTheDayEntry, renderWordOfTheDay,
+  setFavoriteActive, showUndoToast, hideUndoToast, removeFavoriteWithUndo,
+  getAppToastUndoHandler: ()=> appToastUndoHandler,
   getStudyQueue: ()=> studyQueue, getStudyIndex: ()=> studyIndex,
   connectSync, pushToSync, listenToSync, initFirebaseIfConfigured,
   updateSyncAuthUI, signInAsOwner, signOutOwner, isDeviceUnlocked,
@@ -49689,7 +49945,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v106";
+  const BUILD_ID = "v108";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
