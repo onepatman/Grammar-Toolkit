@@ -49,7 +49,15 @@
     return {
       use: entry.why || "Personal correction — added by you.",
       examples: pairs.map(function (p) {
-        return "✗ " + p.wrong + " → ✓ <b>" + p.right + "</b>";
+        // The corrected side is bolded whole so it stands out against
+        // the wrong version — but ONLY when the owner hasn't already
+        // marked their own bold spans with **word**. Bolding everything
+        // on top of a deliberate <b>word</b> makes that choice
+        // invisible: the user marks one word and the entire line comes
+        // out bold, which reads as the **markers being broken.
+        var right = String(p.right == null ? "" : p.right);
+        var rightHtml = /<b>/i.test(right) ? right : "<b>" + right + "</b>";
+        return "✗ " + p.wrong + " → ✓ " + rightHtml;
       }),
       personal: true,
       id: entry.id

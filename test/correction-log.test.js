@@ -112,6 +112,52 @@ describe("personalEntryToSense", () => {
     });
     expect(sense.examples).toEqual(["✗ a → ✓ <b>b</b>"]);
   });
+
+  // The whole corrected side is bolded so it stands out — but doing that
+  // on top of the owner's OWN <b> spans (from **word** at save time)
+  // made their choice invisible: mark one word, and the entire line
+  // came out bold, which reads as the ** markers being broken.
+  it("does not re-bold the whole corrected side when it already carries the owner's own <b> spans", () => {
+    const sense = CorrectionLog.personalEntryToSense({
+      id: "pc_bold",
+      wrong: "jsbdjksn",
+      right: "jxkpdnxj <b>hskwbdj</b> ksnaobdkd <b>jsbaijdj</b>",
+      why: ""
+    });
+    expect(sense.examples).toEqual([
+      "✗ jsbdjksn → ✓ jxkpdnxj <b>hskwbdj</b> ksnaobdkd <b>jsbaijdj</b>"
+    ]);
+  });
+
+  it("still bolds the whole corrected side when the owner marked no bold of their own", () => {
+    const sense = CorrectionLog.personalEntryToSense({
+      id: "pc_plain",
+      wrong: "He go to the site",
+      right: "He goes to the site",
+      why: ""
+    });
+    expect(sense.examples).toEqual(["✗ He go to the site → ✓ <b>He goes to the site</b>"]);
+  });
+
+  it("applies the same rule per-example inside a grouped entry", () => {
+    const sense = CorrectionLog.personalEntryToSense({
+      id: "pc_mixed",
+      why: "mixed",
+      examples: [
+        { wrong: "a1", right: "plain corrected" },
+        { wrong: "a2", right: "only <b>this</b> word" }
+      ]
+    });
+    expect(sense.examples).toEqual([
+      "✗ a1 → ✓ <b>plain corrected</b>",
+      "✗ a2 → ✓ only <b>this</b> word"
+    ]);
+  });
+
+  it("does not throw on a missing corrected side", () => {
+    const sense = CorrectionLog.personalEntryToSense({ id: "pc_null", wrong: "a", right: null, why: "" });
+    expect(sense.examples).toEqual(["✗ a → ✓ <b></b>"]);
+  });
 });
 
 describe("buildCorrectionSenses", () => {

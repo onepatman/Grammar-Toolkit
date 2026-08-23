@@ -411,3 +411,67 @@ describe("Word Bank built-in rule edit — use/examples support **bold**", () =>
     expect(overrides[key].examples[0]).toBe("<b>Because</b> it rained.");
   });
 });
+
+// Reopening a saved entry used to drop raw "<b>word</b>" into the
+// typing box instead of the "**word**" the owner actually typed —
+// unreadable, and impossible to adjust without hand-editing HTML.
+describe("mdUnbold() — the edit-form round trip", () => {
+  it("turns saved <b> markup back into the ** markers the owner typed", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdUnbold("A <b>formal</b> definition.")).toBe("A **formal** definition.");
+    expect(hooks.mdUnbold("<b>one</b> and <b>two</b>")).toBe("**one** and **two**");
+  });
+
+  it("leaves text with no bold markup untouched, and handles empty input", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdUnbold("nothing bold here")).toBe("nothing bold here");
+    expect(hooks.mdUnbold("")).toBe("");
+    expect(hooks.mdUnbold(undefined)).toBe("");
+    expect(hooks.mdUnbold(null)).toBe("");
+  });
+
+  it("round-trips cleanly: mdBold then mdUnbold gives back the original", async () => {
+    const { hooks } = await loadApp();
+    const typed = "A **formal** word used in **technical** writing.";
+    expect(hooks.mdUnbold(hooks.mdBold(typed))).toBe(typed);
+  });
+
+  it("shows ** markers, not raw <b> tags, when reopening a saved correction for edit", async () => {
+    const { window } = await loadApp();
+    const document = window.document;
+    document.querySelector('.thumb-tab[data-tab="mistakes"]').click();
+    document.getElementById("mistakeSelect").value = "double negatives";
+    document.getElementById("mistakeSelect").dispatchEvent(new window.Event("change"));
+
+    document.getElementById("qaWrongInput").value = "jsbdjksn";
+    document.getElementById("qaRightInput").value = "jxkpdnxj **hskwbdj** ksnaobdkd **jsbaijdj**";
+    document.getElementById("qaAddBtn").click();
+    await wait();
+
+    document.getElementById("mistakeEntry").querySelector(".edit-correction-btn").click();
+    await wait();
+
+    expect(document.getElementById("qaRightInput").value)
+      .toBe("jxkpdnxj **hskwbdj** ksnaobdkd **jsbaijdj**");
+  });
+
+  it("shows ** markers, not raw <b> tags, when reopening a saved note for edit", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    document.getElementById("noteTitleInput").value = "**less** vs fewer";
+    document.getElementById("noteBodyInput").value = "'Less' is for **uncountable** nouns.";
+    document.getElementById("noteSaveBtn").click();
+    await wait();
+
+    expect(hooks.notesData[0].body).toBe("'Less' is for <b>uncountable</b> nouns.");
+
+    document.querySelector('.thumb-tab[data-tab="notes"]').click();
+    await wait();
+    document.querySelector("#notesList .note-edit-btn").click();
+    await wait();
+
+    expect(document.querySelector("#notesList .note-edit-title").value).toBe("**less** vs fewer");
+    expect(document.querySelector("#notesList .note-edit-body").value)
+      .toBe("'Less' is for **uncountable** nouns.");
+  });
+});

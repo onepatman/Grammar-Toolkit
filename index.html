@@ -38761,7 +38761,7 @@ function renderRuleEntry(item, entryEl, tagLabel, categoryKey, reviewScope){
       const overrides = getWordBankBuiltinOverrides();
       const current = overrides[wordBankEditingBuiltinKey] || editingSense;
       if(current){
-        editForm.querySelector(".wb-builtin-use-input").value = current.use || "";
+        editForm.querySelector(".wb-builtin-use-input").value = mdUnbold(current.use);
         const examplesList = editForm.querySelector(".wb-builtin-examples-list");
         const currentExamples = (current.examples && current.examples.length) ? current.examples : [""];
         currentExamples.forEach(ex=> examplesList.appendChild(createWbBuiltinExampleRow(ex)));
@@ -39772,14 +39772,14 @@ function buildNoteEditCard(note){
   titleInput.type = "text";
   titleInput.className = "note-edit-title";
   titleInput.placeholder = "Title";
-  titleInput.value = note.title;
+  titleInput.value = mdUnbold(note.title);
   card.appendChild(titleInput);
 
   const bodyInput = document.createElement("textarea");
   bodyInput.className = "note-edit-body";
   bodyInput.rows = 5;
   bodyInput.placeholder = "Write your note here...";
-  bodyInput.value = note.body;
+  bodyInput.value = mdUnbold(note.body);
   card.appendChild(bodyInput);
 
   const tagsEl = document.createElement("div");
@@ -40270,14 +40270,14 @@ function buildJournalEditCard(entry){
   titleInput.type = "text";
   titleInput.className = "journal-edit-title";
   titleInput.placeholder = "Title (optional)";
-  titleInput.value = entry.title;
+  titleInput.value = mdUnbold(entry.title);
   card.appendChild(titleInput);
 
   const bodyInput = document.createElement("textarea");
   bodyInput.className = "journal-edit-body";
   bodyInput.rows = 8;
   bodyInput.placeholder = "Write freely in English...";
-  bodyInput.value = entry.body;
+  bodyInput.value = mdUnbold(entry.body);
   card.appendChild(bodyInput);
 
   const note = document.createElement("div");
@@ -42414,7 +42414,7 @@ function createVocabEditMeaningRow(meaning){
   const useField = document.createElement("textarea");
   useField.className = "vocab-edit-meaning-use";
   useField.rows = 2;
-  useField.value = m.use || "";
+  useField.value = mdUnbold(m.use);
   row.appendChild(useField);
 
   row.appendChild(makeLabeledField("label", "Example sentences"));
@@ -42434,7 +42434,7 @@ function createVocabEditMeaningRow(meaning){
   const notesField = document.createElement("input");
   notesField.type = "text";
   notesField.className = "vocab-edit-meaning-notes";
-  notesField.value = m.notes || "";
+  notesField.value = mdUnbold(m.notes);
   row.appendChild(notesField);
 
   const removeBtn = document.createElement("button");
@@ -42526,7 +42526,7 @@ function openVocabEditForm(item, entryEl){
     : (item.tagalog ? item.tagalog.split(/[\/,;]/).map(t=>t.trim()).filter(Boolean) : []);
   renderChipEditor(tagalogContainer, initialTagalog, "tagalog");
   wireChipEditorEvents(tagalogContainer);
-  document.getElementById("vocabEditOrigin").value = item.origin || "";
+  document.getElementById("vocabEditOrigin").value = mdUnbold(item.origin);
 
   // Flat list of meaning rows — no part-of-speech grouping. A sense
   // whose `use` still carries a legacy "(pos) " prefix (an older entry
@@ -43858,8 +43858,8 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
       <input type="text" class="correction-right-input" placeholder="Corrected version (e.g. He goes to the site)" autocomplete="off">
       ${removable ? '<button type="button" class="remove-example-row-btn">✕ Remove this example</button>' : ""}
     `;
-    row.querySelector(".correction-wrong-input").value = wrongVal || "";
-    row.querySelector(".correction-right-input").value = rightVal || "";
+    row.querySelector(".correction-wrong-input").value = mdUnbold(wrongVal);
+    row.querySelector(".correction-right-input").value = mdUnbold(rightVal);
     if(removable){
       row.querySelector(".remove-example-row-btn").addEventListener("click", ()=> row.remove());
     }
@@ -43896,7 +43896,7 @@ function setupCorrectionBox(ids, getCategory, renderFn, successMessage){
       }
       container.appendChild(row);
     });
-    document.getElementById(ids.whyId).value = entry.why || "";
+    document.getElementById(ids.whyId).value = mdUnbold(entry.why);
     const addBtn = document.getElementById(ids.addBtnId);
     addBtn.textContent = "Update this entry";
     addBtn.dataset.editingId = entry.id;
@@ -44227,6 +44227,17 @@ function stripHtmlTags(text){
 // bolds correctly no matter what else is in the sentence.
 function mdBold(text){
   return String(text || "").replace(/\*\*(?=\S)(.*?\S)\*\*/g, "<b>$1</b>");
+}
+
+// The inverse, for re-opening a saved value in an edit form. Without it
+// the owner reopens their own entry and finds raw "<b>word</b>" sitting
+// in the typing box instead of the "**word**" they actually typed —
+// unreadable, and impossible to adjust without hand-editing HTML. Every
+// edit form that loads a field mdBold() was applied to on save runs it
+// back through this on the way in, so the round trip shows the same
+// markers the owner wrote.
+function mdUnbold(text){
+  return String(text || "").replace(/<b>(.*?)<\/b>/gi, "**$1**");
 }
 
 // Most favoritable things (Vocabulary Bank, all 5 Language Bank
@@ -45870,7 +45881,7 @@ function createWbBuiltinExampleRow(text){
   input.type = "text";
   input.className = "wb-builtin-example-input";
   input.autocomplete = "off";
-  input.value = text || "";
+  input.value = mdUnbold(text);
   wrap.appendChild(input);
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
@@ -45887,7 +45898,7 @@ function createLbEditExampleRow(text){
   input.type = "text";
   input.className = "lb-edit-example-input";
   input.autocomplete = "off";
-  input.value = text || "";
+  input.value = mdUnbold(text);
   wrap.appendChild(input);
   const removeBtn = document.createElement("button");
   removeBtn.type = "button";
@@ -45917,7 +45928,7 @@ function createLbEditMeaningRow(sense){
   const useField = document.createElement("textarea");
   useField.className = "lb-edit-meaning-use";
   useField.rows = 2;
-  useField.value = s.use || "";
+  useField.value = mdUnbold(s.use);
   row.appendChild(useField);
 
   row.appendChild(makeLabeledField("label", "Example sentences"));
@@ -46724,8 +46735,8 @@ function openDistinctionEditForm(entry, entryEl){
   `;
 
   document.getElementById("distEditWord1").value = w1.w;
-  document.getElementById("distEditUse1").value = use1;
-  document.getElementById("distEditExample1").value = example1;
+  document.getElementById("distEditUse1").value = mdUnbold(use1);
+  document.getElementById("distEditExample1").value = mdUnbold(example1);
   const distSyn1 = document.getElementById("distEditSynChips1");
   const distAnt1 = document.getElementById("distEditAntChips1");
   renderChipEditor(distSyn1, w1.syn || [], "syn");
@@ -46734,8 +46745,8 @@ function openDistinctionEditForm(entry, entryEl){
   wireChipEditorEvents(distAnt1);
 
   document.getElementById("distEditWord2").value = w2.w;
-  document.getElementById("distEditUse2").value = use2;
-  document.getElementById("distEditExample2").value = example2;
+  document.getElementById("distEditUse2").value = mdUnbold(use2);
+  document.getElementById("distEditExample2").value = mdUnbold(example2);
   const distSyn2 = document.getElementById("distEditSynChips2");
   const distAnt2 = document.getElementById("distEditAntChips2");
   renderChipEditor(distSyn2, w2.syn || [], "syn");
@@ -48925,11 +48936,11 @@ function openBasicAdvancedEditForm(entry, entryEl){
   `;
 
   document.getElementById("baEditBasic").value = entry.basic;
-  document.getElementById("baEditBasicDef").value = entry.basicDef || "";
-  document.getElementById("baEditBasicExample").value = (entry.basicExamples || []).join("\n");
+  document.getElementById("baEditBasicDef").value = mdUnbold(entry.basicDef);
+  document.getElementById("baEditBasicExample").value = (entry.basicExamples || []).map(mdUnbold).join("\n");
   document.getElementById("baEditAdvanced").value = entry.advanced;
-  document.getElementById("baEditAdvancedDef").value = entry.advancedDef || "";
-  document.getElementById("baEditAdvancedExample").value = (entry.advancedExamples || []).join("\n");
+  document.getElementById("baEditAdvancedDef").value = mdUnbold(entry.advancedDef);
+  document.getElementById("baEditAdvancedExample").value = (entry.advancedExamples || []).map(mdUnbold).join("\n");
 
   document.getElementById("baEditCancelBtn").addEventListener("click", ()=>{
     renderBasicAdvancedPair(entry);
@@ -49198,11 +49209,11 @@ function openTagalogEnglishEditForm(entry, entryEl){
   `;
 
   document.getElementById("teEditTagalog").value = entry.tagalog;
-  document.getElementById("teEditTagalogDef").value = entry.tagalogDef || "";
-  document.getElementById("teEditTagalogExample").value = (entry.tagalogExamples || []).join("\n");
+  document.getElementById("teEditTagalogDef").value = mdUnbold(entry.tagalogDef);
+  document.getElementById("teEditTagalogExample").value = (entry.tagalogExamples || []).map(mdUnbold).join("\n");
   document.getElementById("teEditEnglish").value = entry.english;
-  document.getElementById("teEditEnglishDef").value = entry.englishDef || "";
-  document.getElementById("teEditEnglishExample").value = (entry.englishExamples || []).join("\n");
+  document.getElementById("teEditEnglishDef").value = mdUnbold(entry.englishDef);
+  document.getElementById("teEditEnglishExample").value = (entry.englishExamples || []).map(mdUnbold).join("\n");
 
   document.getElementById("teEditCancelBtn").addEventListener("click", ()=>{
     renderTagalogEnglishPair(entry);
@@ -49763,7 +49774,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   addPatternEntry, patternsCacheRestorePromise,
   addTechnicalEntry, technicalCacheRestorePromise,
   addPhraseTemplateEntry, phraseTemplatesCacheRestorePromise,
-  isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn, mdBold,
+  isElementVisible, findVisibleNavBtn, findVisibleFavToggleBtn, mdBold, mdUnbold,
   addLanguageBankEntry, activateLangBankCategory,
   activateCourseCategory, COURSE_LOCAL_CATEGORIES,
   getCourseProgressState, saveCourseProgressState, renderCourseProgressUI, toggleActiveCourseCategoryDone,
@@ -49945,7 +49956,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v108";
+  const BUILD_ID = "v109";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
