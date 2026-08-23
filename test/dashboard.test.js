@@ -242,6 +242,68 @@ describe("Dashboard pure aggregation helpers", () => {
     expect(hooks.collectDashboardAddedEntries()).toHaveLength(1);
   });
 
+  // The stat tiles already counted Journal entries and Word Bank pairs,
+  // so leaving them out of this made the Dashboard contradict itself —
+  // "12 Journal entries" beside a chart insisting nothing was added.
+  it("collectDashboardAddedEntries counts Journal entries too, not just notes and vocabulary", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.collectDashboardAddedEntries()).toEqual([]);
+    hooks.addJournalEntry({title: "j", body: "some writing"}, {persist: false});
+    expect(hooks.collectDashboardAddedEntries()).toHaveLength(1);
+  });
+
+  it("collectDashboardAddedEntries counts Word Bank pairs from both categories", async () => {
+    const { hooks } = await loadApp();
+    hooks.addBasicAdvancedEntry(
+      {basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [], addedAt: Date.now()},
+      {persist: false}
+    );
+    expect(hooks.collectDashboardAddedEntries()).toHaveLength(1);
+  });
+
+  it("correctionEntryTimestamp recovers a creation time from the pc_<timestamp> id, so pre-existing corrections still show up", async () => {
+    const { hooks } = await loadApp();
+    const ts = 1700000000000;
+    expect(hooks.correctionEntryTimestamp({id: "pc_" + ts})).toBe(ts);
+    expect(hooks.correctionEntryTimestamp({id: "pc_" + ts + "_3"})).toBe(ts);
+    // An explicit addedAt always wins over the id.
+    expect(hooks.correctionEntryTimestamp({id: "pc_" + ts, addedAt: 123})).toBe(123);
+    // Anything unparseable is skipped rather than charted at epoch 0.
+    expect(hooks.correctionEntryTimestamp({id: "not-a-pc-id"})).toBe(null);
+    expect(hooks.correctionEntryTimestamp({})).toBe(null);
+    expect(hooks.correctionEntryTimestamp(null)).toBe(null);
+  });
+
+  it("computeDashboardStreakStats reports today's status, the best run ever, and total active days", async () => {
+    const { hooks } = await loadApp();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const today = new Date();
+    const d = (n) => hooks.dashboardDateKey(new Date(today.getTime() - n * oneDay));
+
+    // A broken 3-day run in the past, plus a 2-day run ending yesterday.
+    const counts = new Map([
+      [d(10), 1], [d(9), 1], [d(8), 1],
+      [d(2), 1], [d(1), 1]
+    ]);
+    const stats = hooks.computeDashboardStreakStats(counts);
+    expect(stats.todayDone).toBe(false);
+    expect(stats.current).toBe(2);
+    expect(stats.best).toBe(3); // survives the break — a reset is not total loss
+    expect(stats.totalActiveDays).toBe(5);
+
+    counts.set(d(0), 1);
+    const after = hooks.computeDashboardStreakStats(counts);
+    expect(after.todayDone).toBe(true);
+    expect(after.current).toBe(3);
+    expect(after.totalActiveDays).toBe(6);
+  });
+
+  it("computeDashboardStreakStats is all-zero on a brand-new install", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.computeDashboardStreakStats(new Map()))
+      .toEqual({current: 0, best: 0, totalActiveDays: 0, todayDone: false});
+  });
+
   it("computeDashboardStreak counts consecutive active days, treating a still-open today as not yet broken", async () => {
     const { hooks } = await loadApp();
     const oneDay = 24 * 60 * 60 * 1000;
