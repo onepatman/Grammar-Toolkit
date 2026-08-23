@@ -44214,8 +44214,19 @@ function stripHtmlTags(text){
 // applied to genuinely free-text fields (definitions, examples,
 // explanations) — never headwords/keys, which must stay byte-for-byte
 // exact for search/sync/duplicate-detection.
+// The delimiter rules matter as much as the conversion itself. A plain
+// /\*\*(.+?)\*\*/ pairs up EVERY run of two asterisks in order, so one
+// stray/unbalanced `**` anywhere earlier in the text silently shifts
+// the pairing and swallows the whole span between it and the next
+// marker: "Use ** for emphasis and **this** is bold" bolded
+// " for emphasis and " and left "this**" dangling — the intended word
+// not bold, and most of the sentence bold instead. Requiring a
+// non-space right after the opening `**` and right before the closing
+// one (the same left/right-flanking rule real markdown uses) makes a
+// lone `**` simply stay literal text, so the intended **word** still
+// bolds correctly no matter what else is in the sentence.
 function mdBold(text){
-  return String(text || "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  return String(text || "").replace(/\*\*(?=\S)(.*?\S)\*\*/g, "<b>$1</b>");
 }
 
 // Most favoritable things (Vocabulary Bank, all 5 Language Bank
@@ -48745,10 +48756,10 @@ document.addEventListener("click", (e)=>{
     if(!isDeviceUnlocked()) return;
     const form = builtinSaveBtn.closest(".wb-builtin-edit-form");
     const key = form.dataset.key;
-    const useText = form.querySelector(".wb-builtin-use-input").value.trim();
+    const useText = mdBold(form.querySelector(".wb-builtin-use-input").value.trim());
     if(!useText) return; // a rule with no text at all isn't useful — just leave the form open
     const examples = Array.from(form.querySelectorAll(".wb-builtin-example-input"))
-      .map(inp=> inp.value.trim()).filter(Boolean);
+      .map(inp=> mdBold(inp.value.trim())).filter(Boolean);
     const overrides = getWordBankBuiltinOverrides();
     overrides[key] = { use: useText, examples: examples };
     saveWordBankBuiltinOverrides(overrides);
@@ -49934,7 +49945,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v107";
+  const BUILD_ID = "v108";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");

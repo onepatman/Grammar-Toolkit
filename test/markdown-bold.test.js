@@ -41,6 +41,41 @@ describe("mdBold() helper", () => {
     expect(hooks.mdBold(undefined)).toBe("");
     expect(hooks.mdBold(null)).toBe("");
   });
+
+  // A stray/unbalanced ** used to shift the pairing and bold everything
+  // between it and the NEXT marker — so most of the sentence turned
+  // bold while the word the user actually wrapped did not.
+  it("does not let a stray ** earlier in the text bold the rest of the sentence", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdBold("Use ** for emphasis and **this** is bold"))
+      .toBe("Use ** for emphasis and <b>this</b> is bold");
+    expect(hooks.mdBold("The ** quick brown **fox** jumps"))
+      .toBe("The ** quick brown <b>fox</b> jumps");
+    expect(hooks.mdBold("** leading stray then **word** end"))
+      .toBe("** leading stray then <b>word</b> end");
+  });
+
+  it("still bolds every well-formed span even when a stray ** sits between them", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdBold("He said **hello** ** and **bye**"))
+      .toBe("He said <b>hello</b> ** and <b>bye</b>");
+  });
+
+  it("treats space-padded markers as literal text, the same as real markdown", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdBold("** spaced **")).toBe("** spaced **");
+  });
+
+  it("bolds a single character and back-to-back spans", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdBold("**a**")).toBe("<b>a</b>");
+    expect(hooks.mdBold("**a****b**")).toBe("<b>a</b><b>b</b>");
+  });
+
+  it("bolds independently on each line of a multi-line value", async () => {
+    const { hooks } = await loadApp();
+    expect(hooks.mdBold("line1 **a**\nline2 **b**")).toBe("line1 <b>a</b>\nline2 <b>b</b>");
+  });
 });
 
 describe("Add to correction — Wrong/Right/Why support **bold**", () => {
@@ -340,5 +375,39 @@ describe("Tenses manual add — formula/uses/examples support **bold**, name doe
     expect(saved.examples.pos).toBe("We are going to <b>install</b> the new panel.");
     expect(saved.examples.neg).toBe("We are <b>not</b> going to install it.");
     expect(saved.examples.q).toBe("Are we going to <b>install</b> it?");
+  });
+});
+
+// The Word Bank's built-in rule edit form (revealed by "Manage" on the
+// three correction-log categories) saved its use/example text raw, so
+// **bold** typed there stayed as literal asterisks while every other
+// free-text box in the app converted it.
+describe("Word Bank built-in rule edit — use/examples support **bold**", () => {
+  function openWordBankCategory(document, val) {
+    document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
+    document.querySelector(`#wordBankCategorySeg button[data-val="${val}"]`).click();
+  }
+
+  it("converts **bold** in the rule's explanation and its examples on save", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    openWordBankCategory(document, "sentenceFragment");
+
+    document.getElementById("fragmentEntry").querySelector(".wordbank-manage-toggle-btn").click();
+    document.getElementById("fragmentEntry").querySelector(".wordbank-builtin-edit-btn").click();
+    await wait();
+
+    const form = document.getElementById("fragmentEntry").querySelector(".wb-builtin-edit-form");
+    expect(form).not.toBeNull();
+    const key = form.dataset.key;
+
+    form.querySelector(".wb-builtin-use-input").value = "A fragment is missing a **subject** or a **verb**.";
+    form.querySelector(".wb-builtin-example-input").value = "**Because** it rained.";
+    form.querySelector(".wb-builtin-save-btn").click();
+    await wait();
+
+    const overrides = hooks.getWordBankBuiltinOverrides();
+    expect(overrides[key].use).toBe("A fragment is missing a <b>subject</b> or a <b>verb</b>.");
+    expect(overrides[key].examples[0]).toBe("<b>Because</b> it rained.");
   });
 });
