@@ -808,6 +808,34 @@
   .dashboard-cal-cell{
     width:13px; height:13px; border-radius:3px; background:var(--rule);
   }
+  /* Today's cell gets a ring so "where am I in this grid" is answerable
+     at a glance — without it the most important square is the one you
+     can't find. */
+  .dashboard-cal-cell.is-today{ box-shadow:0 0 0 2px var(--gold-deep); }
+  .dashboard-cal-legend{
+    display:flex; align-items:center; gap:5px; margin-top:8px;
+    font-size:clamp(9px, 7.3px + 0.5vw, 10.5px); color:var(--ink-soft);
+  }
+  .dashboard-cal-legend .dashboard-cal-cell[data-legend="0"]{ background:var(--rule); }
+  .dashboard-cal-legend .dashboard-cal-cell[data-legend="1"]{ background:color-mix(in srgb, var(--teal) 45%, transparent); }
+  .dashboard-cal-legend .dashboard-cal-cell[data-legend="2"]{ background:var(--teal); }
+  .dashboard-cal-legend .dashboard-cal-cell[data-legend="3"]{ background:var(--teal-deep); }
+
+  /* The one actionable line in the streak section: whether today is
+     already counted. Kept visually distinct from the passive stats
+     under it so it reads as a prompt, not another statistic. */
+  .dashboard-streak-today{
+    display:flex; align-items:center; gap:8px; margin-bottom:10px;
+    padding:10px 12px; border-radius:8px;
+    font-size:clamp(12px, 9.7px + 0.67vw, 14px); font-weight:600;
+  }
+  .dashboard-streak-today.done{ background:var(--mint-bg); border:1px solid var(--mint-border); color:var(--mint); }
+  .dashboard-streak-today.pending{ background:var(--warn-bg); border:1px solid var(--warn-border); color:var(--warn-text); }
+  .dashboard-streak-stats{
+    display:flex; gap:16px; flex-wrap:wrap; margin-bottom:10px;
+    font-size:clamp(11px, 8.7px + 0.67vw, 13px); color:var(--ink-soft);
+  }
+  .dashboard-streak-stats b{ color:var(--teal-deep); font-family:'IBM Plex Mono', monospace; }
 
   .dashboard-error-patterns{ display:flex; flex-direction:column; gap:6px; }
   .dashboard-error-row{
@@ -2187,12 +2215,23 @@
 
     <div class="dashboard-section">
       <div class="section-label">📈 Entries added, last 12 weeks</div>
+      <p class="note" style="margin-bottom:8px;">Counts everything you create — vocabulary, Word Bank pairs, Language Bank entries, notes, Journal entries, and corrections.</p>
       <div id="dashboardWeeklyChart" class="dashboard-bar-chart"></div>
     </div>
 
     <div class="dashboard-section">
       <div class="section-label">🔥 Activity streak <span id="dashboardStreakLabel"></span></div>
+      <div id="dashboardStreakToday" class="dashboard-streak-today"></div>
+      <div id="dashboardStreakStats" class="dashboard-streak-stats"></div>
       <div id="dashboardStreakCalendar" class="dashboard-calendar"></div>
+      <div class="dashboard-cal-legend">
+        <span>Less</span>
+        <span class="dashboard-cal-cell" data-legend="0"></span>
+        <span class="dashboard-cal-cell" data-legend="1"></span>
+        <span class="dashboard-cal-cell" data-legend="2"></span>
+        <span class="dashboard-cal-cell" data-legend="3"></span>
+        <span>More</span>
+      </div>
     </div>
 
     <div class="dashboard-section">
@@ -38961,6 +39000,17 @@ function dashboardDateKey(date){
 // owner-added (source:"online") entries, same filter
 // collectOnlineDistinctions()/collectOnlineLanguageBankEntries() use;
 // notesData has no built-in seed at all, so every note counts.
+// A personal correction's id is minted as "pc_<Date.now()>" (plus an
+// index for imported batches), so its creation time is recoverable even
+// for entries saved before this chart counted them — no migration, and
+// no silently-empty history for someone who has been filing corrections
+// for months.
+function correctionEntryTimestamp(entry){
+  if(entry && entry.addedAt) return entry.addedAt;
+  const m = /^pc_(\d{10,})/.exec(String((entry && entry.id) || ""));
+  return m ? Number(m[1]) : null;
+}
+
 function collectDashboardAddedEntries(){
   const timestamps = [];
   vocabData.forEach(e=>{ if(e.source === "online" && e.addedAt) timestamps.push(e.addedAt); });
@@ -38971,6 +39021,19 @@ function collectDashboardAddedEntries(){
     });
   });
   notesData.forEach(n=>{ if(n.createdAt) timestamps.push(n.createdAt); });
+  // Everything below was missing, which is what made this chart (and the
+  // streak built from the same timestamps) read as empty for someone
+  // whose actual daily habit is writing Journal entries and filing
+  // corrections. The stat tiles already counted Journal entries, so the
+  // Dashboard was contradicting itself: "12 Journal entries" beside a
+  // chart insisting nothing had been added.
+  journalData.forEach(j=>{ if(j.createdAt) timestamps.push(j.createdAt); });
+  basicAdvancedData.forEach(e=>{ if(e.addedAt) timestamps.push(e.addedAt); });
+  tagalogEnglishData.forEach(e=>{ if(e.addedAt) timestamps.push(e.addedAt); });
+  loadPersonalCorrections().forEach(c=>{
+    const ts = correctionEntryTimestamp(c);
+    if(ts) timestamps.push(ts);
+  });
   return timestamps;
 }
 
@@ -39156,6 +39219,32 @@ function computeDashboardStreak(dateCounts){
   return streak;
 }
 
+// A bare "current streak" number carries almost no meaning on its own —
+// it can't tell you whether today still needs doing, and a broken
+// streak erases every bit of evidence that you ever kept one. These
+// three companions are what make the number worth looking at: whether
+// today is already counted (the one actionable bit), the best run ever
+// reached (survives a break, so a reset isn't total loss), and how many
+// days have been active in total (keeps growing no matter what).
+function computeDashboardStreakStats(dateCounts){
+  const todayKey = dashboardDateKey(new Date());
+  const keys = Array.from(dateCounts.keys()).sort();
+  let best = 0, run = 0, prevTime = null;
+  keys.forEach(key=>{
+    const parts = key.split("-");
+    const time = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
+    run = (prevTime !== null && time - prevTime === DASHBOARD_DAY_MS) ? run + 1 : 1;
+    if(run > best) best = run;
+    prevTime = time;
+  });
+  return {
+    current: computeDashboardStreak(dateCounts),
+    best: best,
+    totalActiveDays: keys.length,
+    todayDone: dateCounts.has(todayKey)
+  };
+}
+
 // Shared renderer for both bar charts (weekly-added and accuracy
 // trend) — plain divs with inline height percentages, not <canvas>,
 // so bar values stay inspectable via data-value in tests.
@@ -39177,9 +39266,15 @@ function renderDashboardBarChart(container, bars){
   }).join("");
 }
 
+// Three shades instead of two: a single activity and a heavy day used
+// to be the only distinction, so a day with one note looked identical
+// in weight to a day with a dozen. Opacity carries the intensity, the
+// same way a contribution graph does, so the grid actually shows effort
+// rather than just presence.
 function dashboardCalCellColor(count){
   if(count <= 0) return "var(--rule)";
-  if(count === 1) return "var(--teal)";
+  if(count === 1) return "color-mix(in srgb, var(--teal) 45%, transparent)";
+  if(count < 4) return "var(--teal)";
   return "var(--teal-deep)";
 }
 
@@ -39202,8 +39297,9 @@ function renderDashboardCalendar(container, dateCounts, weeksBack){
     const key = dashboardDateKey(d);
     const count = dateCounts.get(key) || 0;
     const dateLabel = d.toLocaleDateString(undefined, {month:"short", day:"numeric"});
-    const title = dateLabel + ": " + count + (count === 1 ? " activity" : " activities");
-    html += `<div class="dashboard-cal-cell" data-date="${key}" data-count="${count}" title="${title}" style="background:${dashboardCalCellColor(count)};"></div>`;
+    const isToday = key === dashboardDateKey(today);
+    const title = dateLabel + (isToday ? " (today)" : "") + ": " + count + (count === 1 ? " activity" : " activities");
+    html += `<div class="dashboard-cal-cell${isToday ? " is-today" : ""}" data-date="${key}" data-count="${count}" title="${title}" style="background:${dashboardCalCellColor(count)};"></div>`;
   }
   container.innerHTML = html;
 }
@@ -39355,6 +39451,24 @@ async function renderDashboardTab(){
   renderDashboardBarChart(weeklyEl, weeklyBars);
   renderDashboardCalendar(streakEl, activityDateCounts, DASHBOARD_CALENDAR_WEEKS);
   if(streakLabelEl) streakLabelEl.textContent = streak > 0 ? `— ${streak} day${streak === 1 ? "" : "s"}` : "";
+
+  const streakStats = computeDashboardStreakStats(activityDateCounts);
+  const todayEl = document.getElementById("dashboardStreakToday");
+  if(todayEl){
+    todayEl.className = "dashboard-streak-today " + (streakStats.todayDone ? "done" : "pending");
+    todayEl.textContent = streakStats.todayDone
+      ? "✓ Today counted — your streak is safe."
+      : (streakStats.current > 0
+          ? `⏳ Nothing yet today — add one entry or finish a Practice session to keep your ${streakStats.current}-day streak.`
+          : "⏳ Nothing yet today — add one entry or finish a Practice session to start a streak.");
+  }
+  const streakStatsEl = document.getElementById("dashboardStreakStats");
+  if(streakStatsEl){
+    streakStatsEl.innerHTML =
+      `<span>Current: <b>${streakStats.current}</b> day${streakStats.current === 1 ? "" : "s"}</span>` +
+      `<span>Best ever: <b>${streakStats.best}</b> day${streakStats.best === 1 ? "" : "s"}</span>` +
+      `<span>Active days: <b>${streakStats.totalActiveDays}</b></span>`;
+  }
 
   if(accuracyCountEl) accuracyCountEl.textContent = String(Math.min(DASHBOARD_ACCURACY_LIMIT, practiceHistory.length));
   if(accuracyNoteEl) accuracyNoteEl.textContent = "Based on Multiple Choice, Spelling, True/False, Matching, Speaking, and Writing sessions — Flashcards mode doesn't record a score.";
@@ -49897,7 +50011,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   setJournalSearchQuery: (v)=>{ journalSearchQuery = v; },
   renderDashboardTab, collectDashboardAddedEntries, bucketTimestampsByWeek,
   collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
-  computeDashboardStreak, dashboardDateKey,
+  computeDashboardStreak, computeDashboardStreakStats, correctionEntryTimestamp, dashboardDateKey,
   renderDashboardBarChart, renderDashboardCalendar,
   collectTopErrorPatterns, renderDashboardErrorPatterns,
   estimateIeltsBand, renderDashboardIeltsBand,
@@ -49956,7 +50070,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v109";
+  const BUILD_ID = "v110";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
