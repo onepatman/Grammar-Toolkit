@@ -47,25 +47,63 @@ describe("headwordFontSize()", () => {
     expect(hooks.headwordFontSize(undefined, 22)).toBe("clamp(20px, 17.7px + 0.67vw, 22px)");
   });
 
-  it("scales the clamp() floor down progressively as the text gets longer", async () => {
+  it("scales the clamp() floor down progressively once the text is too long to fit on one line", async () => {
     const { hooks } = await loadApp();
     const short = hooks.headwordFontSize("Come early.", 22); // 11 chars
-    const medium = hooks.headwordFontSize("A short-ish phrase", 22); // 18 chars
-    const long = hooks.headwordFontSize("I kindly request your early arrival.", 22); // 37 chars
+    const medium = hooks.headwordFontSize("A phrase that runs a bit longer", 22); // 31 chars
+    const long = hooks.headwordFontSize("I kindly request your early arrival right now.", 22); // 45 chars
     const veryLong = hooks.headwordFontSize(
       "Please make every effort to arrive at the venue well before the scheduled start time.",
       22
-    ); // 87 chars
+    ); // 84 chars
     expect(clampFloor(short)).toBe(20);
     expect(clampFloor(medium)).toBeLessThan(clampFloor(short));
     expect(clampFloor(long)).toBeLessThan(clampFloor(medium));
     expect(clampFloor(veryLong)).toBeLessThan(clampFloor(long));
   });
 
-  it("every clamp() still tops out at the original base size, for wide/desktop viewports", async () => {
+  // The reported symptom: two entries on the SAME tab, same phone,
+  // rendering at visibly different sizes even though both fit with room
+  // to spare. Shrinking started at 14 characters, well before anything
+  // was actually at risk of overflowing.
+  it("gives every label that fits on one line the SAME size, however many characters it has", async () => {
     const { hooks } = await loadApp();
-    const long = hooks.headwordFontSize("I kindly request your early arrival.", 22);
-    expect(long).toBe(`clamp(${clampFloor(long)}px, 2.32vw, 22px)`);
+    const shortest = hooks.headwordFontSize("Tulad ng", 25); // 8 chars
+    expect(hooks.headwordFontSize("Such as", 25)).toBe(shortest);
+    expect(hooks.headwordFontSize("According to", 25)).toBe(shortest);
+    expect(hooks.headwordFontSize("Naaayon sa / Ayon sa", 25)).toBe(shortest); // 20 chars
+    // 24 characters is the documented one-line budget — still full size.
+    expect(hooks.headwordFontSize("x".repeat(24), 25)).toBe(shortest);
+    // 25 crosses it, so this one legitimately shrinks.
+    expect(hooks.headwordFontSize("x".repeat(25), 25)).not.toBe(shortest);
+  });
+
+  // A vw-ONLY clamp looks fluid but isn't: clamp(21px, 2.63vw, 25px)
+  // yields 10.3px at 390px and 16.8px at 640px, both under the floor, so
+  // it returns a flat 21px on every real phone and only moves on a
+  // desktop-width viewport. Anchoring the line through (340, floor)
+  // instead of the origin is what makes it genuinely responsive.
+  it("builds a clamp whose vw term is meaningful at phone widths, not frozen at the floor", async () => {
+    const { hooks } = await loadApp();
+    const parse = (css) => {
+      const m = /^clamp\((\d+)px, ([\d.-]+)px \+ ([\d.]+)vw, (\d+)px\)$/.exec(css);
+      expect(m, `expected a two-point clamp, got: ${css}`).not.toBeNull();
+      return { floor: +m[1], intercept: +m[2], vw: +m[3], base: +m[4] };
+    };
+    const at = (p, width) => Math.min(Math.max(p.floor, p.intercept + (p.vw * width) / 100), p.base);
+
+    ["Tulad ng", "Naaayon sa / Ayon sa", "x".repeat(30), "x".repeat(45), "x".repeat(70)].forEach((text) => {
+      const p = parse(hooks.headwordFontSize(text, 25));
+      // Exactly the floor at the narrowest phone we anchor to...
+      expect(at(p, 340)).toBeCloseTo(p.floor, 1);
+      // ...and strictly climbing from there, all the way through the
+      // widths real phones actually report.
+      expect(at(p, 390)).toBeGreaterThan(at(p, 340));
+      expect(at(p, 430)).toBeGreaterThan(at(p, 390));
+      expect(at(p, 540)).toBeGreaterThan(at(p, 430));
+      // Never past the base, however wide the screen gets.
+      expect(at(p, 1920)).toBe(p.base);
+    });
   });
 
   it("never shrinks its floor below a sane minimum even for extremely long text", async () => {
@@ -137,7 +175,7 @@ describe("Word Bank Basic → Advanced pair — headword sizing", () => {
     // narrow/phone viewports, scaling back up to the normal 25px base
     // once there's enough room, rather than a fixed shrink that also
     // applies on a wide desktop window with no space problem at all.
-    expect(style1).toMatch(/font-size:clamp\(\d+px, [\d.]+vw, 25px\)/);
+    expect(style1).toMatch(/font-size:clamp\(\d+px, [\d.-]+px \+ [\d.]+vw, 25px\)/);
     expect(clampFloor(style1.match(/font-size:(clamp\([^)]*\))/)[1])).toBeLessThan(25);
   });
 });
@@ -159,7 +197,7 @@ describe("Distinctions Words pair — headword sizing", () => {
     const style0 = headwords[0].getAttribute("style");
     const style1 = headwords[1].getAttribute("style");
     expect(style0).toBe(style1);
-    expect(style1).toMatch(/font-size:clamp\(\d+px, [\d.]+vw, 25px\)/);
+    expect(style1).toMatch(/font-size:clamp\(\d+px, [\d.-]+px \+ [\d.]+vw, 25px\)/);
   });
 });
 

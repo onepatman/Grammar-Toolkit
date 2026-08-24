@@ -3296,44 +3296,53 @@ function isLongLabel(text){
 // screens, scales up through tablet widths, and reaches the normal
 // `base` size by roughly 950px viewport width — no resize listener
 // needed, the browser recalculates it live as the window resizes.
+// Narrowest phone width the fluid range is anchored to. Every headword
+// clamp() is built so it equals its floor exactly here and climbs from
+// there, which is what guarantees it actually responds to viewport
+// width instead of sitting dead at one number.
+const HEADWORD_FLUID_START_PX = 340;
+
+// Builds a two-point fluid size: exactly `floorPx` at a 340px-wide
+// phone, exactly `basePx` at `reachPx`, linear in between.
+//
+// The bug this replaces: a vw-ONLY clamp like clamp(21px, 2.63vw, 25px)
+// looks fluid but isn't. 2.63vw is only 10.3px at 390px and 16.8px at
+// 640px — both far below the 21px floor — so the clamp returns a flat
+// 21px on EVERY real phone, from 340px all the way to ~800px, and only
+// starts moving on a tablet/desktop. That is exactly the reported
+// "font size doesn't adjust to the phone, and a wide-viewport device
+// shows desktop-sized text while a normal phone doesn't." Anchoring the
+// line through (340, floor) instead of through the origin makes the vw
+// term meaningful across the range people actually use.
+function fluidFontSize(floorPx, basePx, reachPx){
+  if(floorPx >= basePx) return `${basePx}px`;
+  const reach = reachPx || 640;
+  const slope = (basePx - floorPx) / (reach - HEADWORD_FLUID_START_PX);
+  const vwCoef = (slope * 100).toFixed(2);
+  const intercept = (floorPx - slope * HEADWORD_FLUID_START_PX).toFixed(1);
+  return `clamp(${floorPx}px, ${intercept}px + ${vwCoef}vw, ${basePx}px)`;
+}
+
+// Roughly how many characters of the big serif headword fit on one line
+// inside a card at phone width. Text at or under this fits comfortably,
+// so shrinking it buys nothing — it just makes two entries on the SAME
+// tab render at visibly different sizes ("Tulad ng" big, "Naaayon sa /
+// Ayon sa" noticeably smaller) while both still have room to spare. The
+// old first tier started shrinking at 14 characters, well before
+// anything was actually at risk of overflowing.
+const HEADWORD_ONE_LINE_CHARS = 24;
+
 function headwordFontSize(text, basePx){
   const base = basePx || 33;
   const len = (text || "").length;
-  let floor = base;
-  if(len > 55) floor = Math.max(13, Math.round(base * 0.5));
-  else if(len > 38) floor = Math.max(14, Math.round(base * 0.6));
-  else if(len > 24) floor = Math.max(16, Math.round(base * 0.72));
-  else if(len > 14) floor = Math.max(18, Math.round(base * 0.85));
-  // Even a short word (or an empty/missing one) still needs to scale
-  // with the viewport rather than render at a flat, unresponsive `base`
-  // px on every phone — a fixed px number reads proportionally bigger
-  // on a narrower phone than the exact same number does on a wider one
-  // right next to it, which is what made two different phones look
-  // mismatched even after the length-based shrink tiers above were
-  // already fluid. A mild 0.9 floor keeps short headwords essentially
-  // full-size while still giving them the same clamp() responsiveness.
-  if(len <= 14){
-    const shortFloor = Math.max(18, Math.round(base * 0.9));
-    if(shortFloor >= base) return `${base}px`;
-    // The tiers below reach `base` by ~950px width on purpose — a long
-    // sentence should sit near its floor through the whole phone range
-    // and only relax on tablet/desktop. That formula is wrong here: the
-    // floor-to-base gap for a mild 0.9 shrink is so small that its vw
-    // contribution never climbs past the floor before ~950px either,
-    // so clamp() would just sit dead at the floor across every real
-    // phone width — flat again, just at a lower number. Short text
-    // instead needs to visibly move THROUGH the phone range itself, so
-    // this reaches `base` by 640px (an ordinary large-phone width, not
-    // desktop) using the two-point px+vw form the rest of the fluid
-    // mobile chrome already uses.
-    const slope = (base - shortFloor) / 300;
-    const vwCoef = (slope * 100).toFixed(2);
-    const intercept = (shortFloor - slope * 340).toFixed(1);
-    return `clamp(${shortFloor}px, ${intercept}px + ${vwCoef}vw, ${base}px)`;
-  }
-  if(floor >= base) return `${base}px`;
-  const vw = (base * 100 / 950).toFixed(2);
-  return `clamp(${floor}px, ${vw}vw, ${base}px)`;
+  // Shrink only once the text genuinely cannot fit, and shrink further
+  // the longer it gets. A longer `reach` on the lower tiers keeps a
+  // real sentence compact through the phone range instead of growing
+  // back to full size the moment the screen is slightly wider.
+  if(len > 55) return fluidFontSize(Math.max(13, Math.round(base * 0.55)), base, 900);
+  if(len > 38) return fluidFontSize(Math.max(14, Math.round(base * 0.7)), base, 800);
+  if(len > HEADWORD_ONE_LINE_CHARS) return fluidFontSize(Math.max(16, Math.round(base * 0.85)), base, 700);
+  return fluidFontSize(Math.max(18, Math.round(base * 0.9)), base, 640);
 }
 
 function makeWordChips(words, type){
@@ -50070,7 +50079,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v110";
+  const BUILD_ID = "v111";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
