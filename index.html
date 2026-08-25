@@ -1108,7 +1108,7 @@
      count + exit button) rather than fighting those for horizontal
      room — that's what makes generously padded, comfortably spaced
      buttons possible on a phone-width screen without ever wrapping. */
-  body.study-mode-active{ padding-bottom:158px; }
+  body.study-mode-active{ padding-bottom:232px; }
   .study-bar{
     position:fixed; left:0; right:0; bottom:0; z-index:40;
     background:var(--sky-bg); border-top:1.5px solid var(--sky-border);
@@ -1148,6 +1148,23 @@
     font-size:clamp(13px, 10.2px + 0.83vw, 15.5px); color:var(--sky-deep); cursor:pointer; padding:0; line-height:1;
     transition:background .12s ease;
   }
+  /* The two answers that drive the schedule. Given their own row above
+     Previous/Next, and colour-coded (miss = brick, know = mint) so the
+     choice is readable at a glance mid-review rather than something to
+     stop and parse. Deliberately larger and higher-contrast than the
+     nav pair — grading is the primary action in study mode; browsing
+     back and forth is the secondary one. */
+  .study-bar-grade{ display:flex; gap:12px; }
+  .study-grade-btn{
+    flex:1; border-radius:999px; padding:15px 14px; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; font-weight:700;
+    font-size:clamp(14px, 11.7px + 0.67vw, 16px); white-space:nowrap;
+    border:1.5px solid transparent; transition:filter .12s ease, transform .08s ease;
+  }
+  .study-grade-btn:active{ transform:scale(.98); }
+  .study-grade-btn.again{ background:var(--brick-bg); border-color:var(--brick-border); color:var(--brick); }
+  .study-grade-btn.good{ background:var(--mint); border-color:var(--mint); color:#fff; }
+  .study-grade-btn:hover{ filter:brightness(.96); }
   .study-exit-btn:hover{ background:var(--sky-hover); }
   .study-exit-btn:active{ background:var(--sky-border); }
 
@@ -3168,6 +3185,10 @@
     <div class="study-bar-top">
       <span class="study-progress" id="studyProgressText"></span>
       <button class="study-exit-btn" id="studyExitBtn" aria-label="Exit study mode" title="Exit study mode">✕</button>
+    </div>
+    <div class="study-bar-grade">
+      <button class="study-grade-btn again" id="studyAgainBtn">✗ Forgot</button>
+      <button class="study-grade-btn good" id="studyGoodBtn">✓ I knew it</button>
     </div>
     <div class="study-bar-actions">
       <button class="nav-btn" id="studyPrevBtn" aria-label="Previous">‹ Previous</button>
@@ -39699,7 +39720,10 @@ function renderFavoritesTab(){
   VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
     const studyBtn = document.getElementById("studyFavoritesBtn");
     const exportBtn = document.getElementById("exportFavoritesBtn");
-    if(studyBtn) studyBtn.style.display = favs.length > 0 ? "" : "none";
+    if(studyBtn){
+      studyBtn.style.display = favs.length > 0 ? "" : "none";
+      if(favs.length > 0) refreshStudyDueBadge();
+    }
     if(exportBtn) exportBtn.style.display = favs.length > 0 ? "" : "none";
 
     container.style.display = favoritesViewMode === "cards" ? "" : "none";
@@ -40691,15 +40715,130 @@ document.getElementById("journalList").addEventListener("click", async (e)=>{
    either direction, as the user wants.
 ========================================================= */
 let studyQueue = [];
+let studyGraded = new Set(); // keys answered in the CURRENT session
 let studyIndex = 0;
 
 // EVERY favorite, every time, in the same order as the Favorites list
 // itself — no filtering, no scheduling, so "Study my favorites" can be
 // (re)started instantly as many times as the user wants.
+// Study mode is spaced-repetition scheduled (see js/spaced-repetition.js
+// for the Leitner interval math). Only cards that are actually DUE are
+// queued: a word you keep missing comes back tomorrow, one you know
+// well drops to a month. Reviewing all 100 favorites every session is
+// mostly wasted effort on words already learned — this spends the time
+// on the ones that aren't.
+//
+// studyReviewOnlyDue is the escape hatch: when nothing is due (or the
+// user picks "study everything anyway") the whole set is queued instead
+// of dead-ending on an empty screen.
+let studyReviewOnlyDue = true;
+let studySchedules = new Map();
+
+function loadStudySchedules(){
+  return VocabCache.getAllReviewSchedule({dbPromise: vocabDbPromise})
+    .then(rows=>{
+      studySchedules = new Map((rows || []).map(r=> [r.key, r]));
+      return studySchedules;
+    })
+    .catch(()=>{ studySchedules = new Map(); return studySchedules; });
+}
+
+function studyScheduleFor(fav){
+  return studySchedules.get(fav.key) || null;
+}
+
+// A favorite with no schedule yet has never been reviewed, and
+// SpacedRepetition.isDue() treats that as due — so brand-new favorites
+// always appear in the first session after adding them.
+function isStudyCardDue(fav, now){
+  return SpacedRepetition.isDue(studyScheduleFor(fav), now);
+}
+
 function buildStudyQueue(){
   return VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
-    return favs.filter(f=> wordIndexMap.has(f.key)); // skip a favorite whose entry was since deleted
+    const live = favs.filter(f=> wordIndexMap.has(f.key)); // skip a favorite whose entry was since deleted
+    return loadStudySchedules().then(()=>{
+      if(!studyReviewOnlyDue) return live;
+      const now = Date.now();
+      const due = live.filter(f=> isStudyCardDue(f, now));
+      // Soonest-due first, so the most overdue words lead the session.
+      due.sort((a, b)=>{
+        const sa = studyScheduleFor(a), sb = studyScheduleFor(b);
+        return (sa ? sa.dueAt : 0) - (sb ? sb.dueAt : 0);
+      });
+      return due;
+    });
   });
+}
+
+// How many favorites are waiting right now — drives the "N due" badge
+// on the Study button so the tab tells you there's work without having
+// to open study mode to find out.
+function countDueStudyCards(){
+  return VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+    const live = favs.filter(f=> wordIndexMap.has(f.key));
+    return loadStudySchedules().then(()=>{
+      const now = Date.now();
+      return {due: live.filter(f=> isStudyCardDue(f, now)).length, total: live.length};
+    });
+  });
+}
+
+function refreshStudyDueBadge(){
+  const btn = document.getElementById("studyFavoritesBtn");
+  if(!btn) return Promise.resolve();
+  return countDueStudyCards().then(({due, total})=>{
+    if(total === 0){ btn.textContent = "🎴 Study my favorites"; return; }
+    btn.textContent = due > 0
+      ? `🎴 Study my favorites — ${due} due`
+      : "🎴 Study my favorites — all caught up";
+  }).catch(()=>{});
+}
+
+// Records the outcome for the card on screen and moves on. The whole
+// point of the two buttons: "again" resets the word to tomorrow,
+// "good" pushes it out along the interval ladder.
+function gradeStudyCard(outcome){
+  const fav = studyQueue[studyIndex];
+  if(!fav) return Promise.resolve();
+  const next = SpacedRepetition.nextReviewState(studyScheduleFor(fav), outcome, Date.now());
+  studySchedules.set(fav.key, Object.assign({key: fav.key, word: fav.word, cat: fav.cat}, next));
+  return VocabCache.putReviewSchedule(
+    {word: fav.word, cat: fav.cat, level: next.level, dueAt: next.dueAt, lastReviewedAt: next.lastReviewedAt},
+    {dbPromise: vocabDbPromise}
+  ).catch(()=>{}).then(()=>{
+    studyGraded.add(fav.key);
+    advanceAfterGrading(next.level, outcome);
+  });
+}
+
+// Every card in this session has been answered — say so and leave,
+// rather than silently looping back to card 1 as if nothing happened.
+function advanceAfterGrading(level, outcome){
+  const remaining = studyQueue.filter(f=> !studyGraded.has(f.key));
+  const dayWord = SpacedRepetition.INTERVAL_DAYS[level] === 1 ? "day" : "days";
+  const msg = outcome === "again"
+    ? "Marked for review — back again tomorrow."
+    : `Nice — next review in ${SpacedRepetition.INTERVAL_DAYS[level]} ${dayWord}.`;
+  if(remaining.length === 0){
+    const total = studyQueue.length;
+    // endStudyMode() clears the status line, so the completion message
+    // has to be written after it, not before.
+    endStudyMode();
+    setStudyStatus(`${msg} Session complete — all ${total} reviewed.`, "success");
+    refreshStudyDueBadge();
+    return;
+  }
+  setStudyStatus(msg, "success");
+  // Jump to the next card that still needs an answer, wrapping past any
+  // already-graded ones rather than showing them again.
+  let i = studyIndex;
+  for(let step = 0; step < studyQueue.length; step++){
+    i = (i + 1) % studyQueue.length;
+    if(!studyGraded.has(studyQueue[i].key)) break;
+  }
+  studyIndex = i;
+  showStudyCard();
 }
 
 function setStudyStatus(message, cls){
@@ -40713,11 +40852,30 @@ function startStudyMode(){
   setStudyStatus("");
   return buildStudyQueue().then(queue=>{
     if(queue.length === 0){
+      // Nothing DUE is a success state, not an error — but it must not
+      // dead-end, so offer the whole set as an explicit second step.
+      if(studyReviewOnlyDue){
+        return VocabCache.getAllFavorites({dbPromise: vocabDbPromise}).then(favs=>{
+          const live = favs.filter(f=> wordIndexMap.has(f.key));
+          if(live.length === 0){
+            setStudyStatus("None of your favorited words could be found to study — they may have been removed.", "error");
+            return;
+          }
+          studyReviewOnlyDue = false;
+          // startStudyMode() clears the status on entry, so explain the
+          // fallback once the new session is actually running.
+          return startStudyMode().then(()=>{
+            studyReviewOnlyDue = true;
+            setStudyStatus("All caught up — nothing is due for review right now. Starting a full run through all your favorites instead.", "success");
+          });
+        });
+      }
       setStudyStatus("None of your favorited words could be found to study — they may have been removed.", "error");
       return;
     }
     studyQueue = queue;
     studyIndex = 0;
+    studyGraded = new Set();
     document.body.classList.add("study-mode-active");
     document.getElementById("studyBar").style.display = "flex";
     showStudyCard();
@@ -40733,7 +40891,12 @@ function showStudyCard(){
   // Kept short ("1 / 3" rather than "Card 1 of 3") so it doesn't crowd
   // the Previous/Next buttons out of room on a narrow phone screen —
   // a long progress label was pushing "Previous" onto two lines.
-  document.getElementById("studyProgressText").textContent = `${studyIndex + 1} / ${studyQueue.length}`;
+  // Counts what's been ANSWERED, not just what's been scrolled past —
+  // in a review session the meaningful progress is cards graded.
+  const sched = fav ? studyScheduleFor(fav) : null;
+  const level = sched ? sched.level : 0;
+  document.getElementById("studyProgressText").textContent =
+    `${studyGraded.size} / ${studyQueue.length} reviewed · L${level}`;
 }
 
 // Wraps in both directions — Next past the last card loops back to the
@@ -40757,6 +40920,8 @@ function endStudyMode(){
 document.getElementById("studyFavoritesBtn").addEventListener("click", startStudyMode);
 document.getElementById("studyPrevBtn").addEventListener("click", ()=> goToStudyCard(-1));
 document.getElementById("studyNextBtn").addEventListener("click", ()=> goToStudyCard(1));
+document.getElementById("studyAgainBtn").addEventListener("click", ()=> gradeStudyCard("again"));
+document.getElementById("studyGoodBtn").addEventListener("click", ()=> gradeStudyCard("good"));
 document.getElementById("studyExitBtn").addEventListener("click", endStudyMode);
 
 /* =========================================================
@@ -50232,6 +50397,11 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   getCurrentlyDisplayedItem, navigateToEntry, activateTab,
   getSearchHistory: ()=> searchHistory, getSearchHistoryIndex: ()=> searchHistoryIndex,
   buildStudyQueue, startStudyMode, goToStudyCard, endStudyMode,
+  gradeStudyCard, countDueStudyCards, refreshStudyDueBadge, loadStudySchedules,
+  isStudyCardDue, studyScheduleFor,
+  getStudyGraded: ()=> studyGraded,
+  getStudyReviewOnlyDue: ()=> studyReviewOnlyDue,
+  setStudyReviewOnlyDue: (v)=>{ studyReviewOnlyDue = v; },
   getCurrentTheme, setTheme, toggleTheme,
   resolveFavoriteEntryData, buildFavoritesPdfData, buildFavoritesStudySheet,
   isPairedFavorite, findPairedFavoriteAction, PAIRED_FAVORITE_CATEGORIES,
@@ -50393,7 +50563,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v113";
+  const BUILD_ID = "v114";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
