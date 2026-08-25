@@ -251,3 +251,44 @@ describe("Global search dropdown — long-label layout", () => {
     expect(rows.length).toBe(0);
   });
 });
+
+// Double-tap-to-zoom fires constantly by accident in a reading app full
+// of tappable rows, chips and stars. It has to go — but only it: pinch
+// zoom is how anyone who needs to magnify actually does so, and killing
+// that is an accessibility regression, not a fix.
+describe("Touch zoom behaviour", () => {
+  function styleText(document) {
+    return Array.from(document.querySelectorAll("style")).map((s) => s.textContent).join("\n");
+  }
+
+  it("disables double-tap zoom app-wide with touch-action:manipulation on the root AND body", async () => {
+    const { window } = await loadApp();
+    const css = styleText(window.document);
+    const bodyRule = /\bbody\{[^}]*\}/.exec(css);
+    expect(bodyRule).not.toBeNull();
+    expect(bodyRule[0]).toMatch(/touch-action\s*:\s*manipulation/);
+    // touch-action is not inherited — a gesture is governed by the
+    // intersection across the hit element and its ancestors — so the
+    // root carries it too rather than relying on body alone.
+    expect(css).toMatch(/\bhtml\{[^}]*touch-action\s*:\s*manipulation/);
+  });
+
+  it("never disables pinch zoom via the viewport meta — no user-scalable=no, no maximum-scale", async () => {
+    const { window } = await loadApp();
+    const content = window.document.querySelector('meta[name="viewport"]').getAttribute("content");
+    expect(content).toContain("width=device-width");
+    expect(content).not.toMatch(/user-scalable\s*=\s*(no|0)/i);
+    expect(content).not.toMatch(/maximum-scale/i);
+  });
+
+  it("keeps pinch zoom working on the swipe-to-remove Favorites rows too", async () => {
+    const { window } = await loadApp();
+    const css = styleText(window.document);
+    const rowRule = /#favoritesList \.search-result-item\{[^}]*\}/.exec(css);
+    expect(rowRule).not.toBeNull();
+    // pan-y leaves horizontal touches to the swipe handler; pinch-zoom
+    // has to be listed alongside it or these rows become the one place
+    // in the app where two-finger zoom silently stops working.
+    expect(rowRule[0]).toMatch(/touch-action\s*:\s*pan-y\s+pinch-zoom/);
+  });
+});

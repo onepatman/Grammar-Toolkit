@@ -102,12 +102,29 @@
     --warn-text:#E8C976;
   }
   *{box-sizing:border-box;}
+  /* Turns OFF double-tap-to-zoom while leaving two-finger pinch-zoom and
+     ordinary panning fully intact — a reading app full of tappable rows,
+     chips and stars gets zoomed into by accident constantly otherwise.
+     Deliberately NOT done with user-scalable=no / maximum-scale on the
+     viewport meta: those kill pinch-zoom too, which is a real
+     accessibility regression for anyone who needs to magnify.
+     `manipulation` is the one value that removes only the double-tap
+     gesture. It also drops the legacy ~300ms tap delay, so taps register
+     immediately.
+
+     Set on the root as well as body: touch-action is NOT an inherited
+     property, so a child's own computed value still reads `auto`. What
+     actually governs a gesture is the intersection of touch-action
+     across the hit element and its ancestors, so covering both ends of
+     that chain is what makes this hold everywhere. */
+  html{ touch-action:manipulation; }
   body{
     margin:0;
     background:var(--paper);
     color:var(--ink);
     font-family:'IBM Plex Sans', sans-serif;
     -webkit-font-smoothing:antialiased;
+    touch-action:manipulation;
   }
   ::selection{ background:var(--gold); color:#fff; }
 
@@ -1123,7 +1140,11 @@
      draggable transform/opacity treatment (see the pointer handlers
      below); the identical .search-result-item markup used by the
      global search dropdown is untouched. */
-  #favoritesList .search-result-item{ touch-action:pan-y; will-change:transform; }
+  /* pan-y leaves HORIZONTAL touches to the swipe-to-remove handler
+     while the page still scrolls vertically. `pinch-zoom` is listed
+     explicitly so these rows don't become the one place in the app
+     where two-finger zoom stops working. */
+  #favoritesList .search-result-item{ touch-action:pan-y pinch-zoom; will-change:transform; }
   #favoritesList .search-result-item.swiping{ transition:none; }
 
   .forms-grid{
@@ -50079,7 +50100,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v111";
+  const BUILD_ID = "v112";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
