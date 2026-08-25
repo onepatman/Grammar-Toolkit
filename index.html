@@ -653,21 +653,26 @@
     font-family:'IBM Plex Mono', monospace; font-size:clamp(11px, 9.3px + 0.5vw, 12.5px);
     color:var(--teal-deep); font-weight:700; white-space:nowrap;
   }
+  /* Explains why the list opened partway down instead of at row 1, and
+     gives the one-tap way out. Quiet on purpose — it is an aside, not a
+     control the reader came here to use. */
+  .entry-list-resume{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:10px; padding:8px 12px; border-radius:8px;
+    background:var(--sky-bg); border:1px solid var(--sky-border);
+    font-size:clamp(11px, 8.7px + 0.67vw, 13px); color:var(--sky-deep);
+  }
+  .entry-list-top-btn{
+    flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-weight:700;
+    font-size:clamp(10px, 7.7px + 0.67vw, 12px);
+    background:none; border:none; color:var(--sky-deep); cursor:pointer; padding:0;
+    text-decoration:underline;
+  }
   .entry-list-empty{
     font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink-soft);
     padding:20px 4px; text-align:center;
   }
   .entry-list-rows{ display:flex; flex-direction:column; gap:6px; }
-  /* "Yours" marks an entry the owner typed in, as opposed to built-in
-     seed content — the manual entries are exactly what this list exists
-     to make findable. */
-  .entry-list-mine{
-    flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:clamp(8px, 6.3px + 0.5vw, 9.5px);
-    text-transform:uppercase; letter-spacing:.05em;
-    color:var(--mint); background:var(--mint-bg); border:1px solid var(--mint-border);
-    border-radius:999px; padding:1px 6px; align-self:flex-start;
-  }
-  .summary-row .row-word-line{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
   .summary-cat-section{ margin-bottom:18px; }
   .summary-cat-section:last-child{ margin-bottom:0; }
   .summary-cat-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
@@ -43595,6 +43600,7 @@ function applyLanguageBankSort(){
     const config = LANGUAGE_BANK_CONFIG[categoryKey];
     reorderSelectBySort(document.getElementById(config.selectId), config.data, sortKey);
   });
+  refreshVisibleEntryLists();
 }
 
 // Distinctions Words now lives inside the Word Bank tab (a category
@@ -43603,6 +43609,7 @@ function applyLanguageBankSort(){
 // instead of having its own separate dropdown and preference key.
 function applyDistinctionsSort(){
   reorderSelectBySort(document.getElementById("distinctionsSelect"), distinctionsData, getWordBankSortPref());
+  refreshVisibleEntryLists();
 }
 
 const langBankSortSelect = document.getElementById("langBankSortSelect");
@@ -43627,6 +43634,11 @@ function applyWordBankSort(){
   reorderSelectBySort(basicAdvancedSelect, basicAdvancedData, sortKey, "basic");
   reorderSelectBySort(tagalogEnglishSelect, tagalogEnglishData, sortKey, "tagalog");
   applyDistinctionsSort();
+  // The List view reads its rows off these <select>s, so reordering them
+  // is only half the job — a list already on screen has to be rebuilt or
+  // it keeps showing the previous order and the Sort by control looks
+  // like it does nothing.
+  refreshVisibleEntryLists();
 }
 
 applyLanguageBankSort();
@@ -50109,6 +50121,7 @@ Promise.all([
    order the Sort by control is set to and stays in sync with it for
    free.
 ========================================================= */
+var entryListReady = false; // see refreshVisibleEntryLists()
 const ENTRY_LIST_MODE_KEY = "mepf_toolkit_entry_list_modes";
 
 // Headwords are owner-typed and land in a data- attribute, so quotes in
@@ -50154,7 +50167,6 @@ LANGUAGE_BANK_CATEGORIES.forEach(key=>{
       const entry = cfg.data.find(e=> e.w === value);
       if(!entry) return null;
       const row = entryListRuleRow(entry);
-      row.mine = entry.source === "online";
       return row;
     }
   };
@@ -50168,7 +50180,6 @@ ENTRY_LIST_CONFIG.basicAdvanced = {
     const e = basicAdvancedData.find(x=> x.basic === value);
     if(!e) return null;
     const row = entryListPairRow(e.basic, e.basicDef, e.basicExamples, e.advanced, e.advancedDef, e.advancedExamples, "→");
-    row.mine = true; // this category has no built-in seed content at all
     return row;
   }
 };
@@ -50181,7 +50192,6 @@ ENTRY_LIST_CONFIG.tagalogEnglish = {
     const e = tagalogEnglishData.find(x=> x.tagalog === value);
     if(!e) return null;
     const row = entryListPairRow(e.tagalog, e.tagalogDef, e.tagalogExamples, e.english, e.englishDef, e.englishExamples, "→");
-    row.mine = true;
     return row;
   }
 };
@@ -50196,7 +50206,6 @@ ENTRY_LIST_CONFIG.distinctions = {
     const w1 = e.word1 || {}, w2 = e.word2 || {};
     const s1 = (w1.senses || [])[0] || {}, s2 = (w2.senses || [])[0] || {};
     const row = entryListPairRow(w1.w, s1.use, s1.examples, w2.w, s2.use, s2.examples, "vs");
-    row.mine = e.source === "online";
     return row;
   }
 };
@@ -50236,6 +50245,65 @@ function buildEntryListRows(key){
   }).filter(Boolean);
 }
 
+// Where the reader had scrolled to, per category. A 65-entry list is a
+// long read: leaving it and coming back used to dump you at row 1 with
+// no way to tell which one you had reached, so the only options were
+// scrolling blind or remembering a row number. Persisted, so it also
+// survives closing the app entirely.
+const ENTRY_LIST_SCROLL_KEY = "mepf_toolkit_entry_list_scroll";
+
+function getEntryListScrolls(){
+  try {
+    const raw = localStorage.getItem(ENTRY_LIST_SCROLL_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e){ return {}; }
+}
+
+function saveEntryListScroll(key, y){
+  const all = getEntryListScrolls();
+  if(y > 40) all[key] = Math.round(y);
+  else delete all[key]; // back at the top is not a position worth restoring
+  try { localStorage.setItem(ENTRY_LIST_SCROLL_KEY, JSON.stringify(all)); } catch(e){ /* private mode */ }
+}
+
+function getEntryListScroll(key){
+  const y = getEntryListScrolls()[key];
+  return typeof y === "number" ? y : 0;
+}
+
+function clearEntryListScroll(key){
+  const all = getEntryListScrolls();
+  delete all[key];
+  try { localStorage.setItem(ENTRY_LIST_SCROLL_KEY, JSON.stringify(all)); } catch(e){ /* private mode */ }
+}
+
+// Which category's list is on screen right now, so the window scroll
+// handler knows whose position it is recording.
+let activeEntryListKey = null;
+
+function handleEntryListScroll(){
+  if(!activeEntryListKey) return;
+  saveEntryListScroll(activeEntryListKey, window.scrollY || window.pageYOffset || 0);
+}
+window.addEventListener("scroll", handleEntryListScroll, {passive: true});
+
+// Re-renders whichever category lists are currently showing. Called
+// after a sort change: the rows are read off the category's <select>,
+// so reordering that alone leaves an on-screen list stale.
+// The sort helpers above run once during startup, before ENTRY_LIST_CONFIG
+// exists — this function is hoisted and callable by then, but the const
+// it reads is still in its temporal dead zone. `var` (hoisted, initialised
+// to undefined) makes the readiness check itself safe to evaluate at any
+// point in the file.
+function refreshVisibleEntryLists(){
+  if(!entryListReady) return;
+  Object.keys(ENTRY_LIST_CONFIG).forEach(key=>{
+    if(getEntryListMode(key) !== "list") return;
+    const container = document.getElementById(ENTRY_LIST_CONFIG[key].containerId);
+    if(container && container.querySelector(".entry-list-view")) renderEntryList(key);
+  });
+}
+
 function renderEntryList(key){
   const cfg = ENTRY_LIST_CONFIG[key];
   const listEl = document.getElementById("entryList-" + key);
@@ -50266,10 +50334,7 @@ function renderEntryList(key){
     <div class="summary-row" data-value="${escapeHtmlAttr(row.value)}">
       <span class="row-num">${i + 1}</span>
       <span class="row-body">
-        <span class="row-word-line">
-          <span class="row-word">${row.title}</span>
-          ${row.mine ? '<span class="entry-list-mine">Yours</span>' : ""}
-        </span>
+        <span class="row-word">${row.title}</span>
         ${row.lines.map(l=> `<span class="${l.cls}">${l.text}</span>`).join("")}
       </span>
     </div>`).join("");
@@ -50280,6 +50345,7 @@ function renderEntryList(key){
       if(!select) return;
       select.value = rowEl.dataset.value;
       select.dispatchEvent(new Event("change", {bubbles: true}));
+      saveEntryListScroll(key, window.scrollY || window.pageYOffset || 0);
       setEntryListMode(key, "browse"); // land on the entry they picked
       window.scrollTo({top: 0, behavior: "smooth"});
     });
@@ -50298,7 +50364,32 @@ function applyEntryListMode(key){
   container.querySelectorAll(".entry-view-toggle button").forEach(b=>
     b.classList.toggle("active", b.dataset.val === mode)
   );
-  if(mode === "list") renderEntryList(key);
+  activeEntryListKey = mode === "list" ? key : null;
+  if(mode !== "list") return;
+  renderEntryList(key);
+  restoreEntryListScroll(key);
+}
+
+// Puts the reader back where they stopped, and says so — landing
+// mid-list with no explanation would just look like a broken jump.
+function restoreEntryListScroll(key){
+  const y = getEntryListScroll(key);
+  const banner = document.getElementById("entryListResume-" + key);
+  if(!y){
+    if(banner) banner.style.display = "none";
+    return;
+  }
+  if(banner) banner.style.display = "";
+  // Deferred a frame so the rows are laid out and the target offset
+  // actually exists to scroll to.
+  requestAnimationFrame(()=> window.scrollTo(0, y));
+}
+
+function entryListBackToTop(key){
+  clearEntryListScroll(key);
+  const banner = document.getElementById("entryListResume-" + key);
+  if(banner) banner.style.display = "none";
+  window.scrollTo({top: 0, behavior: "smooth"});
 }
 
 function setupEntryListView(key){
@@ -50330,6 +50421,10 @@ function setupEntryListView(key){
       <span class="entry-list-title">${cfg.title}</span>
       <span class="entry-list-count" id="entryListCount-${key}"></span>
     </div>
+    <div class="entry-list-resume" id="entryListResume-${key}" style="display:none;">
+      <span>Picked up where you left off.</span>
+      <button type="button" class="entry-list-top-btn" data-key="${key}">↑ Back to top</button>
+    </div>
     <input type="text" class="entry-list-search" id="entryListSearch-${key}" placeholder="🔎 Search this list..." autocomplete="off">
     <div class="entry-list-rows" id="entryList-${key}"></div>`;
 
@@ -50341,11 +50436,13 @@ function setupEntryListView(key){
     entryListQueries[key] = e.target.value;
     renderEntryList(key);
   });
+  listWrap.querySelector(".entry-list-top-btn").addEventListener("click", ()=> entryListBackToTop(key));
 
   applyEntryListMode(key);
 }
 
 Object.keys(ENTRY_LIST_CONFIG).forEach(setupEntryListView);
+entryListReady = true;
 
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
@@ -50504,6 +50601,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
   computeDashboardStreak, computeDashboardStreakStats, correctionEntryTimestamp, dashboardDateKey,
   ENTRY_LIST_CONFIG, buildEntryListRows, renderEntryList, setupEntryListView,
+  refreshVisibleEntryLists, getEntryListScroll, saveEntryListScroll, clearEntryListScroll,
+  restoreEntryListScroll, entryListBackToTop,
   getEntryListMode, setEntryListMode, applyEntryListMode, escapeHtmlAttr,
   renderDashboardBarChart, renderDashboardCalendar,
   collectTopErrorPatterns, renderDashboardErrorPatterns,
@@ -50563,7 +50662,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v114";
+  const BUILD_ID = "v115";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
