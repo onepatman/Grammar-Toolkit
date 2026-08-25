@@ -632,6 +632,42 @@
   }
   .favorites-group-body{ display:flex; flex-direction:column; gap:8px; }
   .favorites-group-body.collapsed{ display:none; }
+  /* ===== Entry List view =====
+     Every browse-one-at-a-time category (Language Bank's six, plus the
+     Word Bank pair categories) can also show everything it holds as one
+     scannable list. Dropdown browsing answers "show me this entry"; it
+     cannot answer "what do I actually have in here", which is the whole
+     point of a bank you fill in yourself. Reuses the .summary-row
+     vocabulary the Favorites Summary already established so the two
+     list views read as the same thing. */
+  .entry-view-toggle{ margin-bottom:12px; }
+  .entry-list-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--rule);
+  }
+  .entry-list-title{
+    font-family:'IBM Plex Mono', monospace; font-size:clamp(10px, 7.7px + 0.67vw, 12px);
+    text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:700;
+  }
+  .entry-list-count{
+    font-family:'IBM Plex Mono', monospace; font-size:clamp(11px, 9.3px + 0.5vw, 12.5px);
+    color:var(--teal-deep); font-weight:700; white-space:nowrap;
+  }
+  .entry-list-empty{
+    font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink-soft);
+    padding:20px 4px; text-align:center;
+  }
+  .entry-list-rows{ display:flex; flex-direction:column; gap:6px; }
+  /* "Yours" marks an entry the owner typed in, as opposed to built-in
+     seed content — the manual entries are exactly what this list exists
+     to make findable. */
+  .entry-list-mine{
+    flex:0 0 auto; font-family:'IBM Plex Mono', monospace; font-size:clamp(8px, 6.3px + 0.5vw, 9.5px);
+    text-transform:uppercase; letter-spacing:.05em;
+    color:var(--mint); background:var(--mint-bg); border:1px solid var(--mint-border);
+    border-radius:999px; padding:1px 6px; align-self:flex-start;
+  }
+  .summary-row .row-word-line{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
   .summary-cat-section{ margin-bottom:18px; }
   .summary-cat-section:last-child{ margin-bottom:0; }
   .summary-cat-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
@@ -1339,7 +1375,7 @@
   .entry input, .entry textarea, .entry select,
   .note-card-editing input, .note-card-editing textarea,
   .journal-card-editing input, .journal-card-editing textarea,
-  #notesSearchInput, #journalSearchInput{
+  #notesSearchInput, #journalSearchInput, .entry-list-search{
     width:100%; box-sizing:border-box; margin-bottom:8px;
     border:1.5px solid var(--rule); border-radius:8px; padding:9px 12px;
     font-family:'IBM Plex Sans', sans-serif; font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink);
@@ -1349,7 +1385,7 @@
   .entry input:focus, .entry textarea:focus, .entry select:focus,
   .note-card-editing input:focus, .note-card-editing textarea:focus,
   .journal-card-editing input:focus, .journal-card-editing textarea:focus,
-  #notesSearchInput:focus, #journalSearchInput:focus{ outline:2px solid var(--gold); outline-offset:1px; }
+  #notesSearchInput:focus, #journalSearchInput:focus, .entry-list-search:focus{ outline:2px solid var(--gold); outline-offset:1px; }
   .add-btn{
     width:100%; border:none; border-radius:8px; padding:10px 12px;
     background:var(--teal-deep); color:#fff; font-weight:600; font-size:clamp(13px, 10.7px + 0.67vw, 15px);
@@ -49891,6 +49927,261 @@ Promise.all([
 // and a few pure functions so the Vitest suite can load this real page in
 // jsdom and assert against production data/behavior without duplicating
 // any of it. Harmless in the browser — nothing here is called at runtime.
+
+/* =========================================================
+   ENTRY LIST VIEW — a "show me everything in here" companion to the
+   one-at-a-time dropdown every bank category browses with.
+
+   The dropdown answers "show me this entry". It cannot answer "what
+   have I actually collected in here", which is the whole point of a
+   bank you fill in yourself — the Word Chunks, Basic → Advanced pairs
+   and Tagalog → English pairs you typed are invisible until you happen
+   to land on them. Each configured category gets a Browse/List toggle;
+   List renders every entry as a numbered, searchable, clickable row.
+
+   Rows are built from the category's own <select> options rather than
+   the raw data array, so the list automatically inherits whatever sort
+   order the Sort by control is set to and stays in sync with it for
+   free.
+========================================================= */
+const ENTRY_LIST_MODE_KEY = "mepf_toolkit_entry_list_modes";
+
+// Headwords are owner-typed and land in a data- attribute, so quotes in
+// one would otherwise break out of the attribute. Row TEXT is left
+// unescaped on purpose — it may carry the <b> markup mdBold() saved.
+function escapeHtmlAttr(value){
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Pairs render two headwords, so a row shows both sides with each
+// side's own definition beneath it.
+function entryListPairRow(leftLabel, leftDef, leftExamples, rightLabel, rightDef, rightExamples, divider){
+  const lines = [];
+  if(leftDef) lines.push({cls:"row-def", text:`${leftLabel}: ${leftDef}`});
+  (leftExamples || []).slice(0, 1).forEach(ex=> lines.push({cls:"row-example", text: ex}));
+  if(rightDef) lines.push({cls:"row-def", text:`${rightLabel}: ${rightDef}`});
+  (rightExamples || []).slice(0, 1).forEach(ex=> lines.push({cls:"row-example", text: ex}));
+  return {title: `${leftLabel} ${divider} ${rightLabel}`, lines: lines};
+}
+
+function entryListRuleRow(entry){
+  const sense = (entry.senses || [])[0];
+  const lines = [];
+  if(sense && sense.use) lines.push({cls:"row-def", text: sense.use});
+  if(sense && (sense.examples || [])[0]) lines.push({cls:"row-example", text: sense.examples[0]});
+  return {title: entry.w, lines: lines};
+}
+
+// value: the <option> value used to select this entry in the dropdown.
+// mine:  true for owner-typed content, false for built-in seed data.
+const ENTRY_LIST_CONFIG = {};
+
+LANGUAGE_BANK_CATEGORIES.forEach(key=>{
+  const cfg = LANGUAGE_BANK_CONFIG[key];
+  if(!cfg) return;
+  ENTRY_LIST_CONFIG[key] = {
+    containerId: "langbank-" + key,
+    selectId: cfg.selectId,
+    title: cfg.tagLabel,
+    rowFor: (value)=>{
+      const entry = cfg.data.find(e=> e.w === value);
+      if(!entry) return null;
+      const row = entryListRuleRow(entry);
+      row.mine = entry.source === "online";
+      return row;
+    }
+  };
+});
+
+ENTRY_LIST_CONFIG.basicAdvanced = {
+  containerId: "wordbank-basicAdvanced",
+  selectId: "basicAdvancedSelect",
+  title: "Basic → Advanced",
+  rowFor: (value)=>{
+    const e = basicAdvancedData.find(x=> x.basic === value);
+    if(!e) return null;
+    const row = entryListPairRow(e.basic, e.basicDef, e.basicExamples, e.advanced, e.advancedDef, e.advancedExamples, "→");
+    row.mine = true; // this category has no built-in seed content at all
+    return row;
+  }
+};
+
+ENTRY_LIST_CONFIG.tagalogEnglish = {
+  containerId: "wordbank-tagalogEnglish",
+  selectId: "tagalogEnglishSelect",
+  title: "Tagalog → English",
+  rowFor: (value)=>{
+    const e = tagalogEnglishData.find(x=> x.tagalog === value);
+    if(!e) return null;
+    const row = entryListPairRow(e.tagalog, e.tagalogDef, e.tagalogExamples, e.english, e.englishDef, e.englishExamples, "→");
+    row.mine = true;
+    return row;
+  }
+};
+
+ENTRY_LIST_CONFIG.distinctions = {
+  containerId: "wordbank-distinctions",
+  selectId: "distinctionsSelect",
+  title: "Distinctions Words",
+  rowFor: (value)=>{
+    const e = distinctionsData.find(x=> x.w === value);
+    if(!e) return null;
+    const w1 = e.word1 || {}, w2 = e.word2 || {};
+    const s1 = (w1.senses || [])[0] || {}, s2 = (w2.senses || [])[0] || {};
+    const row = entryListPairRow(w1.w, s1.use, s1.examples, w2.w, s2.use, s2.examples, "vs");
+    row.mine = e.source === "online";
+    return row;
+  }
+};
+
+function getEntryListModes(){
+  try {
+    const raw = localStorage.getItem(ENTRY_LIST_MODE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e){ return {}; }
+}
+
+function getEntryListMode(key){
+  return getEntryListModes()[key] === "list" ? "list" : "browse";
+}
+
+function setEntryListMode(key, mode){
+  const modes = getEntryListModes();
+  modes[key] = mode === "list" ? "list" : "browse";
+  try { localStorage.setItem(ENTRY_LIST_MODE_KEY, JSON.stringify(modes)); } catch(e){ /* private mode */ }
+  applyEntryListMode(key);
+}
+
+// Per-category search text, deliberately in memory only: a filter left
+// over from a previous session would hide entries with no visible
+// explanation for why they were missing.
+const entryListQueries = {};
+
+function buildEntryListRows(key){
+  const cfg = ENTRY_LIST_CONFIG[key];
+  const select = document.getElementById(cfg.selectId);
+  if(!cfg || !select) return [];
+  return Array.from(select.options).map(opt=>{
+    const row = cfg.rowFor(opt.value);
+    if(!row) return null;
+    row.value = opt.value;
+    return row;
+  }).filter(Boolean);
+}
+
+function renderEntryList(key){
+  const cfg = ENTRY_LIST_CONFIG[key];
+  const listEl = document.getElementById("entryList-" + key);
+  if(!cfg || !listEl) return;
+  const rows = buildEntryListRows(key);
+  const query = (entryListQueries[key] || "").trim().toLowerCase();
+  const matches = query
+    ? rows.filter(r=> (r.title + " " + r.lines.map(l=> l.text).join(" ")).toLowerCase().includes(query))
+    : rows;
+
+  const countEl = document.getElementById("entryListCount-" + key);
+  if(countEl){
+    countEl.textContent = query
+      ? `${matches.length} of ${rows.length}`
+      : `${rows.length} ${rows.length === 1 ? "entry" : "entries"}`;
+  }
+
+  if(rows.length === 0){
+    listEl.innerHTML = '<div class="entry-list-empty">Nothing here yet — anything you add to this category will be listed here.</div>';
+    return;
+  }
+  if(matches.length === 0){
+    listEl.innerHTML = '<div class="entry-list-empty">No entry here matches that search.</div>';
+    return;
+  }
+
+  listEl.innerHTML = matches.map((row, i)=> `
+    <div class="summary-row" data-value="${escapeHtmlAttr(row.value)}">
+      <span class="row-num">${i + 1}</span>
+      <span class="row-body">
+        <span class="row-word-line">
+          <span class="row-word">${row.title}</span>
+          ${row.mine ? '<span class="entry-list-mine">Yours</span>' : ""}
+        </span>
+        ${row.lines.map(l=> `<span class="${l.cls}">${l.text}</span>`).join("")}
+      </span>
+    </div>`).join("");
+
+  listEl.querySelectorAll(".summary-row").forEach(rowEl=>{
+    rowEl.addEventListener("click", ()=>{
+      const select = document.getElementById(cfg.selectId);
+      if(!select) return;
+      select.value = rowEl.dataset.value;
+      select.dispatchEvent(new Event("change", {bubbles: true}));
+      setEntryListMode(key, "browse"); // land on the entry they picked
+      window.scrollTo({top: 0, behavior: "smooth"});
+    });
+  });
+}
+
+function applyEntryListMode(key){
+  const cfg = ENTRY_LIST_CONFIG[key];
+  const container = document.getElementById(cfg && cfg.containerId);
+  if(!container) return;
+  const mode = getEntryListMode(key);
+  const browseEl = container.querySelector(".entry-browse-view");
+  const listWrapEl = container.querySelector(".entry-list-view");
+  if(browseEl) browseEl.style.display = mode === "list" ? "none" : "";
+  if(listWrapEl) listWrapEl.style.display = mode === "list" ? "" : "none";
+  container.querySelectorAll(".entry-view-toggle button").forEach(b=>
+    b.classList.toggle("active", b.dataset.val === mode)
+  );
+  if(mode === "list") renderEntryList(key);
+}
+
+function setupEntryListView(key){
+  const cfg = ENTRY_LIST_CONFIG[key];
+  const container = document.getElementById(cfg && cfg.containerId);
+  if(!container || container.querySelector(".entry-view-toggle")) return;
+
+  // Everything already in the category moves into a browse wrapper, so
+  // the two modes can be swapped with one display toggle. Element ids
+  // and their listeners are untouched by the move, so every existing
+  // handler keeps working.
+  const browse = document.createElement("div");
+  browse.className = "entry-browse-view";
+  while(container.firstChild) browse.appendChild(container.firstChild);
+
+  const toggle = document.createElement("div");
+  toggle.className = "seg entry-view-toggle";
+  toggle.innerHTML = '<button class="active" data-val="browse">Browse</button><button data-val="list">List</button>';
+  toggle.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button");
+    if(btn) setEntryListMode(key, btn.dataset.val);
+  });
+
+  const listWrap = document.createElement("div");
+  listWrap.className = "entry-list-view";
+  listWrap.style.display = "none";
+  listWrap.innerHTML = `
+    <div class="entry-list-head">
+      <span class="entry-list-title">${cfg.title}</span>
+      <span class="entry-list-count" id="entryListCount-${key}"></span>
+    </div>
+    <input type="text" class="entry-list-search" id="entryListSearch-${key}" placeholder="🔎 Search this list..." autocomplete="off">
+    <div class="entry-list-rows" id="entryList-${key}"></div>`;
+
+  container.appendChild(toggle);
+  container.appendChild(browse);
+  container.appendChild(listWrap);
+
+  listWrap.querySelector(".entry-list-search").addEventListener("input", (e)=>{
+    entryListQueries[key] = e.target.value;
+    renderEntryList(key);
+  });
+
+  applyEntryListMode(key);
+}
+
+Object.keys(ENTRY_LIST_CONFIG).forEach(setupEntryListView);
+
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
   orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, writingTemplatesData, spokenFluencyData, vocabData, distinctionsData,
@@ -50042,6 +50333,8 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   renderDashboardTab, collectDashboardAddedEntries, bucketTimestampsByWeek,
   collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
   computeDashboardStreak, computeDashboardStreakStats, correctionEntryTimestamp, dashboardDateKey,
+  ENTRY_LIST_CONFIG, buildEntryListRows, renderEntryList, setupEntryListView,
+  getEntryListMode, setEntryListMode, applyEntryListMode, escapeHtmlAttr,
   renderDashboardBarChart, renderDashboardCalendar,
   collectTopErrorPatterns, renderDashboardErrorPatterns,
   estimateIeltsBand, renderDashboardIeltsBand,
@@ -50100,7 +50393,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v112";
+  const BUILD_ID = "v113";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
