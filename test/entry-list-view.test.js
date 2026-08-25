@@ -177,7 +177,7 @@ describe("Entry List view — Word Bank pairs (manual-entry only categories)", (
     expect(document.getElementById("entryList-basicAdvanced").textContent).toContain("Nothing here yet");
   });
 
-  it("lists a Basic → Advanced pair with both sides and marks it as the owner's own", async () => {
+  it("lists a Basic → Advanced pair with both sides", async () => {
     const { window, hooks } = await loadApp();
     const document = window.document;
     hooks.addBasicAdvancedEntry(
@@ -195,7 +195,6 @@ describe("Entry List view — Word Bank pairs (manual-entry only categories)", (
     const rows = listRows(document, "basicAdvanced");
     expect(rows).toHaveLength(1);
     expect(rows[0].querySelector(".row-word").textContent).toBe("happy → elated");
-    expect(rows[0].querySelector(".entry-list-mine")).not.toBeNull();
     const defs = Array.from(rows[0].querySelectorAll(".row-def")).map((d) => d.textContent);
     expect(defs).toContain("happy: Feeling pleased.");
     expect(defs).toContain("elated: Extremely joyful.");
@@ -220,12 +219,127 @@ describe("Entry List view — Word Bank pairs (manual-entry only categories)", (
     expect(rows[0].querySelector(".row-word").textContent).toBe("tiyaga → perseverance");
   });
 
-  it("does not mark built-in seed content as the owner's own", async () => {
-    const { window } = await loadApp();
+  // The list used to tag owner-typed entries with a "Yours" badge. In the
+  // Word Bank pair categories every single entry is owner-typed, so it
+  // marked all of them and distinguished nothing — just noise on every
+  // row. Dropped entirely.
+  it("shows no per-row ownership badge anywhere", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    hooks.addBasicAdvancedEntry(
+      { basic: "happy", advanced: "elated", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [], addedAt: Date.now() },
+      { persist: false }
+    );
+    showList(document, "sentences");
+    openWordBankCategory(document, "basicAdvanced");
+    showList(document, "basicAdvanced");
+    expect(document.querySelectorAll(".entry-list-mine")).toHaveLength(0);
+    expect(listRows(document, "sentences").length).toBeGreaterThan(0);
+  });
+});
+
+// The list reads its rows off the category's <select>. Reordering that
+// via Sort by is only half the job — an on-screen list has to be rebuilt
+// too, or it keeps the previous order and the control looks inert.
+describe("Entry List view — reacts to the Sort by control", () => {
+  async function addPairs(hooks) {
+    const base = Date.now();
+    hooks.addBasicAdvancedEntry(
+      { basic: "zebra", advanced: "z-adv", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [], addedAt: base },
+      { persist: false }
+    );
+    hooks.addBasicAdvancedEntry(
+      { basic: "alpha", advanced: "a-adv", basicDef: null, basicExamples: [], advancedDef: null, advancedExamples: [], addedAt: base + 1000 },
+      { persist: false }
+    );
+  }
+
+  it("re-renders an already-visible list when the sort order changes", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await addPairs(hooks);
+
+    window.localStorage.setItem("mepf_toolkit_wordbank_sort", "az");
+    hooks.applyWordBankSort();
+    openWordBankCategory(document, "basicAdvanced");
+    showList(document, "basicAdvanced");
+    expect(listRows(document, "basicAdvanced").map((r) => r.dataset.value)).toEqual(["alpha", "zebra"]);
+
+    // Change the sort WITHOUT leaving the list — this is the case that
+    // used to leave the old order on screen.
+    window.localStorage.setItem("mepf_toolkit_wordbank_sort", "added-desc");
+    hooks.applyWordBankSort();
+
+    // Newest-added first: alpha was added last.
+    expect(listRows(document, "basicAdvanced")[0].dataset.value).toBe("alpha");
+    expect(document.getElementById("basicAdvancedSelect").options[0].value).toBe("alpha");
+    // The list matches the dropdown exactly, whatever the order is.
+    expect(listRows(document, "basicAdvanced").map((r) => r.dataset.value))
+      .toEqual(Array.from(document.getElementById("basicAdvancedSelect").options).map((o) => o.value));
+  });
+
+  it("leaves a list that isn't on screen alone", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    await addPairs(hooks);
+    // basicAdvanced stays in Browse mode; changing sort must not throw.
+    expect(() => hooks.applyWordBankSort()).not.toThrow();
+    expect(hooks.getEntryListMode("basicAdvanced")).toBe("browse");
+  });
+});
+
+describe("Entry List view — picking up where you left off", () => {
+  it("stores and clears a scroll position per category", async () => {
+    const { hooks } = await loadApp();
+    hooks.saveEntryListScroll("sentences", 900);
+    expect(hooks.getEntryListScroll("sentences")).toBe(900);
+    // A different category keeps its own position.
+    expect(hooks.getEntryListScroll("patterns")).toBe(0);
+    hooks.clearEntryListScroll("sentences");
+    expect(hooks.getEntryListScroll("sentences")).toBe(0);
+  });
+
+  it("does not treat being at the top as a position worth restoring", async () => {
+    const { hooks } = await loadApp();
+    hooks.saveEntryListScroll("sentences", 5);
+    expect(hooks.getEntryListScroll("sentences")).toBe(0);
+  });
+
+  it("shows the resume note only when there is a saved position", async () => {
+    const { window, hooks } = await loadApp();
     const document = window.document;
     showList(document, "sentences");
-    const rows = listRows(document, "sentences");
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((r) => r.querySelector(".entry-list-mine") === null)).toBe(true);
+    expect(document.getElementById("entryListResume-sentences").style.display).toBe("none");
+
+    hooks.saveEntryListScroll("sentences", 800);
+    hooks.restoreEntryListScroll("sentences");
+    expect(document.getElementById("entryListResume-sentences").style.display).not.toBe("none");
+  });
+
+  it("'Back to top' clears the saved position and hides the note", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    showList(document, "sentences");
+    hooks.saveEntryListScroll("sentences", 800);
+    hooks.restoreEntryListScroll("sentences");
+
+    document.querySelector("#entryListResume-sentences .entry-list-top-btn").click();
+
+    expect(hooks.getEntryListScroll("sentences")).toBe(0);
+    expect(document.getElementById("entryListResume-sentences").style.display).toBe("none");
+  });
+
+  it("the position survives leaving the list and coming back", async () => {
+    const { window, hooks } = await loadApp();
+    const document = window.document;
+    showList(document, "sentences");
+    hooks.saveEntryListScroll("sentences", 1200);
+
+    const container = document.getElementById("langbank-sentences");
+    container.querySelector('.entry-view-toggle button[data-val="browse"]').click();
+    container.querySelector('.entry-view-toggle button[data-val="list"]').click();
+
+    expect(hooks.getEntryListScroll("sentences")).toBe(1200);
+    expect(document.getElementById("entryListResume-sentences").style.display).not.toBe("none");
   });
 });
