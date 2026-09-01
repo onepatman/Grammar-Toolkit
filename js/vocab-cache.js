@@ -114,7 +114,7 @@
 })(typeof window !== "undefined" ? window : this, function () {
 
   var DB_NAME = "mepf-grammar-toolkit-vocab-cache";
-  var DB_VERSION = 29;
+  var DB_VERSION = 30;
   var STORE_NAME = "vocabEntries";
   var FAVORITES_STORE = "favorites";
   var RECENT_STORE = "recentlyViewed";
@@ -159,6 +159,7 @@
   var DELETED_SEED_STORE = "deletedSeedWords";
   var BASIC_ADVANCED_STORE = "basicAdvancedEntries";
   var TAGALOG_ENGLISH_STORE = "tagalogEnglishEntries";
+  var TRANSLATIONS_STORE = "translationEntries";
   var RECENT_LIMIT = 200;
 
   function openDb(indexedDBImpl) {
@@ -245,6 +246,9 @@
         }
         if (!db.objectStoreNames.contains(TAGALOG_ENGLISH_STORE)) {
           db.createObjectStore(TAGALOG_ENGLISH_STORE, { keyPath: "key" });
+        }
+        if (!db.objectStoreNames.contains(TRANSLATIONS_STORE)) {
+          db.createObjectStore(TRANSLATIONS_STORE, { keyPath: "key" });
         }
       };
       request.onsuccess = function () { resolve(request.result); };
@@ -594,6 +598,18 @@
   }
   function getAllJournalEntries(options) { return getAllEntries(JOURNAL_STORE, options); }
   function deleteJournalEntry(id, options) { return deleteEntry(JOURNAL_STORE, id, options); }
+
+  /* ---------- translation practice (Word Bank -> Translate) ----------
+     Keyed by the entry's own generated id rather than its Tagalog text:
+     the Tagalog side is a full sentence the owner may well rewrite
+     while editing, and a key that changes underfoot orphans the record.
+  */
+  function putTranslationEntry(entry, options) {
+    if (!entry || !entry.id) return Promise.resolve(false);
+    return storePut(TRANSLATIONS_STORE, { key: normalizeKey(entry.id), entry: entry }, options);
+  }
+  function getAllTranslationEntries(options) { return getAllEntries(TRANSLATIONS_STORE, options); }
+  function deleteTranslationEntry(id, options) { return deleteEntry(TRANSLATIONS_STORE, id, options); }
 
   /* ---------- deletedSeedWords (tombstones for deleted built-in
      vocabData words — see DELETED_SEED_STORE above) ---------- */
@@ -967,6 +983,10 @@
     JOURNAL_STORE: JOURNAL_STORE,
     getJournalEntry: getJournalEntry,
     putJournalEntry: putJournalEntry,
+    TRANSLATIONS_STORE: TRANSLATIONS_STORE,
+    putTranslationEntry: putTranslationEntry,
+    getAllTranslationEntries: getAllTranslationEntries,
+    deleteTranslationEntry: deleteTranslationEntry,
     getAllJournalEntries: getAllJournalEntries,
     deleteJournalEntry: deleteJournalEntry,
     DELETED_SEED_STORE: DELETED_SEED_STORE,
