@@ -32,7 +32,7 @@ describe("Word Bank tab — category chip reorder", () => {
     document.querySelector('.thumb-tab[data-tab="wordbank"]').click();
 
     const chipOrder = Array.from(document.querySelectorAll("#wordBankCategorySeg button")).map((b) => b.dataset.val);
-    expect(chipOrder).toEqual(["basicAdvanced", "tagalogEnglish", "distinctions", "sentenceFragment", "subjectVerbAgreement", "correctionLog"]);
+    expect(chipOrder).toEqual(["basicAdvanced", "tagalogEnglish", "translations", "distinctions", "sentenceFragment", "subjectVerbAgreement", "correctionLog"]);
     expect(hooks.WORD_BANK_CATEGORIES).toEqual(chipOrder);
   });
 

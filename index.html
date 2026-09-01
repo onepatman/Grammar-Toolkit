@@ -668,6 +668,55 @@
     background:none; border:none; color:var(--sky-deep); cursor:pointer; padding:0;
     text-decoration:underline;
   }
+  /* Translate Practice — the attempt and the correction sit as two
+     labelled rows so the pair reads as one lesson, with the diff
+     directly beneath: kept words quiet, changed words highlighted,
+     because the changed ones ARE the lesson. */
+  .translations-list{ display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+  .translation-card{
+    background:var(--card); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .translation-row{ display:flex; flex-direction:column; gap:2px; margin-bottom:9px; }
+  .translation-row:last-child{ margin-bottom:0; }
+  .translation-label{
+    font-family:'IBM Plex Mono', monospace; font-size:clamp(9px, 7.3px + 0.5vw, 10.5px);
+    text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft);
+  }
+  .translation-tagalog{
+    font-family:'Source Serif 4', serif; font-weight:700; color:var(--ink);
+    font-size:clamp(15px, 12.2px + 0.83vw, 17.5px); line-height:1.35;
+  }
+  .translation-mine{ font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink-soft); line-height:1.45; }
+  .translation-corrected{ font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink); line-height:1.45; font-weight:600; }
+  .translation-note{
+    margin-top:8px; padding-top:8px; border-top:1px dashed var(--rule);
+    font-size:clamp(12px, 9.7px + 0.67vw, 14px); color:var(--ink-soft); font-style:italic;
+  }
+  .translation-awaiting{
+    font-size:clamp(11px, 8.7px + 0.67vw, 13px); color:var(--ink-soft); font-style:italic;
+    padding:6px 0;
+  }
+  .translation-badges{ margin-bottom:9px; }
+  .translation-badge{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-weight:700;
+    font-size:clamp(10px, 7.7px + 0.67vw, 12px); border-radius:999px; padding:3px 10px;
+  }
+  .translation-badge.excellent{ background:var(--mint-bg); color:var(--mint); border:1px solid var(--mint-border); }
+  .translation-badge.good{ background:var(--sky-bg); color:var(--sky-deep); border:1px solid var(--sky-border); }
+  .translation-badge.fair,
+  .translation-badge.needs-practice{ background:var(--warn-bg); color:var(--warn-text); border:1px solid var(--warn-border); }
+  .translation-badge.pending,
+  .translation-badge.checking{ background:var(--paper); color:var(--ink-soft); border:1px solid var(--rule); }
+  .translation-diff{ display:flex; flex-wrap:wrap; gap:3px 0; }
+  .translation-diff-word{
+    display:inline-block; margin:0 3px 2px 0; padding:1px 5px; border-radius:4px;
+    font-size:clamp(13px, 10.7px + 0.67vw, 15px);
+  }
+  .translation-diff-word.kept{ color:var(--ink-soft); }
+  .translation-diff-word.changed{
+    color:var(--brick); background:var(--brick-bg); border:1px solid var(--brick-border); font-weight:700;
+  }
   .entry-list-empty{
     font-size:clamp(13px, 10.7px + 0.67vw, 15px); color:var(--ink-soft);
     padding:20px 4px; text-align:center;
@@ -2021,6 +2070,7 @@
       <div class="seg" id="wordBankCategorySeg">
         <button class="active" data-val="basicAdvanced">Basic → Advanced</button>
         <button data-val="tagalogEnglish">Tagalog → English</button>
+        <button data-val="translations">Translate Practice</button>
         <button data-val="distinctions">Distinctions Words</button>
         <button data-val="sentenceFragment">Sentence Fragments</button>
         <button data-val="subjectVerbAgreement">Subject-Verb Agreement</button>
@@ -2124,6 +2174,26 @@
         <button id="logAddBtn" class="add-btn" style="margin-top:8px;">+ Add to this category</button>
         <button id="logCancelEditBtn" class="cancel-edit-link">Cancel edit</button>
         <div id="logAddStatus" class="add-status"></div>
+      </div>
+    </div>
+
+    <!-- ===== TRANSLATE PRACTICE — write a Tagalog sentence, attempt the
+         English yourself, then log the corrected version (e.g. from an AI
+         assistant) beside it. The attempt is auto-checked for free, and
+         the two English versions are diffed word by word. ===== -->
+    <div class="wordbank-category" id="wordbank-translations" style="display:none;">
+      <p class="note" style="margin-bottom:10px;">Write a Tagalog sentence, try the English yourself, then paste back the corrected version. Your attempt is checked automatically, and the words that changed are highlighted so the fix is obvious at a glance.</p>
+      <div id="translationsList" class="translations-list"></div>
+
+      <div class="quick-add-box owner-only" id="translationsAddBox">
+        <div class="section-label" id="translationsAddLabel">➕ Add a translation</div>
+        <textarea id="translationsTagalogInput" rows="2" placeholder="Tagalog sentence (e.g. Bukas pa ako makakarating sa site.)"></textarea>
+        <textarea id="translationsMyEnglishInput" rows="2" placeholder="Your English attempt — write it before checking anywhere"></textarea>
+        <textarea id="translationsCorrectedInput" rows="2" placeholder="Corrected English (optional — paste it in later once you have it)"></textarea>
+        <input type="text" id="translationsNoteInput" placeholder="Note (optional, e.g. what you got wrong and why)" autocomplete="off">
+        <button id="translationsAddBtn" class="add-btn">+ Save translation</button>
+        <button id="translationsCancelEditBtn" class="cancel-edit-link" style="display:none;">Cancel edit</button>
+        <div id="translationsAddStatus" class="add-status"></div>
       </div>
     </div>
 
@@ -48929,7 +48999,7 @@ const tenseCacheRestorePromise = VocabCache.getAllTense({dbPromise: vocabDbPromi
 ========================================================= */
 const basicAdvancedData = [];
 const tagalogEnglishData = [];
-const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "distinctions", "sentenceFragment", "subjectVerbAgreement", "correctionLog"];
+const WORD_BANK_CATEGORIES = ["basicAdvanced", "tagalogEnglish", "translations", "distinctions", "sentenceFragment", "subjectVerbAgreement", "correctionLog"];
 let currentWordBankCategory = "basicAdvanced";
 
 // Per-device "I've reviewed this rule" tracking for the three standalone
@@ -49169,6 +49239,7 @@ function activateWordBankCategory(key){
     document.getElementById("wordbank-"+k).style.display = (k===key) ? "block" : "none";
   });
   if(WORDBANK_STANDALONE_RENDERERS[key]) WORDBANK_STANDALONE_RENDERERS[key]();
+  if(key === "translations") renderTranslationsTab();
 }
 document.getElementById("wordBankCategorySeg").addEventListener("click", (e)=>{
   const btn = e.target.closest("button");
@@ -50444,6 +50515,258 @@ function setupEntryListView(key){
 Object.keys(ENTRY_LIST_CONFIG).forEach(setupEntryListView);
 entryListReady = true;
 
+
+/* =========================================================
+   TRANSLATE PRACTICE — the Word Bank category for working Tagalog into
+   English: write the Tagalog, attempt the English yourself, then log the
+   corrected version once you have it.
+
+   The two English versions are what make this worth storing. A list of
+   corrected sentences teaches very little on its own; the pair — what
+   you wrote next to what it should have been — is the actual lesson, so
+   the renderer diffs them word by word and highlights what changed.
+
+   The attempt is also run through the same free LanguageTool check the
+   Journal uses (js/grammar-check.js, no key, no cost), so there is
+   immediate feedback before going anywhere else for a correction.
+========================================================= */
+const translationsData = [];
+let translationsEditingId = null;
+
+function generateTranslationId(){
+  return "tr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+function addTranslationEntry(entry, options){
+  const opts = options || {};
+  const now = Date.now();
+  const record = {
+    id: entry.id || generateTranslationId(),
+    tagalog: entry.tagalog || "",
+    myEnglish: entry.myEnglish || "",
+    corrected: entry.corrected || "",
+    note: entry.note || "",
+    addedAt: entry.addedAt || now,
+    modifiedAt: entry.modifiedAt || entry.addedAt || now,
+    grading: entry.grading || {status: "pending"}
+  };
+  const idx = translationsData.findIndex(t=> t.id === record.id);
+  if(idx === -1) translationsData.push(record);
+  else translationsData[idx] = record;
+  if(opts.persist !== false) VocabCache.putTranslationEntry(record, {dbPromise: vocabDbPromise});
+  return record;
+}
+
+// Same contract as deleteJournalEntry/deleteNoteEntry — gated even when
+// called directly, so a locked device can't lose an entry to a stale
+// click handler.
+async function deleteTranslationEntry(id){
+  if(!isDeviceUnlocked()) return;
+  const idx = translationsData.findIndex(t=> t.id === id);
+  if(idx !== -1) translationsData.splice(idx, 1);
+  await VocabCache.deleteTranslationEntry(id, {dbPromise: vocabDbPromise});
+  renderTranslationsTab();
+}
+
+// Word-level diff of the attempt against the corrected version: which
+// words of the CORRECTED sentence were already present in the attempt.
+// Anything unmatched is what changed, which is precisely what's worth
+// looking at. Order-aware (longest common subsequence) so a word merely
+// moved doesn't read as correct.
+function diffTranslationWords(attempt, corrected){
+  const a = String(attempt || "").trim().toLowerCase().replace(/[^\w\s'-]/g, "").split(/\s+/).filter(Boolean);
+  const b = String(corrected || "").trim().split(/\s+/).filter(Boolean);
+  const bNorm = b.map(w=> w.toLowerCase().replace(/[^\w'-]/g, ""));
+  const dp = Array.from({length: a.length + 1}, ()=> new Array(b.length + 1).fill(0));
+  for(let i = 1; i <= a.length; i++){
+    for(let j = 1; j <= b.length; j++){
+      dp[i][j] = a[i - 1] === bNorm[j - 1]
+        ? dp[i - 1][j - 1] + 1
+        : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    }
+  }
+  const matched = new Array(b.length).fill(false);
+  let i = a.length, j = b.length;
+  while(i > 0 && j > 0){
+    if(a[i - 1] === bNorm[j - 1]){ matched[j - 1] = true; i--; j--; }
+    else if(dp[i - 1][j] >= dp[i][j - 1]) i--;
+    else j--;
+  }
+  return b.map((word, idx)=> ({word, matched: matched[idx]}));
+}
+
+function renderTranslationDiffHtml(attempt, corrected){
+  const diff = diffTranslationWords(attempt, corrected);
+  if(!diff.length) return "";
+  return `<div class="translation-diff">${
+    diff.map(d=> `<span class="translation-diff-word ${d.matched ? "kept" : "changed"}">${d.word}</span>`).join(" ")
+  }</div>`;
+}
+
+// Runs the attempt through the same free LanguageTool check the Journal
+// uses. Never blocks saving: a failed check (offline, rate-limited) is
+// recorded as "unavailable" and the entry is kept regardless.
+async function gradeTranslationEntry(id){
+  const entry = translationsData.find(t=> t.id === id);
+  if(!entry) return;
+  if(!entry.myEnglish){
+    entry.grading = {status: "graded", score: null, wordCount: 0, corrections: []};
+    return;
+  }
+  entry.grading = {status: "checking"};
+  renderTranslationsTab();
+  const result = await GrammarCheck.checkText(stripHtmlTags(entry.myEnglish));
+  entry.grading = result.ok
+    ? {status: "graded", score: result.score, grade: result.grade, wordCount: result.wordCount,
+       corrections: result.corrections, checkedAt: Date.now()}
+    : {status: "unavailable", reason: result.reason, checkedAt: Date.now()};
+  VocabCache.putTranslationEntry(entry, {dbPromise: vocabDbPromise});
+  renderTranslationsTab();
+}
+
+function translationScoreBadgeHtml(grading){
+  if(!grading) return "";
+  if(grading.status === "checking") return '<span class="translation-badge checking">Checking…</span>';
+  if(grading.status === "pending") return '<span class="translation-badge pending">Not checked</span>';
+  if(grading.status === "unavailable") return '<span class="translation-badge pending">Check unavailable</span>';
+  if(grading.score === null || grading.score === undefined) return "";
+  const tier = (grading.grade && grading.grade.tier) || "good";
+  const label = (grading.grade && grading.grade.label) || "";
+  return `<span class="translation-badge ${tier}">${grading.score}/10 · ${label}</span>`;
+}
+
+function renderTranslationsTab(){
+  const listEl = document.getElementById("translationsList");
+  if(!listEl) return;
+  if(translationsData.length === 0){
+    listEl.innerHTML = '<div class="entry-list-empty">No translations yet — write a Tagalog sentence below, try the English yourself, then paste the corrected version back in.</div>';
+    return;
+  }
+  const sorted = translationsData.slice().sort((a, b)=> (b.addedAt || 0) - (a.addedAt || 0));
+  const unlocked = isDeviceUnlocked();
+  listEl.innerHTML = sorted.map(t=>{
+    const hasCorrection = !!String(t.corrected || "").trim();
+    return `
+    <div class="translation-card" data-id="${escapeHtmlAttr(t.id)}">
+      <div class="translation-row">
+        <span class="translation-label">Tagalog</span>
+        <span class="translation-tagalog">${t.tagalog}</span>
+      </div>
+      <div class="translation-row">
+        <span class="translation-label">My English</span>
+        <span class="translation-mine">${t.myEnglish}</span>
+      </div>
+      <div class="translation-badges">${translationScoreBadgeHtml(t.grading)}</div>
+      ${hasCorrection ? `
+      <div class="translation-row">
+        <span class="translation-label">Corrected</span>
+        <span class="translation-corrected">${t.corrected}</span>
+      </div>
+      <div class="translation-row">
+        <span class="translation-label">What changed</span>
+        ${renderTranslationDiffHtml(t.myEnglish, t.corrected)}
+      </div>` : `<div class="translation-awaiting">No corrected version yet — add one to see what changed.</div>`}
+      ${t.note ? `<div class="translation-note">${t.note}</div>` : ""}
+      ${unlocked ? `
+      <div class="entry-actions">
+        <button class="edit-correction-btn translation-edit-btn" data-id="${escapeHtmlAttr(t.id)}">✎ Edit</button>
+        <button class="delete-correction-btn translation-delete-btn" data-id="${escapeHtmlAttr(t.id)}">🗑 Delete</button>
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function resetTranslationsForm(){
+  translationsEditingId = null;
+  ["translationsTagalogInput", "translationsMyEnglishInput", "translationsCorrectedInput", "translationsNoteInput"]
+    .forEach(id=>{ const el = document.getElementById(id); if(el) el.value = ""; });
+  document.getElementById("translationsAddLabel").textContent = "➕ Add a translation";
+  document.getElementById("translationsAddBtn").textContent = "+ Save translation";
+  document.getElementById("translationsCancelEditBtn").style.display = "none";
+}
+
+function loadTranslationForEdit(id){
+  const entry = translationsData.find(t=> t.id === id);
+  if(!entry) return;
+  translationsEditingId = id;
+  document.getElementById("translationsTagalogInput").value = mdUnbold(entry.tagalog);
+  document.getElementById("translationsMyEnglishInput").value = mdUnbold(entry.myEnglish);
+  document.getElementById("translationsCorrectedInput").value = mdUnbold(entry.corrected);
+  document.getElementById("translationsNoteInput").value = mdUnbold(entry.note);
+  document.getElementById("translationsAddLabel").textContent = "✎ Edit this translation";
+  document.getElementById("translationsAddBtn").textContent = "Update translation";
+  document.getElementById("translationsCancelEditBtn").style.display = "";
+  document.getElementById("translationsAddBox").scrollIntoView({behavior: "smooth", block: "center"});
+}
+
+function saveTranslationFromForm(){
+  const statusEl = document.getElementById("translationsAddStatus");
+  if(!isDeviceUnlocked()){
+    statusEl.textContent = "This device isn't unlocked — sign in as the owner or unlock with the owner PIN first.";
+    statusEl.className = "add-status error";
+    return;
+  }
+  const tagalog = mdBold(document.getElementById("translationsTagalogInput").value.trim());
+  const myEnglish = mdBold(document.getElementById("translationsMyEnglishInput").value.trim());
+  const corrected = mdBold(document.getElementById("translationsCorrectedInput").value.trim());
+  const note = mdBold(document.getElementById("translationsNoteInput").value.trim());
+
+  if(!tagalog || !myEnglish){
+    statusEl.textContent = "Please fill in both the Tagalog sentence and your own English attempt.";
+    statusEl.className = "add-status error";
+    return;
+  }
+
+  const existing = translationsEditingId ? translationsData.find(t=> t.id === translationsEditingId) : null;
+  // Re-check only when the attempt itself changed — an edit that only
+  // pastes in the correction shouldn't discard a score already earned.
+  const attemptChanged = !existing || existing.myEnglish !== myEnglish;
+  const saved = addTranslationEntry({
+    id: translationsEditingId || undefined,
+    tagalog, myEnglish, corrected, note,
+    addedAt: existing ? existing.addedAt : Date.now(),
+    modifiedAt: Date.now(),
+    grading: attemptChanged ? {status: "pending"} : existing.grading
+  }, {persist: true});
+
+  statusEl.textContent = translationsEditingId ? "Updated!" : "Saved! Checking your English…";
+  statusEl.className = "add-status success";
+  resetTranslationsForm();
+  renderTranslationsTab();
+  if(attemptChanged) gradeTranslationEntry(saved.id);
+  pushToSync(loadPersonalCorrections());
+}
+
+document.getElementById("translationsAddBtn").addEventListener("click", saveTranslationFromForm);
+document.getElementById("translationsCancelEditBtn").addEventListener("click", ()=>{
+  resetTranslationsForm();
+  const statusEl = document.getElementById("translationsAddStatus");
+  statusEl.textContent = "Edit cancelled.";
+  statusEl.className = "add-status";
+});
+
+document.getElementById("translationsList").addEventListener("click", (e)=>{
+  const editBtn = e.target.closest(".translation-edit-btn");
+  if(editBtn){ loadTranslationForEdit(editBtn.dataset.id); return; }
+  const delBtn = e.target.closest(".translation-delete-btn");
+  if(delBtn){
+    const confirmed = window.confirm ? window.confirm("Delete this translation? This can't be undone.") : true;
+    if(confirmed) deleteTranslationEntry(delBtn.dataset.id);
+  }
+});
+
+const translationsCacheRestorePromise = VocabCache.getAllTranslationEntries({dbPromise: vocabDbPromise})
+  .then(entries=>{
+    entries.forEach(entry=> addTranslationEntry(entry, {persist: false}));
+    renderTranslationsTab();
+    // An entry whose check never finished (app closed mid-flight) would
+    // otherwise sit unscored forever with nothing to retry it.
+    translationsData.forEach(t=>{
+      if(t.grading && (t.grading.status === "pending" || t.grading.status === "checking")) gradeTranslationEntry(t.id);
+    });
+  })
+  .catch(()=>{ /* IndexedDB unavailable — the category still works in-session */ });
+
 window.__TOOLKIT_TEST_HOOKS__ = {
   verbData, tenseData, prepData, articleData, modalData, capitalData,
   orderData, prepVerbData, mistakeData, qaData, partsOfSpeechData, tenseMasteryData, conditionalsData, activePassiveData, reportedSpeechData, relativeClausesData, complexSentencesData, cohesiveDevicesData, nominalizationData, collocationsData, writingTemplatesData, spokenFluencyData, vocabData, distinctionsData,
@@ -50600,6 +50923,10 @@ window.__TOOLKIT_TEST_HOOKS__ = {
   renderDashboardTab, collectDashboardAddedEntries, bucketTimestampsByWeek,
   collectDashboardAccuracyTrend, collectDashboardActivityDateCounts,
   computeDashboardStreak, computeDashboardStreakStats, correctionEntryTimestamp, dashboardDateKey,
+  translationsData, addTranslationEntry, deleteTranslationEntry, renderTranslationsTab,
+  gradeTranslationEntry, diffTranslationWords, renderTranslationDiffHtml,
+  saveTranslationFromForm, loadTranslationForEdit, resetTranslationsForm,
+  translationsCacheRestorePromise,
   ENTRY_LIST_CONFIG, buildEntryListRows, renderEntryList, setupEntryListView,
   refreshVisibleEntryLists, getEntryListScroll, saveEntryListScroll, clearEntryListScroll,
   restoreEntryListScroll, entryListBackToTop,
@@ -50662,7 +50989,7 @@ window.__TOOLKIT_TEST_HOOKS__ = {
      directly compare what they see against what they were told shipped,
      and the button forces a real refetch instead of waiting on the
      browser's own update timing. */
-  const BUILD_ID = "v115";
+  const BUILD_ID = "v116";
   const footerBuildVersionEl = document.getElementById("footerBuildVersion");
   if(footerBuildVersionEl) footerBuildVersionEl.textContent = `Build ${BUILD_ID}`;
   const footerCheckUpdateBtn = document.getElementById("footerCheckUpdateBtn");
